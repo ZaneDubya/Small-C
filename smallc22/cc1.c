@@ -331,7 +331,7 @@ dodefine() {
     }
 }
 
-putmac(c)  char c; {
+putmac(char c) {
     macq[macptr] = c;
     if (macptr < MACMAX) 
         ++macptr;
@@ -499,7 +499,7 @@ doArgsNonTyped() {
 /*
 ** declare argument types
 */
-doArgTypes(type) int type; {
+doArgTypes(int type) {
     int id, sz;
     char *ptr;
     int t;
@@ -528,7 +528,7 @@ doArgTypes(type) int type; {
 /*
 ** parse next local or argument declaration
 */
-decl(type, arrayid, id, sz) int type, arrayid, *id, *sz; {
+decl(int type, int arrayid, int *id, int *sz) {
     int n, p;
     if (match("(")) 
         p = 1;
@@ -604,7 +604,7 @@ statement() {
 /*
 ** declare local variables
 */
-declloc(type) int type; {
+declloc(int type) {
     int id, sz;
     if (swactive)     
         error("not allowed in switch");
@@ -858,7 +858,7 @@ doasm() {
     ccode = 1;
 }
 
-doexpr(use) int use; {
+doexpr(int use) {
     int const, val;
     int *before, *start;
     usexpr = use;        /* tell isfree() whether expr value is used */
@@ -945,7 +945,7 @@ openfile() {        /* entire function revised */
 /*
 ** open a file with error checking
 */
-mustopen(fn, mode) char *fn, *mode; {
+mustopen(char *fn, char *mode) {
     int fd;
     if (fd = fopen(fn, mode)) return fd;
     fputs("open error on ", stderr);
