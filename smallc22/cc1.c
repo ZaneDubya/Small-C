@@ -101,7 +101,6 @@ int op2[16] = {  /* p-codes of unsigned binary operators */
 /*
 ** execution begins here
 */
-
 main(argc, argv) int argc, *argv; {
     fputs(VERSION, stderr);
     fputs(CRIGHT1, stderr);
@@ -433,7 +432,7 @@ doArgsTyped(int type) {
         /* advance to next arg or closing paren */
         if (match(",")) {
             if ((type = dotype()) == 0) {
-                error("typed function argument declarations must have type");
+                error("untyped argument declaration");
                 break;
             }
         }
@@ -443,7 +442,7 @@ doArgsTyped(int type) {
     ptr = STARTLOC;
     while (argstk) {
         putint(argtop - getint(ptr + OFFSET, 2), ptr + OFFSET, 2);
-        argstk -= BPW;            /* cnt down */
+        argstk -= BPW;            /* count down */
         ptr += NAME;
         namelen = 0;
         while (*ptr != namelen) {
