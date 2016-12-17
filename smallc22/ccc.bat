@@ -1,22 +1,22 @@
-cc  cc1 -m -a -p
+cc  cc1
 if errorlevel 1 goto exit
 asm cc1 /p
 if errorlevel 1 goto exit
 : del cc1.asm
 
-cc  cc2 -m -a -p
+cc  cc2
 if errorlevel 1 goto exit
 asm cc2 /p
 if errorlevel 1 goto exit
 : del cc2.asm
 
-cc  cc3 -m -a -p
+cc  cc3
 if errorlevel 1 goto exit
 asm cc3 /p
 if errorlevel 1 goto exit
 : del cc3.asm
 
-cc  cc4 -m -a -p
+cc  cc4
 if errorlevel 1 goto exit
 asm cc4 /p
 if errorlevel 1 goto exit

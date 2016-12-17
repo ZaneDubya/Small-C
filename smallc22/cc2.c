@@ -259,8 +259,10 @@ astreq(str1, str2, len)  char str1[], str2[]; int len; {
         ** must detect end of symbol table names terminated by
         ** symbol length in binary
         */
-        if (str2[k] < ' ') break;
-        if (str1[k] < ' ') break;
+        if (str2[k] < ' ') 
+            break;
+        if (str1[k] < ' ') 
+            break;
         ++k;
     }
     if (an(str1[k]) || an(str2[k])) return 0;
@@ -374,12 +376,14 @@ char *sname, id, type;  int size, value, *lgpp, class; {
 */
 search(sname, buf, len, end, max, off)
 char *sname, *buf, *end;  int len, max, off; {
-    cptr =
-        cptr2 = buf + ((hash(sname) % (max - 1))*len);
+    cptr = cptr2 = buf + ((hash(sname) % (max - 1))*len);
     while (*cptr != NULL) {
-        if (astreq(sname, cptr + off, NAMEMAX)) return 1;
-        if ((cptr = cptr + len) >= end) cptr = buf;
-        if (cptr == cptr2) return (cptr = 0);
+        if (astreq(sname, cptr + off, NAMEMAX)) 
+            return 1;
+        if ((cptr = cptr + len) >= end) 
+            cptr = buf;
+        if (cptr == cptr2) 
+            return (cptr = 0);
     }
     return 0;
 }
