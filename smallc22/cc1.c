@@ -395,24 +395,11 @@ dofunction() {
     csp = 0;                     /* preset stack ptr */
     argtop = argstk + BPW;         /* account for the pushed BP */
     while (argstk) {
-        if (amatch("char", 4)) { 
-            doargs(CHR);  
+        int type;
+        type = dotype();
+        if (type != 0) {
+            doargs(type);
             ns(); 
-        }
-        else if (amatch("int", 3)) { 
-            doargs(INT);  
-            ns(); 
-        }
-        else if (amatch("unsigned", 8)) {
-            if (amatch("char", 4)) { 
-                doargs(UCHR); 
-                ns(); 
-            }
-            else { 
-                amatch("int", 3);       
-                doargs(UINT); 
-                ns(); 
-            }
         }
         else { 
             error("wrong number of arguments"); 
