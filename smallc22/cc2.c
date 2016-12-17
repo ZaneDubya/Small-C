@@ -76,6 +76,7 @@ preprocess() {
       bump(2);
       }
     else if (ch == '/' && nch == '/') {
+	  // ignore C99 comments
       bump(2);
 	  while((ch == LF || ch == CR) == 0) {
 		if(ch) bump(1);
