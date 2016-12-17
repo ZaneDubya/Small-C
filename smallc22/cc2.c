@@ -71,10 +71,24 @@ preprocess() {
         else {
           ifline();
           if(eof) break;
-          }
-        }
+	      }
+	    }
       bump(2);
       }
+    else if (ch == '/' && nch == '/') {
+      bump(2);
+	  while((ch == LF || ch == CR) == 0) {
+		if(ch) bump(1);
+        else {
+          ifline();
+          if(eof) break;
+	    }
+	  }
+	  bump(1);
+	  if (ch == LF) {
+		bump(1);
+	  }
+	}
     else if(an(ch)) {
       k = 0;
       while(an(ch) && k < NAMEMAX) {
