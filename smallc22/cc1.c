@@ -101,7 +101,7 @@ int op2[16] = {  /* p-codes of unsigned binary operators */
 /*
 ** execution begins here
 */
-main(argc, argv) int argc, *argv; {
+main(int argc, int *argv) {
     fputs(VERSION, stderr);
     fputs(CRIGHT1, stderr);
     argcs = argc;
