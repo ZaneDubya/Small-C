@@ -161,16 +161,38 @@ parse() {
 ** test for global declarations
 */
 dodeclare(class) int class; {
-    if (amatch("char", 4))  declglb(CHR, class);
-    else if (amatch("unsigned", 8)) {
-        if (amatch("char", 4))  declglb(UCHR, class);
-        else { amatch("int", 3);  declglb(UINT, class); }
+    int type;
+    type = dotype();
+    if (type != 0) {
+        declglb(type, class);
     }
-    else if (amatch("int", 3)
-        || class == EXTERNAL)      declglb(INT, class);
-    else return 0;
+    else if (class == EXTERNAL) {
+        declglb(INT, class);
+    }
+    else {
+        return 0;
+    }
     ns();
     return 1;
+}
+
+dotype() {
+    if (amatch("char", 4)) { 
+        return CHR;
+    }
+    else if (amatch("unsigned", 8)) {
+        if (amatch("char", 4)) { 
+            return UCHR;
+        }
+        else {
+            amatch("int", 3);
+            return UINT;
+        }
+    }
+    else if (amatch("int", 3)) { 
+        return INT;
+    }
+    return 0;
 }
 
 /*
