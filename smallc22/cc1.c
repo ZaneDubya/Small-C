@@ -345,6 +345,7 @@ putmac(c)  char c; {
 ** out of the following text
 */
 dofunction() {
+    int firstType;
     char *pGlobal;
     /*int typedargs; */               /* declared arguments have formal types */
     nogo = 0;                     /* enable goto statements */
@@ -379,7 +380,10 @@ dofunction() {
     public(FUNCTION);
     if (match("(") == 0) 
         error("no open paren");
-    doFuncArgs();
+    if ((firstType = dotype()) != 0)
+        doArgsTyped(firstType);
+    else
+        doArgsNonTyped();
     gen(ENTER, 0);
     statement();
     if (lastst != STRETURN && lastst != STGOTO)
@@ -392,18 +396,19 @@ dofunction() {
 }
 
 /*
-** interpret a function argument list
+** interpret a function argument list with declared types 
 */
-doFuncArgs() {
+doArgsTyped(firstType) int firstType; {
+    return;
+}
+
+/*
+** interpret a function argument list without declared types
+*/
+doArgsNonTyped() {
     /* count args */
     argstk = 0;
-    /*typedargs = 0;*/
     while (match(")") == 0) {     
-        /*int type;
-        if ((type = dotype()) != 0) {
-            typedargs = 1;
-            
-        }*/
         if (symname(ssname)) {
             if (findloc(ssname)) 
                 multidef(ssname);
@@ -425,6 +430,7 @@ doFuncArgs() {
             error("no comma");
         if (endst()) break;
     }
+    /* get types for args in non-typed declaration */
     csp = 0;                       /* preset stack ptr */
     argtop = argstk + BPW;         /* account for the pushed BP */
     while (argstk) {

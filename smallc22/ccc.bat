@@ -36,6 +36,8 @@ if errorlevel 1 goto exit
 REM CLEANUP
 del *.asm
 del *.obj
+copy CC.EXE ..\bin\CC.EXE
+del CC.EXE
 
 :exit
 ECHO ON
