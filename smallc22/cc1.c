@@ -143,12 +143,17 @@ main(argc, argv) int argc, *argv; {
 */
 parse() {
     while (eof == 0) {
-        if (amatch("extern", 6)) dodeclare(EXTERNAL);
+        if (amatch("extern", 6))
+            dodeclare(EXTERNAL);
         else if (dodeclare(STATIC));
-        else if (match("#asm"))      doasm();
-        else if (match("#include"))  doinclude();
-        else if (match("#define"))   dodefine();
-        else                         dofunction();
+        else if (match("#asm"))
+            doasm();
+        else if (match("#include"))
+            doinclude();
+        else if (match("#define"))
+            dodefine();
+        else
+            dofunction();
         blanks();                 /* force eof if pending */
     }
 }
