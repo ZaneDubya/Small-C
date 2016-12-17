@@ -101,6 +101,7 @@ int op2[16] = {  /* p-codes of unsigned binary operators */
 /*
 ** execution begins here
 */
+
 main(argc, argv) int argc, *argv; {
     fputs(VERSION, stderr);
     fputs(CRIGHT1, stderr);
@@ -160,7 +161,7 @@ parse() {
 /*
 ** test for global declarations
 */
-dodeclare(class) int class; {
+dodeclare(int class) {
     int type;
     type = dotype();
     if (type != 0) {
@@ -198,7 +199,7 @@ dotype() {
 /*
 ** declare a static variable
 */
-declglb(type, class)  int type, class; {
+declglb(int type, int class) {
     int id, dim;
     while (1) {
         if (endst()) return;  /* do line */
@@ -222,7 +223,7 @@ declglb(type, class)  int type, class; {
 /*
 ** initialize global objects
 */
-initials(size, ident, dim) int size, ident, dim; {
+initials(int size, int ident, int dim) {
     int savedim;
     litptr = 0;
     if (dim == 0) dim = -1;         /* *... or ...[] */
@@ -380,10 +381,12 @@ dofunction() {
     public(FUNCTION);
     if (match("(") == 0) 
         error("no open paren");
-    if ((firstType = dotype()) != 0)
+    if ((firstType = dotype()) != 0) {
         doArgsTyped(firstType);
-    else
+    }
+    else {
         doArgsNonTyped();
+    }
     gen(ENTER, 0);
     statement();
     if (lastst != STRETURN && lastst != STGOTO)
@@ -396,9 +399,59 @@ dofunction() {
 }
 
 /*
-** interpret a function argument list with declared types 
+** doArgsTyped: interpret a function argument list with declared types.
+** in type: the type of the first variable in the argument list.
 */
-doArgsTyped(firstType) int firstType; {
+doArgsTyped(int type) {
+    int id, sz;
+    int namelen;
+    char *ptr;
+    /* count args */
+    argstk = 0;
+    while (match(")") == 0) {
+        if (match("*")) { 
+            id = POINTER;  
+            sz = BPW; 
+        }
+        else {
+            id = VARIABLE; 
+            sz = type >> 2; 
+        }
+        if (symname(ssname)) {
+            if (findloc(ssname)) {
+                multidef(ssname);
+            }
+            else {
+                addsym(ssname, id, type, sz, argstk, &locptr, AUTOMATIC);
+                argstk += BPW;
+            }
+        }
+        else {
+            error("illegal argument name");
+            break;
+        }
+        /* advance to next arg or closing paren */
+        if (match(",")) {
+            if ((type = dotype()) == 0) {
+                error("typed function argument declarations must have type");
+                break;
+            }
+        }
+    }
+    csp = 0;                       /* preset stack ptr */
+    argtop = argstk + BPW;
+    ptr = STARTLOC;
+    while (argstk) {
+        putint(argtop - getint(ptr + OFFSET, 2), ptr + OFFSET, 2);
+        argstk -= BPW;            /* cnt down */
+        ptr += NAME;
+        namelen = 0;
+        while (*ptr != namelen) {
+            ptr += 1;
+            namelen++;
+        }
+        ptr++;
+    }
     return;
 }
 
@@ -416,10 +469,6 @@ doArgsNonTyped() {
                 addsym(ssname, 0, 0, 0, argstk, &locptr, AUTOMATIC);
                 argstk += BPW;
             }
-            /*if (typedargs == 1 && type == 0) {
-                error("argument in typed function declaration does not have type");
-                skip();
-            }*/
         }
         else {
             error("illegal argument name");
@@ -428,9 +477,9 @@ doArgsNonTyped() {
         blanks();
         if (streq(lptr, ")") == 0 && match(",") == 0)
             error("no comma");
-        if (endst()) break;
+        if (endst()) 
+            break;
     }
-    /* get types for args in non-typed declaration */
     csp = 0;                       /* preset stack ptr */
     argtop = argstk + BPW;         /* account for the pushed BP */
     while (argstk) {
@@ -453,7 +502,8 @@ doArgsNonTyped() {
 */
 doArgTypes(type) int type; {
     int id, sz;
-    char c, *ptr;
+    char *ptr;
+    int t;
     while (1) {
         if (argstk == 0) 
             return;           /* no arguments */
@@ -464,7 +514,9 @@ doArgTypes(type) int type; {
                 putint(sz, ptr + SIZE, 2);
                 putint(argtop - getint(ptr + OFFSET, 2), ptr + OFFSET, 2);
             }
-            else error("not an argument");
+            else {
+                error("not an argument");
+            }
         }
         argstk = argstk - BPW;            /* cnt down */
         if (endst()) 
@@ -553,17 +605,22 @@ statement() {
 /*
 ** declare local variables
 */
-declloc(type)  int type; {
+declloc(type) int type; {
     int id, sz;
-    if (swactive)     error("not allowed in switch");
-    if (noloc)        error("not allowed with goto");
-    if (declared < 0) error("must declare first in block");
+    if (swactive)     
+        error("not allowed in switch");
+    if (noloc)        
+        error("not allowed with goto");
+    if (declared < 0) 
+        error("must declare first in block");
     while (1) {
-        if (endst()) return;
+        if (endst()) 
+            return;
         decl(type, ARRAY, &id, &sz);
         declared += sz;
         addsym(ssname, id, type, sz, csp - declared, &locptr, AUTOMATIC);
-        if (match(",") == 0) return;
+        if (match(",") == 0) 
+            return;
     }
 }
 
@@ -709,18 +766,23 @@ docase() {
 
 dodefault() {
     if (swactive) {
-        if (swdefault) error("multiple defaults");
+        if (swdefault) 
+            error("multiple defaults");
     }
-    else error("not in switch");
+    else 
+        error("not in switch");
     need(":");
     gen(LABm, swdefault = getlabel());
 }
 
 dogoto() {
-    if (nogo > 0) error("not allowed with block-locals");
+    if (nogo > 0) 
+        error("not allowed with block-locals");
     else noloc = 1;
-    if (symname(ssname)) gen(JMPm, addlabel(NO));
-    else error("bad label");
+    if (symname(ssname)) 
+        gen(JMPm, addlabel(NO));
+    else 
+        error("bad label");
     ns();
 }
 
@@ -740,10 +802,13 @@ dolabel() {
 
 addlabel(def) int def; {
     if (cptr = findloc(ssname)) {
-        if (cptr[IDENT] != LABEL) error("not a label");
+        if (cptr[IDENT] != LABEL) 
+            error("not a label");
         else if (def) {
-            if (cptr[TYPE]) error("duplicate label");
-            else cptr[TYPE] = YES;
+            if (cptr[TYPE]) 
+                error("duplicate label");
+            else 
+                cptr[TYPE] = YES;
         }
     }
     else cptr = addsym(ssname, LABEL, def, 0, getlabel(), &locptr, LABEL);
@@ -752,7 +817,8 @@ addlabel(def) int def; {
 
 doreturn() {
     int savcsp;
-    if (endst() == 0) doexpr(YES);
+    if (endst() == 0) 
+        doexpr(YES);
     savcsp = csp;
     gen(RETURN, 0);
     csp = savcsp;
@@ -760,7 +826,8 @@ doreturn() {
 
 dobreak() {
     int *ptr;
-    if ((ptr = readwhile(wqptr)) == 0) return;
+    if ((ptr = readwhile(wqptr)) == 0) 
+        return;
     gen(ADDSP, ptr[WQSP]);
     gen(JMPm, ptr[WQEXIT]);
 }
@@ -769,8 +836,10 @@ docont() {
     int *ptr;
     ptr = wqptr;
     while (1) {
-        if ((ptr = readwhile(ptr)) == 0) return;
-        if (ptr[WQLOOP]) break;
+        if ((ptr = readwhile(ptr)) == 0) 
+            return;
+        if (ptr[WQLOOP]) 
+            break;
     }
     gen(ADDSP, ptr[WQSP]);
     gen(JMPm, ptr[WQLOOP]);
@@ -780,8 +849,10 @@ doasm() {
     ccode = 0;           /* mark mode as "asm" */
     while (1) {
         inline();
-        if (match("#endasm")) break;
-        if (eof)break;
+        if (match("#endasm")) 
+            break;
+        if (eof)
+            break;
         fputs(line, output);
     }
     kill();

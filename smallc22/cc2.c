@@ -76,7 +76,7 @@ preprocess() {
             bump(2);
         }
         /* ignore C99-style comments */
-        /*else if (ch == '/' && nch == '/') {
+        else if (ch == '/' && nch == '/') {
             bump(2);
             while ((ch == LF || ch == CR) == 0) {
                 if (ch) bump(1);
@@ -89,7 +89,7 @@ preprocess() {
             if (ch == LF) {
                 bump(1);
             }
-        }*/
+        }
         else if (an(ch)) {
             k = 0;
             while (an(ch) && k < NAMEMAX) {
@@ -202,7 +202,8 @@ symname(sname) char *sname; {
     k = 0;
     while (an(ch)) {
         sname[k] = gch();
-        if (k < NAMEMAX) ++k;
+        if (k < NAMEMAX) 
+            ++k;
     }
     sname[k] = 0;
     return 1;
@@ -340,8 +341,8 @@ endst() {
 
 /*********** symbol table management functions ***********/
 
-addsym(sname, id, type, size, value, lgpp, class)
-char *sname, id, type;  int size, value, *lgpp, class; {
+addsym(sname, id, type, size, offset, lgpp, class)
+char *sname, id, type;  int size, offset, *lgpp, class; {
     if (lgpp == &glbptr) {
         if (cptr2 = findglb(sname)) return cptr2;
         if (cptr == 0) {
@@ -360,7 +361,7 @@ char *sname, id, type;  int size, value, *lgpp, class; {
     cptr[TYPE] = type;
     cptr[CLASS] = class;
     putint(size, cptr + SIZE, 2);
-    putint(value, cptr + OFFSET, 2);
+    putint(offset, cptr + OFFSET, 2);
     cptr3 = cptr2 = cptr + NAME;
     while (an(*sname)) *cptr2++ = *sname++;
     if (lgpp == &locptr) {
