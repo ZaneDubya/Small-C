@@ -471,12 +471,11 @@ decl(type, aid, id, sz) int type, aid, *id, *sz; {
 ** statement parser
 */
 statement() {
+    int type;
     if (ch == 0 && eof) return;
-    else if (amatch("char", 4)) { declloc(CHR);    ns(); }
-    else if (amatch("int", 3)) { declloc(INT);    ns(); }
-    else if (amatch("unsigned", 8)) {
-        if (amatch("char", 4)) { declloc(UCHR);   ns(); }
-        else { amatch("int", 3);  declloc(UINT);   ns(); }
+    else if ((type = dotype()) != 0) {
+        declloc(type);
+        ns();
     }
     else {
         if (declared >= 0) {
