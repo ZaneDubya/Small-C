@@ -16,7 +16,7 @@
 #define SA 6   /* is[SA] - stage address of "op 0" code, else 0 */
 
 extern char
-*litq, *glbptr, *lptr, ssname[NAMESIZE], quote[2];
+*litq, *glbptr, *lptr, ssname[NAMESIZE];
 extern int
 ch, csp, litlab, litptr, nch, op[16], op2[16],
 opindex, opsize, *snext;
@@ -520,7 +520,7 @@ chrcon(value)  int *value; {
 
 string(offset) int *offset; {
     char c;
-    if (match(quote) == 0) return 0;
+    if (match("\"") == 0) return 0;
     *offset = litptr;
     while (ch != '"') {
         if (ch == 0) break;

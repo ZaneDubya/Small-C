@@ -10,7 +10,7 @@
 extern char
 *symtab, *macn, *macq, *pline, *mline, optimize,
 alarm, *glbptr, *line, *lptr, *cptr, *cptr2, *cptr3,
-*locptr, msname[NAMESIZE], pause, quote[2];
+*locptr, msname[NAMESIZE], pause;
 
 extern int
 *wq, ccode, ch, csp, eof, errflag, iflevel,
@@ -75,7 +75,7 @@ preprocess() {
             }
             bump(2);
         }
-        // ignore C99 comments
+        /* ignore C99-style comments */
         /*else if (ch == '/' && nch == '/') {
             bump(2);
             while ((ch == LF || ch == CR) == 0) {
@@ -197,7 +197,8 @@ inbyte() {
 symname(sname) char *sname; {
     int k; char c;
     blanks();
-    if (alpha(ch) == 0) return (*sname = 0);
+    if (alpha(ch) == 0) 
+        return (*sname = 0);
     k = 0;
     while (an(ch)) {
         sname[k] = gch();
@@ -212,8 +213,10 @@ need(str)  char *str; {
 }
 
 ns() {
-    if (match(";") == 0) error("no semicolon");
-    else errflag = 0;
+    if (match(";") == 0) 
+        error("no semicolon");
+    else 
+        errflag = 0;
 }
 
 match(lit)  char *lit; {
@@ -230,7 +233,8 @@ streq(str1, str2)  char str1[], str2[]; {
     int k;
     k = 0;
     while (str2[k]) {
-        if (str1[k] != str2[k]) return 0;
+        if (str1[k] != str2[k]) 
+            return 0;
         ++k;
     }
     return k;

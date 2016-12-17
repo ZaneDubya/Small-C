@@ -70,7 +70,6 @@ pause,    /* pause for operator on errors? */
 *lptr,     /* ptr to current character in "line" */
 *glbptr,   /* global symbol table */
 *locptr,   /* next local symbol table entry */
-quote[2] = { '"' }, /* literal string for '"' */
 *cptr,     /* work ptrs to any char buffer */
 *cptr2,
 *cptr3,
@@ -311,7 +310,8 @@ dodefine() {
 
 putmac(c)  char c; {
     macq[macptr] = c;
-    if (macptr < MACMAX) ++macptr;
+    if (macptr < MACMAX) 
+        ++macptr;
     return c;
 }
 
@@ -323,14 +323,16 @@ putmac(c)  char c; {
 */
 dofunction() {
     char *ptr;
-    nogo =                      /* enable goto statements */
-        noloc =                      /* enable block-local declarations */
-        lastst =                      /* no statement yet */
-        litptr = 0;                   /* clear lit pool */
+    nogo = 0;                     /* enable goto statements */
+    noloc = 0;                    /* enable block-local declarations */
+    lastst = 0;                   /* no statement yet */
+    litptr = 0;                   /* clear lit pool */
     litlab = getlabel();          /* label next lit pool */
     locptr = STARTLOC;            /* clear local variables */
-    if (match("void")) blanks();   /* skip "void" & locate header */
-    if (monitor) lout(line, stderr);
+    if (match("void")) 
+        blanks();  /* skip "void" & locate header */
+    if (monitor) 
+        lout(line, stderr);
     if (symname(ssname) == 0) {
         error("illegal function or declaration");
         errflag = 0;
@@ -340,15 +342,20 @@ dofunction() {
     if (ptr = findglb(ssname)) {   /* already in symbol table? */
         if (ptr[CLASS] == AUTOEXT)
             ptr[CLASS] = STATIC;
-        else multidef(ssname);
+        else 
+            multidef(ssname);
     }
-    else addsym(ssname, FUNCTION, INT, 0, 0, &glbptr, STATIC);
+    else {
+        addsym(ssname, FUNCTION, INT, 0, 0, &glbptr, STATIC);
+    }
     public(FUNCTION);
     argstk = 0;                  /* init arg count */
-    if (match("(") == 0) error("no open paren");
+    if (match("(") == 0) 
+        error("no open paren");
     while (match(")") == 0) {     /* then count args */
         if (symname(ssname)) {
-            if (findloc(ssname)) multidef(ssname);
+            if (findloc(ssname)) 
+                multidef(ssname);
             else {
                 addsym(ssname, 0, 0, 0, argstk, &locptr, AUTOMATIC);
                 argstk += BPW;
@@ -366,13 +373,29 @@ dofunction() {
     csp = 0;                     /* preset stack ptr */
     argtop = argstk + BPW;         /* account for the pushed BP */
     while (argstk) {
-        if (amatch("char", 4)) { doargs(CHR);  ns(); }
-        else if (amatch("int", 3)) { doargs(INT);  ns(); }
-        else if (amatch("unsigned", 8)) {
-            if (amatch("char", 4)) { doargs(UCHR); ns(); }
-            else { amatch("int", 3);       doargs(UINT); ns(); }
+        if (amatch("char", 4)) { 
+            doargs(CHR);  
+            ns(); 
         }
-        else { error("wrong number of arguments"); break; }
+        else if (amatch("int", 3)) { 
+            doargs(INT);  
+            ns(); 
+        }
+        else if (amatch("unsigned", 8)) {
+            if (amatch("char", 4)) { 
+                doargs(UCHR); 
+                ns(); 
+            }
+            else { 
+                amatch("int", 3);       
+                doargs(UINT); 
+                ns(); 
+            }
+        }
+        else { 
+            error("wrong number of arguments"); 
+            break; 
+        }
     }
     gen(ENTER, 0);
     statement();
