@@ -39,7 +39,7 @@
 */
 #define NAMESIZE 9
 #define NAMEMAX  8
- 
+
 /*
 ** values for "IDENT"
 */
@@ -48,7 +48,7 @@
 #define ARRAY    2
 #define POINTER  3
 #define FUNCTION 4
- 
+
 /*
 ** values for "TYPE"
 **    high order 14 bits give length of object
@@ -60,7 +60,7 @@
 #define UCHR   ((  1 << 2) + 1)
 #define UINT   ((BPW << 2) + 1)
 #define UNSIGNED             1
- 
+
 /*
 ** values for "CLASS"
 */
@@ -81,27 +81,27 @@
 */
 #define SWSIZ   (2*BPW)
 #define SWTABSZ (90*SWSIZ)
- 
+
 /*
 ** "while" queue
 */
 #define WQTABSZ  30
 #define WQSIZ     3
 #define WQMAX   (wq+WQTABSZ-WQSIZ)
- 
+
 /*
 ** field offsets in "while" queue
 */
 #define WQSP    0
 #define WQLOOP  1
 #define WQEXIT  2
- 
+
 /*
 ** literal pool
 */
 #define LITABSZ 2000
 #define LITMAX  (LITABSZ-1)
- 
+
 /*
 ** input line
 */
@@ -112,7 +112,7 @@
 ** entries in staging buffer
 */
 #define STAGESIZE   200
- 
+
 /*
 ** macro (#define) pool
 */
@@ -121,7 +121,7 @@
 #define MACNEND  (macn+MACNSIZE)
 #define MACQSIZE (MACNBR*7)
 #define MACMAX   (MACQSIZE-1)
- 
+
 /*
 ** statement types
 */
@@ -159,7 +159,7 @@
 **  _ (tail) = another p-code completes this one
 */
 
-        /* compiler-generated */
+/* compiler-generated */
 #define ADD12     1   /* add sr to pr */
 #define ADDSP     2   /* add to stack pointer */
 #define AND12     3   /* AND sr to pr */
@@ -234,7 +234,7 @@
 #define SWITCH   72   /* find switch case */
 #define XOR12    73   /* XOR pr with sr */
 
-        /* optimizer-generated */
+		/* optimizer-generated */
 #define ADD1n    74   /* add n to pr */
 #define ADD21    75   /* add pr to sr */
 #define ADD2n    76   /* add immediate to sr */
