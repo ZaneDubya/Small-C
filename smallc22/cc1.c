@@ -239,7 +239,8 @@ initials(size, ident, dim) int size, ident, dim; {
         else init(size, ident, &dim);
     }
     if (savedim == -1 && dim == -1) {
-        if (ident == ARRAY) error("need array size");
+        if (ident == ARRAY) 
+            error("need array size");
         stowlit(0, size = BPW);
     }
     dumplits(size);
@@ -344,26 +345,31 @@ putmac(c)  char c; {
 ** out of the following text
 */
 dofunction() {
-    char *ptr;
+    char *pGlobal;
+    /*int typedargs; */               /* declared arguments have formal types */
     nogo = 0;                     /* enable goto statements */
     noloc = 0;                    /* enable block-local declarations */
     lastst = 0;                   /* no statement yet */
     litptr = 0;                   /* clear lit pool */
     litlab = getlabel();          /* label next lit pool */
     locptr = STARTLOC;            /* clear local variables */
-    if (match("void")) 
-        blanks();  /* skip "void" & locate header */
-    if (monitor) 
+    /* skip "void" & locate header */
+    if (match("void")) {
+        blanks();  
+    }
+    if (monitor) {
         lout(line, stderr);
+    }
     if (symname(ssname) == 0) {
         error("illegal function or declaration");
         errflag = 0;
         kill();                     /* invalidate line */
         return;
     }
-    if (ptr = findglb(ssname)) {   /* already in symbol table? */
-        if (ptr[CLASS] == AUTOEXT)
-            ptr[CLASS] = STATIC;
+    /* already in symbol table? */
+    if (pGlobal = findglb(ssname)) {   
+        if (pGlobal[CLASS] == AUTOEXT)
+            pGlobal[CLASS] = STATIC;
         else 
             multidef(ssname);
     }
@@ -371,41 +377,9 @@ dofunction() {
         addsym(ssname, FUNCTION, INT, 0, 0, &glbptr, STATIC);
     }
     public(FUNCTION);
-    argstk = 0;                  /* init arg count */
     if (match("(") == 0) 
         error("no open paren");
-    while (match(")") == 0) {     /* then count args */
-        if (symname(ssname)) {
-            if (findloc(ssname)) 
-                multidef(ssname);
-            else {
-                addsym(ssname, 0, 0, 0, argstk, &locptr, AUTOMATIC);
-                argstk += BPW;
-            }
-        }
-        else {
-            error("illegal argument name");
-            skip();
-        }
-        blanks();
-        if (streq(lptr, ")") == 0 && match(",") == 0)
-            error("no comma");
-        if (endst()) break;
-    }
-    csp = 0;                     /* preset stack ptr */
-    argtop = argstk + BPW;         /* account for the pushed BP */
-    while (argstk) {
-        int type;
-        type = dotype();
-        if (type != 0) {
-            doargs(type);
-            ns(); 
-        }
-        else { 
-            error("wrong number of arguments"); 
-            break; 
-        }
-    }
+    doFuncArgs();
     gen(ENTER, 0);
     statement();
     if (lastst != STRETURN && lastst != STGOTO)
@@ -418,13 +392,65 @@ dofunction() {
 }
 
 /*
+** interpret a function argument list
+*/
+doFuncArgs() {
+    /* count args */
+    argstk = 0;
+    /*typedargs = 0;*/
+    while (match(")") == 0) {     
+        /*int type;
+        if ((type = dotype()) != 0) {
+            typedargs = 1;
+            
+        }*/
+        if (symname(ssname)) {
+            if (findloc(ssname)) 
+                multidef(ssname);
+            else {
+                addsym(ssname, 0, 0, 0, argstk, &locptr, AUTOMATIC);
+                argstk += BPW;
+            }
+            /*if (typedargs == 1 && type == 0) {
+                error("argument in typed function declaration does not have type");
+                skip();
+            }*/
+        }
+        else {
+            error("illegal argument name");
+            skip();
+        }
+        blanks();
+        if (streq(lptr, ")") == 0 && match(",") == 0)
+            error("no comma");
+        if (endst()) break;
+    }
+    csp = 0;                       /* preset stack ptr */
+    argtop = argstk + BPW;         /* account for the pushed BP */
+    while (argstk) {
+        int type;
+        type = dotype();
+        if (type != 0) {
+            doArgTypes(type);
+            ns(); 
+        }
+        else { 
+            error("wrong number of arguments"); 
+            break; 
+        }
+    }
+    return;
+}
+
+/*
 ** declare argument types
 */
-doargs(type) int type; {
+doArgTypes(type) int type; {
     int id, sz;
     char c, *ptr;
     while (1) {
-        if (argstk == 0) return;           /* no arguments */
+        if (argstk == 0) 
+            return;           /* no arguments */
         if (decl(type, POINTER, &id, &sz)) {
             if (ptr = findloc(ssname)) {
                 ptr[IDENT] = id;
@@ -435,30 +461,45 @@ doargs(type) int type; {
             else error("not an argument");
         }
         argstk = argstk - BPW;            /* cnt down */
-        if (endst()) return;
-        if (match(",") == 0) error("no comma");
+        if (endst()) 
+            return;
+        if (match(",") == 0) 
+            error("no comma or terminating semicolon");
     }
 }
 
 /*
 ** parse next local or argument declaration
 */
-decl(type, aid, id, sz) int type, aid, *id, *sz; {
+decl(type, arrayid, id, sz) int type, arrayid, *id, *sz; {
     int n, p;
-    if (match("(")) p = 1;
-    else           p = 0;
-    if (match("*")) { *id = POINTER;  *sz = BPW; }
-    else { *id = VARIABLE; *sz = type >> 2; }
-    if ((n = symname(ssname)) == 0) illname();
+    if (match("(")) 
+        p = 1;
+    else           
+        p = 0;
+    if (match("*")) { 
+        *id = POINTER;  
+        *sz = BPW; 
+    }
+    else { 
+        *id = VARIABLE; 
+        *sz = type >> 2; 
+    }
+    if ((n = symname(ssname)) == 0) 
+        illname();
     if (p && match(")"));
     if (match("(")) {
-        if (!p || *id != POINTER) error("try (*...)()");
+        if (!p || *id != POINTER) {
+            error("try (*...)()");
+        }
         need(")");
     }
     else if (*id == VARIABLE && match("[")) {
-        *id = aid;
+        *id = arrayid;
         if ((*sz *= needsub()) == 0) {
-            if (aid == ARRAY) error("need array size");
+            if (arrayid == ARRAY) {
+                error("need array size");
+            }
             *sz = BPW;      /* size of pointer argument */
         }
     }
