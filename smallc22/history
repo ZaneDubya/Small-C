@@ -1,0 +1,117 @@
+Small-C Revision History
+
+ -- included in version 2.2
+
+ 76 Modified _read() in CSYSLIB.C to do console input through _getkey()
+    for consistent handling of special key values per the MS-DOS addendum
+    to the Small-C Handbook.
+ 77 Modified fgetc() in FGETC.C to look for an ungotten character and
+    return it without cooking it (since it cooked on the original get).
+    This fixed an apparent problem in scanf() and fscanf() in which
+    they appear to miss input characters.
+ 78 Revised out_code() and do more optimizing.  Let p-code subscript code[],
+    (an array of pointers to output assembly code strings) instead of using
+    a monstrous switch statement.
+ 79 Always compile features that are now considered standard.
+ 80 Properly calculate swend in main() to use all of the switch table.
+ 81 Dropped unnecessary variable func1.
+ 82 Changed if(match(...)); to match(...); statements.
+ 83 Dropped unnecessary while loop in declloc().
+ 84 Simplified treatment of argument "dim" in initials().
+ 85 Dropped outside() because it is redundant with code in compound().
+ 86 Revised the point at which lval2[] is declared in plnge(), and hier14()
+    to greatly reduce the amount of stack space used during expression
+    analysis by allocating lval[] arrays only when actually needed. 
+ 87 Simplified logic in newfunc(), doif(), dodo(), preprocess(), skip(), 
+    plnge(), expression(), hier14(), primary(), pstr(), white().  
+ 88 Modified primary() to add an undeclared function to the symbol table only 
+    if the name is not already in the table.  This improves run time by 
+    saving a table lookup on most function references.  
+ 89 Reorganized source code into four files (CC1.C, CC2.C, CC3.C, CC4.C),
+    regrouped functions into more logical units, and renamed some functions
+    (addmac->dodefine, newfunc->dofunction, rvalue->fetch, pstr->chrcon,
+    qstr->string, needtoken->need, col->colon, ol->outline, junk->skip).
+ 90 Improved output efficiency by deleting cout(), sout(), and xout().
+    It now checks for an output error only at the end of a line.
+ 91 Dropped assignment statements in main() that set globals to zero.
+ 92 Revised ispunct() to exclude white space from the 'true' condition.
+ 93 Combined all of the is...() character classification functions into a
+    single module of short, fast functions that subscript into an array
+    for the answer.  This approach is three times faster.
+ 94 Per Kiyoshi Akima, eliminated LINK module from library.  Now, trailer()
+    declares _MAIN to be external if main() is declared in the module being 
+    compiled; this forces CSYSLIB to load when linking.  By not declaring it 
+    external in other modules, a "multiply defined" error is eliminated when 
+    compiling CSYSLIB which contains _MAIN.  However, since .OBJ modules
+    which were compiled with earlier versions of Small-C contain references to 
+    __LINK, it is declared as a dummy entry point in CALL.ASM to avoid 
+    "unresolved reference" errors at link time.
+ 95 Per Kiyoshi Akima, installed additional code optimizing.
+ 96 Dropped setops() in favor of initializing the op[] and op2[] arrays.
+    This can be done since these arrays now contain p-codes rather than
+    function addresses.
+ 97 Yet another rewrite of the the optimizer.  It's now much smaller, each 
+    optimization is cheaper, the logic is clearer and more bullet proof.
+    And, yet more optimizations.  EXE sizes are down by 10% and execution times
+    are down by as much as 25%.
+ 98 Renamed CC.DEF to CC.H and CLIB.DEF to CLIB.H.
+ 99 Corrected unlink() to return ERR on failure instead of EOF.
+100 Revision 76 slowed down the reading of files considerably by introducing
+    an additional call to iscons() for every character read.  It was discovered
+    that the DOS interrupt in this function is very very slow.  So, iscons()
+    was revised to call DOS only the first time for a file, and then test
+    the rememberred answer thereafter.  This required changes to CSYSLIB.C
+    also.  The effect was a DOUBLING OF I/O SPEED DURING READS, compared to
+    revision level 75 -- BEFORE the slowdown was introduced.  This shows that
+    the existing calls to iscons() in fgetc() and fgets() have been a major
+    bottleneck all along.
+101 Added the "unsigned" integer and character data types.  These result in
+    unsigned <, <=, >, >=, *, /, % operations and yield unsigned results.
+102 Revised the handling of numeric constants to recognize values from
+    32768 to 65535 as unsigned.  These, likewise, produce unsigned operations
+    and yield unsigned results.
+103 Cleaned up the handling of non-definitional function declarations.  The 
+    syntax (*func)(), which specifies a pointer to a function, is now accepted 
+    only for function arguments.  Previously, it was accepted at the global and 
+    local levels, but not interpreted as a pointer.
+104 Reject instances of declarations, such as *func(), which have multiple
+    modifiers.  Previously, the right most modifier prevailed.  But it is 
+    better to reject something than to interpret in differently than it is
+    written.
+105 Accept "void" before function header as comment.
+106 Corrected an error in the expression analyzer which causes pointer offsets
+    to be lost when subscripting is applied; e.g., (ptr+5)[x] would lose the
+    offset 5.
+107 Revised the implementation of the sizeof() operator so it works correctly.
+    Although undocumented, this was in the original MS-DOS compiler.
+108 Always pass an argument count to functions, even if NOCCARGC is defined.
+    This is not very costly on 8086 family CPUs and it eliminates a lot of
+    headaches when you call printf() but forget that NOCCARGC is defined.
+109 Small-C programs now abort with a return code of 1 for memory overflows
+    and 2 for operator interruptions (control-C).
+110 Revised strlen() to use the 8086 "REPNE SCASB" prefix/instruction for 
+    the fastest possible operation.  Sped it up over 500%.
+111 Any redirection of stdout overrides the assumed output of the compiler,
+    not just redirections to disk files.
+112 Revised hier2() (now called level2()), which processes the ?: operator,
+    so that it groups properly from right to left and yields meaningful
+    attributes for further expression analysis.  This involved imposing
+    consistency restrictions on the second and third expressions.
+113 Revised dogoto(), dolabel(), and addlabel() to catch duplicate label
+    definitions.
+114 Revised outname() to write names to the output file without forcing them to 
+    uppercase.  Except for this function, the compiler was already case 
+    sensitive.  Also recompiled and assembled the library with lowercase names.
+115 Modified the p-code translation strings containing "CALL xxx", where xxx
+    is a CALL module entry point, so that xxx is in lower case.  This 
+    eliminates errors when case sensitivity is specified to the assembler and
+    the linker.
+116 Made minor revisions to allow command-line switches to be introduced by
+    slashes (/) as well as hyphens (-).  This is consistant with the Small
+    Assembler which accommodates slashes for consistency with the PC/MS-DOS
+    linker which it employs.
+117 Revised optimization cases 31 thru 33 to prevent generating corrupt code 
+    for statements like ++x[4]; where x[] is local.  Previously this statement 
+    would update the wrong memory location.  Deleted cases 31 and 32, and 
+    changed case 33 to do less optimizing.  Renumbered cases 33 thru 49 as
+    31 thru 47.  
