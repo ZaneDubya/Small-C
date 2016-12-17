@@ -99,9 +99,7 @@ int op2[16] = {  /* p-codes of unsigned binary operators */
   MUL12u, DIV12u, MOD12u       /* level12 */
 };
 
-/*
-** execution begins here
-*/
+// execution begins here
 main(argc, argv) int argc, *argv; {
 	fputs(VERSION, stderr);
 	fputs(CRIGHT1, stderr);
@@ -134,13 +132,10 @@ main(argc, argv) int argc, *argv; {
 
 /******************** high level parsing *******************/
 
-/*
-** process all input text
-**
-** At this level, only static declarations,
-**      defines, includes and function
-**      definitions are legal...
-*/
+// process all input text
+// At this level, only static declarations,
+//      defines, includes and function
+//      definitions are legal...
 parse() {
 	while (eof == 0) {
 		if (amatch("extern", 6)) dodeclare(EXTERNAL);
