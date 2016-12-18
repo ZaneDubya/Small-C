@@ -609,26 +609,77 @@ statement() {
     }
     else {
         if (declared >= 0) {
-            if (ncmp > 1) nogo = declared;   /* disable goto */
+            if (ncmp > 1) {
+                nogo = declared;   /* disable goto */
+            }
             gen(ADDSP, csp - declared);
             declared = -1;
         }
-        if (match("{"))                 compound();
-        else if (amatch("if", 2)) { doif();           lastst = STIF; }
-        else if (amatch("while", 5)) { dowhile();        lastst = STWHILE; }
-        else if (amatch("do", 2)) { dodo();           lastst = STDO; }
-        else if (amatch("for", 3)) { dofor();          lastst = STFOR; }
-        else if (amatch("switch", 6)) { doswitch();       lastst = STSWITCH; }
-        else if (amatch("case", 4)) { docase();         lastst = STCASE; }
-        else if (amatch("default", 7)) { dodefault();      lastst = STDEF; }
-        else if (amatch("goto", 4)) { dogoto();         lastst = STGOTO; }
-        else if (dolabel())                                lastst = STLABEL;
-        else if (amatch("return", 6)) { doreturn(); ns(); lastst = STRETURN; }
-        else if (amatch("break", 5)) { dobreak();  ns(); lastst = STBREAK; }
-        else if (amatch("continue", 8)) { docont();   ns(); lastst = STCONT; }
-        else if (match(";"))            errflag = 0;
-        else if (match("#asm")) { doasm();          lastst = STASM; }
-        else { doexpr(NO); ns(); lastst = STEXPR; }
+        if (match("{")) {
+            compound();
+        }
+        else if (amatch("if", 2)) {
+            doif();
+            lastst = STIF;
+        }
+        else if (amatch("while", 5)) {
+            dowhile();
+            lastst = STWHILE;
+        }
+        else if (amatch("do", 2)) {
+            dodo();
+            lastst = STDO;
+        }
+        else if (amatch("for", 3)) {
+            dofor();
+            lastst = STFOR;
+        }
+        else if (amatch("switch", 6)) {
+            doswitch();
+            lastst = STSWITCH;
+        }
+        else if (amatch("case", 4)) {
+            docase();
+            lastst = STCASE;
+        }
+        else if (amatch("default", 7)) {
+            dodefault();
+            lastst = STDEF;
+        }
+        else if (amatch("goto", 4)) {
+            dogoto();
+            lastst = STGOTO;
+        }
+        else if (dolabel()) {
+            lastst = STLABEL;
+        }
+        else if (amatch("return", 6)) {
+            doreturn();
+            ns();
+            lastst = STRETURN;
+        }
+        else if (amatch("break", 5)) {
+            dobreak();
+            ns();
+            lastst = STBREAK;
+        }
+        else if (amatch("continue", 8)) {
+            docont();
+            ns();
+            lastst = STCONT;
+        }
+        else if (match(";"))   {
+            errflag = 0;
+        }
+        else if (match("#asm")) {
+            doasm();
+            lastst = STASM;
+        }
+        else {
+            doexpr(NO);
+            ns();
+            lastst = STEXPR;
+        }
     }
     return lastst;
 }

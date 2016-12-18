@@ -29,13 +29,15 @@ constexpr(int *val) {
     setstage(&before, &start);
     expression(&const, val);
     clearstage(before, 0);     /* scratch generated code */
-    if (const == 0) error("must be constant expression");
+    if (const == 0) 
+        error("must be constant expression");
     return const;
 }
 
 expression(int *con, int *val) {
     int is[7];
-    if (level1(is)) fetch(is);
+    if (level1(is))
+        fetch(is);
     *con = is[TC];
     *val = is[CV];
 }
@@ -65,16 +67,34 @@ test(int label, int parens) {
     if (is[SA]) {             /* stage address of "oper 0" code */
         switch (is[OP]) {       /* operator code */
         case EQ12:
-        case LE12u: zerojump(EQ10f, label, is); break;
+        case LE12u: 
+            zerojump(EQ10f, label, is); 
+            break;
         case NE12:
-        case GT12u: zerojump(NE10f, label, is); break;
-        case GT12:  zerojump(GT10f, label, is); break;
-        case GE12:  zerojump(GE10f, label, is); break;
-        case GE12u: clearstage(is[SA], 0);      break;
-        case LT12:  zerojump(LT10f, label, is); break;
-        case LT12u: zerojump(JMPm, label, is); break;
-        case LE12:  zerojump(LE10f, label, is); break;
-        default:    gen(NE10f, label);          break;
+        case GT12u: 
+            zerojump(NE10f, label, is); 
+            break;
+        case GT12:  
+            zerojump(GT10f, label, is); 
+            break;
+        case GE12:  
+            zerojump(GE10f, label, is); 
+            break;
+        case GE12u: 
+            clearstage(is[SA], 0);      
+            break;
+        case LT12:  
+            zerojump(LT10f, label, is); 
+            break;
+        case LT12u: 
+            zerojump(JMPm, label, is); 
+            break;
+        case LE12:  
+            zerojump(LE10f, label, is); 
+            break;
+        default:    
+            gen(NE10f, label);          
+            break;
         }
     }
     else gen(NE10f, label);
@@ -94,19 +114,45 @@ zerojump(int oper, int label, int is[]) {
 level1(int is[]) {
     int k, is2[7], is3[2], oper, oper2;
     k = down1(level2, is);
-    if (is[TC]) gen(GETw1n, is[CV]);
-    if (match("|=")) { oper = oper2 = OR12; }
-    else if (match("^=")) { oper = oper2 = XOR12; }
-    else if (match("&=")) { oper = oper2 = AND12; }
-    else if (match("+=")) { oper = oper2 = ADD12; }
-    else if (match("-=")) { oper = oper2 = SUB12; }
-    else if (match("*=")) { oper = MUL12; oper2 = MUL12u; }
-    else if (match("/=")) { oper = DIV12; oper2 = DIV12u; }
-    else if (match("%=")) { oper = MOD12; oper2 = MOD12u; }
-    else if (match(">>=")) { oper = oper2 = ASR12; }
-    else if (match("<<=")) { oper = oper2 = ASL12; }
-    else if (match("=")) { oper = oper2 = 0; }
-    else return k;
+    if (is[TC]) {
+        gen(GETw1n, is[CV]);
+    }
+    if (match("|=")) {
+        oper = oper2 = OR12;
+    }
+    else if (match("^=")) {
+        oper = oper2 = XOR12;
+    }
+    else if (match("&=")) { 
+        oper = oper2 = AND12; 
+    }
+    else if (match("+=")) { 
+        oper = oper2 = ADD12;
+    }
+    else if (match("-=")) {
+        oper = oper2 = SUB12;
+    }
+    else if (match("*=")) { 
+        oper = MUL12; oper2 = MUL12u;
+    }
+    else if (match("/=")) { 
+        oper = DIV12; oper2 = DIV12u;
+    }
+    else if (match("%=")) { 
+        oper = MOD12; oper2 = MOD12u;
+    }
+    else if (match(">>=")) {
+        oper = oper2 = ASR12;
+    }
+    else if (match("<<=")) {
+        oper = oper2 = ASL12;
+    }
+    else if (match("=")) { 
+        oper = oper2 = 0;
+        }
+    else {
+        return k;
+    }
     /* have an assignment operator */
     if (k == 0) {
         needlval();
@@ -114,39 +160,46 @@ level1(int is[]) {
     }
     is3[ST] = is[ST];
     is3[TI] = is[TI];
-    if (is[TI]) {                             /* indirect target */
+    if (is[TI]) {                               /* indirect target */
         if (oper) {                             /* ?= */
-            gen(PUSH1, 0);                       /* save address */
-            fetch(is);                           /* fetch left side */
+            gen(PUSH1, 0);                      /* save address */
+            fetch(is);                          /* fetch left side */
         }
-        down2(oper, oper2, level1, is, is2);   /* parse right side */
-        if (oper) gen(POP2, 0);                 /* retrieve address */
+        down2(oper, oper2, level1, is, is2);    /* parse right side */
+        if (oper)
+            gen(POP2, 0);                       /* retrieve address */
     }
-    else {                                   /* direct target */
+    else {                                      /* direct target */
         if (oper) {                             /* ?= */
-            fetch(is);                           /* fetch left side */
-            down2(oper, oper2, level1, is, is2); /* parse right side */
+            fetch(is);                          /* fetch left side */
+            down2(oper, oper2, level1, is, is2);/* parse right side */
         }
-        else {                                 /*  = */
-            if (level1(is2)) fetch(is2);          /* parse right side */
+        else {                                  /*  = */
+            if (level1(is2))
+                fetch(is2);                     /* parse right side */
         }
     }
-    store(is3);                              /* store result */
+    store(is3);                                 /* store result */
     return 0;
 }
 
 level2(int is1[]) {
     int is2[7], is3[7], k, flab, endlab, *before, *after;
     k = down1(level3, is1);                   /* expression 1 */
-    if (match("?") == 0) return k;
+    if (match("?") == 0)
+        return k;
     dropout(k, NE10f, flab = getlabel(), is1);
-    if (down1(level2, is2)) fetch(is2);        /* expression 2 */
-    else if (is2[TC]) gen(GETw1n, is2[CV]);
+    if (down1(level2, is2))
+        fetch(is2);        /* expression 2 */
+    else if (is2[TC])
+        gen(GETw1n, is2[CV]);
     need(":");
     gen(JMPm, endlab = getlabel());
     gen(LABm, flab);
-    if (down1(level2, is3)) fetch(is3);        /* expression 3 */
-    else if (is3[TC]) gen(GETw1n, is3[CV]);
+    if (down1(level2, is3))
+        fetch(is3);        /* expression 3 */
+    else if (is3[TC])
+        gen(GETw1n, is3[CV]);
     gen(LABm, endlab);
 
     is1[TC] = is1[CV] = 0;
@@ -164,7 +217,8 @@ level2(int is1[]) {
         is1[TI] = is3[TI];
         is1[SA] = is3[SA];
     }
-    else error("mismatched expressions");
+    else
+        error("mismatched expressions");
     return 0;
 }
 
@@ -179,7 +233,7 @@ level10(is) int is[]; {return down(">> <<", 9, level11, is); }
 level11(is) int is[]; {return down("+ -", 11, level12, is); }
 level12(is) int is[]; {return down("* / %", 13, level13, is); }
 
-level13(is)  int is[]; {
+level13(int is[]) {
     int k;
     char *ptr;
     if (match("++")) {                 /* ++lval */
@@ -281,7 +335,7 @@ level13(is)  int is[]; {
     }
 }
 
-level14(is)  int *is; {
+level14(int *is) {
     int k, const, val;
     char *ptr, *before, *start;
     k = primary(is);
@@ -340,7 +394,7 @@ level14(is)  int *is; {
     return k;
 }
 
-primary(is)  int *is; {
+primary(int *is) {
     char *ptr, sname[NAMESIZE];
     int k;
     if (match("(")) {                  /* (subexpression) */
@@ -395,7 +449,7 @@ experr() {
     skip();
 }
 
-callfunc(ptr)  char *ptr; {      /* symbol table entry or 0 */
+callfunc(char *ptr) {      /* symbol table entry or 0 */
     int nargs, const, val;
     nargs = 0;
     blanks();                      /* already saw open paren */
@@ -423,21 +477,21 @@ callfunc(ptr)  char *ptr; {      /* symbol table entry or 0 */
 /*
 ** true if is2's operand should be doubled
 */
-double(oper, is1, is2) int oper, is1[], is2[]; {
+double(int oper, int is1[], int is2[]) {
     if ((oper != ADD12 && oper != SUB12)
         || (is1[TA] >> 2 != BPW)
         || (is2[TA])) return 0;
     return 1;
 }
 
-step(oper, is, oper2) int oper, is[], oper2; {
+step(int oper, int is[], int oper2) {
     fetch(is);
     gen(oper, is[TA] ? (is[TA] >> 2) : 1);
     store(is);
     if (oper2) gen(oper2, is[TA] ? (is[TA] >> 2) : 1);
 }
 
-store(is)  int is[]; {
+store(int is[]) {
     char *ptr;
     if (is[TI]) {                    /* putstk */
         if (is[TI] >> 2 == 1)
@@ -453,7 +507,7 @@ store(is)  int is[]; {
     }
 }
 
-fetch(is) int is[]; {
+fetch(int is[]) {
     char *ptr;
     ptr = is[ST];
     if (is[TI]) {                                   /* indirect */
@@ -473,7 +527,7 @@ fetch(is) int is[]; {
     }
 }
 
-constant(is)  int is[]; {
+constant(int is[]) {
     int offset;
     if (is[TC] = number(is + CV)) gen(GETw1n, is[CV]);
     else if (is[TC] = chrcon(is + CV)) gen(GETw1n, is[CV]);
@@ -482,7 +536,7 @@ constant(is)  int is[]; {
     return 1;
 }
 
-number(value)  int *value; {
+number(int *value) {
     int k, minus;
     k = minus = 0;
     while (1) {
@@ -513,7 +567,7 @@ number(value)  int *value; {
     else                 return (INT);
 }
 
-chrcon(value)  int *value; {
+chrcon(int *value) {
     int k;
     k = 0;
     if (match("'") == 0) return 0;
@@ -523,7 +577,7 @@ chrcon(value)  int *value; {
     return (INT);
 }
 
-string(offset) int *offset; {
+string(int *offset) {
     char c;
     if (match("\"") == 0) return 0;
     *offset = litptr;
@@ -536,7 +590,7 @@ string(offset) int *offset; {
     return 1;
 }
 
-stowlit(value, size) int value, size; {
+stowlit(int value, int size) {
     if ((litptr + size) >= LITMAX) {
         error("literal queue overflow");
         abort(ERRCODE);
@@ -550,17 +604,24 @@ litchar() {
     if (ch != '\\' || nch == 0) return gch();
     gch();
     switch (ch) {
-    case 'n': gch(); return NEWLINE;
-    case 't': gch(); return  9;  /* HT */
-    case 'b': gch(); return  8;  /* BS */
-    case 'f': gch(); return 12;  /* FF */
+        case 'n': gch();
+            return NEWLINE;
+        case 't': gch();
+            return  9;  /* HT */
+        case 'b': gch();
+            return  8;  /* BS */
+        case 'f': gch();
+            return 12;  /* FF */
     }
     i = 3;
     oct = 0;
-    while ((i--) > 0 && ch >= '0' && ch <= '7')
+    while ((i--) > 0 && ch >= '0' && ch <= '7') {
         oct = (oct << 3) + gch() - '0';
-    if (i == 2) return gch();
-    else       return oct;
+    }
+    if (i == 2)
+        return gch();
+    else
+        return oct;
 }
 
 /***************** pipeline functions ******************/
@@ -577,7 +638,8 @@ int tcode, dropval, endval, (*level)(), is[]; {
         k = down1(level, is);
         if (nextop(opstr)) {
             bump(opsize);
-            if (droplab == 0) droplab = getlabel();
+            if (droplab == 0)
+                droplab = getlabel();
             dropout(k, tcode, droplab, is);
         }
         else if (droplab) {
@@ -597,10 +659,11 @@ int tcode, dropval, endval, (*level)(), is[]; {
 /*
 ** test for early dropout from || or && sequences
 */
-dropout(k, tcode, exit1, is)
-int k, tcode, exit1, is[]; {
-    if (k) fetch(is);
-    else if (is[TC]) gen(GETw1n, is[CV]);
+dropout(int k, int tcode, int exit1, int is[]) {
+    if (k)
+        fetch(is);
+    else if (is[TC])
+        gen(GETw1n, is[CV]);
     gen(tcode, exit1);          /* jumps on false */
 }
 
@@ -705,7 +768,7 @@ int oper, oper2, (*level)(), is[], is2[]; {
 /*
 ** unsigned operand?
 */
-nosign(is) int is[]; {
+nosign(int is[]) {
     char *ptr;
     if (is[TA]
         || is[TC] == UINT
@@ -717,24 +780,40 @@ nosign(is) int is[]; {
 /*
 ** calcualte signed constant result
 */
-calc(left, oper, right) int left, oper, right; {
+calc(int left, int oper, int right) {
     switch (oper) {
-    case ADD12: return (left + right);
-    case SUB12: return (left - right);
-    case MUL12: return (left  *  right);
-    case DIV12: return (left / right);
-    case MOD12: return (left  %  right);
-    case EQ12:  return (left == right);
-    case NE12:  return (left != right);
-    case LE12:  return (left <= right);
-    case GE12:  return (left >= right);
-    case LT12:  return (left < right);
-    case GT12:  return (left > right);
-    case AND12: return (left  &  right);
-    case OR12:  return (left | right);
-    case XOR12: return (left  ^  right);
-    case ASR12: return (left >> right);
-    case ASL12: return (left << right);
+        case ADD12:
+            return (left + right);
+        case SUB12:
+            return (left - right);
+        case MUL12:
+            return (left  *  right);
+        case DIV12:
+            return (left / right);
+        case MOD12:
+            return (left  %  right);
+        case EQ12:
+            return (left == right);
+        case NE12:
+            return (left != right);
+        case LE12:
+            return (left <= right);
+        case GE12:
+            return (left >= right);
+        case LT12:
+            return (left < right);
+        case GT12:
+            return (left > right);
+        case AND12:
+            return (left  &  right);
+        case OR12: 
+            return (left | right);
+        case XOR12:
+            return (left  ^  right);
+        case ASR12:
+            return (left >> right);
+        case ASL12:
+            return (left << right);
     }
     return (calc2(left, oper, right));
 }
@@ -742,15 +821,22 @@ calc(left, oper, right) int left, oper, right; {
 /*
 ** calcualte unsigned constant result
 */
-calc2(left, oper, right) unsigned left, right; int oper; {
+calc2(unsigned left, int oper, unsigned right) {
     switch (oper) {
-    case MUL12u: return (left  *  right);
-    case DIV12u: return (left / right);
-    case MOD12u: return (left  %  right);
-    case LE12u:  return (left <= right);
-    case GE12u:  return (left >= right);
-    case LT12u:  return (left < right);
-    case GT12u:  return (left > right);
+        case MUL12u:
+            return (left  *  right);
+        case DIV12u:
+            return (left / right);
+        case MOD12u:
+            return (left  %  right);
+        case LE12u:
+            return (left <= right);
+        case GE12u:
+            return (left >= right);
+        case LT12u:
+            return (left < right);
+        case GT12u:
+            return (left > right);
     }
     return (0);
 }
