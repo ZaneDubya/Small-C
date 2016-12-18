@@ -458,7 +458,7 @@ doArgsTyped(int type) {
                     // unmatch paren for function ptr.
                 }
                 if (match("(")) {
-                    if (!paren || *id != POINTER) {
+                    if (!paren || id != POINTER) {
                         error("not a valid function ptr, try (*...)()");
                     }
                     need(")");

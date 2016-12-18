@@ -641,7 +641,10 @@ litchar() {
 /*
 ** skim over terms adjoining || and && operators
 */
-skim(char *opstr, int tcode, int dropval, int endval, int (*level)(), int is[]) {
+skim(char *opstr, int tcode, int dropval, int endval, int (*level)(), int is[]){
+// skim(opstr, tcode, dropval, endval, level, is)
+// char *opstr;
+// int tcode, dropval, endval, (*level)(), is[]; {
     int k, droplab, endlab;
     droplab = 0;
     while (1) {
