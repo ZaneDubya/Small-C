@@ -230,8 +230,7 @@ match(char *lit) {
     return 0;
 }
 
-streq(str1, str2) char str1[], str2[]; {
-// streq(char str1[], char str2[]) {
+streq(char str1[], char str2[]) {
     int k;
     k = 0;
     while (str2[k]) {
@@ -242,7 +241,7 @@ streq(str1, str2) char str1[], str2[]; {
     return k;
 }
 
-amatch(lit, len)  char *lit; int len; {
+amatch(char *lit, int len) {
     int k;
     blanks();
     if (k = astreq(lptr, lit, len)) {
@@ -252,7 +251,7 @@ amatch(lit, len)  char *lit; int len; {
     return 0;
 }
 
-astreq(str1, str2, len)  char str1[], str2[]; int len; {
+astreq(char str1[], char str2[], int len) {
     int k;
     k = 0;
     while (k < len) {
@@ -271,7 +270,7 @@ astreq(str1, str2, len)  char str1[], str2[]; int len; {
     return k;
 }
 
-nextop(list) char *list; {
+nextop(char *list) {
     char op[4];
     opindex = 0;
     blanks();
@@ -342,8 +341,7 @@ endst() {
 
 /*********** symbol table management functions ***********/
 
-addsym(sname, id, type, size, offset, lgpp, class)
-char *sname, id, type;  int size, offset, *lgpp, class; {
+addsym(char *sname, char id, char type, int size, int offset, int *lgpp, int class) {
     if (lgpp == &glbptr) {
         if (cptr2 = findglb(sname)) return cptr2;
         if (cptr == 0) {
@@ -376,8 +374,7 @@ char *sname, id, type;  int size, offset, *lgpp, class; {
 ** search for symbol match
 ** on return cptr points to slot found or empty slot
 */
-search(sname, buf, len, end, max, off)
-char *sname, *buf, *end;  int len, max, off; {
+search(char *sname, char *buf, int len, char *end, int max, int off) {
     cptr = cptr2 = buf + ((hash(sname) % (max - 1))*len);
     while (*cptr != NULL) {
         if (astreq(sname, cptr + off, NAMEMAX)) 
@@ -390,20 +387,20 @@ char *sname, *buf, *end;  int len, max, off; {
     return 0;
 }
 
-hash(sname) char *sname; {
+hash(char *sname) {
     int i, c;
     i = 0;
     while (c = *sname++) i = (i << 1) + c;
     return i;
 }
 
-findglb(sname)  char *sname; {
+findglb(char *sname) {
     if (search(sname, STARTGLB, SYMMAX, ENDGLB, NUMGLBS, NAME))
         return cptr;
     return 0;
 }
 
-findloc(sname)  char *sname; {
+findloc(char *sname)  {
     cptr = locptr - 1;  /* search backward for block locals */
     while (cptr > STARTLOC) {
         cptr = cptr - *cptr;
@@ -413,7 +410,7 @@ findloc(sname)  char *sname; {
     return 0;
 }
 
-nextsym(entry) char *entry; {
+nextsym(char *entry) {
     entry = entry + NAME;
     while (*entry++ >= ' ');    /* find length byte */
     return entry;
@@ -421,7 +418,7 @@ nextsym(entry) char *entry; {
 
 /******** while queue management functions *********/
 
-addwhile(ptr)  int ptr[]; {
+addwhile(int ptr[]) {
     int k;
     ptr[WQSP] = csp;         /* and stk ptr */
     ptr[WQLOOP] = getlabel();  /* and looping label */
@@ -434,7 +431,7 @@ addwhile(ptr)  int ptr[]; {
     while (k < WQSIZ) *wqptr++ = ptr[k++];
 }
 
-readwhile(ptr) int *ptr; {
+readwhile(int *ptr) {
     if (ptr <= wq) {
         error("out of context");
         return 0;
@@ -451,14 +448,14 @@ delwhile() {
 /*
 ** test if c is alphabetic
 */
-alpha(c)  char c; {
+alpha(char c) {
     return (isalpha(c) || c == '_');
 }
 
 /*
 ** test if given character is alphanumeric
 */
-an(c)  char c; {
+an(char c) {
     return (alpha(c) || isdigit(c));
 }
 
@@ -473,7 +470,7 @@ getlabel() {
 ** get integer of length len from address addr
 ** (byte sequence set by "putint")
 */
-getint(addr, len) char *addr; int len; {
+getint(char *addr, int len) {
     int i;
     i = *(addr + --len);  /* high order byte sign extended */
     while (len--) i = (i << 8) | *(addr + len) & 255;
@@ -484,14 +481,14 @@ getint(addr, len) char *addr; int len; {
 ** put integer i of length len into address addr
 ** (low byte first)
 */
-putint(i, addr, len) char *addr; int i, len; {
+putint(int i, char *addr, int len) {
     while (len--) {
         *addr++ = i;
         i = i >> 8;
     }
 }
 
-lout(line, fd) char *line; int fd; {
+lout(char *line, int fd) {
     fputs(line, fd);
     fputc(NEWLINE, fd);
 }
@@ -503,7 +500,7 @@ illname() {
     skip();
 }
 
-multidef(sname)  char *sname; {
+multidef(char *sname) {
     error("already defined");
 }
 
@@ -516,7 +513,7 @@ noiferr() {
     errflag = 0;
 }
 
-error(msg) char msg[]; {
+error(char msg[]) {
     if (errflag) return;
     else errflag = 1;
     lout(line, stderr);
@@ -526,7 +523,7 @@ error(msg) char msg[]; {
     if (listfp > 0) errout(msg, listfp);
 }
 
-errout(msg, fp) char msg[]; int fp; {
+errout(char msg[], int fp) {
     int k;
     k = line + 2;
     while (k++ <= lptr) fputc(' ', fp);
