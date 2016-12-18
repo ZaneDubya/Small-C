@@ -53,7 +53,8 @@ test(int label, int parens) {
             fetch(is);
         if (match(",")) 
             clearstage(before, start);
-        else break;
+        else
+            break;
     }
     if (parens) 
         need(")");
@@ -640,9 +641,10 @@ litchar() {
 /*
 ** skim over terms adjoining || and && operators
 */
-skim(opstr, tcode, dropval, endval, level, is)
-char *opstr;
-int tcode, dropval, endval, (*level)(), is[]; {
+skim(char *opstr, int tcode, int dropval, int endval, int (*level)(), int is[]){
+// skim(opstr, tcode, dropval, endval, level, is)
+// char *opstr;
+// int tcode, dropval, endval, (*level)(), is[]; {
     int k, droplab, endlab;
     droplab = 0;
     while (1) {
