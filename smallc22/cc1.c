@@ -424,10 +424,13 @@ dofunction() {
 ** in type: the type of the first variable in the argument list.
 */
 doArgsTyped(int type) {
-    int id, sz;
-    int namelen;
+    int id, sz, namelen;
     char *ptr;
-    /* count args */
+    // get a list of all arguments. Set the name, id (Variable or Pointer),
+    // type (unsigned/signed int/char), size, and 'argstk' for each. argstk is
+    // the 0-based index of the variable on the stack. We will next reverse 
+    // these values and offset them to account for the pushed BP value, which
+    // will also be on the stack.
     argstk = 0;
     while (match(")") == 0) {
         if (match("*")) {
@@ -464,6 +467,9 @@ doArgsTyped(int type) {
         }
     }
     csp = 0;                       /* preset stack ptr */
+    // incremenet argtop by one word (space for pushed BP), and reverse the
+    // placement of the arguments (per the SmallC specification, see Chapter 8
+    // and Fig 8-1.
     argtop = argstk + BPW;
     ptr = STARTLOC;
     while (argstk) {
