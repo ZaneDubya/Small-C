@@ -177,11 +177,11 @@ dodeclare(int class) {
 }
 
 dotype() {
-    if (amatch("char", 4)) { 
+    if (amatch("char", 4)) {
         return CHR;
     }
     else if (amatch("unsigned", 8)) {
-        if (amatch("char", 4)) { 
+        if (amatch("char", 4)) {
             return UCHR;
         }
         else {
@@ -189,7 +189,7 @@ dotype() {
             return UINT;
         }
     }
-    else if (amatch("int", 3)) { 
+    else if (amatch("int", 3)) {
         return INT;
     }
     return 0;
@@ -201,21 +201,40 @@ dotype() {
 declglb(int type, int class) {
     int id, dim;
     while (1) {
-        if (endst()) return;  /* do line */
-        if (match("*")) { id = POINTER;  dim = 0; }
-        else { id = VARIABLE; dim = 1; }
-        if (symname(ssname) == 0) illname();
-        if (findglb(ssname)) multidef(ssname);
-        if (id == VARIABLE) {
-            if (match("(")) { id = FUNCTION; need(")"); }
-            else if (match("[")) { id = ARRAY; dim = needsub(); }
+        if (endst()) 
+            return;  /* do line */
+        if (match("*")) { 
+            id = POINTER; 
+            dim = 0;
         }
-        if (class == EXTERNAL) external(ssname, type >> 2, id);
-        else if (id != FUNCTION) initials(type >> 2, id, dim);
+        else { 
+            id = VARIABLE; 
+            dim = 1; 
+        }
+        if (symname(ssname) == 0) 
+            illname();
+        if (findglb(ssname)) 
+            multidef(ssname);
+        if (id == VARIABLE) {
+            if (match("(")) { 
+                id = FUNCTION; 
+                need(")"); 
+            }
+            else if (match("[")) { 
+                id = ARRAY; 
+                dim = needsub(); 
+            }
+        }
+        if (class == EXTERNAL) 
+            external(ssname, type >> 2, id);
+        else if (id != FUNCTION) 
+            initials(type >> 2, id, dim);
         if (id == POINTER)
             addsym(ssname, id, type, BPW, 0, &glbptr, class);
-        else addsym(ssname, id, type, dim * (type >> 2), 0, &glbptr, class);
-        if (match(",") == 0) return;
+        else 
+            addsym(ssname, id, type, dim * (type >> 2), 0, &glbptr, class);
+        if (match(",") == 0) 
+            return;
     }
 }
 
@@ -239,7 +258,7 @@ initials(int size, int ident, int dim) {
         else init(size, ident, &dim);
     }
     if (savedim == -1 && dim == -1) {
-        if (ident == ARRAY) 
+        if (ident == ARRAY)
             error("need array size");
         stowlit(0, size = BPW);
     }
@@ -250,7 +269,7 @@ initials(int size, int ident, int dim) {
 /*
 ** evaluate one initializer
 */
-init(size, ident, dim) int size, ident, *dim; {
+init(int size, int ident, int *dim) {
     int value;
     if (string(&value)) {
         if (ident == VARIABLE || size != 1)
@@ -270,8 +289,10 @@ init(size, ident, dim) int size, ident, *dim; {
 */
 needsub() {
     int val;
-    if (match("]")) return 0; /* null size */
-    if (constexpr(&val) == 0) val = 1;
+    if (match("]")) 
+        return 0; /* null size */
+    if (constexpr(&val) == 0) 
+        val = 1;
     if (val < 0) {
         error("negative size illegal");
         val = -val;
@@ -286,7 +307,8 @@ needsub() {
 doinclude() {
     int i; char str[30];
     blanks();       /* skip over to name */
-    if (*lptr == '"' || *lptr == '<') ++lptr;
+    if (*lptr == '"' || *lptr == '<') 
+        ++lptr;
     i = 0;
     while (lptr[i]
         && lptr[i] != '"'
@@ -333,7 +355,7 @@ dodefine() {
 
 putmac(char c) {
     macq[macptr] = c;
-    if (macptr < MACMAX) 
+    if (macptr < MACMAX)
         ++macptr;
     return c;
 }
@@ -356,7 +378,7 @@ dofunction() {
     locptr = STARTLOC;            /* clear local variables */
     /* skip "void" & locate header */
     if (match("void")) {
-        blanks();  
+        blanks();
     }
     if (monitor) {
         lout(line, stderr);
@@ -368,17 +390,17 @@ dofunction() {
         return;
     }
     /* already in symbol table? */
-    if (pGlobal = findglb(ssname)) {   
+    if (pGlobal = findglb(ssname)) {
         if (pGlobal[CLASS] == AUTOEXT)
             pGlobal[CLASS] = STATIC;
-        else 
+        else
             multidef(ssname);
     }
     else {
         addsym(ssname, FUNCTION, INT, 0, 0, &glbptr, STATIC);
     }
     public(FUNCTION);
-    if (match("(") == 0) 
+    if (match("(") == 0)
         error("no open paren");
     if ((firstType = dotype()) != 0) {
         doArgsTyped(firstType);
@@ -408,19 +430,23 @@ doArgsTyped(int type) {
     /* count args */
     argstk = 0;
     while (match(")") == 0) {
-        if (match("*")) { 
-            id = POINTER;  
-            sz = BPW; 
+        if (match("*")) {
+            id = POINTER;
+            sz = BPW;
         }
         else {
-            id = VARIABLE; 
-            sz = type >> 2; 
+            id = VARIABLE;
+            sz = type >> 2;
         }
         if (symname(ssname)) {
             if (findloc(ssname)) {
                 multidef(ssname);
             }
             else {
+                if (id == VARIABLE && match("[]")) {
+                    id = POINTER;
+                    sz = BPW;      /* size of pointer argument */
+                }
                 addsym(ssname, id, type, sz, argstk, &locptr, AUTOMATIC);
                 argstk += BPW;
             }
@@ -460,9 +486,9 @@ doArgsTyped(int type) {
 doArgsNonTyped() {
     /* count args */
     argstk = 0;
-    while (match(")") == 0) {     
+    while (match(")") == 0) {
         if (symname(ssname)) {
-            if (findloc(ssname)) 
+            if (findloc(ssname))
                 multidef(ssname);
             else {
                 addsym(ssname, 0, 0, 0, argstk, &locptr, AUTOMATIC);
@@ -476,7 +502,7 @@ doArgsNonTyped() {
         blanks();
         if (streq(lptr, ")") == 0 && match(",") == 0)
             error("no comma");
-        if (endst()) 
+        if (endst())
             break;
     }
     csp = 0;                       /* preset stack ptr */
@@ -486,11 +512,11 @@ doArgsNonTyped() {
         type = dotype();
         if (type != 0) {
             doArgTypes(type);
-            ns(); 
+            ns();
         }
-        else { 
-            error("wrong number of arguments"); 
-            break; 
+        else {
+            error("wrong number of arguments");
+            break;
         }
     }
     return;
@@ -504,7 +530,7 @@ doArgTypes(int type) {
     char *ptr;
     int t;
     while (1) {
-        if (argstk == 0) 
+        if (argstk == 0)
             return;           /* no arguments */
         if (decl(type, POINTER, &id, &sz)) {
             if (ptr = findloc(ssname)) {
@@ -518,9 +544,9 @@ doArgTypes(int type) {
             }
         }
         argstk = argstk - BPW;            /* cnt down */
-        if (endst()) 
+        if (endst())
             return;
-        if (match(",") == 0) 
+        if (match(",") == 0)
             error("no comma or terminating semicolon");
     }
 }
@@ -530,19 +556,19 @@ doArgTypes(int type) {
 */
 decl(int type, int arrayid, int *id, int *sz) {
     int n, p;
-    if (match("(")) 
+    if (match("("))
         p = 1;
-    else           
+    else
         p = 0;
-    if (match("*")) { 
-        *id = POINTER;  
-        *sz = BPW; 
+    if (match("*")) {
+        *id = POINTER;
+        *sz = BPW;
     }
-    else { 
-        *id = VARIABLE; 
-        *sz = type >> 2; 
+    else {
+        *id = VARIABLE;
+        *sz = type >> 2;
     }
-    if ((n = symname(ssname)) == 0) 
+    if ((n = symname(ssname)) == 0)
         illname();
     if (p && match(")"));
     if (match("(")) {
@@ -606,19 +632,19 @@ statement() {
 */
 declloc(int type) {
     int id, sz;
-    if (swactive)     
+    if (swactive)
         error("not allowed in switch");
-    if (noloc)        
+    if (noloc)
         error("not allowed with goto");
-    if (declared < 0) 
+    if (declared < 0)
         error("must declare first in block");
     while (1) {
-        if (endst()) 
+        if (endst())
             return;
         decl(type, ARRAY, &id, &sz);
         declared += sz;
         addsym(ssname, id, type, sz, csp - declared, &locptr, AUTOMATIC);
-        if (match(",") == 0) 
+        if (match(",") == 0)
             return;
     }
 }
@@ -765,22 +791,22 @@ docase() {
 
 dodefault() {
     if (swactive) {
-        if (swdefault) 
+        if (swdefault)
             error("multiple defaults");
     }
-    else 
+    else
         error("not in switch");
     need(":");
     gen(LABm, swdefault = getlabel());
 }
 
 dogoto() {
-    if (nogo > 0) 
+    if (nogo > 0)
         error("not allowed with block-locals");
     else noloc = 1;
-    if (symname(ssname)) 
+    if (symname(ssname))
         gen(JMPm, addlabel(NO));
-    else 
+    else
         error("bad label");
     ns();
 }
@@ -799,14 +825,15 @@ dolabel() {
     return 0;
 }
 
-addlabel(def) int def; {
+addlabel(def) int def;
+{
     if (cptr = findloc(ssname)) {
-        if (cptr[IDENT] != LABEL) 
+        if (cptr[IDENT] != LABEL)
             error("not a label");
         else if (def) {
-            if (cptr[TYPE]) 
+            if (cptr[TYPE])
                 error("duplicate label");
-            else 
+            else
                 cptr[TYPE] = YES;
         }
     }
@@ -816,7 +843,7 @@ addlabel(def) int def; {
 
 doreturn() {
     int savcsp;
-    if (endst() == 0) 
+    if (endst() == 0)
         doexpr(YES);
     savcsp = csp;
     gen(RETURN, 0);
@@ -825,7 +852,7 @@ doreturn() {
 
 dobreak() {
     int *ptr;
-    if ((ptr = readwhile(wqptr)) == 0) 
+    if ((ptr = readwhile(wqptr)) == 0)
         return;
     gen(ADDSP, ptr[WQSP]);
     gen(JMPm, ptr[WQEXIT]);
@@ -835,9 +862,9 @@ docont() {
     int *ptr;
     ptr = wqptr;
     while (1) {
-        if ((ptr = readwhile(ptr)) == 0) 
+        if ((ptr = readwhile(ptr)) == 0)
             return;
-        if (ptr[WQLOOP]) 
+        if (ptr[WQLOOP])
             break;
     }
     gen(ADDSP, ptr[WQSP]);
@@ -848,7 +875,7 @@ doasm() {
     ccode = 0;           /* mark mode as "asm" */
     while (1) {
         inline();
-        if (match("#endasm")) 
+        if (match("#endasm"))
             break;
         if (eof)
             break;

@@ -115,7 +115,7 @@ preprocess() {
     bump(0);
 }
 
-keepch(c)  char c; {
+keepch(char c) {
     if (pptr < LINEMAX) pline[++pptr] = c;
 }
 
@@ -194,7 +194,7 @@ inbyte() {
 /*
 ** test if next input string is legal symbol name
 */
-symname(sname) char *sname; {
+symname(char *sname) {
     int k; char c;
     blanks();
     if (alpha(ch) == 0) 
@@ -209,7 +209,7 @@ symname(sname) char *sname; {
     return 1;
 }
 
-need(str)  char *str; {
+need(char *str)  {
     if (match(str) == 0) error("missing token");
 }
 
@@ -220,7 +220,7 @@ ns() {
         errflag = 0;
 }
 
-match(lit)  char *lit; {
+match(char *lit) {
     int k;
     blanks();
     if (k = streq(lptr, lit)) {
@@ -230,7 +230,8 @@ match(lit)  char *lit; {
     return 0;
 }
 
-streq(str1, str2)  char str1[], str2[]; {
+streq(str1, str2) char str1[], str2[]; {
+// streq(char str1[], char str2[]) {
     int k;
     k = 0;
     while (str2[k]) {
