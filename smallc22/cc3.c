@@ -23,7 +23,7 @@ opindex, opsize, *snext;
 
 /***************** lead-in functions *******************/
 
-constexpr(val) int *val; {
+constexpr(int *val) {
     int const;
     int *before, *start;
     setstage(&before, &start);
@@ -33,27 +33,32 @@ constexpr(val) int *val; {
     return const;
 }
 
-expression(con, val) int *con, *val; {
+expression(int *con, int *val) {
     int is[7];
     if (level1(is)) fetch(is);
     *con = is[TC];
     *val = is[CV];
 }
 
-test(label, parens)  int label, parens; {
+test(int label, int parens) {
     int is[7];
     int *before, *start;
-    if (parens) need("(");
+    if (parens) 
+        need("(");
     while (1) {
         setstage(&before, &start);
-        if (level1(is)) fetch(is);
-        if (match(",")) clearstage(before, start);
+        if (level1(is)) 
+            fetch(is);
+        if (match(",")) 
+            clearstage(before, start);
         else break;
     }
-    if (parens) need(")");
+    if (parens) 
+        need(")");
     if (is[TC]) {             /* constant expression */
         clearstage(before, 0);
-        if (is[CV]) return;
+        if (is[CV]) 
+            return;
         gen(JMPm, label);
         return;
     }
@@ -79,14 +84,14 @@ test(label, parens)  int label, parens; {
 /*
 ** test primary register against zero and jump if false
 */
-zerojump(oper, label, is) int oper, label, is[]; {
+zerojump(int oper, int label, int is[]) {
     clearstage(is[SA], 0);       /* purge conventional code */
     gen(oper, label);
 }
 
 /***************** precedence levels ******************/
 
-level1(is) int is[]; {
+level1(int is[]) {
     int k, is2[7], is3[2], oper, oper2;
     k = down1(level2, is);
     if (is[TC]) gen(GETw1n, is[CV]);
@@ -130,7 +135,7 @@ level1(is) int is[]; {
     return 0;
 }
 
-level2(is1)  int is1[]; {
+level2(int is1[]) {
     int is2[7], is3[7], k, flab, endlab, *before, *after;
     k = down1(level3, is1);                   /* expression 1 */
     if (match("?") == 0) return k;
