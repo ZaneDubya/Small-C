@@ -426,7 +426,7 @@ dofunction() {
 ** in type: the type of the first variable in the argument list.
 */
 doArgsTyped(int type) {
-    int id, sz, namelen;
+    int id, sz, namelen, paren;
     char *ptr;
     // get a list of all arguments. Set the name, id (Variable or Pointer),
     // type (unsigned/signed int/char), size, and 'argstk' for each. argstk is
@@ -435,6 +435,12 @@ doArgsTyped(int type) {
     // will also be on the stack.
     argstk = 0;
     while (match(")") == 0) {
+        // match opening parent for function ptr: (*arg)()
+        if (match("("))
+            paren = 1;
+        else
+            paren = 0;
+        // match * for pointer, else variable
         if (match("*")) {
             id = POINTER;
             sz = BPW;
@@ -448,7 +454,16 @@ doArgsTyped(int type) {
                 multidef(ssname);
             }
             else {
-                if (id == VARIABLE && match("[]")) {
+                if (paren && match(")")) {
+                    // unmatch paren for function ptr.
+                }
+                if (match("(")) {
+                    if (!paren || *id != POINTER) {
+                        error("not a valid function ptr, try (*...)()");
+                    }
+                    need(")");
+                }
+                else if (id == VARIABLE && match("[]")) {
                     id = POINTER;
                     sz = BPW;      /* size of pointer argument */
                 }
