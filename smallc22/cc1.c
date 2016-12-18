@@ -307,13 +307,11 @@ needsub() {
 doinclude() {
     int i; char str[30];
     blanks();       /* skip over to name */
-    if (*lptr == '"' || *lptr == '<') 
+    if (*lptr == '"' || *lptr == '<')  {
         ++lptr;
+    }
     i = 0;
-    while (lptr[i]
-        && lptr[i] != '"'
-        && lptr[i] != '>'
-        && lptr[i] != '\n') {
+    while (lptr[i] && lptr[i] != '"' && lptr[i] != '>' && lptr[i] != '\n') {
         str[i] = lptr[i];
         ++i;
     }
@@ -345,8 +343,11 @@ dodefine() {
         }
     }
     putint(macptr, cptr + NAMESIZE, 2);
-    while (white()) gch();
-    while (putmac(gch()));
+    while (white()) 
+        gch();
+    while (putmac(gch())) {
+        // place a macro, character by character
+    }
     if (macptr >= MACMAX) {
         error("macro string queue full");
         abort(ERRCODE);
@@ -369,7 +370,7 @@ putmac(char c) {
 dofunction() {
     int firstType;
     char *pGlobal;
-    /*int typedargs; */               /* declared arguments have formal types */
+    /*int typedargs; */           /* declared arguments have formal types */
     nogo = 0;                     /* enable goto statements */
     noloc = 0;                    /* enable block-local declarations */
     lastst = 0;                   /* no statement yet */
@@ -576,7 +577,9 @@ decl(int type, int arrayid, int *id, int *sz) {
     }
     if ((n = symname(ssname)) == 0)
         illname();
-    if (p && match(")"));
+    if (p && match(")")) {
+        // unmatch paren
+    }
     if (match("(")) {
         if (!p || *id != POINTER) {
             error("try (*...)()");
@@ -729,7 +732,8 @@ compound() {
             if (cptr[IDENT] == LABEL) {
                 while (cptr < cptr2) *savloc++ = *cptr++;
             }
-            else cptr = cptr2;
+            else
+                cptr = cptr2;
         }
         locptr = savloc;        /* delete local symbols */
         declared = -1;          /* may not declare variables */
@@ -827,7 +831,8 @@ doswitch() {
         gen(WORDn, *swptr++);    /* case value */
     }
     gen(WORDn, 0);
-    if (swdefault) gen(JMPm, swdefault);
+    if (swdefault)
+        gen(JMPm, swdefault);
     gen(LABm, wq[WQEXIT]);
     delwhile();
     swnext = swnex;
@@ -894,7 +899,8 @@ addlabel(def) int def;
                 cptr[TYPE] = YES;
         }
     }
-    else cptr = addsym(ssname, LABEL, def, 0, getlabel(), &locptr, LABEL);
+    else
+        cptr = addsym(ssname, LABEL, def, 0, getlabel(), &locptr, LABEL);
     return (getint(cptr + OFFSET, 2));
 }
 
@@ -950,7 +956,8 @@ doexpr(int use) {
         setstage(&before, &start);
         expression(&const, &val);
         clearstage(before, start);
-        if (ch != ',') break;
+        if (ch != ',')
+            break;
         bump(1);
     }
     usexpr = YES;        /* return to normal value */
@@ -969,23 +976,29 @@ ask() {
     alarm = monitor = pause = NO;
     line = mline;
     while (getarg(++i, line, LINESIZE, argcs, argvs) != EOF) {
-        if (line[0] != '-' && line[0] != '/') continue;
-        if (toupper(line[1]) == 'L'
-            && isdigit(line[2])
-            && line[3] <= ' ') {
+        if (line[0] != '-' && line[0] != '/')
+            continue;
+        if (toupper(line[1]) == 'L' && isdigit(line[2]) && line[3] <= ' ') {
             listfp = line[2] - '0';
             continue;
         }
-        if (toupper(line[1]) == 'N'
-            && toupper(line[2]) == 'O'
-            && line[3] <= ' ') {
+        if (toupper(line[1]) == 'N' && toupper(line[2]) == 'O' && line[3] <= ' ') {
             optimize = NO;
             continue;
         }
         if (line[2] <= ' ') {
-            if (toupper(line[1]) == 'A') { alarm = YES; continue; }
-            if (toupper(line[1]) == 'M') { monitor = YES; continue; }
-            if (toupper(line[1]) == 'P') { pause = YES; continue; }
+            if (toupper(line[1]) == 'A') {
+                alarm = YES;
+                continue;
+            }
+            if (toupper(line[1]) == 'M') {
+                monitor = YES; 
+                continue;
+            }
+            if (toupper(line[1]) == 'P') {
+                pause = YES;
+                continue;
+            }
         }
         fputs("usage: cc [file]... [-m] [-a] [-p] [-l#] [-no]\n", stderr);
         abort(ERRCODE);
@@ -1021,8 +1034,10 @@ openfile() {        /* entire function revised */
         kill();
         return;
     }
-    if (files++) eof = YES;
-    else input = stdin;
+    if (files++)
+        eof = YES;
+    else
+        input = stdin;
     kill();
 }
 
@@ -1031,7 +1046,8 @@ openfile() {        /* entire function revised */
 */
 mustopen(char *fn, char *mode) {
     int fd;
-    if (fd = fopen(fn, mode)) return fd;
+    if (fd = fopen(fn, mode))
+        return fd;
     fputs("open error on ", stderr);
     lout(fn, stderr);
     abort(ERRCODE);

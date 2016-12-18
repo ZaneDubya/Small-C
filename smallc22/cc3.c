@@ -552,26 +552,34 @@ number(int *value) {
             while (isxdigit(ch)) {
                 if (isdigit(ch))
                     k = k * 16 + (inbyte() - '0');
-                else k = k * 16 + 10 + (toupper(inbyte()) - 'A');
+                else 
+                    k = k * 16 + 10 + (toupper(inbyte()) - 'A');
             }
         }
-        else while (ch >= '0' && ch <= '7')
+        else while (ch >= '0' && ch <= '7') {
             k = k * 8 + (inbyte() - '0');
+        }
     }
-    else while (isdigit(ch)) k = k * 10 + (inbyte() - '0');
+    else while (isdigit(ch)) {
+        k = k * 10 + (inbyte() - '0');
+    }
     if (minus) {
         *value = -k;
         return (INT);
     }
-    if ((*value = k) < 0) return (UINT);
-    else                 return (INT);
+    if ((*value = k) < 0) 
+        return (UINT);
+    else
+        return (INT);
 }
 
 chrcon(int *value) {
     int k;
     k = 0;
-    if (match("'") == 0) return 0;
-    while (ch != '\'') k = (k << 8) + (litchar() & 255);
+    if (match("'") == 0) 
+        return 0;
+    while (ch != '\'') 
+        k = (k << 8) + (litchar() & 255);
     gch();
     *value = k;
     return (INT);
@@ -579,10 +587,12 @@ chrcon(int *value) {
 
 string(int *offset) {
     char c;
-    if (match("\"") == 0) return 0;
+    if (match("\"") == 0)
+        return 0;
     *offset = litptr;
     while (ch != '"') {
-        if (ch == 0) break;
+        if (ch == 0)
+            break;
         stowlit(litchar(), 1);
     }
     gch();
@@ -601,7 +611,8 @@ stowlit(int value, int size) {
 
 litchar() {
     int i, oct;
-    if (ch != '\\' || nch == 0) return gch();
+    if (ch != '\\' || nch == 0) 
+        return gch();
     gch();
     switch (ch) {
         case 'n': gch();
@@ -652,7 +663,8 @@ int tcode, dropval, endval, (*level)(), is[]; {
             is[TI] = is[TA] = is[TC] = is[CV] = is[SA] = 0;
             return 0;
         }
-        else return k;
+        else
+            return k;
     }
 }
 
@@ -674,8 +686,10 @@ down(opstr, opoff, level, is)
 char *opstr;  int opoff, (*level)(), is[]; {
     int k;
     k = down1(level, is);
-    if (nextop(opstr) == 0) return k;
-    if (k) fetch(is);
+    if (nextop(opstr) == 0)
+        return k;
+    if (k)
+        fetch(is);
     while (1) {
         if (nextop(opstr)) {
             int is2[7];     /* allocate only if needed */
@@ -706,28 +720,30 @@ int oper, oper2, (*level)(), is[], is2[]; {
     int *before, *start;
     char *ptr;
     setstage(&before, &start);
-    is[SA] = 0;                     /* not "... op 0" syntax */
-    if (is[TC]) {                    /* consant op unknown */
-        if (down1(level, is2)) fetch(is2);
-        if (is[CV] == 0) is[SA] = snext;
+    is[SA] = 0;                             /* not "... op 0" syntax */
+    if (is[TC]) {                           /* consant op unknown */
+        if (down1(level, is2))
+            fetch(is2);
+        if (is[CV] == 0)
+            is[SA] = snext;
         gen(GETw2n, is[CV] << double(oper, is2, is));
     }
-    else {                          /* variable op unknown */
-        gen(PUSH1, 0);                /* at start in the buffer */
+    else {                                  /* variable op unknown */
+        gen(PUSH1, 0);                      /* at start in the buffer */
         if (down1(level, is2)) fetch(is2);
-        if (is2[TC]) {                 /* variable op constant */
+        if (is2[TC]) {                      /* variable op constant */
             if (is2[CV] == 0) is[SA] = start;
-            csp += BPW;                 /* adjust stack and */
-            clearstage(before, 0);      /* discard the PUSH */
-            if (oper == ADD12) {         /* commutative */
+            csp += BPW;                     /* adjust stack and */
+            clearstage(before, 0);          /* discard the PUSH */
+            if (oper == ADD12) {            /* commutative */
                 gen(GETw2n, is2[CV] << double(oper, is, is2));
             }
-            else {                      /* non-commutative */
+            else {                          /* non-commutative */
                 gen(MOVE21, 0);
                 gen(GETw1n, is2[CV] << double(oper, is, is2));
             }
         }
-        else {                        /* variable op variable */
+        else {                              /* variable op variable */
             gen(POP2, 0);
             if (double(oper, is, is2)) gen(DBL1, 0);
             if (double(oper, is2, is)) gen(DBL2, 0);
