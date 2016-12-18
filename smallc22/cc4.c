@@ -393,7 +393,7 @@ trailer() {
 /*
 ** remember where we are in the queue in case we have to back up.
 */
-setstage(before, start) int *before, *start; {
+setstage(int *before, int *start) {
     if ((*before = snext) == 0)
         snext = stage;
     *start = snext;
@@ -402,21 +402,32 @@ setstage(before, start) int *before, *start; {
 /*
 ** generate code in staging buffer.
 */
-gen(pcode, value) int pcode, value; {
+gen(int pcode, int value) {
     int newcsp;
     switch (pcode) {
-    case GETb1pu:
-    case GETb1p:
-    case GETw1p: gen(MOVE21, 0); break;
-    case SUB12:
-    case MOD12:
-    case MOD12u:
-    case DIV12:
-    case DIV12u: gen(SWAP12, 0); break;
-    case PUSH1:  csp -= BPW;     break;
-    case POP2:   csp += BPW;     break;
-    case ADDSP:
-    case RETURN: newcsp = value; value -= csp; csp = newcsp;
+        case GETb1pu:
+        case GETb1p:
+        case GETw1p:
+            gen(MOVE21, 0); 
+            break;
+        case SUB12:
+        case MOD12:
+        case MOD12u:
+        case DIV12:
+        case DIV12u:
+            gen(SWAP12, 0);
+            break;
+        case PUSH1:
+            csp -= BPW;
+            break;
+        case POP2:
+            csp += BPW;
+            break;
+        case ADDSP:
+        case RETURN:
+            newcsp = value;
+            value -= csp;
+            csp = newcsp;
     }
     if (snext == 0) {
         outcode(pcode, value);
@@ -436,12 +447,13 @@ gen(pcode, value) int pcode, value; {
 ** If start = 0, throw away contents.
 ** If before != 0, don't dump queue yet.
 */
-clearstage(before, start) int *before, *start; {
+clearstage(int *before, int *start) {
     if (before) {
         snext = before;
         return;
     }
-    if (start) dumpstage();
+    if (start)
+        dumpstage();
     snext = 0;
 }
 
@@ -473,25 +485,30 @@ dumpstage() {
 ** change to a new segment
 ** may be called with NULL, CODESEG, or DATASEG
 */
-toseg(newseg) int newseg; {
-    if (oldseg == newseg)  return;
-    if (oldseg == CODESEG) outline("CODE ENDS");
-    else if (oldseg == DATASEG) outline("DATA ENDS");
+toseg(int newseg) {
+    if (oldseg == newseg)
+            return;
+    if (oldseg == CODESEG)
+        outline("CODE ENDS");
+    else if (oldseg == DATASEG)
+        outline("DATA ENDS");
     if (newseg == CODESEG) {
         outline("CODE SEGMENT PUBLIC");
         outline("ASSUME CS:CODE, SS:DATA, DS:DATA");
     }
-    else if (newseg == DATASEG) outline("DATA SEGMENT PUBLIC");
+    else if (newseg == DATASEG)
+        outline("DATA SEGMENT PUBLIC");
     oldseg = newseg;
 }
 
 /*
 ** declare entry point
 */
-public(ident) int ident; {
+public(int ident) {
     if (ident == FUNCTION)
         toseg(CODESEG);
-    else toseg(DATASEG);
+    else
+        toseg(DATASEG);
     outstr("PUBLIC ");
     outname(ssname);
     newline();
@@ -505,10 +522,11 @@ public(ident) int ident; {
 /*
 ** declare external reference
 */
-external(name, size, ident) char *name; int size, ident; {
+external(char *name, int size, int ident) {
     if (ident == FUNCTION)
         toseg(CODESEG);
-    else toseg(DATASEG);
+    else
+        toseg(DATASEG);
     outstr("EXTRN ");
     outname(name);
     colon();
@@ -519,12 +537,15 @@ external(name, size, ident) char *name; int size, ident; {
 /*
 ** output the size of the object pointed to.
 */
-outsize(size, ident) int size, ident; {
+outsize(int size, int ident) {
     if (size == 1
         && ident != POINTER
-        && ident != FUNCTION)      outstr("BYTE");
-    else if (ident != FUNCTION) outstr("WORD");
-    else                       outstr("NEAR");
+        && ident != FUNCTION)
+        outstr("BYTE");
+    else if (ident != FUNCTION)
+        outstr("WORD");
+    else
+        outstr("NEAR");
 }
 
 /*
@@ -537,14 +558,15 @@ point() {
 /*
 ** dump the literal pool
 */
-dumplits(size) int size; {
+dumplits(int size) {
     int j, k;
     k = 0;
     while (k < litptr) {
         poll(1);                     /* allow program interruption */
         if (size == 1)
             gen(BYTE_, NULL);
-        else gen(WORD_, NULL);
+        else
+            gen(WORD_, NULL);
         j = 10;
         while (j--) {
             outdec(getint(litq + k, size));
@@ -561,11 +583,12 @@ dumplits(size) int size; {
 /*
 ** dump zeroes for default initial values
 */
-dumpzero(size, count) int size, count; {
+dumpzero(int size, int count) {
     if (count > 0) {
         if (size == 1)
             gen(BYTEr0, count);
-        else gen(WORDr0, count);
+        else
+            gen(WORDr0, count);
     }
 }
 
@@ -574,19 +597,36 @@ dumpzero(size, count) int size, count; {
 /*
 ** Try to optimize sequence at snext in the staging buffer.
 */
-peep(seq) int *seq; {
+peep(int *seq) {
     int *next, *count, *pop, n, skip, tmp, reply;
     char c;
     next = snext;
     count = seq++;
     while (*seq) {
         switch (*seq) {
-        case any:   if (next < stail)       break;      return (NO);
-        case pfree: if (isfree(PRI, next))  break;      return (NO);
-        case sfree: if (isfree(SEC, next))  break;      return (NO);
-        case comm:  if (*next & COMMUTES)   break;      return (NO);
-        case _pop:  if (pop = getpop(next)) break;      return (NO);
-        default:    if (next >= stail || *next != *seq) return (NO);
+        case any:
+            if (next < stail)
+                break;
+            return (NO);
+        case pfree:
+            if (isfree(PRI, next))
+                break;
+            return (NO);
+        case sfree:
+            if (isfree(SEC, next))
+                break;
+            return (NO);
+        case comm: 
+            if (*next & COMMUTES)
+                break;
+            return (NO);
+        case _pop:
+            if (pop = getpop(next))
+                break;
+            return (NO);
+        default:
+            if (next >= stail || *next != *seq)
+                return (NO);
         }
         next += 2; ++seq;
     }
@@ -597,7 +637,8 @@ peep(seq) int *seq; {
     reply = skip = NO;
     while (*(++seq) || skip) {
         if (skip) {
-            if (*seq == 0) skip = NO;
+            if (*seq == 0)
+                skip = NO;
             continue;
         }
         if (*seq >= PCODES) {
@@ -631,7 +672,7 @@ peep(seq) int *seq; {
 ** unused by it still may not be free if the
 ** context uses the value of the expression.
 */
-isfree(reg, pp) int reg, *pp; {
+isfree(int reg, int *pp) {
     char *cp;
     while (pp < stail) {
         cp = code[*pp];
@@ -648,7 +689,7 @@ isfree(reg, pp) int reg, *pp; {
 ** NOTE: Function arguments are not popped, they are
 ** wasted with an ADDSP.
 */
-getpop(next) int *next; {
+getpop(int *next) {
     char *cp;
     int level;  level = 0;
     while (YES) {
@@ -682,7 +723,7 @@ newline() {
 /*
 ** output assembly code.
 */
-outcode(pcode, value) int pcode, value; {
+outcode(int pcode, int value) {
     int part, skip, count;
     char *cp, *back;
     part = back = 0;
@@ -724,7 +765,7 @@ outcode(pcode, value) int pcode, value; {
     }
 }
 
-outdec(number)  int number; {
+outdec(int number) {
     int k, zs;
     char c, *q, *r;
     zs = 0;
@@ -747,18 +788,17 @@ outdec(number)  int number; {
     }
 }
 
-outline(ptr)  char ptr[]; {
+outline(char ptr[]) {
     outstr(ptr);
     newline();
 }
 
-outname(ptr) char ptr[]; {
+outname(char ptr[]) {
     outstr("_");
     while (*ptr >= ' ') fputc(*ptr++, output);
 }
 
-outstr(ptr) char ptr[]; {
+outstr(char ptr[]) {
     poll(1);           /* allow program interruption */
     while (*ptr >= ' ') fputc(*ptr++, output);
 }
-
