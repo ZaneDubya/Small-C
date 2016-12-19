@@ -6,13 +6,13 @@ REM The -P switch causes the compiler to pause after reporting each error.
 REM     An ENTER (carriage return) keystroke resumes execution.
 
 ECHO === Compiling ===
-..\bin\cc  linky -a -p
+..\bin\cc  ylink -a -p
 if errorlevel 1 goto exit
-..\bin\asm linky /p
+..\bin\asm ylink /p
 if errorlevel 1 goto exit
 
 ECHO === Linking ===
-..\bin\link linky,linky,linky,..\smallc22\clib.lib
+..\bin\link ylink,ylink,ylink,..\smallc22\clib.lib
 if errorlevel 1 goto exit
 
 :exit

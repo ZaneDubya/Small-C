@@ -1,0 +1,29 @@
+YLINK is meant to be a replacement linker that can be used to create executable
+files. It is the next step in porting SmallC to the YCPU platform.
+
+Expected milestones are:
+    0.1     Read in simple "HELLO.OBJ" file.
+            Display contents.
+            Calculate and display CRC32 checksum.
+    0.2     Read in complex "CC.OBJ" file.
+            Display contents and checksum.
+    0.3     Read in library "LIBC.LIB" file.
+            Display contents and checksum.
+    0.4     Dry run of linking: Calculate all necessary offsets, etc required to
+            link and output HELLO.EXE from HELLO.OBJ and CLIBC.LIB.
+            Display all required information.
+    0.5     Able to link and output HELLO.EXE - an exact copy of HELLO.EXE as
+            linked by Microsoft Overlay Linker (link.exe).
+            Verify new copy with checksum of new and old HELLO.EXE.
+    0.6     Able to link and output CC.EXE - an exact copy of CC.EXE as linked
+            by Microsoft Overlay Linker (link.exe).
+            Verify new copy with checksum of new and old CC.EXE.
+    0.7     Able to create new library file CLIB.LIB - an exact copy of CLIB.LIB
+            that is packaged with SmallC22 (or as close as possible) from
+            included archived clib file.
+            If possible, verify new copy of checksum of new and old CLIB.LIB.
+    1.0     Release with batch file that automates creating CLIB.LIB, HELLO.EXE,
+            and CC.EXE from source.
+            If it was possible to verify new CLIB.LIB, verify new CLIB.LIB,
+            HELLO.EXE, and CC.EXE
+    1.1+    Optimizations to reduce size of output EXE files.
