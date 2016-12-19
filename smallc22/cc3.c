@@ -684,8 +684,8 @@ dropout(int k, int tcode, int exit1, int is[]) {
 /*
 ** drop to a lower level
 */
-down(opstr, opoff, level, is)
-char *opstr;  int opoff, (*level)(), is[]; {
+down(char *opstr, int opoff, int (*level)(), int is[]) {
+// char *opstr;  int opoff, (*level)(), is[]; {
     int k;
     k = down1(level, is);
     if (nextop(opstr) == 0)
@@ -706,7 +706,8 @@ char *opstr;  int opoff, (*level)(), is[]; {
 /*
 ** unary drop to a lower level
 */
-down1(level, is) int(*level)(), is[]; {
+down1(int (*level)(), int is[]) {
+// int(*level)(), is[]; {
     int k, *before, *start;
     setstage(&before, &start);
     k = (*level)(is);
@@ -717,8 +718,8 @@ down1(level, is) int(*level)(), is[]; {
 /*
 ** binary drop to a lower level
 */
-down2(oper, oper2, level, is, is2)
-int oper, oper2, (*level)(), is[], is2[]; {
+down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
+// int oper, oper2, (*level)(), is[], is2[]; {
     int *before, *start;
     char *ptr;
     setstage(&before, &start);
