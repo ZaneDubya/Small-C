@@ -8,7 +8,8 @@
 #define ERROR 0
 
 char    errParsingArgs[] = "Could not parse argument.",
-        errNoArguments[] = "Requires exactly one argument.";
+        errNoArguments[] = "Requires exactly one argument.",
+        errCouldNotOpen[] = "Could not open file: ";
 char *line;
 
 int     fdObjectFile;
@@ -18,7 +19,7 @@ main(int argc, int *argv) {
     fputs(CRIGHT1, stderr);
     allocatevars();
     if (ask(argc, argv) == ERROR) {
-        fputs(errParsingArgs, stderr);
+        return;
     }
     readFile();
     if (fdObjectFile != 0) {
@@ -34,18 +35,19 @@ ask(int argc, int *argv) {
     int i;
     if (argc != 2) {
         errout(errNoArguments);
-        return;
+        return ERROR;
     }
     getarg(1, line, LINESIZE, argc, argv);
     if(!(fdObjectFile = fopen(line, "r"))) {
-        errout(line);
+        erroutf(errCouldNotOpen, line);
+        return ERROR;
     }
     i = 1;
     /*while (getarg(i++, line, LINESIZE, argc, argv) != EOF) {
         lineout(line);
         lineout('\n');
     }*/
-	return 1;
+	return;
 }
 
 readFile() {
@@ -63,5 +65,11 @@ lineout(char *line, int fd) {
 
 errout(char *line) {
     fputs("*** Error: ", stderr); 
+    lineout(line, stderr);
+}
+
+erroutf(char *format, char *arg) {
+    fputs("*** Error: ", stderr); 
+    fprintf(stderr, format, arg);
     lineout(line, stderr);
 }
