@@ -1,17 +1,13 @@
 // YLINK - the Ypsilon Executable Linker
 // Copyright 2016 Zane Wagner. All rights reserved.
-#define VERSION "Ypsilon Executable Linker, Version 0.01\n"
-#define CRIGHT1 "Copyright 2016 Zane Wagner. All rights reserved.\n"
-#include <stdio.h>
+#include "stdio.h"
+#include "notice.h"
+#include "omformat.c"
 #define LINEMAX  127
 #define LINESIZE 128
 #define ERROR 0
 
-char    errParsingArgs[] = "Could not parse argument.",
-        errNoArguments[] = "Requires exactly one argument.",
-        errCouldNotOpen[] = "Could not open file: ";
-char *line;
-
+char    *line;
 int     fdObjectFile;
 
 main(int argc, int *argv) {
@@ -19,27 +15,34 @@ main(int argc, int *argv) {
     fputs(CRIGHT1, stderr);
     allocatevars();
     if (ask(argc, argv) == ERROR) {
-        return;
+        abort(1);
     }
     readFile();
-    if (fdObjectFile != 0) {
-        fclose(fdObjectFile);
-    }
+    cleanup();
 }
 
 allocatevars() {
-    line = calloc(LINESIZE, 1);
+    line = allocvar(LINESIZE, 1);
+}
+
+allocvar(int nItems, int itemSize) {
+    int result;
+    result = calloc(nItems, itemSize);
+    if (result == 0) {
+        errout("Could not allocate memory.");
+        abort(100);
+    }
 }
 
 ask(int argc, int *argv) {
     int i;
     if (argc != 2) {
-        errout(errNoArguments);
+        errout("Requires exactly one argument.");
         return ERROR;
     }
     getarg(1, line, LINESIZE, argc, argv);
     if(!(fdObjectFile = fopen(line, "r"))) {
-        erroutf(errCouldNotOpen, line);
+        erroutf("Could not open file: ", line);
         return ERROR;
     }
     i = 1;
@@ -50,18 +53,23 @@ ask(int argc, int *argv) {
 	return;
 }
 
+cleanup() {
+    if (fdObjectFile != 0) {
+        fclose(fdObjectFile);
+    }
+    return;
+}
+
 readFile() {
     char ch;
-    while ((ch = fgetc(fdObjectFile)) != EOF) {
+    while (!feof(fdObjectFile) &&!ferror(fdObjectFile)) {
+        ch = fgetc(fdObjectFile);
         putchar(ch);
     }
     return;
 }
 
-lineout(char *line, int fd) {
-    fputs(line, fd);
-    fputc(NEWLINE, fd);
-}
+// === Error Routines =========================================================
 
 errout(char *line) {
     fputs("*** Error: ", stderr); 
@@ -72,4 +80,9 @@ erroutf(char *format, char *arg) {
     fputs("*** Error: ", stderr); 
     fprintf(stderr, format, arg);
     lineout(line, stderr);
+}
+
+lineout(char *line, int fd) {
+    fputs(line, fd);
+    fputc(NEWLINE, fd);
 }
