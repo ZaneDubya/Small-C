@@ -164,18 +164,23 @@ ifline() {
 inline() {           /* numerous revisions */
     int k, unit;
     poll(1);           /* allow operator interruption */
-    if (input == EOF) openfile();
-    if (eof) return;
-    if ((unit = input2) == EOF) unit = input;
+    if (input == EOF)
+        openfile();
+    if (eof)
+        return;
+    if ((unit = input2) == EOF)
+        unit = input;
     if (fgets(line, LINEMAX, unit) == NULL) {
         fclose(unit);
         if (input2 != EOF)
             input2 = EOF;
-        else input = EOF;
+        else
+            input = EOF;
         *line = NULL;
     }
     else if (listfp) {
-        if (listfp == output) fputc(';', output);
+        if (listfp == output)
+            fputc(';', output);
         fputs(line, listfp);
     }
     bump(0);

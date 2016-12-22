@@ -8,7 +8,7 @@
 #define ERROR 0
 
 char    *line;
-int     fdObjectFile;
+int     input;
 
 main(int argc, int *argv) {
     fputs(VERSION, stderr);
@@ -41,7 +41,7 @@ ask(int argc, int *argv) {
         return ERROR;
     }
     getarg(1, line, LINESIZE, argc, argv);
-    if(!(fdObjectFile = fopen(line, "r"))) {
+    if(!(input = fopen(line, "r"))) {
         erroutf("Could not open file: ", line);
         return ERROR;
     }
@@ -54,8 +54,8 @@ ask(int argc, int *argv) {
 }
 
 cleanup() {
-    if (fdObjectFile != 0) {
-        fclose(fdObjectFile);
+    if (input != 0) {
+        fclose(input);
     }
     return;
 }
@@ -63,13 +63,52 @@ cleanup() {
 // === Reading OBJ Format =====================================================
 
 readFile() {
-    int length;
-    char recType;
-    while (!feof(fdObjectFile) &&!ferror(fdObjectFile)) {
-        recType = fgetc(fdObjectFile);
-        length = fgetc(fdObjectFile) + (fgetc(fdObjectFile) << 8);
-        putchar(ch);
+    unsigned int length;
+    unsigned char recType, ch;
+    while (1) {
+        recType = _read(input);
+        if (feof(input)) {
+            fputs("eof", stderr);
+            break;
+        }
+        if (ferror(input)) {
+            fputs("ferr", stderr);
+            break;
+        }
+        length = (_read(input) & 0x00ff);
+        length += (_read(input) & 0x00ff) << 8;
+        prnhexch(recType, stdout);
+        fputc(' ', stdout);
+        prnhexch(length / 256, stdout);
+        prnhexch(length & 0x00ff, stdout);
+        fputc(' ', stdout);
+        while (length-- > 0) {
+            ch = _read(input);
+            prnhexch(ch, stdout);
+        }
+        fputc(NEWLINE, stdout);
     }
+    return;
+}
+
+prnhexch(unsigned char ch, int fd) {
+    unsigned char ch0;
+    ch0 = (ch & 0xf0) >> 4;
+    if (ch0 < 10) {
+        ch0 += 48;
+    }
+    else {
+        ch0 += 55;
+    }
+    fputc(ch0, fd);
+    ch0 = (ch & 0x0f);
+    if (ch0 < 10) {
+        ch0 += 48;
+    }
+    else {
+        ch0 += 55;
+    }
+    fputc(ch0, fd);
     return;
 }
 
