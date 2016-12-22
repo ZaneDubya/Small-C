@@ -60,10 +60,14 @@ cleanup() {
     return;
 }
 
+// === Reading OBJ Format =====================================================
+
 readFile() {
-    char ch;
+    int length;
+    char recType;
     while (!feof(fdObjectFile) &&!ferror(fdObjectFile)) {
-        ch = fgetc(fdObjectFile);
+        recType = fgetc(fdObjectFile);
+        length = fgetc(fdObjectFile) + (fgetc(fdObjectFile) << 8);
         putchar(ch);
     }
     return;
