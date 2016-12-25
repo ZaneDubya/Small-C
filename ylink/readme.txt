@@ -4,11 +4,10 @@ files. It is the next step in porting SmallC to the YCPU platform.
 Expected milestones are:
     0.1     Read in simple "HELLO.OBJ" file.
             Display contents.
-            Calculate and display CRC32 checksum.
     0.2     Read in complex "CC.OBJ" file.
-            Display contents and checksum.
+            Display contents.
     0.3     Read in library "LIBC.LIB" file.
-            Display contents and checksum.
+            Display contents.
     0.4     Dry run of linking: Calculate all necessary offsets, etc required to
             link and output HELLO.EXE from HELLO.OBJ and CLIBC.LIB.
             Display all required information.
