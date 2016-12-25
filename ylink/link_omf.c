@@ -1,5 +1,6 @@
 // Definitions for the various Object Module Formats
 #include "stdio.h"
+#include "link.h"
 
 #define THEADR 0x80
 #define MODEND 0x8A
@@ -13,7 +14,7 @@
 char twotabs[] = "\n        ";
 extern char *line;
 
-do_record(unsigned char recType, unsigned int length, unsigned int fd) {
+do_record(byte recType, uint length, uint fd) {
     prnhexch(recType, stdout);
     fputc(' ', stdout);
     prnhexch(length / 256, stdout);
@@ -25,7 +26,6 @@ do_record(unsigned char recType, unsigned int length, unsigned int fd) {
             break;
         case MODEND:
             do_modend(length, fd);
-            clearrecord(length, fd);
             break;
         case EXTDEF:
             do_extdef(length, fd);
@@ -41,7 +41,6 @@ do_record(unsigned char recType, unsigned int length, unsigned int fd) {
             break;
         case FIXUPP:
             do_fixupp(length, fd);
-            clearrecord(length, fd);
             break;
         case LEDATA:
             do_ledata(length, fd);
@@ -55,9 +54,9 @@ do_record(unsigned char recType, unsigned int length, unsigned int fd) {
     fputc(NEWLINE, stdout);
 }
 
-clearrecord(unsigned int length, unsigned int fd) {
+clearrecord(uint length, uint fd) {
     while (length-- > 0) {
-        unsigned char ch;
+        byte ch;
         ch = read_u8(fd);
         prnhexch(ch, stdout);
     }
@@ -74,9 +73,8 @@ clearrecord(unsigned int length, unsigned int fd) {
 // 82H is handled identically, but indicates the name of a module within a
 // library file, which has an internal organization different from that of an
 // object module.
-do_theadr(unsigned int length, unsigned int fd) {
+do_theadr(uint length, uint fd) {
     fputs("THEADR ", stdout);
-    fputs(twotabs, stdout);
     read_strp(line, fd);
     fputs(line, stdout);
     read_u8(fd); // checksum. assume correct.
@@ -87,8 +85,19 @@ do_theadr(unsigned int length, unsigned int fd) {
 // The MODEND record denotes the end of an object module. It also indicates
 // whether the object module contains the main routine in a program, and it
 // can optionally contain a reference to a program's entry point.
-do_modend(unsigned int length, unsigned int fd) {
+do_modend(uint length, uint fd) {
+    byte moduletype;
     fputs("MODEND ", stdout);
+    moduletype = read_u8(fd); // format is MS0....1
+    if (moduletype & 0x80) {
+        fputs("Main ", stdout);
+        abort(1);
+    }
+    if (moduletype & 0x40) {
+        fputs("Start ", stdout);
+        abort(1);
+    }
+    read_u8(fd); // checksum. assume correct.
     return;
 }
 
@@ -97,8 +106,8 @@ do_modend(unsigned int length, unsigned int fd) {
 // references to symbols defined in other object modules. The linker resolves
 // external references by matching the symbols declared in EXTDEF records
 // with symbols declared in PUBDEF records.
-do_extdef(unsigned int length, unsigned int fd) {
-    unsigned char deftype;
+do_extdef(uint length, uint fd) {
+    byte deftype;
     fputs("EXTDEF ", stdout);
     while (length > 1) {
         length -= read_strpre(line, fd) + 1;
@@ -119,9 +128,9 @@ do_extdef(unsigned int length, unsigned int fd) {
 // in this object module available to satisfy external references in other
 // modules with which it is bound or linked. The symbols are also available
 // for export if so indicated in an EXPDEF comment record.
-do_pubdef(unsigned int length, unsigned int fd) {
-    unsigned char basegroup, basesegment, typeindex;
-    unsigned int puboffset;
+do_pubdef(uint length, uint fd) {
+    byte basegroup, basesegment, typeindex;
+    uint puboffset;
     fputs("PUBDEF ", stdout);
     // BaseGroup and BaseSegment fields contain indexes specifying previously
     // defined SEGDEF and GRPDEF records.  The group index may be 0, meaning
@@ -139,8 +148,8 @@ do_pubdef(unsigned int length, unsigned int fd) {
     basesegment = read_u8(fd);
     fputs(" BaseSegment=", stdout);
     prnhexch(basesegment, stdout);
-    if (basesegment != 1) {
-        fputs(" Error: Must be 1.", stdout);
+    if (basesegment == 0) {
+        fputs(" Error: Must be nonzero.", stdout);
         abort(1);
     }
     length -= 2;
@@ -163,9 +172,14 @@ do_pubdef(unsigned int length, unsigned int fd) {
 }
 
 // 96H LNAMES List of Names Record
-do_lnames(unsigned int length, unsigned int fd) {
+// The LNAMES record is a list of names that can be referenced by subsequent
+// SEGDEF and GRPDEF records in the object module. The names are ordered by
+// occurrence and referenced by index from subsequent records.  More than one
+// LNAMES record may appear.  The names themselves are used as segment, class,
+// group, overlay, and selector names.
+
+do_lnames(uint length, uint fd) {
     fputs("LNAMES ", stdout);
-    fputs(twotabs, stdout);
     while (length > 1) {
         length -= read_strpre(line, fd);
         fputc('"', stdout);
@@ -183,9 +197,9 @@ do_lnames(unsigned int length, unsigned int fd) {
 // Object records that follow a SEGDEF record can refer to it to identify a
 // particular segment.  The SEGDEF records are ordered by occurrence, and are
 // referenced by segment indexes (starting from 1) in subsequent records.
-do_segdef(unsigned int length, unsigned int fd) {
-    unsigned char segattr, segname, classname, overlayname;
-    unsigned int seglength;
+do_segdef(uint length, uint fd) {
+    byte segattr, segname, classname, overlayname;
+    uint seglength;
     fputs("SEGDEF ", stdout);
     // segment attribute
     segattr = read_u8(fd);
@@ -224,15 +238,82 @@ do_segdef(unsigned int length, unsigned int fd) {
 }
 
 // 9CH FIXUPP Fixup Record
-do_fixupp(unsigned int length, unsigned int fd) {
+// The FIXUPP record contains information that allows the linker to resolve
+// (fix up) and eventually relocate references between object modules. FIXUPP
+// records describe the LOCATION of each address value to be fixed up, the
+// TARGET address to which the fixup refers, and the FRAME relative to which
+// the address computation is performed.
+// Each subrecord in a FIXUPP object record either defines a thread for
+// subsequent use, or refers to a data location in the nearest previous LEDATA
+// or LIDATA record. The high-order bit of the subrecord determines the
+// subrecord type: if the high-order bit is 0, the subrecord is a THREAD
+// subrecord; if the high-order bit is 1, the subrecord is a FIXUP subrecord.
+// Subrecords of different types can be mixed within one object record.
+// Information that determines how to resolve a reference can be specified
+// explicitly in a FIXUP subrecord, or it can be specified within a FIXUP
+// subrecord by a reference to a previous THREAD subrecord. A THREAD subrecord
+// describes only the method to be used by the linker to refer to a particular
+// target or frame. Because the same THREAD subrecord can be referenced in
+// several subsequent FIXUP subrecords, a FIXUPP object record that uses THREAD
+// subrecords may be smaller than one in which THREAD subrecords are not used.
+do_fixupp(uint length, uint fd) {
+    uint dataOffset, targetOffset;
+    byte fixup, fixdata, frame, target;
+    byte relativeMode; // 1 == segment relative, 0 == self relative.
+    byte location; 
     fputs("FIXUPP ", stdout);
+    while (length > 1) {
+        fputs(twotabs, stdout);
+        length -= 3;
+        fixup = read_u8(fd);
+        fputs("Fixup=", stdout);
+        prnhexch(fixup, stdout);
+        if ((fixup & 0x80) == 0) {
+            fputs("Error: must be fixup, not thread.", stdout);
+            abort(1);
+        }
+        relativeMode = (fixup & 0x40) != 0;
+        location = (fixup & 0x3c) >> 2;
+        dataOffset = read_u8(fd) + ((fixup & 0x03) << 8);
+        fixdata = read_u8(fd); // Format is FfffTPtt
+        fputc(' ', stdout);
+        prnhexch(fixdata, stdout);
+        if ((fixdata & 0x80) != 0) {
+            frame = (fixdata & 0x70) >> 4;
+        }
+        else {
+            frame = read_u8(fd);
+            length -= 1;
+            fputc(' ', stdout);
+            prnhexch(frame, stdout);
+        }
+        if ((fixdata & 0x08) != 0) {
+            fputs(" Error: target threads not handled (", stdout);
+            prnhexch(fixdata, stdout);
+            fputc(')', stdout);
+            abort(1);
+        }
+        else {
+            target = read_u8(fd);
+            length -= 1;
+            fputc(' ', stdout);
+            prnhexch(target, stdout);
+        }
+        if ((fixdata & 0x04) == 0) {
+            targetOffset = read_u16(fd);
+            length -= 2;
+            fputc(' ', stdout);
+            prnhexint(targetOffset, stdout);
+        }
+    }
+    read_u8(fd); // checksum. assume correct.
     return;
 }
 
 // A0H  LEDATA Logical Enumerated Data Record
-do_ledata(unsigned int length, unsigned int fd) {
-    unsigned char segindex;
-    unsigned int dataoffset;
+do_ledata(uint length, uint fd) {
+    byte segindex;
+    uint dataoffset;
     fputs("LEDATA ", stdout);
     // Segment Index
     segindex = read_u8(fd);
