@@ -2,23 +2,22 @@
 // Copyright 2016 Zane Wagner. All rights reserved.
 #include "stdio.h"
 #include "notice.h"
-#include "omformat.c"
 #define LINEMAX  127
 #define LINESIZE 128
-#define ERROR 0
+#define ERROR 0xFFFF
 
 char    *line;
-int     input;
 
 main(int argc, int *argv) {
+    int fd;
     fputs(VERSION, stderr);
     fputs(CRIGHT1, stderr);
     allocatevars();
-    if (ask(argc, argv) == ERROR) {
+    if ((fd = ask(argc, argv)) == ERROR) {
         abort(1);
     }
-    readFile();
-    cleanup();
+    readFile(fd);
+    cleanup(fd);
 }
 
 allocatevars() {
@@ -35,7 +34,7 @@ allocvar(int nItems, int itemSize) {
 }
 
 ask(int argc, int *argv) {
-    int i;
+    int input;
     if (argc != 2) {
         errout("Requires exactly one argument.");
         return ERROR;
@@ -45,55 +44,46 @@ ask(int argc, int *argv) {
         erroutf("Could not open file: ", line);
         return ERROR;
     }
-    i = 1;
-    /*while (getarg(i++, line, LINESIZE, argc, argv) != EOF) {
-        lineout(line);
-        lineout('\n');
-    }*/
-	return;
+	return input;
 }
 
-cleanup() {
-    if (input != 0) {
-        fclose(input);
+cleanup(unsigned int fd) {
+    if (fd != 0) {
+        fclose(fd);
     }
     return;
 }
 
 // === Reading OBJ Format =====================================================
 
-readFile() {
+readFile(unsigned int fd) {
+    unsigned char recType;
     unsigned int length;
-    unsigned char recType, ch;
     while (1) {
-        recType = _read(input);
-        if (feof(input)) {
+        recType = read_u8(fd);
+        if (feof(fd)) {
             fputs("eof", stderr);
             break;
         }
-        if (ferror(input)) {
+        if (ferror(fd)) {
             fputs("ferr", stderr);
             break;
         }
-        length = (_read(input) & 0x00ff);
-        length += (_read(input) & 0x00ff) << 8;
-        prnhexch(recType, stdout);
-        fputc(' ', stdout);
-        prnhexch(length / 256, stdout);
-        prnhexch(length & 0x00ff, stdout);
-        fputc(' ', stdout);
-        while (length-- > 0) {
-            ch = _read(input);
-            prnhexch(ch, stdout);
-        }
-        fputc(NEWLINE, stdout);
+        length = read_u16(fd);
+        do_record(recType, length, fd);
     }
     return;
 }
 
-prnhexch(unsigned char ch, int fd) {
+prnhexint(unsigned int value, unsigned int fd) {
+    prnhexch(value >> 8, fd);
+    prnhexch(value & 0x00ff, fd);
+    return;
+}
+
+prnhexch(unsigned char value, unsigned int fd) {
     unsigned char ch0;
-    ch0 = (ch & 0xf0) >> 4;
+    ch0 = (value & 0xf0) >> 4;
     if (ch0 < 10) {
         ch0 += 48;
     }
@@ -101,7 +91,7 @@ prnhexch(unsigned char ch, int fd) {
         ch0 += 55;
     }
     fputc(ch0, fd);
-    ch0 = (ch & 0x0f);
+    ch0 = (value & 0x0f);
     if (ch0 < 10) {
         ch0 += 48;
     }
@@ -110,6 +100,34 @@ prnhexch(unsigned char ch, int fd) {
     }
     fputc(ch0, fd);
     return;
+}
+
+// === Binary Reading Routines ================================================
+read_u8(unsigned int fd) {
+    unsigned char ch;
+    ch = _read(fd);
+    return ch;
+}
+
+read_u16(unsigned int fd) {
+    unsigned int i;
+    i = (_read(fd) & 0x00ff);
+    i += (_read(fd) & 0x00ff) << 8;
+    return i;
+}
+
+// read string that is prefixed by length.
+read_strpre(char* str, unsigned int fd) {
+    unsigned char length, retval;
+    char* next;
+    next = str;
+    retval = length = read_u8(fd);
+    while (length > 0) {
+        *next++ = read_u8(fd);
+        length--;
+    }
+    *next++ = NULL;
+    return retval + 1;
 }
 
 // === Error Routines =========================================================
@@ -125,7 +143,7 @@ erroutf(char *format, char *arg) {
     lineout(line, stderr);
 }
 
-lineout(char *line, int fd) {
+lineout(char *line, unsigned int fd) {
     fputs(line, fd);
     fputc(NEWLINE, fd);
 }

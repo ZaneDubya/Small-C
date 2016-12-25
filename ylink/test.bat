@@ -1,0 +1,1 @@
+link ..\hello\hello.obj
