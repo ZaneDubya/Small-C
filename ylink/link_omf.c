@@ -11,15 +11,15 @@
 #define FIXUPP 0x9C
 #define LEDATA 0xA0
 
-char twotabs[] = "\n        ";
+char twotabs[] = "\n    ";
 extern char *line;
 
 do_record(byte recType, uint length, uint fd) {
     prnhexch(recType, stdout);
-    fputc(' ', stdout);
-    prnhexch(length / 256, stdout);
+    fputs("  ", stdout);
+    /* prnhexch(length / 256, stdout);
     prnhexch(length & 0x00ff, stdout);
-    fputc(' ', stdout);
+    fputc(' ', stdout); */
     switch (recType) {
         case THEADR:
             do_theadr(length, fd);
@@ -74,9 +74,8 @@ clearrecord(uint length, uint fd) {
 // library file, which has an internal organization different from that of an
 // object module.
 do_theadr(uint length, uint fd) {
-    fputs("THEADR ", stdout);
     read_strp(line, fd);
-    fputs(line, stdout);
+    printf("THEADR %s", line);
     read_u8(fd); // checksum. assume correct.
     return;
 }
@@ -217,22 +216,12 @@ do_segdef(uint length, uint fd) {
     if ((segattr & 0x01) != 0x00) {
         fputs("Attribute must be 16-bit addressing (flag 0x01).", stdout);
     }
-    // segment length
     seglength = read_u16(fd);
-    fputs("Length=", stdout);
-    prnhexint(seglength, stdout);
-    // name index
     segname = read_u8(fd);
-    fputs(" Name=", stdout);
-    prnhexch(segname, stdout);
-    // class name
     classname = read_u8(fd);
-    fputs(" Class=", stdout);
-    prnhexch(classname, stdout);
-    // overlay name
     overlayname = read_u8(fd);
-    fputs(" Overlay=", stdout);
-    prnhexch(overlayname, stdout);
+    printf("Length=%u Name=%u Class=%u Overlay=%u", 
+        seglength, segname, classname, overlayname);
     read_u8(fd); // checksum. assume correct.
     return;
 }
