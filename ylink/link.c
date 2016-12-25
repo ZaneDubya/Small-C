@@ -2,6 +2,7 @@
 // Copyright 2016 Zane Wagner. All rights reserved.
 #include "stdio.h"
 #include "notice.h"
+#include "link.h"
 #define LINEMAX  127
 #define LINESIZE 128
 #define ERROR 0xFFFF
@@ -9,7 +10,7 @@
 char    *line;
 
 main(int argc, int *argv) {
-    unsigned int fd;
+    uint fd;
     fputs(VERSION, stderr);
     fputs(CRIGHT1, stderr);
     allocatevars();
@@ -47,7 +48,7 @@ ask(int argc, int *argv) {
 	return input;
 }
 
-cleanup(unsigned int fd) {
+cleanup(uint fd) {
     if (fd != 0) {
         fclose(fd);
     }
@@ -56,9 +57,9 @@ cleanup(unsigned int fd) {
 
 // === Reading OBJ Format =====================================================
 
-readFile(unsigned int fd) {
-    unsigned char recType;
-    unsigned int length;
+readFile(uint fd) {
+    byte recType;
+    uint length;
     while (1) {
         recType = read_u8(fd);
         if (feof(fd)) {
@@ -75,14 +76,14 @@ readFile(unsigned int fd) {
     return;
 }
 
-prnhexint(unsigned int value, unsigned int fd) {
+prnhexint(uint value, uint fd) {
     prnhexch(value >> 8, fd);
     prnhexch(value & 0x00ff, fd);
     return;
 }
 
-prnhexch(unsigned char value, unsigned int fd) {
-    unsigned char ch0;
+prnhexch(byte value, uint fd) {
+    byte ch0;
     ch0 = (value & 0xf0) >> 4;
     if (ch0 < 10) {
         ch0 += 48;
@@ -103,22 +104,22 @@ prnhexch(unsigned char value, unsigned int fd) {
 }
 
 // === Binary Reading Routines ================================================
-read_u8(unsigned int fd) {
-    unsigned char ch;
+read_u8(uint fd) {
+    byte ch;
     ch = _read(fd);
     return ch;
 }
 
-read_u16(unsigned int fd) {
-    unsigned int i;
+read_u16(uint fd) {
+    uint i;
     i = (_read(fd) & 0x00ff);
     i += (_read(fd) & 0x00ff) << 8;
     return i;
 }
 
 // read string that is prefixed by length.
-read_strpre(char* str, unsigned int fd) {
-    unsigned char length, retval;
+read_strpre(char* str, uint fd) {
+    byte length, retval;
     char* next;
     next = str;
     retval = length = read_u8(fd);
@@ -143,7 +144,7 @@ erroutf(char *format, char *arg) {
     lineout(line, stderr);
 }
 
-lineout(char *line, unsigned int fd) {
+lineout(char *line, uint fd) {
     fputs(line, fd);
     fputc(NEWLINE, fd);
 }
