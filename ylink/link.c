@@ -9,7 +9,7 @@
 char    *line;
 
 main(int argc, int *argv) {
-    int fd;
+    unsigned int fd;
     fputs(VERSION, stderr);
     fputs(CRIGHT1, stderr);
     allocatevars();

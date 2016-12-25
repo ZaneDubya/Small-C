@@ -13,7 +13,7 @@
 char twotabs[] = "\n        ";
 extern char *line;
 
-do_record(unsigned char recType, unsigned int length, int fd) {
+do_record(unsigned char recType, unsigned int length, unsigned int fd) {
     prnhexch(recType, stdout);
     fputc(' ', stdout);
     prnhexch(length / 256, stdout);
@@ -29,11 +29,9 @@ do_record(unsigned char recType, unsigned int length, int fd) {
             break;
         case EXTDEF:
             do_extdef(length, fd);
-            clearrecord(length, fd);
             break;
         case PUBDEF:
             do_pubdef(length, fd);
-            clearrecord(length, fd);
             break;
         case LNAMES:
             do_lnames(length, fd);
@@ -47,7 +45,6 @@ do_record(unsigned char recType, unsigned int length, int fd) {
             break;
         case LEDATA:
             do_ledata(length, fd);
-            clearrecord(length, fd);
             break;
         default:
             fputs("UNKNOWN ", stdout);
@@ -58,7 +55,7 @@ do_record(unsigned char recType, unsigned int length, int fd) {
     fputc(NEWLINE, stdout);
 }
 
-clearrecord(unsigned int length, int fd) {
+clearrecord(unsigned int length, unsigned int fd) {
     while (length-- > 0) {
         unsigned char ch;
         ch = read_u8(fd);
@@ -77,7 +74,7 @@ clearrecord(unsigned int length, int fd) {
 // 82H is handled identically, but indicates the name of a module within a
 // library file, which has an internal organization different from that of an
 // object module.
-do_theadr(unsigned int length, int fd) {
+do_theadr(unsigned int length, unsigned int fd) {
     fputs("THEADR ", stdout);
     fputs(twotabs, stdout);
     read_strp(line, fd);
@@ -90,20 +87,78 @@ do_theadr(unsigned int length, int fd) {
 // The MODEND record denotes the end of an object module. It also indicates
 // whether the object module contains the main routine in a program, and it
 // can optionally contain a reference to a program's entry point.
-do_modend(unsigned int length, int fd) {
+do_modend(unsigned int length, unsigned int fd) {
     fputs("MODEND ", stdout);
     return;
 }
 
 // 8CH EXTDEF External Names Definition Record
-do_extdef(unsigned int length, int fd) {
+// The EXTDEF record contains a list of symbolic external references—that is,
+// references to symbols defined in other object modules. The linker resolves
+// external references by matching the symbols declared in EXTDEF records
+// with symbols declared in PUBDEF records.
+do_extdef(unsigned int length, unsigned int fd) {
+    unsigned char deftype;
     fputs("EXTDEF ", stdout);
+    while (length > 1) {
+        length -= read_strpre(line, fd) + 1;
+        fputs(line, stdout);
+        deftype = read_u8(fd);
+        if (deftype != 0) {
+            fputs("Error: Type is not 0. ", stdout);
+            abort(1);
+        }
+        fputs(", ", stdout);
+    }
+    read_u8(fd); // checksum. assume correct.
     return;
 }
 
 // 90H PUBDEF Public Names Definition Record
-do_pubdef(unsigned int length, int fd) {
+// The PUBDEF record contains a list of public names.  It makes items defined
+// in this object module available to satisfy external references in other
+// modules with which it is bound or linked. The symbols are also available
+// for export if so indicated in an EXPDEF comment record.
+do_pubdef(unsigned int length, unsigned int fd) {
+    unsigned char basegroup, basesegment, typeindex;
+    unsigned int puboffset;
     fputs("PUBDEF ", stdout);
+    // BaseGroup and BaseSegment fields contain indexes specifying previously
+    // defined SEGDEF and GRPDEF records.  The group index may be 0, meaning
+    // that no group is associated with this PUBDEF record.
+    // BaseFrame field is present only if BaseSegment field is 0, but the
+    // contents of BaseFrame field are ignored.
+    // BaseSegment idx is normally nonzero and no BaseFrame field is present.
+    basegroup = read_u8(fd);
+    fputs("BaseGroup=", stdout);
+    prnhexch(basegroup, stdout);
+    if (basegroup != 0) {
+        fputs(" Error: Must be 0.", stdout);
+        abort(1);
+    }
+    basesegment = read_u8(fd);
+    fputs(" BaseSegment=", stdout);
+    prnhexch(basesegment, stdout);
+    if (basesegment != 1) {
+        fputs(" Error: Must be 1.", stdout);
+        abort(1);
+    }
+    length -= 2;
+    fputs(twotabs, stdout);
+    while (length > 1) {
+        length -= read_strpre(line, fd) + 3;
+        fputs(line, stdout);
+        puboffset = read_u16(fd);
+        fputc('@', stdout);
+        prnhexint(puboffset, stdout);
+        typeindex = read_u8(fd);
+        if (typeindex != 0) {
+            fputs("Error: Type is not 0. ", stdout);
+            abort(1);
+        }
+        fputs(", ", stdout);
+    }
+    read_u8(fd); // checksum. assume correct.
     return;
 }
 
@@ -128,7 +183,7 @@ do_lnames(unsigned int length, unsigned int fd) {
 // Object records that follow a SEGDEF record can refer to it to identify a
 // particular segment.  The SEGDEF records are ordered by occurrence, and are
 // referenced by segment indexes (starting from 1) in subsequent records.
-do_segdef(unsigned int length, int fd) {
+do_segdef(unsigned int length, unsigned int fd) {
     unsigned char segattr, segname, classname, overlayname;
     unsigned int seglength;
     fputs("SEGDEF ", stdout);
@@ -146,7 +201,7 @@ do_segdef(unsigned int length, int fd) {
         fputs("Attribute may not be big (flag 0x02).", stdout);
     }
     if ((segattr & 0x01) != 0x00) {
-        fputs("Attribute must be 16-bit addressing.", stdout);
+        fputs("Attribute must be 16-bit addressing (flag 0x01).", stdout);
     }
     // segment length
     seglength = read_u16(fd);
@@ -169,13 +224,28 @@ do_segdef(unsigned int length, int fd) {
 }
 
 // 9CH FIXUPP Fixup Record
-do_fixupp(unsigned int length, int fd) {
+do_fixupp(unsigned int length, unsigned int fd) {
     fputs("FIXUPP ", stdout);
     return;
 }
 
 // A0H  LEDATA Logical Enumerated Data Record
-do_ledata(unsigned int length, int fd) {
+do_ledata(unsigned int length, unsigned int fd) {
+    unsigned char segindex;
+    unsigned int dataoffset;
     fputs("LEDATA ", stdout);
+    // Segment Index
+    segindex = read_u8(fd);
+    fputs("SegIndex=", stdout);
+    prnhexch(segindex, stdout);
+    // Data Offset
+    dataoffset = read_u16(fd);
+    fputs(" DataOffset=", stdout);
+    prnhexint(dataoffset, stdout);
+    // Data bytes
+    fputs(twotabs, stdout);
+    length -= 4;
+    clearrecord(length, fd);
+    read_u8(fd); // checksum. assume correct.
     return;
 }
