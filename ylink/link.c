@@ -30,7 +30,7 @@ allocvar(int nItems, int itemSize) {
     result = calloc(nItems, itemSize);
     if (result == 0) {
         errout("Could not allocate memory.");
-        abort(100);
+        abort(1);
     }
 }
 

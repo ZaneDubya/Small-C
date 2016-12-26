@@ -3,6 +3,7 @@
 #include "link.h"
 
 #define THEADR 0x80
+#define COMMNT 0x88
 #define MODEND 0x8A
 #define EXTDEF 0x8C
 #define PUBDEF 0x90
@@ -10,9 +11,13 @@
 #define SEGDEF 0x98
 #define FIXUPP 0x9C
 #define LEDATA 0xA0
+#define LIDATA 0xA2
+#define LIBHDR 0xF0
 
 char twotabs[] = "\n    ";
 extern char *line;
+byte isLibrary = 0;
+uint libDictOffset[2],  libDictSize;
 
 do_record(byte recType, uint length, uint fd) {
     prnhexch(recType, stdout);
@@ -24,8 +29,16 @@ do_record(byte recType, uint length, uint fd) {
         case THEADR:
             do_theadr(length, fd);
             break;
+        case COMMNT:
+            do_commnt(length, fd);
+            break;
         case MODEND:
             do_modend(length, fd);
+            if (isLibrary) {
+                printf("Library file: advancing to dictionary at %u %u",
+                    libDictOffset[0], libDictOffset[1]);
+                bseek(fd, libDictOffset, 0);
+            }
             break;
         case EXTDEF:
             do_extdef(length, fd);
@@ -45,8 +58,14 @@ do_record(byte recType, uint length, uint fd) {
         case LEDATA:
             do_ledata(length, fd);
             break;
+        case LIDATA:
+            do_lidata(length, fd);
+            break;
+        case LIBHDR:
+            do_libhdr(length, fd);
+            break;
         default:
-            fputs("UNKNOWN ", stdout);
+            fputs("UNKNWN ", stdout);
             fgetc(stdin);
             clearrecord(length, fd);
             break;
@@ -59,6 +78,7 @@ clearrecord(uint length, uint fd) {
         byte ch;
         ch = read_u8(fd);
         prnhexch(ch, stdout);
+        fgetc(stdin);
     }
 }
 
@@ -76,6 +96,41 @@ clearrecord(uint length, uint fd) {
 do_theadr(uint length, uint fd) {
     read_strp(line, fd);
     printf("THEADR %s", line);
+    read_u8(fd); // checksum. assume correct.
+    return;
+}
+
+// A2H LIDATA Logical Iterated Data Record
+// Like the LEDATA record, the LIDATA record contains binary data—executable
+// code or program data. The data in an LIDATA record, however, is specified
+// as a repeating pattern (iterated), rather than by explicit enumeration.
+// The data in an LIDATA record can be modified by the linker if the LIDATA
+// record is followed by a FIXUPP record, although this is not recommended.
+do_lidata(uint length, uint fd) {
+    fputs("LIDATA ", stdout);
+    prnhexint(length, stdout);
+    while (length-- > 0) {
+        read_u8(fd);
+    }
+    return;
+}
+
+// 88H COMMNT Comment Record.
+do_commnt(uint length, uint fd) {
+    byte commtype, commclass;
+    fputs("COMMNT ", stdout);
+    commtype = read_u8(fd);
+    commclass = read_u8(fd);
+    switch (commclass) {
+        case 0xA3:
+            read_strp(line, fd);
+            printf("LIBMOD=%s", line);
+            break;
+        default:
+            fputs("(UNKNOWN TYPE)", stdout);
+            clearrecord(length - 3, fd);
+            break;
+    }
     read_u8(fd); // checksum. assume correct.
     return;
 }
@@ -106,10 +161,17 @@ do_modend(uint length, uint fd) {
 // external references by matching the symbols declared in EXTDEF records
 // with symbols declared in PUBDEF records.
 do_extdef(uint length, uint fd) {
-    byte deftype;
+    byte deftype, linelength, strlength;
     fputs("EXTDEF ", stdout);
+    linelength = 11;
     while (length > 1) {
-        length -= read_strpre(line, fd) + 1;
+        strlength = read_strpre(line, fd);
+        length -= strlength + 1;
+        if (linelength + strlength + 1 >= 80) {
+            fputs(twotabs, stdout);
+            linelength = 4;
+        }
+        linelength += strlength + 1;
         fputs(line, stdout);
         deftype = read_u8(fd);
         if (deftype != 0) {
@@ -277,9 +339,7 @@ do_fixupp(uint length, uint fd) {
             prnhexch(frame, stdout);
         }
         if ((fixdata & 0x08) != 0) {
-            fputs(" Error: target threads not handled (", stdout);
-            prnhexch(fixdata, stdout);
-            fputc(')', stdout);
+            printf(" Error: target threads not handled (%x)", fixdata);
             abort(1);
         }
         else {
@@ -304,18 +364,34 @@ do_ledata(uint length, uint fd) {
     byte segindex;
     uint dataoffset;
     fputs("LEDATA ", stdout);
-    // Segment Index
     segindex = read_u8(fd);
-    fputs("SegIndex=", stdout);
-    prnhexch(segindex, stdout);
-    // Data Offset
     dataoffset = read_u16(fd);
-    fputs(" DataOffset=", stdout);
-    prnhexint(dataoffset, stdout);
+    printf("SegIndex=%u DataOffset=%u", segindex, dataoffset);
     // Data bytes
-    fputs(twotabs, stdout);
+    // fputs(twotabs, stdout);
     length -= 4;
-    clearrecord(length, fd);
+    while (length-- > 0) {
+        read_u8(fd);
+    }
     read_u8(fd); // checksum. assume correct.
+    return;
+}
+
+// F0H  LIBHDR Library Header Record
+do_libhdr(uint length, uint fd) {
+    byte flags;
+    fputs("LIBHDR ", stdout);
+    libDictOffset[0] = read_u16(fd);
+    libDictOffset[1] = read_u16(fd);
+    libDictSize = read_u16(fd);
+    flags = read_u8(fd);
+    printf("DictOffset=%u+(%ux2^16) DictSize=%u Flags=%x ", 
+        libDictOffset[0], libDictOffset[1], libDictSize, flags);
+    length -= 8;
+    while (length-- > 0) {
+        read_u8(fd);
+    }
+    read_u8(fd); // checksum. assume correct.
+    isLibrary = 1;
     return;
 }
