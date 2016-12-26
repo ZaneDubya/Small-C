@@ -35,9 +35,7 @@ do_record(byte recType, uint length, uint fd) {
         case MODEND:
             do_modend(length, fd);
             if (isLibrary) {
-                printf("Library file: advancing to dictionary at %u %u",
-                    libDictOffset[0], libDictOffset[1]);
-                bseek(fd, libDictOffset, 0);
+                do_library(fd);
             }
             break;
         case EXTDEF:
@@ -391,7 +389,38 @@ do_libhdr(uint length, uint fd) {
     while (length-- > 0) {
         read_u8(fd);
     }
+    fgetc(stdin);
     read_u8(fd); // checksum. assume correct.
     isLibrary = 1;
     return;
+}
+
+//   The remaining blocks in the library compose the dictionary. The number of
+// blocks in the dictionary is given in the library header. The dictionary
+// provides rapid searching for a name using a two-level hashing scheme. The
+// number of ductionary blocks must be a prime number, each block containing
+// exactly 37 dictionary indexes. A block is 512 bytes long. The first 37 bytes
+// are indexes to block entries (multiply value by 2 to get offset to entry). 
+// Byte 38 is an index to empty space in the block (multiply value by 2 to get
+// offset to the next available space. If byte 38 is 255 the block is full.
+//   Each entry is a length-prefixed string, followed by a two-byte LE mdoule 
+// number in which the module in the library defining this string can be found.
+do_library(uint fd) {
+    byte offsets[38];
+    uint iBlock, iEntry;
+    uint blockOffset[2];
+    printf("Library: dictionary at %u %u", libDictOffset[0], libDictOffset[1]);
+    for (iBlock = 0; iBlock < libDictSize; iBlock++) {
+        printf("\nLibrary Block %u ", iBlock);
+        // advance to the dictionary block
+        blockOffset[0] = iBlock * 512;
+        blockOffset[1] = 0;
+        bseek(fd, libDictOffset, 0);
+        bseek(fd, blockOffset, 1);
+        read(fd, offsets, 38);
+        for (iEntry = 0; iEntry < 38; iEntry++) {
+            prnhexch(offsets[iEntry], stdout);
+        }
+    }
+    abort(1);
 }
