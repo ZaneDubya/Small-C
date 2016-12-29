@@ -13,6 +13,7 @@
 #define LEDATA 0xA0
 #define LIDATA 0xA2
 #define LIBHDR 0xF0
+#define LIBDEP 0xF2
 
 char twotabs[] = "\n    ";
 extern char *line;
@@ -20,7 +21,7 @@ byte isLibrary = 0;
 uint libDictOffset[2],  libDictSize;
 
 do_record(byte recType, uint length, uint fd) {
-    prnhexch(recType, stdout);
+    prnhexch(recType);
     fputs("  ", stdout);
     /* prnhexch(length / 256, stdout);
     prnhexch(length & 0x00ff, stdout);
@@ -62,10 +63,13 @@ do_record(byte recType, uint length, uint fd) {
         case LIBHDR:
             do_libhdr(length, fd);
             break;
+        case LIBDEP:
+            do_libdep(length, fd);
+            break;
         default:
-            fputs("UNKNWN ", stdout);
+            printf("Unknown record of type %x", recType);
+            printf("Exiting...");
             fgetc(stdin);
-            clearrecord(length, fd);
             break;
     }
     fputc(NEWLINE, stdout);
@@ -75,8 +79,7 @@ clearrecord(uint length, uint fd) {
     while (length-- > 0) {
         byte ch;
         ch = read_u8(fd);
-        prnhexch(ch, stdout);
-        fgetc(stdin);
+        prnhexch(ch);
     }
 }
 
@@ -199,14 +202,14 @@ do_pubdef(uint length, uint fd) {
     // BaseSegment idx is normally nonzero and no BaseFrame field is present.
     basegroup = read_u8(fd);
     fputs("BaseGroup=", stdout);
-    prnhexch(basegroup, stdout);
+    prnhexch(basegroup);
     if (basegroup != 0) {
         fputs(" Error: Must be 0.", stdout);
         abort(1);
     }
     basesegment = read_u8(fd);
     fputs(" BaseSegment=", stdout);
-    prnhexch(basesegment, stdout);
+    prnhexch(basesegment);
     if (basesegment == 0) {
         fputs(" Error: Must be nonzero.", stdout);
         abort(1);
@@ -316,7 +319,7 @@ do_fixupp(uint length, uint fd) {
         length -= 3;
         fixup = read_u8(fd);
         fputs("Fixup=", stdout);
-        prnhexch(fixup, stdout);
+        prnhexch(fixup);
         if ((fixup & 0x80) == 0) {
             fputs("Error: must be fixup, not thread.", stdout);
             abort(1);
@@ -326,7 +329,7 @@ do_fixupp(uint length, uint fd) {
         dataOffset = read_u8(fd) + ((fixup & 0x03) << 8);
         fixdata = read_u8(fd); // Format is FfffTPtt
         fputc(' ', stdout);
-        prnhexch(fixdata, stdout);
+        prnhexch(fixdata);
         if ((fixdata & 0x80) != 0) {
             frame = (fixdata & 0x70) >> 4;
         }
@@ -334,7 +337,7 @@ do_fixupp(uint length, uint fd) {
             frame = read_u8(fd);
             length -= 1;
             fputc(' ', stdout);
-            prnhexch(frame, stdout);
+            prnhexch(frame);
         }
         if ((fixdata & 0x08) != 0) {
             printf(" Error: target threads not handled (%x)", fixdata);
@@ -344,7 +347,7 @@ do_fixupp(uint length, uint fd) {
             target = read_u8(fd);
             length -= 1;
             fputc(' ', stdout);
-            prnhexch(target, stdout);
+            prnhexch(target);
         }
         if ((fixdata & 0x04) == 0) {
             targetOffset = read_u16(fd);
@@ -389,7 +392,6 @@ do_libhdr(uint length, uint fd) {
     while (length-- > 0) {
         read_u8(fd);
     }
-    fgetc(stdin);
     read_u8(fd); // checksum. assume correct.
     isLibrary = 1;
     return;
@@ -407,7 +409,7 @@ do_libhdr(uint length, uint fd) {
 // number in which the module in the library defining this string can be found.
 do_library(uint fd) {
     byte offsets[38];
-    uint iBlock, iEntry;
+    uint iBlock, iEntry, entryBlock;
     uint blockOffset[2];
     printf("Library: dictionary at %u %u", libDictOffset[0], libDictOffset[1]);
     for (iBlock = 0; iBlock < libDictSize; iBlock++) {
@@ -415,12 +417,44 @@ do_library(uint fd) {
         // advance to the dictionary block
         blockOffset[0] = iBlock * 512;
         blockOffset[1] = 0;
-        bseek(fd, libDictOffset, 0);
-        bseek(fd, blockOffset, 1);
+        offsetfd(fd, libDictOffset, blockOffset);
         read(fd, offsets, 38);
-        for (iEntry = 0; iEntry < 38; iEntry++) {
-            prnhexch(offsets[iEntry], stdout);
+        for (iEntry = 0; iEntry < 37; iEntry++) {
+            if (offsets[iEntry] == 0) {
+                printf("%u=EMPTY ", iEntry);
+            }
+            else {
+                blockOffset[0] = (iBlock * 512) + (offsets[iEntry] * 2);
+                offsetfd(fd, libDictOffset, blockOffset);
+                read_strp(line, fd);
+                entryBlock = read_u16(fd);
+                printf("%x=%s[%x] ", iEntry, line, entryBlock);
+            }
         }
+        blockOffset[0] = iBlock * 512;
+        blockOffset[1] = 0;
+        offsetfd(fd, libDictOffset, blockOffset);
     }
-    abort(1);
+    blockOffset[0] = libDictSize * 512;
+    offsetfd(fd, libDictOffset, blockOffset);
+}
+
+// F2H Extended Dictionary
+//   The extended dictionary is optional and indicates dependencies between
+// modules in the library. Versions of LIB earlier than 3.09 do not create an
+// extended dictionary. The extended dictionary is placed at the end of the
+// library. 
+do_libdep(uint length, uint fd) {
+    uint modCount, i;
+    uint modPage, modOffset;
+    modCount = read_u16(fd);
+    printf("Libray Dependency. Module count %u\n", modCount);
+    for (i = 0; i <= modCount; i++) {
+        modPage = read_u16(fd);
+        modOffset = read_u16(fd);
+        printf("Module=%x %x ", modPage, modOffset);
+        length -= 4;
+    }
+    clearrecord(length - 2, fd);
+    return;
 }

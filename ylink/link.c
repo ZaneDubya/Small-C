@@ -76,13 +76,13 @@ readFile(uint fd) {
     return;
 }
 
-prnhexint(uint value, uint fd) {
-    prnhexch(value >> 8, fd);
-    prnhexch(value & 0x00ff, fd);
+prnhexint(uint value) {
+    prnhexch(value >> 8);
+    prnhexch(value & 0x00ff);
     return;
 }
 
-prnhexch(byte value, uint fd) {
+prnhexch(byte value) {
     byte ch0;
     ch0 = (value & 0xf0) >> 4;
     if (ch0 < 10) {
@@ -91,7 +91,7 @@ prnhexch(byte value, uint fd) {
     else {
         ch0 += 55;
     }
-    fputc(ch0, fd);
+    fputc(ch0, stdout);
     ch0 = (value & 0x0f);
     if (ch0 < 10) {
         ch0 += 48;
@@ -99,7 +99,7 @@ prnhexch(byte value, uint fd) {
     else {
         ch0 += 55;
     }
-    fputc(ch0, fd);
+    fputc(ch0, stdout);
     return;
 }
 
@@ -129,6 +129,11 @@ read_strpre(char* str, uint fd) {
     }
     *next++ = NULL;
     return retval + 1;
+}
+
+offsetfd(uint fd, uint base[], uint offset[]) {
+    bseek(fd, base, 0);
+    bseek(fd, offset, 1);
 }
 
 // === Error Routines =========================================================
