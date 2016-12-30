@@ -5,4 +5,4 @@
 #define DICT_DATA_LENGTH 3
 #define DICT_BLOCK_CNT 37
 
-#define MOD_DATA_LENGTH 3
+#define DEPEND_DATA_LENGTH 3

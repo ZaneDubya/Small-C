@@ -8,9 +8,7 @@
 #define LINESIZE 128
 #define ERROR 0xFFFF
 
-char        *line;
-extern byte *libNames;
-extern uint *libData;
+char *line;
 
 main(int argc, int *argv) {
     uint fd;
