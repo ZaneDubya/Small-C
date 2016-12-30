@@ -17,8 +17,8 @@
 
 char twotabs[] = "\n    ";
 extern char *line;
-byte isLibrary = 0;
-uint libDictOffset[2],  libDictSize;
+extern byte isLibrary;
+extern uint libDictOffset[],  libDictSize;
 
 do_record(byte recType, uint length, uint fd) {
     prnhexch(recType);
@@ -388,7 +388,9 @@ do_libhdr(uint length, uint fd) {
     flags = read_u8(fd);
     printf("DictOffset=%u+(%ux2^16) DictSize=%u Flags=%x ", 
         libDictOffset[0], libDictOffset[1], libDictSize, flags);
+    allocDictMemory();
     length -= 8;
+    // rest of record is zeros.
     while (length-- > 0) {
         read_u8(fd);
     }
@@ -402,14 +404,14 @@ do_libhdr(uint length, uint fd) {
 // provides rapid searching for a name using a two-level hashing scheme. The
 // number of ductionary blocks must be a prime number, each block containing
 // exactly 37 dictionary indexes. A block is 512 bytes long. The first 37 bytes
-// are indexes to block entries (multiply value by 2 to get offset to entry). 
+// are indexes to block entries (multiply value by 2 to get offset to entry).
 // Byte 38 is an index to empty space in the block (multiply value by 2 to get
 // offset to the next available space. If byte 38 is 255 the block is full.
 //   Each entry is a length-prefixed string, followed by a two-byte LE mdoule 
 // number in which the module in the library defining this string can be found.
 do_library(uint fd) {
     byte offsets[38];
-    uint iBlock, iEntry, entryBlock;
+    uint iBlock, iEntry, moduleLocation, nameLength;
     uint blockOffset[2];
     printf("Library: dictionary at %u %u", libDictOffset[0], libDictOffset[1]);
     for (iBlock = 0; iBlock < libDictSize; iBlock++) {
@@ -421,14 +423,15 @@ do_library(uint fd) {
         read(fd, offsets, 38);
         for (iEntry = 0; iEntry < 37; iEntry++) {
             if (offsets[iEntry] == 0) {
-                printf("%u=EMPTY ", iEntry);
+                // printf("%x=EMPTY ", iEntry);
             }
             else {
                 blockOffset[0] = (iBlock * 512) + (offsets[iEntry] * 2);
                 offsetfd(fd, libDictOffset, blockOffset);
-                read_strp(line, fd);
-                entryBlock = read_u16(fd);
-                printf("%x=%s[%x] ", iEntry, line, entryBlock);
+                nameLength = read_strp(line, fd);
+                moduleLocation = read_u16(fd);
+                addDictData(line, iBlock, iEntry, moduleLocation);
+                // printf("%x=%s[%x] ", iEntry, line, moduleLocation);
             }
         }
         blockOffset[0] = iBlock * 512;
@@ -445,8 +448,7 @@ do_library(uint fd) {
 // extended dictionary. The extended dictionary is placed at the end of the
 // library. 
 do_libdep(uint length, uint fd) {
-    uint modCount, i;
-    uint modPage, modOffset;
+    uint i, modPage, modOffset;
     modCount = read_u16(fd);
     printf("Libray Dependency. Module count %u\n", modCount);
     for (i = 0; i <= modCount; i++) {

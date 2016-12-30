@@ -3,11 +3,14 @@
 #include "stdio.h"
 #include "notice.h"
 #include "link.h"
+
 #define LINEMAX  127
 #define LINESIZE 128
 #define ERROR 0xFFFF
 
-char    *line;
+char        *line;
+extern byte *libNames;
+extern uint *libData;
 
 main(int argc, int *argv) {
     uint fd;
@@ -29,7 +32,7 @@ allocvar(int nItems, int itemSize) {
     int result;
     result = calloc(nItems, itemSize);
     if (result == 0) {
-        errout("Could not allocate memory.");
+        printf("Could not allocate mem: %u x %u\n", nItems, itemSize);
         abort(1);
     }
 }
@@ -58,8 +61,10 @@ cleanup(uint fd) {
 // === Reading OBJ Format =====================================================
 
 readFile(uint fd) {
+    uint outfd;
     byte recType;
     uint length;
+    outfd = fopen("link.txt", "w");
     while (1) {
         recType = read_u8(fd);
         if (feof(fd)) {
@@ -73,6 +78,8 @@ readFile(uint fd) {
         length = read_u16(fd);
         do_record(recType, length, fd);
     }
+    writeLibData(outfd);
+    fclose(outfd);
     return;
 }
 

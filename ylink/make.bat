@@ -16,8 +16,13 @@ if errorlevel 1 goto exit
 ..\bin\asm link_omf /p
 if errorlevel 1 goto exit
 
+..\bin\cc  link_lib -a -p
+if errorlevel 1 goto exit
+..\bin\asm link_lib /p
+if errorlevel 1 goto exit
+
 ECHO === Linking ===
-..\bin\link link link_omf,,,..\smallc22\clib.lib
+..\bin\link link link_omf link_lib,,,..\smallc22\clib.lib
 if errorlevel 1 goto exit
 
 :exit

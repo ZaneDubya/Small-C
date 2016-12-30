@@ -1,1 +1,1 @@
-link ..\hello\hello.obj
+link ..\smallc22\clib.lib
