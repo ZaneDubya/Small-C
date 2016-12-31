@@ -38,7 +38,7 @@ allocvar(int nItems, int itemSize) {
 ask(int argc, int *argv) {
     int input;
     if (argc != 2) {
-        errout("Requires exactly one argument.");
+        printf("Requires exactly one argument, received %u.\n", argc);
         return ERROR;
     }
     getarg(1, line, LINESIZE, argc, argv);
