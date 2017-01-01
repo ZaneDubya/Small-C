@@ -1,0 +1,153 @@
+* First record must be 80, 82, or F0
+Parsing HELLO.OBJ
+00 01   80H THEADR Translator Header Record
+// The THEADR record contains the name of the object module.  This name identifies an object module within an object library or in messages produced by the linker. The name string indicates the full path and filename of the file that contained the source code for the module.
+// This record, or an LHEADR record must occur as the first object record.  More than one header record is allowed (as a result of an object bind, or if the source arose from multiple files as a result of include processing).
+// 82H is handled identically, but indicates the name of a module within a library file, which has an internal organization different from that of an object module.
+01 02   Record length = 000B
+03 01   String Length = 09
+04 09   HELLO.OBJ
+0* 01   Checksum
+
+
+00 01   96H LNAMES List of Names Record
+// The LNAMES record is a list of names that can be referenced by subsequent SEGDEF and GRPDEF records in the object module. The names are ordered by occurrence and referenced by index from subsequent records.  More than one LNAMES record may appear.  The names themselves are used as segment, class, group, overlay, and selector names.
+01 02   Record Length = 000C
+// Each name appears in count, char format, and a null name is valid.  The character set is ASCII.  Names can be up to 255 characters long.
+03 01   String Length = 04
+04 04   CODE
+08 01   String Length = 04
+09 04   DATA
+0D 01   Checksum
+
+00  01  98H SEGDEF Segment Definition Record
+// The SEGDEF record describes a logical segment in an object module. It defines the segment's name, length, and alignment, and the way the segment can be combined with other logical segments at bind, link, or load time.
+// Object records that follow a SEGDEF record can refer to it to identify a particular segment.  The SEGDEF records are ordered by occurrence, and are referenced by segment indexes (starting from 1) in subsequent records.
+01  02  Record Length = 0007
+03  01  Segment Attributes Field = 68H
+        0110 1000
+        Alignment = 011 Relocatable, paragraph aligned.
+        Combination = 010 Public. Combine by appending at an offset that meets alignment requirement.
+        Big = 0
+        P = 16-bit addressing to reference.
+04  02  Segment Length = 01AEH = 430
+06  01  Segment Name = 02
+07  01  Class Name = 01
+08  01  Overlay Name = 01
+09  01  Checksum = 46H
+
+00  01  98H SEGDEF Segment Definition Record
+01  02  Record Length = 00 07
+03  01  Segment Attributes Field = 68H
+        Alignment = 011 Relocatable, paragraph aligned.
+        Combination = 010 Public. Combine by appending at an offset that meets alignment requirement.
+        Big = 0
+        P = 16-bit addressing to reference.
+04  02  Segment Length = 000F = 15
+06  01  Segment Name = 03
+07  01  Class Name = 01
+08  01  Overlay Name = 01
+09  01  Checksum
+
+00  01  8CH EXTDEF External Names Definition Record
+// The EXTDEF record contains a list of symbolic external references—that is, references to symbols defined in other object modules. The linker resolves external references by matching the symbols declared in EXTDEF records with symbols declared in PUBDEF records.
+01  02  Record Length = 006C
+03  01  String Length = 06
+04  06  __MAIN
+0A  01  Type Index = 00
+0B  01  String Length = 06
+0C  06  _FPUTC
+11  01  Type Index = 00
+...
+
+00  01  90H PUBDEF Public Names Definition Record
+// The PUBDEF record contains a list of public names.  It makes items defined in this object module available to satisfy external references in other modules with which it is bound or linked. The symbols are also available for export if so indicated in an EXPDEF comment record.
+01  02  Record Length = 00 26
+// The Base Group and Base Segment fields contain indexes specifying previously defined SEGDEF and GRPDEF records.  The group index may be 0, meaning that no group is associated with this PUBDEF record.
+// The Base Frame field is present only if the Base Segment field is 0, but the contents of the Base Frame field are ignored.
+// The Base Segment Index is normally nonzero and no Base Frame field is present.
+// According to the Intel 8086 specification, if both the segment and group indexes are 0, the Base Frame field contains a 16-bit paragraph (when viewed as a linear address); this may be used to define public symbols that are absolute.  Absolute addressing is not fully supported by some linkers—it can be used for read-only access to absolute memory locations; however, writing to absolute memory locations may not work in some linkers.
+
+03  01  Base Group Index = 00 (no group defs)
+04  01  Base Segment Index = 01 (No name)
+<Repeat>
+05  01  String Length = 05
+06  05  _MAIN
+0B  02  Public Offset = 00 02
+0D  01  Type Index = 00
+<Repeat>
+0E  01  String Length = 09
+0F  09  _PRINTINT
+18  02  Public Offset = 00 13
+1A  01  Type Index = 00
+<Repeat>
+1B  01  String Length = 09
+1C  09  _PRINTCHA
+..  02  Public Offset = 01 0A
+..  01  Type Index = 00
+</Repeat>
+..  01  Checksum = FFH
+
+00  01  A0H  LEDATA Logical Enumerated Data Record
+// This record provides contiguous binary data—executable code or program data—that is part of a program segment.  The data is eventually copied into the program's executable binary image by the linker. The data bytes may be subject to relocation or fixing up as determined by the presence of a subsequent FIXUPP record, but otherwise they require no expansion when mapped to memory at run time.
+01  02  Record Length = 0006
+03  01  Segment Index = 01
+04  02  Enumerated Data Offset = 00 00
+06  02  Data bytes (2): 00 00
+08  01  Checksum = 59H
+
+00  01  A0H  LEDATA Logical Enumerated Data Record
+01  02  Record Length = 0006
+03  01  Segment Index = 02
+04  02  Enumerated Data Offset = 00 00
+06  02  Data bytes (2): 00 00
+08  01  Checksum = 58H
+
+00  01  A0H  LEDATA Logical Enumerated Data Record
+01  02  Record Length = 0015
+03  01  Segment Index = 01
+04  02  Enumerated Data Offset = 00 02
+06  11  55 8B EC B8 00 00 50 B1 .. C3
+..  01  Checksum = 71
+
+
+00  9C  FIXUPP—Fixup Record
+// The FIXUPP record contains information that allows the linker to resolve (fix up) and eventually relocate references between object modules. FIXUPP records describe the LOCATION of each address value to be fixed up, the TARGET address to which the fixup refers, and the FRAME relative to which the address computation is performed.
+// Each subrecord in a FIXUPP object record either defines a thread for subsequent use, or refers to a data location in the nearest previous LEDATA or LIDATA record. The high-order bit of the subrecord determines the subrecord type: if the high-order bit is 0, the subrecord is a THREAD subrecord; if the high-order bit is 1, the subrecord is a FIXUP subrecord. Subrecords of different types can be mixed within one object record.Information that determines how to resolve a reference can be specified explicitly in a FIXUP subrecord, or it can be specified within a FIXUP subrecord by a reference to a previous THREAD subrecord. A THREAD subrecord describes only the method to be used by the linker to refer to a particular target or frame. Because the same THREAD subrecord can be referenced in several subsequent FIXUP subrecords, a FIXUPP object record that uses THREAD subrecords may be smaller than one in which THREAD subrecords are not used.
+01  02  Record Length = 00 0D (13)
+FIXUP
+03  02  Fixup (high bit 1 means this is a FIXUP, not a thread).
+        C4 04 = 1100 0100 0000 0100
+            b(0) = indicates a fixup instead of a thread. Always 1.
+            b(1) = 1: segment relative reference.
+            b(2) = always 0
+            b(3-5) = 1: Offset part of a pointer
+            b(8-15) = 4: Data Record Offset
+05  01  Frame Target = 00 = 0000 0000
+                            ffff tttt
+            f(0-3) = 0: Frame given by a segment index.
+                        FRAME_INDEX present in record.
+            t(4-7) = 0: Target given by segment index + displacement.
+                        Target offset is present.
+06  01  Frame Index = 02
+07  01  Target Index = 02
+08  01  Target Offset = 02 00
+09  02  Fixup
+        84 0A = 1000 0100 0000 1010
+            b(0) = indicates a fixup. Always 1.
+            b(1) = 0. Self relative reference. (relative to IP).
+            b(2) = always 0.
+            b(3-5) = 1. segment relative reference.
+            b(8-15)= 0A: Data record offset.
+0B  01  Frame Target = 26 = 0010 0110
+                            ffff tttt
+            f(0-3) = 2, Frame given by external index. Frame index present.
+            t(4-7) = 6, Target given by external index alone. 
+                        No target offset, offset of zero.
+0C  01  Frame Index = 03 
+0D  01  Target Index = 03
+0E  01  Checksum = CF
+        
+
+00  01  A0 = LEDATA Logical Enumerated Data Record
+01  02  Length = 00 11

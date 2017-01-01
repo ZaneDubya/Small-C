@@ -1,0 +1,1 @@
+link o=work\hello.obj o=..\smallc22\clib.lib e=hello.exe
