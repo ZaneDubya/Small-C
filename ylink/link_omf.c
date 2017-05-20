@@ -15,7 +15,9 @@
 #define LIBHDR 0xF0
 #define LIBDEP 0xF2
 
-char twotabs[] = "\n    ";
+#define TWOTABS "\n    "
+#define LNAME_MAX 4
+
 extern char *line;
 extern byte isLibrary, hasDependancy;
 
@@ -93,7 +95,7 @@ clearrecord(uint length, uint fd) {
 // object module.
 do_theadr(uint length, uint fd) {
     read_strp(line, fd);
-    printf("THEADR %s", line);
+    printf("Name=THEADR %s", line);
     read_u8(fd); // checksum. assume correct.
     return;
 }
@@ -166,7 +168,7 @@ do_extdef(uint length, uint fd) {
         strlength = read_strpre(line, fd);
         length -= strlength + 1;
         if (linelength + strlength + 1 >= 80) {
-            printf(twotabs);
+            fputs(TWOTABS, stdout);
             linelength = 4;
         }
         linelength += strlength + 1;
@@ -208,7 +210,7 @@ do_pubdef(uint length, uint fd) {
         abort(1);
     }
     length -= 2;
-    fputs(twotabs, stdout);
+    fputs(TWOTABS, stdout);
     while (length > 1) {
         length -= read_strpre(line, fd) + 3;
         puboffset = read_u16(fd);
@@ -231,13 +233,16 @@ do_pubdef(uint length, uint fd) {
 // group, overlay, and selector names.
 
 do_lnames(uint length, uint fd) {
-    fputs("LNAMES ", stdout);
-    while (length > 1) {
-        length -= read_strpre(line, fd);
-        printf("\"%s\" ", line);
-    }
-    read_u8(fd); // checksum. assume correct.
-    return;
+  int nameIndex; 
+  nameIndex = 1;
+  fputs("LNAMES ", stdout);
+  while (length > 1) {
+    length -= read_strpre(line, fd);
+    printf("%u='%s' ", nameIndex, line);
+    nameIndex++;
+  }
+  read_u8(fd); // checksum. assume correct.
+  return;
 }
 
 // 98H SEGDEF Segment Definition Record
@@ -254,11 +259,11 @@ do_segdef(uint length, uint fd) {
     // segment attribute
     segattr = read_u8(fd);
     if ((segattr & 0xe0) != 0x60) {
-        printf("Unknown segment attribute field (must be 0x03).",);
+        printf("Unknown segment attribute field (must be 0x60).",);
         abort(1);
     }
     if ((segattr & 0x1c) != 0x08) {
-        printf("Unknown segment acombination (must be 0x02).");
+        printf("Unknown segment combination (must be 0x08).");
         abort(1);
     }
     if ((segattr & 0x02) != 0x00) {
@@ -338,7 +343,7 @@ do_fixupp(uint length, uint fd) {
         else {
             // printf("{%x %x %x %x} ", fixup, fixdata, frame, target);
         }
-        // printf(twotabs);
+        // printf(TWOTABS);
     }
     read_u8(fd); // checksum. assume correct.
     return;
@@ -351,11 +356,13 @@ do_ledata(uint length, uint fd) {
     fputs("LEDATA ", stdout);
     segindex = read_u8(fd);
     dataoffset = read_u16(fd);
-    printf("SegIndex=%u DataOffset=%u", segindex, dataoffset);
+    length -= 4; // don't count the segindex, dataoffset, or checksum.
+    printf("SegIndex=%u DataOffset=%u Length=%u\n", segindex, dataoffset, length);
     // Data bytes
-    length -= 4;
     while (length-- > 0) {
-        read_u8(fd);
+        char ch;
+        ch = read_u8(fd);
+        prnhexch(ch);
     }
     read_u8(fd); // checksum. assume correct.
     return;

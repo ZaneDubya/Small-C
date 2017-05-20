@@ -10,9 +10,9 @@
 #define OBJF_MAX 8
 
 char *line;
+char *exeFile;
 int objf_ptrs[OBJF_MAX];
 int objf_cnt;
-char *exeFile;
 
 main(int argc, int *argv) {
   int i;
@@ -24,13 +24,15 @@ main(int argc, int *argv) {
   Initialize();
   for (i = 0; i < objf_cnt; i++) {
     uint fd;
-    fprintf(stdout, "    Reading %s... ", objf_ptrs[i]);
+    printf("    Reading %s... ", objf_ptrs[i]);
     if (!(fd = fopen(objf_ptrs[i], "r"))) {
       puts("Could not open file.");
       abort(0);
     }
+    putchar('\n');
     ReadFile(fd);
     Cleanup(fd);
+    abort(0);
   }
 }
 
@@ -41,7 +43,7 @@ Setup() {
 
 Initialize() {
   if (exeFile == 0) {
-    fprintf(stdout, "    No -e parameter. Output file will be out.exe.\n");
+    printf("    No -e parameter. Output file will be out.exe.\n");
     exeFile = AllocVar(8, 1);
     strcpy(exeFile, "out.exe");
   }
@@ -104,7 +106,7 @@ GetArgs(int argc, int *argv) {
 AddObjf(char *start, char *end) {
   char *objf;
   if (objf_cnt == OBJF_MAX) {
-    fprintf(stderr, "    Error: max of %u input obj files.", objf_cnt);
+    printf("    Error: max of %u input obj files.", objf_cnt);
     abort(0);
   }
   objf_ptrs[objf_cnt] = AllocVar(end - start + 1, 1);
@@ -138,7 +140,6 @@ ReadFile(uint fd) {
   while (1) {
     recType = read_u8(fd);
     if (feof(fd)) {
-      fputs("eof", stderr);
       break;
     }
     if (ferror(fd)) {
@@ -222,7 +223,7 @@ errout(char *str) {
 
 erroutf(char *format, char *arg) {
     fputs("    Error: ", stderr); 
-    fprintf(stderr, format, arg);
+    printf(format, arg);
 }
 
 lineout(char *str, uint fd) {
