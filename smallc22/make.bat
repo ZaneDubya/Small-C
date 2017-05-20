@@ -35,12 +35,14 @@ if errorlevel 1 goto exit
 
 REM LINK
 ECHO === Linking SmallC Compiler ===
-..\bin\link cc1 cc2 cc3 cc4,cc,cc,clib.lib
+..\bin\link cc1 cc2 cc3 cc4,cc,cc,..\smalllib\clib.lib
 if errorlevel 1 goto exit
 
 REM CLEANUP
 del *.asm
 del *.obj
+del *.map
+
 copy CC.EXE ..\bin\CC.EXE
 del CC.EXE
 

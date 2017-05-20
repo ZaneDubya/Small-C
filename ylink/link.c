@@ -7,49 +7,121 @@
 #define LINEMAX  127
 #define LINESIZE 128
 #define ERROR 0xFFFF
+#define OBJF_MAX 8
 
 char *line;
+int objf_ptrs[OBJF_MAX];
+int objf_cnt;
+char *exeFile;
 
 main(int argc, int *argv) {
+  int i;
+  puts(VERSION);
+  Setup();
+  if (GetArgs(argc, argv) == ERROR) {
+    abort(0);
+  }
+  Initialize();
+  for (i = 0; i < objf_cnt; i++) {
     uint fd;
-    fputs(VERSION, stderr);
-    fputs(CRIGHT1, stderr);
-    allocatevars();
-    if ((fd = ask(argc, argv)) == ERROR) {
-        abort(1);
+    fprintf(stdout, "    Reading %s... ", objf_ptrs[i]);
+    if (!(fd = fopen(objf_ptrs[i], "r"))) {
+      puts("Could not open file.");
+      abort(0);
     }
-    readFile(fd);
-    cleanup(fd);
+    ReadFile(fd);
+    Cleanup(fd);
+  }
 }
 
-allocatevars() {
-    line = allocvar(LINESIZE, 1);
+Setup() {
+  line = AllocVar(LINESIZE, 1);
+  exeFile = 0;
 }
 
-allocvar(int nItems, int itemSize) {
-    int result;
-    result = calloc(nItems, itemSize);
-    if (result == 0) {
-        printf("Could not allocate mem: %u x %u\n", nItems, itemSize);
-        abort(1);
-    }
+Initialize() {
+  if (exeFile == 0) {
+    fprintf(stdout, "    No -e parameter. Output file will be out.exe.\n");
+    exeFile = AllocVar(8, 1);
+    strcpy(exeFile, "out.exe");
+  }
 }
 
-ask(int argc, int *argv) {
-    int input;
-    if (argc != 2) {
-        printf("Requires exactly one argument, received %u.\n", argc);
+AllocVar(int nItems, int itemSize) {
+  int result;
+  result = calloc(nItems, itemSize);
+  if (result == 0) {
+    printf("Could not allocate mem: %u x %u\n", nItems, itemSize);
+    abort(0);
+  }
+}
+
+GetArgs(int argc, int *argv) {
+  int i;
+  if (argc == 1) {
+    errout("No argments passed.");
+    return ERROR;
+  }
+  for (i = 1; i < argc; i++) {
+    char* c;
+    getarg(i, line, LINESIZE, argc, argv);
+    c = line;
+    if (*c == '-') {
+      // option -x=xxx
+      if (*(c+2) != '=') {
+        erroutf("Missing '=' in option %s\n", c);
         return ERROR;
+      }
+      switch (*(c+1)) {
+        case 'e':
+          RdOptE(c+3);
+          break;
+        default:
+          erroutf("Could not parse option %s\n", c);
+          return ERROR;
+          break;
+      }
     }
-    getarg(1, line, LINESIZE, argc, argv);
-    if(!(input = fopen(line, "r"))) {
-        erroutf("Could not open file: ", line);
-        return ERROR;
+    else {
+      // read in object files
+      char *start, *end;
+      start = end = c;
+      while (1) {
+        if ((*end == 0) || (*end == ',')) {
+          AddObjf(start, end);
+          if (*end == 0) {
+            break;
+          }
+          start = ++end;
+        }
+        end++;
+      }
+      c = end;
     }
-	return input;
+  }
 }
 
-cleanup(uint fd) {
+AddObjf(char *start, char *end) {
+  char *objf;
+  if (objf_cnt == OBJF_MAX) {
+    fprintf(stderr, "    Error: max of %u input obj files.", objf_cnt);
+    abort(0);
+  }
+  objf_ptrs[objf_cnt] = AllocVar(end - start + 1, 1);
+  objf = objf_ptrs[objf_cnt];
+  while (start != end) {
+    *objf++ = *start++;
+  }
+  *objf = 0;
+  objf_cnt += 1;
+}
+
+RdOptE(char *str) {
+  exeFile = AllocVar(strlen(str) + 1, 1);
+  strcpy(exeFile, str);
+}
+
+Cleanup(uint fd) {
     if (fd != 0) {
         fclose(fd);
     }
@@ -58,54 +130,54 @@ cleanup(uint fd) {
 
 // === Reading OBJ Format =====================================================
 
-readFile(uint fd) {
-    uint outfd;
-    byte recType;
-    uint length;
-    outfd = fopen("link.txt", "w");
-    while (1) {
-        recType = read_u8(fd);
-        if (feof(fd)) {
-            fputs("eof", stderr);
-            break;
-        }
-        if (ferror(fd)) {
-            fputs("ferr", stderr);
-            break;
-        }
-        length = read_u16(fd);
-        do_record(recType, length, fd);
+ReadFile(uint fd) {
+  uint outfd;
+  byte recType;
+  uint length;
+  outfd = fopen("link.txt", "w");
+  while (1) {
+    recType = read_u8(fd);
+    if (feof(fd)) {
+      fputs("eof", stderr);
+      break;
     }
-    writeLibData(outfd);
-    fclose(outfd);
-    return;
+    if (ferror(fd)) {
+      fputs("ferr", stderr);
+      break;
+    }
+    length = read_u16(fd);
+    do_record(recType, length, fd);
+  }
+  writeLibData(outfd);
+  fclose(outfd);
+  return;
 }
 
 prnhexint(uint value) {
-    prnhexch(value >> 8);
-    prnhexch(value & 0x00ff);
-    return;
+  prnhexch(value >> 8);
+  prnhexch(value & 0x00ff);
+  return;
 }
 
 prnhexch(byte value) {
-    byte ch0;
-    ch0 = (value & 0xf0) >> 4;
-    if (ch0 < 10) {
-        ch0 += 48;
-    }
-    else {
-        ch0 += 55;
-    }
-    fputc(ch0, stdout);
-    ch0 = (value & 0x0f);
-    if (ch0 < 10) {
-        ch0 += 48;
-    }
-    else {
-        ch0 += 55;
-    }
-    fputc(ch0, stdout);
-    return;
+  byte ch0;
+  ch0 = (value & 0xf0) >> 4;
+  if (ch0 < 10) {
+    ch0 += 48;
+  }
+  else {
+    ch0 += 55;
+  }
+  fputc(ch0, stdout);
+  ch0 = (value & 0x0f);
+  if (ch0 < 10) {
+    ch0 += 48;
+  }
+  else {
+    ch0 += 55;
+  }
+  fputc(ch0, stdout);
+  return;
 }
 
 // === Binary Reading Routines ================================================
@@ -143,18 +215,17 @@ offsetfd(uint fd, uint base[], uint offset[]) {
 
 // === Error Routines =========================================================
 
-errout(char *line) {
-    fputs("*** Error: ", stderr); 
-    lineout(line, stderr);
+errout(char *str) {
+    fputs("    Error: ", stderr); 
+    lineout(str, stderr);
 }
 
 erroutf(char *format, char *arg) {
-    fputs("*** Error: ", stderr); 
+    fputs("    Error: ", stderr); 
     fprintf(stderr, format, arg);
-    lineout(line, stderr);
 }
 
-lineout(char *line, uint fd) {
-    fputs(line, fd);
+lineout(char *str, uint fd) {
+    fputs(str, fd);
     fputc(NEWLINE, fd);
 }

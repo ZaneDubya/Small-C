@@ -22,7 +22,7 @@ if errorlevel 1 goto exit
 if errorlevel 1 goto exit
 
 ECHO === Linking ===
-..\bin\link link link_omf link_lib,,,..\smallc22\clib.lib
+..\bin\link link link_omf link_lib,,,..\smalllib\clib.lib
 if errorlevel 1 goto exit
 
 :exit

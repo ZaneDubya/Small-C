@@ -13,7 +13,7 @@ if errorlevel 1 goto exit
 
 REM LINK
 ECHO === Linking ===
-..\bin\link hello,hello,hello,..\smallc22\clib.lib
+..\bin\link hello,hello,hello,..\smalllib\clib.lib
 if errorlevel 1 goto exit
 
 :exit
