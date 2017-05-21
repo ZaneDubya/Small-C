@@ -8,11 +8,13 @@
 #define LINESIZE 128
 #define ERROR 0xFFFF
 #define OBJF_MAX 8
+#define LINKTXT "link.txt"
 
 char *line;
 char *exeFile;
 int objf_ptrs[OBJF_MAX];
 int objf_cnt;
+extern byte isLibrary;
 
 main(int argc, int *argv) {
   int i;
@@ -24,7 +26,7 @@ main(int argc, int *argv) {
   Initialize();
   for (i = 0; i < objf_cnt; i++) {
     uint fd;
-    printf("    Reading %s... ", objf_ptrs[i]);
+    printf("  Reading %s... ", objf_ptrs[i]);
     if (!(fd = fopen(objf_ptrs[i], "r"))) {
       puts("Could not open file.");
       abort(0);
@@ -41,8 +43,9 @@ Setup() {
 }
 
 Initialize() {
+  unlink(LINKTXT);
   if (exeFile == 0) {
-    printf("    No -e parameter. Output file will be out.exe.\n");
+    printf("  No -e parameter. Output file will be out.exe.\n");
     exeFile = AllocVar(8, 1);
     strcpy(exeFile, "out.exe");
   }
@@ -105,7 +108,7 @@ GetArgs(int argc, int *argv) {
 AddObjf(char *start, char *end) {
   char *objf;
   if (objf_cnt == OBJF_MAX) {
-    printf("    Error: max of %u input obj files.", objf_cnt);
+    printf("  Error: max of %u input obj files.", objf_cnt);
     abort(0);
   }
   objf_ptrs[objf_cnt] = AllocVar(end - start + 1, 1);
@@ -123,10 +126,10 @@ RdOptE(char *str) {
 }
 
 Cleanup(uint fd) {
-    if (fd != 0) {
-        fclose(fd);
-    }
-    return;
+  if (fd != 0) {
+    fclose(fd);
+  }
+  return;
 }
 
 // === Reading OBJ Format =====================================================
@@ -135,7 +138,8 @@ ReadFile(uint fd) {
   uint outfd;
   byte recType;
   uint length;
-  outfd = fopen("link.txt", "w");
+  outfd = fopen(LINKTXT, "a");
+  isLibrary = 0;
   while (1) {
     recType = read_u8(fd);
     if (feof(fd)) {
@@ -148,7 +152,9 @@ ReadFile(uint fd) {
     length = read_u16(fd);
     do_record(outfd, recType, length, fd);
   }
-  writeLibData(outfd);
+  if (isLibrary) {
+    writeLibData(outfd);
+  }
   fclose(outfd);
   return;
 }

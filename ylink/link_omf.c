@@ -367,38 +367,37 @@ do_ledata(uint outfd, uint length, uint fd) {
 
 // F0H  LIBHDR Library Header Record
 do_libhdr(uint outfd, uint length, uint fd) {
-    byte flags, nextRecord;
-    uint omfOffset[2], dictOffset[2], blockCount, nextLength;
-    fputs("LIBHDR ", outfd);
-    dictOffset[0] = read_u16(fd);
-    dictOffset[1] = read_u16(fd);
-    blockCount = read_u16(fd);
-    flags = read_u8(fd);
-    fprintf(outfd, "DictOffset=%u+(%ux2^16) Blocks=%u Flags=%x\n", 
-        dictOffset[0], dictOffset[1], blockCount, flags);
-    allocDictMemory(blockCount * DICT_BLOCK_CNT);
-    length -= 8;
-    // rest of record is zeros.
-    while (length-- > 0) {
-        read_u8(fd);
-    }
-    read_u8(fd); // checksum. assume correct.
-    isLibrary = 1;
-    // seek to library data offset, read data, return to module data offset
-    btell(fd, omfOffset);
-    do_library(outfd, fd, dictOffset, blockCount);
-    nextRecord = read_u8(fd);
-    if (nextRecord == LIBDEP) {
-        hasDependancy = 1;
-        nextLength = read_u16(fd);
-        do_libdep(nextLength, fd);
-    }
-    else {
-        printf("No dependancy information");
-    }
-    bseek(fd, omfOffset, 0);
-    fprintf(outfd, "2");
-    return;
+  byte flags, nextRecord;
+  uint omfOffset[2], dictOffset[2], blockCount, nextLength;
+  fputs("LIBHDR ", outfd);
+  dictOffset[0] = read_u16(fd);
+  dictOffset[1] = read_u16(fd);
+  blockCount = read_u16(fd);
+  flags = read_u8(fd);
+  fprintf(outfd, "DictOffset=%u+(%ux2^16) Blocks=%u Flags=%x\n", 
+          dictOffset[0], dictOffset[1], blockCount, flags);
+  allocDictMemory(blockCount * DICT_BLOCK_CNT);
+  length -= 8;
+  // rest of record is zeros.
+  while (length-- > 0) {
+    read_u8(fd);
+  }
+  read_u8(fd); // checksum. assume correct.
+  isLibrary = 1;
+  // seek to library data offset, read data, return to module data offset
+  btell(fd, omfOffset);
+  do_library(outfd, fd, dictOffset, blockCount);
+  nextRecord = read_u8(fd);
+  if (nextRecord == LIBDEP) {
+    hasDependancy = 1;
+    nextLength = read_u16(fd);
+    do_libdep(outfd, nextLength, fd);
+  }
+  else {
+    printf("No dependancy information");
+  }
+  bseek(fd, omfOffset, 0);
+  return;
 }
 
 // The remaining blocks in the library compose the dictionary. The number of
@@ -415,10 +414,9 @@ do_library(uint outfd, uint fd, uint dictOffset[], uint blockCount) {
     byte offsets[38];
     uint iBlock, iEntry, moduleLocation, nameLength;
     uint blockOffset[2];
-    fprintf(outfd, "Library Block Count=%u (%u / %u)\n",
+    fprintf(outfd, "    Library Block Count=%u (%u / %u)\n    ",
             blockCount, dictCount, DICT_BLOCK_CNT);
     for (iBlock = 0; iBlock < blockCount; iBlock++) {
-        fprintf(outfd, "Library Block %u...", iBlock);
         // advance to the dictionary block
         blockOffset[0] = iBlock * 512;
         blockOffset[1] = 0;
@@ -436,8 +434,13 @@ do_library(uint outfd, uint fd, uint dictOffset[], uint blockCount) {
         }
         blockOffset[0] = iBlock * 512;
         blockOffset[1] = 0;
+        if (iBlock == 0) {
+          fprintf(outfd, "%u", iBlock);
+        }
+        else {
+          fprintf(outfd, ", %u", iBlock);
+        }
         offsetfd(fd, dictOffset, blockOffset);
-        fprintf(outfd, "Done\n!");
     }
     blockOffset[0] = blockCount * 512;
     offsetfd(fd, dictOffset, blockOffset);
@@ -456,7 +459,8 @@ do_libdep(uint outfd, uint length, uint fd) {
     fprintf(outfd, "Library Dependencies. Module count %u\n", count);
     for (i = 0; i <= count; i++) {
         page = read_u16(fd);
-        offset = read_u16(fd) - (count + 1) * 4;
+        offset = read_u16(fd);
+        offset -= (count + 1) * 4;
         addDependancy(i, page, offset);
         length -= 4;
     }

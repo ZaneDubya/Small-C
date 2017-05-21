@@ -15,11 +15,11 @@ byte *dependMods;
 
 
 allocDictMemory(uint count) {
-    printf("Allocating %u blocks... ", count);
+    fprintf(stdout, "Allocating %u blocks... ", count);
     dictCount = count;
     dictNames = allocvar(dictCount * DICT_NAME_LENGTH, 1);
     dictData = allocvar(dictCount * DICT_DATA_LENGTH, 2);
-    printf("Done!");
+    fputs("Done!\n", stdout);
 }
 
 allocDependancyData(uint count) {
@@ -69,12 +69,56 @@ readDependancies(uint fd, uint length) {
 }
 
 writeLibData(uint fd) {
-  fprintf(fd, "DictNames:\n");
-  write(fd, dictNames, dictCount * DICT_NAME_LENGTH);
-  fprintf(fd, "DictData:\n");
-  write(fd, dictData, dictCount * DICT_DATA_LENGTH * 2);
-  fprintf(fd, "DependData:\n");
-  write(fd, dependData, dependCount * DEPEND_DATA_LENGTH * 2);
-  fprintf(fd, "DependMods:\n");
-  write(fd, dependMods, dependLength);
+  int i;
+  char *name;
+  fprintf(fd, "===Library Data===\n");
+  fprintf(fd, "  DictNames: %u bytes\n", dictCount * DICT_NAME_LENGTH);
+  for (i = 0; i < dictCount; i++) {
+    name = getDictName(i);
+    fprintf(fd, "    %u: %s\n", i, name);
+  }
+  // write(fd, dictNames, dictCount * DICT_NAME_LENGTH);
+  fprintf(fd, "  DictData: %u bytes\n", dictCount * DICT_DATA_LENGTH * 2);
+  for (i = 0; i < dictCount * DICT_DATA_LENGTH * 2; i++) {
+    puthexch(fd, dictData[i]);
+    if ((i % 32) == 31) {
+      fputc('\n', fd);
+    }
+  }
+  // write(fd, dictData, dictCount * DICT_DATA_LENGTH * 2);
+  fprintf(fd, "\n  DependData: %u bytes\n", dependCount * DEPEND_DATA_LENGTH * 2);
+  for (i = 0; i < dependCount * DEPEND_DATA_LENGTH * 2; i++) {
+    puthexch(fd, dependData[i]);
+    if ((i % 32) == 31) {
+      fputc('\n', fd);
+    }
+  }
+  // write(fd, dependData, dependCount * DEPEND_DATA_LENGTH * 2);
+  fprintf(fd, "\n  DependMods: %u bytes\n", dependLength);
+  for (i = 0; i < dependLength; i++) {
+    puthexch(fd, dependMods[i]);
+    if ((i % 32) == 31) {
+      fputc('\n', fd);
+    }
+  }
+  // write(fd, dependMods, dependLength);
+}
+
+getDictName(uint index) {
+  uint j;
+  char *begin, *c;
+  begin = c = dictNames;
+  j = 0;
+  while (1) {
+    if (*c++ == 0) {
+      if (j == index) {
+        return begin;
+      }
+      else {
+        j++;
+        begin = c;
+      }
+    }
+  }
+  return begin;
 }
