@@ -92,7 +92,7 @@ clearrecord(uint outfd, uint length, uint fd) {
 // object module.
 do_theadr(uint outfd, uint length, uint fd) {
     read_strp(line, fd);
-    fprintf(outfd, "Name=THEADR %s", line);
+    fprintf(outfd, "THEADR %s", line);
     read_u8(fd); // checksum. assume correct.
     return;
 }
@@ -149,6 +149,7 @@ do_modend(uint outfd, uint length, uint fd) {
         abort(1);
     }
     read_u8(fd); // checksum. assume correct.
+    fputc('\n', outfd);
     return;
 }
 
@@ -335,10 +336,10 @@ do_fixupp(uint outfd, uint length, uint fd) {
         if ((fixdata & 0x04) == 0) {
             targetOffset = read_u16(fd);
             length -= 2;
-            // fprintf(outfd, "{%x %x %x %x %x} ", fixup, fixdata, frame, target, targetOffset);
+            fprintf(outfd, "\n    Fix={%x %x %x %x %x}", fixup, fixdata, frame, target, targetOffset);
         }
         else {
-            // fprintf(outfd, "{%x %x %x %x} ", fixup, fixdata, frame, target);
+            fprintf(outfd, "\n    Fix={%x %x %x %x}", fixup, fixdata, frame, target);
         }
         // printf(TWOTABS);
     }
@@ -391,10 +392,11 @@ do_libhdr(uint outfd, uint length, uint fd) {
   if (nextRecord == LIBDEP) {
     hasDependancy = 1;
     nextLength = read_u16(fd);
+    fputs("\nF2  LIBDEP", outfd);
     do_libdep(outfd, nextLength, fd);
   }
   else {
-    printf("No dependancy information");
+    printf("Error: No dependancy information");
   }
   bseek(fd, omfOffset, 0);
   return;
@@ -408,13 +410,13 @@ do_libhdr(uint outfd, uint length, uint fd) {
 // are indexes to block entries (multiply value by 2 to get offset to entry).
 // Byte 38 is an index to empty space in the block (multiply value by 2 to get
 // offset to the next available space. If byte 38 is 255 the block is full.
-//   Each entry is a length-prefixed string, followed by a two-byte LE mdoule 
+// Each entry is a length-prefixed string, followed by a two-byte LE mdoule 
 // number in which the module in the library defining this string can be found.
 do_library(uint outfd, uint fd, uint dictOffset[], uint blockCount) {
     byte offsets[38];
     uint iBlock, iEntry, moduleLocation, nameLength;
     uint blockOffset[2];
-    fprintf(outfd, "    Library Block Count=%u (%u / %u)\n    ",
+    fprintf(outfd, "    Library Block Count=%u (%u / %u)",
             blockCount, dictCount, DICT_BLOCK_CNT);
     for (iBlock = 0; iBlock < blockCount; iBlock++) {
         // advance to the dictionary block
@@ -434,12 +436,6 @@ do_library(uint outfd, uint fd, uint dictOffset[], uint blockCount) {
         }
         blockOffset[0] = iBlock * 512;
         blockOffset[1] = 0;
-        if (iBlock == 0) {
-          fprintf(outfd, "%u", iBlock);
-        }
-        else {
-          fprintf(outfd, ", %u", iBlock);
-        }
         offsetfd(fd, dictOffset, blockOffset);
     }
     blockOffset[0] = blockCount * 512;
@@ -447,7 +443,7 @@ do_library(uint outfd, uint fd, uint dictOffset[], uint blockCount) {
 }
 
 // F2H Extended Dictionary
-//   The extended dictionary is optional and indicates dependencies between
+// The extended dictionary is optional and indicates dependencies between
 // modules in the library. Versions of LIB earlier than 3.09 do not create an
 // extended dictionary. The extended dictionary is placed at the end of the
 // library. 
@@ -456,7 +452,6 @@ do_libdep(uint outfd, uint length, uint fd) {
     count = read_u16(fd);
     length -= 2;
     allocDependancyData(count);
-    fprintf(outfd, "Library Dependencies. Module count %u\n", count);
     for (i = 0; i <= count; i++) {
         page = read_u16(fd);
         offset = read_u16(fd);
@@ -464,10 +459,10 @@ do_libdep(uint outfd, uint length, uint fd) {
         addDependancy(i, page, offset);
         length -= 4;
     }
-    // read null record
-    read_u16(fd);
-    read_u16(fd);
+    // ignore final null record
     length -= 4;
     readDependancies(fd, length);
+    fprintf(outfd, "\n    Library Dependencies (%u Modules)", count);
+    writeDependancies(outfd);
     return;
 }
