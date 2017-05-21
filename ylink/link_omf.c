@@ -21,64 +21,61 @@
 extern char *line;
 extern byte isLibrary, hasDependancy;
 
-do_record(byte recType, uint length, uint fd) {
-    prnhexch(recType);
-    fputs("  ", stdout);
-    /* prnhexch(length / 256, stdout);
-    prnhexch(length & 0x00ff, stdout);
-    fputc(' ', stdout); */
+do_record(uint outfd, byte recType, uint length, uint fd) {
+    puthexch(outfd, recType);
+    fputs("  ", outfd);
     switch (recType) {
         case THEADR:
-            do_theadr(length, fd);
+            do_theadr(outfd, length, fd);
             break;
         case COMMNT:
-            do_commnt(length, fd);
+            do_commnt(outfd, length, fd);
             break;
         case MODEND:
-            do_modend(length, fd);
+            do_modend(outfd, length, fd);
             fclose(fd);
             break;
         case EXTDEF:
-            do_extdef(length, fd);
+            do_extdef(outfd, length, fd);
             break;
         case PUBDEF:
-            do_pubdef(length, fd);
+            do_pubdef(outfd, length, fd);
             break;
         case LNAMES:
-            do_lnames(length, fd);
+            do_lnames(outfd, length, fd);
             break;
         case SEGDEF:
-            do_segdef(length, fd);
+            do_segdef(outfd, length, fd);
             break;
         case FIXUPP:
-            do_fixupp(length, fd);
+            do_fixupp(outfd, length, fd);
             break;
         case LEDATA:
-            do_ledata(length, fd);
+            do_ledata(outfd, length, fd);
             break;
         case LIDATA:
-            do_lidata(length, fd);
+            do_lidata(outfd, length, fd);
             break;
         case LIBHDR:
-            do_libhdr(length, fd);
+            do_libhdr(outfd, length, fd);
             break;
         case LIBDEP:
-            do_libdep(length, fd);
+            do_libdep(outfd, length, fd);
             break;
         default:
-            printf("Unknown record of type %x", recType);
-            printf("Exiting...");
+            printf("    do_record: Unknown record of type %x", recType);
+            printf("    do_record: Exiting...");
             abort(1);
             break;
     }
-    fputc(NEWLINE, stdout);
+    fputc(NEWLINE, outfd);
 }
 
-clearrecord(uint length, uint fd) {
+clearrecord(uint outfd, uint length, uint fd) {
     while (length-- > 0) {
         byte ch;
         ch = read_u8(fd);
-        prnhexch(ch);
+        puthexch(outfd, ch);
     }
 }
 
@@ -93,9 +90,9 @@ clearrecord(uint length, uint fd) {
 // 82H is handled identically, but indicates the name of a module within a
 // library file, which has an internal organization different from that of an
 // object module.
-do_theadr(uint length, uint fd) {
+do_theadr(uint outfd, uint length, uint fd) {
     read_strp(line, fd);
-    printf("Name=THEADR %s", line);
+    fprintf(outfd, "Name=THEADR %s", line);
     read_u8(fd); // checksum. assume correct.
     return;
 }
@@ -106,8 +103,8 @@ do_theadr(uint length, uint fd) {
 // as a repeating pattern (iterated), rather than by explicit enumeration.
 // The data in an LIDATA record can be modified by the linker if the LIDATA
 // record is followed by a FIXUPP record, although this is not recommended.
-do_lidata(uint length, uint fd) {
-    printf("LIDATA");
+do_lidata(uint outfd, uint length, uint fd) {
+    fprintf(outfd, "LIDATA");
     while (length-- > 0) {
         read_u8(fd);
     }
@@ -115,15 +112,15 @@ do_lidata(uint length, uint fd) {
 }
 
 // 88H COMMNT Comment Record.
-do_commnt(uint length, uint fd) {
+do_commnt(uint outfd, uint length, uint fd) {
     byte commtype, commclass;
-    printf("COMMNT ", stdout);
+    fprintf(outfd, "COMMNT ", outfd);
     commtype = read_u8(fd);
     commclass = read_u8(fd);
     switch (commclass) {
         case 0xA3:
             read_strp(line, fd);
-            printf("LIBMOD=%s", line);
+            fprintf(outfd, "LIBMOD=%s", line);
             break;
         default:
             printf("Error: UNKNOWN TYPE");
@@ -139,16 +136,16 @@ do_commnt(uint length, uint fd) {
 // The MODEND record denotes the end of an object module. It also indicates
 // whether the object module contains the main routine in a program, and it
 // can optionally contain a reference to a program's entry point.
-do_modend(uint length, uint fd) {
+do_modend(uint outfd, uint length, uint fd) {
     byte moduletype;
-    printf("MODEND ");
+    fprintf(outfd, "MODEND ");
     moduletype = read_u8(fd); // format is MS0....1
     if (moduletype & 0x80) {
-        printf("Main ");
+        fprintf(outfd, "Main ");
         abort(1);
     }
     if (moduletype & 0x40) {
-        printf("Start ");
+        fprintf(outfd, "Start ");
         abort(1);
     }
     read_u8(fd); // checksum. assume correct.
@@ -160,19 +157,19 @@ do_modend(uint length, uint fd) {
 // references to symbols defined in other object modules. The linker resolves
 // external references by matching the symbols declared in EXTDEF records
 // with symbols declared in PUBDEF records.
-do_extdef(uint length, uint fd) {
+do_extdef(uint outfd, uint length, uint fd) {
     byte deftype, linelength, strlength;
-    printf("EXTDEF ");
+    fprintf(outfd, "EXTDEF ");
     linelength = 11;
     while (length > 1) {
         strlength = read_strpre(line, fd);
         length -= strlength + 1;
         if (linelength + strlength + 1 >= 80) {
-            fputs(TWOTABS, stdout);
+            fputs(TWOTABS, outfd);
             linelength = 4;
         }
         linelength += strlength + 1;
-        printf("%s, ", line);
+        fprintf(outfd, "%s, ", line);
         deftype = read_u8(fd);
         if (deftype != 0) {
             printf("Error: Type is not 0. ");
@@ -188,10 +185,10 @@ do_extdef(uint length, uint fd) {
 // in this object module available to satisfy external references in other
 // modules with which it is bound or linked. The symbols are also available
 // for export if so indicated in an EXPDEF comment record.
-do_pubdef(uint length, uint fd) {
+do_pubdef(uint outfd, uint length, uint fd) {
     byte basegroup, basesegment, typeindex;
     uint puboffset;
-    printf("PUBDEF ");
+    fprintf(outfd, "PUBDEF ");
     // BaseGroup and BaseSegment fields contain indexes specifying previously
     // defined SEGDEF and GRPDEF records.  The group index may be 0, meaning
     // that no group is associated with this PUBDEF record.
@@ -200,7 +197,7 @@ do_pubdef(uint length, uint fd) {
     // BaseSegment idx is normally nonzero and no BaseFrame field is present.
     basegroup = read_u8(fd);
     basesegment = read_u8(fd);
-    printf("Grp=%x Seg=%x", basegroup, basesegment);
+    fprintf(outfd, "Grp=%x Seg=%x", basegroup, basesegment);
     if (basegroup != 0) {
         printf(" Error: BaseGroup must be 0.");
         abort(1);
@@ -210,14 +207,14 @@ do_pubdef(uint length, uint fd) {
         abort(1);
     }
     length -= 2;
-    fputs(TWOTABS, stdout);
+    fputs(TWOTABS, outfd);
     while (length > 1) {
         length -= read_strpre(line, fd) + 3;
         puboffset = read_u16(fd);
-        printf("%s@%x ", line, puboffset);
+        fprintf(outfd, "%s@%x ", line, puboffset);
         typeindex = read_u8(fd);
         if (typeindex != 0) {
-            fputs("Error: Type is not 0. ", stdout);
+            fputs("Error: Type is not 0. ", outfd);
             abort(1);
         }
     }
@@ -232,13 +229,13 @@ do_pubdef(uint length, uint fd) {
 // LNAMES record may appear.  The names themselves are used as segment, class,
 // group, overlay, and selector names.
 
-do_lnames(uint length, uint fd) {
+do_lnames(uint outfd, uint length, uint fd) {
   int nameIndex; 
   nameIndex = 1;
-  fputs("LNAMES ", stdout);
+  fputs("LNAMES ", outfd);
   while (length > 1) {
     length -= read_strpre(line, fd);
-    printf("%u='%s' ", nameIndex, line);
+    fprintf(outfd, "%u='%s' ", nameIndex, line);
     nameIndex++;
   }
   read_u8(fd); // checksum. assume correct.
@@ -252,10 +249,10 @@ do_lnames(uint length, uint fd) {
 // Object records that follow a SEGDEF record can refer to it to identify a
 // particular segment.  The SEGDEF records are ordered by occurrence, and are
 // referenced by segment indexes (starting from 1) in subsequent records.
-do_segdef(uint length, uint fd) {
+do_segdef(uint outfd, uint length, uint fd) {
     byte segattr, segname, classname, overlayname;
     uint seglength;
-    printf("SEGDEF ");
+    fprintf(outfd, "SEGDEF ");
     // segment attribute
     segattr = read_u8(fd);
     if ((segattr & 0xe0) != 0x60) {
@@ -278,7 +275,7 @@ do_segdef(uint length, uint fd) {
     segname = read_u8(fd);
     classname = read_u8(fd);
     overlayname = read_u8(fd);
-    printf("Length=%u Name=%u Class=%u Overlay=%u", 
+    fprintf(outfd, "Length=%u Name=%u Class=%u Overlay=%u", 
         seglength, segname, classname, overlayname);
     read_u8(fd); // checksum. assume correct.
     return;
@@ -303,12 +300,12 @@ do_segdef(uint length, uint fd) {
 // target or frame. Because the same THREAD subrecord can be referenced in
 // several subsequent FIXUP subrecords, a FIXUPP object record that uses THREAD
 // subrecords may be smaller than one in which THREAD subrecords are not used.
-do_fixupp(uint length, uint fd) {
+do_fixupp(uint outfd, uint length, uint fd) {
     uint dataOffset, targetOffset;
     byte fixup, fixdata, frame, target;
     byte relativeMode; // 1 == segment relative, 0 == self relative.
     byte location; 
-    printf("FIXUPP");
+    fprintf(outfd, "FIXUPP");
     while (length > 1) {
         length -= 3;
         fixup = read_u8(fd);
@@ -338,10 +335,10 @@ do_fixupp(uint length, uint fd) {
         if ((fixdata & 0x04) == 0) {
             targetOffset = read_u16(fd);
             length -= 2;
-            // printf("{%x %x %x %x %x} ", fixup, fixdata, frame, target, targetOffset);
+            // fprintf(outfd, "{%x %x %x %x %x} ", fixup, fixdata, frame, target, targetOffset);
         }
         else {
-            // printf("{%x %x %x %x} ", fixup, fixdata, frame, target);
+            // fprintf(outfd, "{%x %x %x %x} ", fixup, fixdata, frame, target);
         }
         // printf(TWOTABS);
     }
@@ -350,34 +347,34 @@ do_fixupp(uint length, uint fd) {
 }
 
 // A0H  LEDATA Logical Enumerated Data Record
-do_ledata(uint length, uint fd) {
+do_ledata(uint outfd, uint length, uint fd) {
     byte segindex;
     uint dataoffset;
-    fputs("LEDATA ", stdout);
+    fputs("LEDATA ", outfd);
     segindex = read_u8(fd);
     dataoffset = read_u16(fd);
     length -= 4; // don't count the segindex, dataoffset, or checksum.
-    printf("SegIndex=%u DataOffset=%u Length=%u\n", segindex, dataoffset, length);
+    fprintf(outfd, "SegIndex=%u DataOffset=%u Length=%u\n", segindex, dataoffset, length);
     // Data bytes
     while (length-- > 0) {
         char ch;
         ch = read_u8(fd);
-        prnhexch(ch);
+        puthexch(outfd, ch);
     }
     read_u8(fd); // checksum. assume correct.
     return;
 }
 
 // F0H  LIBHDR Library Header Record
-do_libhdr(uint length, uint fd) {
+do_libhdr(uint outfd, uint length, uint fd) {
     byte flags, nextRecord;
     uint omfOffset[2], dictOffset[2], blockCount, nextLength;
-    fputs("LIBHDR ", stdout);
+    fputs("LIBHDR ", outfd);
     dictOffset[0] = read_u16(fd);
     dictOffset[1] = read_u16(fd);
     blockCount = read_u16(fd);
     flags = read_u8(fd);
-    printf("DictOffset=%u+(%ux2^16) Blocks=%u Flags=%x\n", 
+    fprintf(outfd, "DictOffset=%u+(%ux2^16) Blocks=%u Flags=%x\n", 
         dictOffset[0], dictOffset[1], blockCount, flags);
     allocDictMemory(blockCount * DICT_BLOCK_CNT);
     length -= 8;
@@ -389,7 +386,7 @@ do_libhdr(uint length, uint fd) {
     isLibrary = 1;
     // seek to library data offset, read data, return to module data offset
     btell(fd, omfOffset);
-    do_library(fd, dictOffset, blockCount);
+    do_library(outfd, fd, dictOffset, blockCount);
     nextRecord = read_u8(fd);
     if (nextRecord == LIBDEP) {
         hasDependancy = 1;
@@ -400,10 +397,11 @@ do_libhdr(uint length, uint fd) {
         printf("No dependancy information");
     }
     bseek(fd, omfOffset, 0);
+    fprintf(outfd, "2");
     return;
 }
 
-//   The remaining blocks in the library compose the dictionary. The number of
+// The remaining blocks in the library compose the dictionary. The number of
 // blocks in the dictionary is given in the library header. The dictionary
 // provides rapid searching for a name using a two-level hashing scheme. The
 // number of ductionary blocks must be a prime number, each block containing
@@ -413,13 +411,14 @@ do_libhdr(uint length, uint fd) {
 // offset to the next available space. If byte 38 is 255 the block is full.
 //   Each entry is a length-prefixed string, followed by a two-byte LE mdoule 
 // number in which the module in the library defining this string can be found.
-do_library(uint fd, uint dictOffset[], uint blockCount) {
+do_library(uint outfd, uint fd, uint dictOffset[], uint blockCount) {
     byte offsets[38];
     uint iBlock, iEntry, moduleLocation, nameLength;
     uint blockOffset[2];
-    printf("Library Block Count=%u (%u / %u)\n", blockCount, dictCount, DICT_BLOCK_CNT);
+    fprintf(outfd, "Library Block Count=%u (%u / %u)\n",
+            blockCount, dictCount, DICT_BLOCK_CNT);
     for (iBlock = 0; iBlock < blockCount; iBlock++) {
-        printf("Library Block %u\n", iBlock);
+        fprintf(outfd, "Library Block %u...", iBlock);
         // advance to the dictionary block
         blockOffset[0] = iBlock * 512;
         blockOffset[1] = 0;
@@ -438,6 +437,7 @@ do_library(uint fd, uint dictOffset[], uint blockCount) {
         blockOffset[0] = iBlock * 512;
         blockOffset[1] = 0;
         offsetfd(fd, dictOffset, blockOffset);
+        fprintf(outfd, "Done\n!");
     }
     blockOffset[0] = blockCount * 512;
     offsetfd(fd, dictOffset, blockOffset);
@@ -448,12 +448,12 @@ do_library(uint fd, uint dictOffset[], uint blockCount) {
 // modules in the library. Versions of LIB earlier than 3.09 do not create an
 // extended dictionary. The extended dictionary is placed at the end of the
 // library. 
-do_libdep(uint length, uint fd) {
+do_libdep(uint outfd, uint length, uint fd) {
     uint i, page, offset, count;
     count = read_u16(fd);
     length -= 2;
     allocDependancyData(count);
-    printf("Library Dependencies. Module count %u\n", count);
+    fprintf(outfd, "Library Dependencies. Module count %u\n", count);
     for (i = 0; i <= count; i++) {
         page = read_u16(fd);
         offset = read_u16(fd) - (count + 1) * 4;

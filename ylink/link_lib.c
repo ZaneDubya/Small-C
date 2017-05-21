@@ -15,10 +15,11 @@ byte *dependMods;
 
 
 allocDictMemory(uint count) {
-    printf("Allocating %u blocks...", count);
+    printf("Allocating %u blocks... ", count);
     dictCount = count;
     dictNames = allocvar(dictCount * DICT_NAME_LENGTH, 1);
     dictData = allocvar(dictCount * DICT_DATA_LENGTH, 2);
+    printf("Done!");
 }
 
 allocDependancyData(uint count) {
@@ -68,8 +69,12 @@ readDependancies(uint fd, uint length) {
 }
 
 writeLibData(uint fd) {
-    write(fd, dictNames, dictCount * DICT_NAME_LENGTH);
-    write(fd, dictData, dictCount * DICT_DATA_LENGTH * 2);
-    write(fd, dependData, dependCount * DEPEND_DATA_LENGTH * 2);
-    write(fd, dependMods, dependLength);
+  fprintf(fd, "DictNames:\n");
+  write(fd, dictNames, dictCount * DICT_NAME_LENGTH);
+  fprintf(fd, "DictData:\n");
+  write(fd, dictData, dictCount * DICT_DATA_LENGTH * 2);
+  fprintf(fd, "DependData:\n");
+  write(fd, dependData, dependCount * DEPEND_DATA_LENGTH * 2);
+  fprintf(fd, "DependMods:\n");
+  write(fd, dependMods, dependLength);
 }

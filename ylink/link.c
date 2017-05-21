@@ -32,7 +32,6 @@ main(int argc, int *argv) {
     putchar('\n');
     ReadFile(fd);
     Cleanup(fd);
-    abort(0);
   }
 }
 
@@ -147,20 +146,20 @@ ReadFile(uint fd) {
       break;
     }
     length = read_u16(fd);
-    do_record(recType, length, fd);
+    do_record(outfd, recType, length, fd);
   }
   writeLibData(outfd);
   fclose(outfd);
   return;
 }
 
-prnhexint(uint value) {
-  prnhexch(value >> 8);
-  prnhexch(value & 0x00ff);
+puthexint(uint fd, uint value) {
+  puthexch(fd, value >> 8);
+  puthexch(fd, value & 0x00ff);
   return;
 }
 
-prnhexch(byte value) {
+puthexch(uint fd, byte value) {
   byte ch0;
   ch0 = (value & 0xf0) >> 4;
   if (ch0 < 10) {
@@ -169,7 +168,7 @@ prnhexch(byte value) {
   else {
     ch0 += 55;
   }
-  fputc(ch0, stdout);
+  fputc(ch0, fd);
   ch0 = (value & 0x0f);
   if (ch0 < 10) {
     ch0 += 48;
@@ -177,7 +176,7 @@ prnhexch(byte value) {
   else {
     ch0 += 55;
   }
-  fputc(ch0, stdout);
+  fputc(ch0, fd);
   return;
 }
 

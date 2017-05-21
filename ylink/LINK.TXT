@@ -1,0 +1,9 @@
+F0  LIBHDR DictOffset=32768+(0x2^16) Blocks=7 Flags=0
+Library Block Count=7 (1252 / 37)
+Library Block 0...Done
+!Library Block 1...Done
+!Library Block 2...Done
+!Library Block 3...Done
+!Library Block 4...Done
+!Library Block 5...Done
+!Library Block 6.
