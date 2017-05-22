@@ -310,14 +310,20 @@ do_fixupp(uint outfd, uint length, uint fd) {
     while (length > 1) {
         length -= 3;
         fixup = read_u8(fd);
-        relativeMode = (fixup & 0x40) != 0;
-        location = (fixup & 0x3c) >> 2;
-        dataOffset = read_u8(fd) + ((fixup & 0x03) << 8);
-        fixdata = read_u8(fd); // Format is FfffTPtt
+        // fix location 2 bytes:
+        // 80 - always 1
         if ((fixup & 0x80) == 0) {
             printf("Error: must be fixup, not thread (%x)", fixup);
             abort(1);
         }
+        // 40 = 0 for self-relative, =1 for segment-relative
+        relativeMode = (fixup & 0x40) != 0;
+        // 3C = 4-bit field, what kind of location must be fixed up.
+        location = (fixup & 0x3c) >> 2;
+        // remaining 10 bits are the data offset
+        dataOffset = read_u8(fd) + ((fixup & 0x03) << 8);
+        // fix data byte:
+        fixdata = read_u8(fd); // Format is FfffTPtt
         if ((fixdata & 0x80) != 0) {
             frame = (fixdata & 0x70) >> 4;
         }
