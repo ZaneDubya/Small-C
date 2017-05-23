@@ -127,15 +127,14 @@ writeLibData(uint fd) {
     }
   }
   */
-  /* This would write out the dependancy modules table.*/
+  /* This would write out the dependancy modules table.
   fprintf(fd, "\n  DependMods: %u bytes\n", dependLength);
   for (i = 0; i < dependLength; i++) {
     puthexch(fd, dependMods[i]);
     if ((i % 32) == 31) {
       fputc('\n', fd);
     }
-  }
-  
+  }*/
 }
 
 getDictName(uint index) {

@@ -302,18 +302,19 @@ do_segdef(uint outfd, uint length, uint fd) {
 // several subsequent FIXUP subrecords, a FIXUPP object record that uses THREAD
 // subrecords may be smaller than one in which THREAD subrecords are not used.
 do_fixupp(uint outfd, uint length, uint fd) {
-    uint dataOffset, targetOffset;
-    byte fixup, fixdata, frame, target;
-    byte relativeMode; // 1 == segment relative, 0 == self relative.
-    byte location; 
+    uint dataOffset;
+    uint targetOffset;
+    byte fixup;
+    byte fixdata, frame, target;
+    byte relativeMode;  // 1 == segment relative, 0 == self relative.
+    byte location;      // 4-bit value
     fprintf(outfd, "FIXUPP");
     while (length > 1) {
-        length -= 3;
         fixup = read_u8(fd);
         // fix location 2 bytes:
-        // 80 - always 1
+        // 80 - always 1 (thread)
         if ((fixup & 0x80) == 0) {
-            printf("Error: must be fixup, not thread (%x)", fixup);
+            printf("\nError: must be fixup, not thread (%x)", fixup);
             abort(1);
         }
         // 40 = 0 for self-relative, =1 for segment-relative
@@ -324,29 +325,80 @@ do_fixupp(uint outfd, uint length, uint fd) {
         dataOffset = read_u8(fd) + ((fixup & 0x03) << 8);
         // fix data byte:
         fixdata = read_u8(fd); // Format is FfffTPtt
-        if ((fixdata & 0x80) != 0) {
-            frame = (fixdata & 0x70) >> 4;
+        if ((fixdata & 0x80) != 0) { // FRAME given by thread, index in fff.
+            frame = (fixdata & 0x70) >> 4; // range 0-3
         }
-        else {
-            frame = read_u8(fd);
+        else { // FRAME method explicitly defined in following byte.
+            frame = read_u8(fd); // range 0-5 (?)
             length -= 1;
         }
-        if ((fixdata & 0x08) != 0) {
-            printf("Error: target threads not handled (%x)", fixdata);
+        if ((fixdata & 0x08) != 0) { // TARGET is defined by a TARGET thread 
+            printf("\nError: target threads not handled (%x)", fixdata);
             abort(1);
         }
-        else {
+        else { // TARGET is specified explicitly in this FIXUP subrecord. 
             target = read_u8(fd);
             length -= 1;
+            if ((fixdata & 0x07) != 0) {
+              printf("\nError: unknown bytes in fixdata (%x).", fixdata);
+              abort(1);
+            }
         }
+        // write out record
+        fputs("\n    ", outfd);
+        if (relativeMode == 0) {
+          fputs("Fix: Self, ", outfd);
+        }
+        else {
+          fputs("Fix: Sgmt, ", outfd);
+        }
+        switch (location) {
+          case 0:   // Low-order (8-bit offset / low byte of 2byte dsplcmnt).
+            fputs("Loc: 0 (Low), ", outfd);
+            break;
+          case 1:   // 16-bit offset.
+          case 5:   // 16-bit loader-resolved offset, treated as Location=1.
+            fputs("Loc: 1 (16bit), ", outfd);
+            break;
+          case 2:   // 16-bit base—logical segment base (selector).
+            fputs("Loc: 2 (16bit logical), ", outfd);
+            break;
+          case 3:   // 32-bit Long pointer (16-bit base:16-bit offset).
+            fputs("Loc: 3 (16bit:16bit), ", outfd);
+            break;
+          case 4:   // High-order (high byte of 16-bit offset).
+            fputs("Loc: 4 (High), ", outfd);
+            break;
+          case 9:   // 32-bit offset.
+          case 13:  // Treated as Location=9 by the linker.
+            fputs("Loc: 9 (32bit), ", outfd);
+            break;
+          case 11:  // 48-bit pointer (16-bit base:32-bit offset).
+            fputs("Loc: 1 (48bit), ", outfd);
+            break;
+          // case 6 Not defined, reserved.
+          // case 7 Not defined, reserved.
+          // case 8 Not defined, reserved.
+          // case 10 Not defined, reserved.
+          // case 12 Not defined, reserved.
+          default:
+            fprintf(stdout, "\nError: location type %u in fixupp", location);
+            break;
+        }
+        fputs("DOffset: ", outfd);
+        puthexint(outfd, dataOffset);
+        fputs(", ", outfd);
+        fprintf(outfd, "Frm: %u, ", frame);
+        fprintf(outfd, "Tgt: %u, ", target);
         if ((fixdata & 0x04) == 0) {
             targetOffset = read_u16(fd);
             length -= 2;
-            fprintf(outfd, "\n    Fix={%x %x %x %x %x}", fixup, fixdata, frame, target, targetOffset);
+            fprintf(outfd, "\n    Fix={%x %x}", fixdata, targetOffset);
         }
         else {
-            fprintf(outfd, "\n    Fix={%x %x %x %x}", fixup, fixdata, frame, target);
+            fprintf(outfd, "\n    Fix={%x}", fixdata);
         }
+        length -= 3;
         // printf(TWOTABS);
     }
     read_u8(fd); // checksum. assume correct.
