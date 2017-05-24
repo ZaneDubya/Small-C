@@ -13,6 +13,106 @@ uint dependCount, *dependData;
 uint dependLength;
 byte *dependMods;
 
+// F0H  LIBHDR Library Header Record
+do_libhdr(uint outfd, uint length, uint fd) {
+  byte flags, nextRecord;
+  uint omfOffset[2], dictOffset[2], blockCount, nextLength;
+  fputs("LIBHDR ", outfd);
+  dictOffset[0] = read_u16(fd);
+  dictOffset[1] = read_u16(fd);
+  blockCount = read_u16(fd);
+  flags = read_u8(fd);
+  fprintf(outfd, "DictOffset=%u+(%ux2^16) Blocks=%u Flags=%x\n", 
+          dictOffset[0], dictOffset[1], blockCount, flags);
+  allocDictMemory(blockCount * DICT_BLOCK_CNT);
+  length -= 8;
+  // rest of record is zeros.
+  while (length-- > 0) {
+    read_u8(fd);
+  }
+  read_u8(fd); // checksum. assume correct.
+  isLibrary = 1;
+  // seek to library data offset, read data, return to module data offset
+  btell(fd, omfOffset);
+  do_library(outfd, fd, dictOffset, blockCount);
+  nextRecord = read_u8(fd);
+  if (nextRecord == LIBDEP) {
+    hasDependancy = 1;
+    nextLength = read_u16(fd);
+    fputs("\nF2  LIBDEP", outfd);
+    do_libdep(outfd, nextLength, fd);
+  }
+  else {
+    printf("Error: No dependancy information");
+  }
+  bseek(fd, omfOffset, 0);
+  return;
+}
+
+// The remaining blocks in the library module compose the dictionary. The count
+// of blocks in the dictionary is given in the library header. The dictionary
+// provides rapid searching for a name using a two-level hashing scheme. The
+// number of ductionary blocks must be a prime number, each block containing
+// exactly 37 dictionary indexes. A block is 512 bytes long. The first 37 bytes
+// are indexes to block entries (multiply value by 2 to get offset to entry).
+// Byte 38 is an index to empty space in the block (multiply value by 2 to get
+// offset to the next available space. If byte 38 is 255 the block is full.
+// Each entry is a length-prefixed string, followed by a two-byte LE mdoule 
+// number in which the module in the library defining this string can be found.
+do_library(uint outfd, uint fd, uint dictOffset[], uint blockCount) {
+    byte offsets[38];
+    uint iBlock, iEntry, moduleLocation, nameLength;
+    uint blockOffset[2];
+    fprintf(outfd, "    Library Block Count=%u (%u / %u)",
+            blockCount, dictCount, DICT_BLOCK_CNT);
+    for (iBlock = 0; iBlock < blockCount; iBlock++) {
+        // advance to the dictionary block
+        blockOffset[0] = iBlock * 512;
+        blockOffset[1] = 0;
+        offsetfd(fd, dictOffset, blockOffset);
+        read(fd, offsets, 38);
+        for (iEntry = 0; iEntry < 37; iEntry++) {
+            // ignore empty records (offset == 0)
+            if (offsets[iEntry] != 0) {
+                blockOffset[0] = (iBlock * 512) + (offsets[iEntry] * 2);
+                offsetfd(fd, dictOffset, blockOffset);
+                nameLength = read_strp(line, fd);
+                moduleLocation = read_u16(fd);
+                addDictData(line, iBlock, iEntry, moduleLocation);
+            }
+        }
+        blockOffset[0] = iBlock * 512;
+        blockOffset[1] = 0;
+        offsetfd(fd, dictOffset, blockOffset);
+    }
+    blockOffset[0] = blockCount * 512;
+    offsetfd(fd, dictOffset, blockOffset);
+}
+
+// F2H Extended Dictionary
+// The extended dictionary is optional and indicates dependencies between
+// modules in the library. Versions of LIB earlier than 3.09 do not create an
+// extended dictionary. The extended dictionary is placed at the end of the
+// library. 
+do_libdep(uint outfd, uint length, uint fd) {
+    uint i, page, offset, count;
+    count = read_u16(fd);
+    length -= 2;
+    allocDependancyData(count);
+    for (i = 0; i <= count; i++) {
+        page = read_u16(fd);
+        offset = read_u16(fd);
+        offset -= (count + 1) * 4;
+        addDependancy(i, page, offset);
+        length -= 4;
+    }
+    // ignore final null record
+    length -= 4;
+    readDependancies(fd, length);
+    fprintf(outfd, "\n    Library Dependencies (%u Modules)", count);
+    writeDependancies(outfd);
+    return;
+}
 
 allocDictMemory(uint count) {
   dictCount = count;
