@@ -380,17 +380,17 @@ do_fixupp(uint outfd, uint length, uint fd) {
           case 0:     // frame given by a segment index
             frame = read_u8(fd);
             length -= 1;
-            fprintf(outfd, "Frm=Seg (%u), ", frame);
+            fprintf(outfd, "Frm=Seg %u, ", frame);
             break;
           case 1:     // frame given by a group index
             frame = read_u8(fd);
             length -= 1;
-            fprintf(outfd, "Frm=Grp (%u), ", frame);
+            fprintf(outfd, "Frm=Grp %u, ", frame);
             break;
           case 2:     // frame given by an external index
             frame = read_u8(fd);
             length -= 1;
-            fprintf(outfd, "Frm=Ext (%u), ", frame);
+            fprintf(outfd, "Frm=Ext %u, ", frame);
             break;
           case 4:     // frame is that of the reference location
             fputs("Frm=Ref, ", outfd);
