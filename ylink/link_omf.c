@@ -33,6 +33,7 @@ do_record(uint outfd, byte recType, uint length, uint fd) {
             break;
         case MODEND:
             do_modend(outfd, length, fd);
+            // only close if we're at the end of the library!
             fclose(fd);
             break;
         case EXTDEF:
