@@ -22,62 +22,60 @@ extern char *line;
 extern byte isLibrary, hasDependancy;
 
 do_record(uint outfd, byte recType, uint length, uint fd) {
-    puthexch(outfd, recType);
-    fputs("  ", outfd);
-    switch (recType) {
-        case THEADR:
-            do_theadr(outfd, length, fd);
-            break;
-        case COMMNT:
-            do_commnt(outfd, length, fd);
-            break;
-        case MODEND:
-            do_modend(outfd, length, fd);
-            // only close if we're at the end of the library!
-            fclose(fd);
-            break;
-        case EXTDEF:
-            do_extdef(outfd, length, fd);
-            break;
-        case PUBDEF:
-            do_pubdef(outfd, length, fd);
-            break;
-        case LNAMES:
-            do_lnames(outfd, length, fd);
-            break;
-        case SEGDEF:
-            do_segdef(outfd, length, fd);
-            break;
-        case FIXUPP:
-            do_fixupp(outfd, length, fd);
-            break;
-        case LEDATA:
-            do_ledata(outfd, length, fd);
-            break;
-        case LIDATA:
-            do_lidata(outfd, length, fd);
-            break;
-        case LIBHDR:
-            do_libhdr(outfd, length, fd);
-            break;
-        case LIBDEP:
-            do_libdep(outfd, length, fd);
-            break;
-        default:
-            printf("    do_record: Unknown record of type %x", recType);
-            printf("    do_record: Exiting...");
-            abort(1);
-            break;
-    }
-    fputc(NEWLINE, outfd);
+  puthexch(outfd, recType);
+  fputs("  ", outfd);
+  switch (recType) {
+    case THEADR:
+      do_theadr(outfd, length, fd);
+      break;
+    case COMMNT:
+      do_commnt(outfd, length, fd);
+      break;
+    case MODEND:
+      do_modend(outfd, length, fd);
+      break;
+    case EXTDEF:
+      do_extdef(outfd, length, fd);
+      break;
+    case PUBDEF:
+      do_pubdef(outfd, length, fd);
+      break;
+    case LNAMES:
+      do_lnames(outfd, length, fd);
+      break;
+    case SEGDEF:
+      do_segdef(outfd, length, fd);
+      break;
+    case FIXUPP:
+      do_fixupp(outfd, length, fd);
+      break;
+    case LEDATA:
+      do_ledata(outfd, length, fd);
+      break;
+    case LIDATA:
+      do_lidata(outfd, length, fd);
+      break;
+    case LIBHDR:
+      do_libhdr(outfd, length, fd);
+      break;
+    case LIBDEP:
+      do_libdep(outfd, length, fd);
+      break;
+    default:
+      printf("    do_record: Unknown record of type %x", recType);
+      printf("    do_record: Exiting...");
+      abort(1);
+      break;
+  }
+  fputc(NEWLINE, outfd);
 }
 
 clearrecord(uint outfd, uint length, uint fd) {
-    while (length-- > 0) {
-        byte ch;
-        ch = read_u8(fd);
-        puthexch(outfd, ch);
-    }
+  while (length-- > 0) {
+    byte ch;
+    ch = read_u8(fd);
+    puthexch(outfd, ch);
+  }
 }
 
 // 80H THEADR Translator Header Record
@@ -92,10 +90,10 @@ clearrecord(uint outfd, uint length, uint fd) {
 // library file, which has an internal organization different from that of an
 // object module.
 do_theadr(uint outfd, uint length, uint fd) {
-    read_strp(line, fd);
-    fprintf(outfd, "THEADR %s", line);
-    read_u8(fd); // checksum. assume correct.
-    return;
+  read_strp(line, fd);
+  fprintf(outfd, "THEADR %s", line);
+  read_u8(fd); // checksum. assume correct.
+  return;
 }
 
 // A2H LIDATA Logical Iterated Data Record
@@ -105,32 +103,32 @@ do_theadr(uint outfd, uint length, uint fd) {
 // The data in an LIDATA record can be modified by the linker if the LIDATA
 // record is followed by a FIXUPP record, although this is not recommended.
 do_lidata(uint outfd, uint length, uint fd) {
-    fprintf(outfd, "LIDATA");
-    while (length-- > 0) {
-        read_u8(fd);
-    }
-    return;
+  fprintf(outfd, "LIDATA");
+  while (length-- > 0) {
+    read_u8(fd);
+  }
+  return;
 }
 
 // 88H COMMNT Comment Record.
 do_commnt(uint outfd, uint length, uint fd) {
-    byte commtype, commclass;
-    fprintf(outfd, "COMMNT ", outfd);
-    commtype = read_u8(fd);
-    commclass = read_u8(fd);
-    switch (commclass) {
-        case 0xA3:
-            read_strp(line, fd);
-            fprintf(outfd, "LIBMOD=%s", line);
-            break;
-        default:
-            printf("Error: UNKNOWN TYPE");
-            clearrecord(length - 3, fd);
-            abort(1);
-            break;
-    }
-    read_u8(fd); // checksum. assume correct.
-    return;
+  byte commtype, commclass;
+  fprintf(outfd, "COMMNT ", outfd);
+  commtype = read_u8(fd);
+  commclass = read_u8(fd);
+  switch (commclass) {
+    case 0xA3:
+      read_strp(line, fd);
+      fprintf(outfd, "LIBMOD=%s", line);
+      break;
+    default:
+      printf("Error: UNKNOWN TYPE");
+      clearrecord(length - 3, fd);
+      abort(1);
+      break;
+  }
+  read_u8(fd); // checksum. assume correct.
+  return;
 }
 
 // 8AH MODEND Module End Record
@@ -138,20 +136,20 @@ do_commnt(uint outfd, uint length, uint fd) {
 // whether the object module contains the main routine in a program, and it
 // can optionally contain a reference to a program's entry point.
 do_modend(uint outfd, uint length, uint fd) {
-    byte moduletype;
-    fprintf(outfd, "MODEND ");
-    moduletype = read_u8(fd); // format is MS0....1
-    if (moduletype & 0x80) {
-        fprintf(outfd, "Main ");
-        abort(1);
-    }
-    if (moduletype & 0x40) {
-        fprintf(outfd, "Start ");
-        abort(1);
-    }
-    read_u8(fd); // checksum. assume correct.
-    fputc('\n', outfd);
-    return;
+  byte moduletype;
+  fprintf(outfd, "MODEND ");
+  moduletype = read_u8(fd); // format is MS0....1
+  if (moduletype & 0x80) {
+    fprintf(outfd, "Main ");
+    abort(1);
+  }
+  if (moduletype & 0x40) {
+    fprintf(outfd, "Start ");
+    abort(1);
+  }
+  read_u8(fd); // checksum. assume correct.
+  fputc('\n', outfd);
+  return;
 }
 
 // 8CH EXTDEF External Names Definition Record
@@ -160,26 +158,26 @@ do_modend(uint outfd, uint length, uint fd) {
 // external references by matching the symbols declared in EXTDEF records
 // with symbols declared in PUBDEF records.
 do_extdef(uint outfd, uint length, uint fd) {
-    byte deftype, linelength, strlength;
-    fprintf(outfd, "EXTDEF ");
-    linelength = 11;
-    while (length > 1) {
-        strlength = read_strpre(line, fd);
-        length -= strlength + 1;
-        if (linelength + strlength + 1 >= 80) {
-            fputs(TWOTABS, outfd);
-            linelength = 4;
-        }
-        linelength += strlength + 1;
-        fprintf(outfd, "%s, ", line);
-        deftype = read_u8(fd);
-        if (deftype != 0) {
-            printf("Error: Type is not 0. ");
-            abort(1);
-        }
+  byte deftype, linelength, strlength;
+  fprintf(outfd, "EXTDEF ");
+  linelength = 11;
+  while (length > 1) {
+    strlength = read_strpre(line, fd);
+    length -= strlength + 1;
+    if (linelength + strlength + 1 >= 80) {
+      fputs(TWOTABS, outfd);
+      linelength = 4;
     }
-    read_u8(fd); // checksum. assume correct.
-    return;
+    linelength += strlength + 1;
+    fprintf(outfd, "%s, ", line);
+    deftype = read_u8(fd);
+    if (deftype != 0) {
+      printf("Error: Type is not 0. ");
+      abort(1);
+    }
+  }
+  read_u8(fd); // checksum. assume correct.
+  return;
 }
 
 // 90H PUBDEF Public Names Definition Record
