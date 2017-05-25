@@ -25,4 +25,4 @@ Expected milestones are:
             and CC.EXE from source.
             If it was possible to verify new CLIB.LIB, verify new CLIB.LIB,
             HELLO.EXE, and CC.EXE
-    1.1+    Optimizations to reduce size of output EXE files.
+    1.1+    Optimizations to reduce size of output EXE files. Rewrite of clib?

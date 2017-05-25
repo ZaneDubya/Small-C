@@ -35,6 +35,7 @@ do_libhdr(uint outfd, uint length, uint fd) {
   // seek to library data offset, read data, return to module data offset
   btell(fd, omfOffset);
   do_dictionary(outfd, fd, dictOffset, blockCount);
+  putLibDict(outfd);
   nextRecord = read_u8(fd);
   if (nextRecord == LIBDEP) {
     hasDependancy = 1;
@@ -99,7 +100,7 @@ do_libend(uint outfd, uint length, uint fd) {
     abort(1);
   }
   fputc('\n', outfd);
-  writeLibData(outfd);
+  // writeLibData(outfd);
   fclose(fd);
 }
 
@@ -124,6 +125,7 @@ do_libdep(uint outfd, uint length, uint fd) {
     readDependancies(fd, length);
     fprintf(outfd, "\n    Library Dependencies (%u Modules)", count);
     writeDependancies(outfd);
+    fputc('\n', outfd);
     return;
 }
 
@@ -196,7 +198,7 @@ writeDependancies(uint outfd) {
     modules = dependMods + offset;
     fputs("\n    LibMod", outfd);
     puthexch(outfd, i);
-    fprintf(outfd, "  Loc=%x Off=%x Cnt=%x {", location, offset, count);
+    fprintf(outfd, "  Loc=%x Off=%x Dep={", location, offset);
     for (j = 0; j < count; j++) {
       if (j != 0) {
         fputs(", ", outfd);
@@ -208,8 +210,7 @@ writeDependancies(uint outfd) {
 }
 
 writeLibData(uint fd) {
-  int i;
-  fprintf(fd, "===Library Data===\n");
+  // int i;
   /* This would write out dictionary names:
   fprintf(fd, "  DictNames: %u bytes\n", dictCount * DICT_NAME_LENGTH);
   for (i = 0; i < dictCount; i++) {
@@ -217,7 +218,7 @@ writeLibData(uint fd) {
     name = getDictName(i);
     fprintf(fd, "    %u: %s\n", i, name);
   }*/
-  fprintf(fd, "  DictData: %u bytes", dictCount * DICT_DATA_LENGTH * 2);
+  /*fprintf(fd, "  DictData: %u bytes", dictCount * DICT_DATA_LENGTH * 2);
   for (i = 0; i < dictCount; i++) {
     uint nameOffset, hash, moduleOffset;
     char *name;
@@ -231,22 +232,41 @@ writeLibData(uint fd) {
       name = dictNames + nameOffset;
       fprintf(fd, "\n    %x %s %x module_page=%x", i, name, hash, moduleOffset);
     }
-  }
+  }*/
   // This would write out the dependancy data table.
-  fprintf(fd, "\n  DependData: %u bytes\n", dependCount * DEPEND_DATA_LENGTH * 2);
+  /*fprintf(fd, "\n  DependData: %u bytes\n", dependCount * DEPEND_DATA_LENGTH * 2);
   for (i = 0; i < dependCount * DEPEND_DATA_LENGTH * 2; i++) {
     puthexch(fd, dependData[i]);
     if ((i % 32) == 31) {
       fputc('\n', fd);
     }
-  }
+  }*/
   
   /* This would write out the dependancy modules table.*/
-  fprintf(fd, "\n  DependMods: %u bytes\n", dependLength);
+  /*fprintf(fd, "\n  DependMods: %u bytes\n", dependLength);
   for (i = 0; i < dependLength; i++) {
     puthexch(fd, dependMods[i]);
     if ((i % 32) == 31) {
       fputc('\n', fd);
+    }
+  }*/
+}
+
+putLibDict(uint fd) {
+  int i;
+  fprintf(fd, "\n    DictData: %u bytes", dictCount * DICT_DATA_LENGTH * 2);
+  for (i = 0; i < dictCount; i++) {
+    uint nameOffset, hash, moduleOffset;
+    char *name;
+    nameOffset = dictData[i * DICT_DATA_LENGTH + 0];
+    hash = dictData[i * DICT_DATA_LENGTH + 1];
+    moduleOffset = dictData[i * DICT_DATA_LENGTH + 2];
+    if (moduleOffset == 0) {
+      fprintf(fd, "\n    %x %s", i, "--------");
+    }
+    else {
+      name = dictNames + nameOffset;
+      fprintf(fd, "\n    %x %s %x module_page=%x", i, name, hash, moduleOffset);
     }
   }
 }

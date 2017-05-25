@@ -68,7 +68,7 @@ clearrecord(uint outfd, uint length, uint fd) {
     if ((count % 32) == 0) {
       fputs("\n    ", outfd);
       puthexint(outfd, count);
-      fputs("  ", outfd);
+      fputs(": ", outfd);
     }
     ch = read_u8(fd);
     puthexch(outfd, ch);
@@ -167,7 +167,7 @@ do_modend(uint outfd, uint length, uint fd) {
     }
   }
   
-  fputc('\n', outfd);
+  fputs("\n============================================================", outfd);
   return;
 }
 
@@ -226,16 +226,18 @@ do_pubdef(uint outfd, uint length, uint fd) {
         abort(1);
     }
     length -= 2;
-    fputs(TWOTABS, outfd);
     while (length > 1) {
-        length -= read_strpre(line, fd) + 3;
+        length -= (read_strpre(line, fd) + 3);
         puboffset = read_u16(fd);
-        fprintf(outfd, "%s@%x ", line, puboffset);
         typeindex = read_u8(fd);
         if (typeindex != 0) {
             fputs("Error: Type is not 0. ", outfd);
             abort(1);
         }
+        fputs(TWOTABS, outfd);
+        puthexint(outfd, puboffset);
+        fputc('=', outfd);
+        fputs(line, outfd);
     }
     read_u8(fd); // checksum. assume correct.
     return;
@@ -324,7 +326,7 @@ do_segdef(uint outfd, uint length, uint fd) {
 do_fixupp(uint outfd, uint length, uint fd) {
   fprintf(outfd, "FIXUPP");
   while (length > 1) {
-    fputs("\n    Fix=", outfd);
+    fputs("\n    ", outfd);
     rd_fix_locat(outfd, length, fd);
     length = rd_fix_data(outfd, length, fd);
   }
@@ -337,7 +339,6 @@ rd_fix_locat(uint outfd, uint length, uint fd) {
   byte relativeMode;  // 1 == segment relative, 0 == self relative.
   byte refType;      // 4-bit value   
   uint dataOffset;
-  
   // -----------------------------------------------------------------
   // The first bit (in the low byte) is always  one  to  indicate
   // that this block defines a "fixup" as opposed to a "thread."
@@ -359,10 +360,10 @@ rd_fix_locat(uint outfd, uint length, uint fd) {
   //  "displacement" field that occurs in so many instructions.
   relativeMode = (locat & 0x40) != 0;
   if (relativeMode == 0) {
-    fputs("Self-Rel, ", outfd);
+    fputs("Rel=Self, ", outfd);
   }
   else {
-    fputs("Sgmt-Rel, ", outfd);
+    fputs("Rel=Sgmt, ", outfd);
   }
   // -----------------------------------------------------------------
   // The TYPE REFERENCE bits (called the LOC  bits  in  Microsoft
