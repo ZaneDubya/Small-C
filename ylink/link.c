@@ -31,9 +31,9 @@ main(int argc, int *argv) {
       puts("Could not open file.");
       abort(0);
     }
-    putchar('\n');
     ReadFile(fd);
     Cleanup(fd);
+    puts("Done.");
   }
 }
 
@@ -146,7 +146,6 @@ ReadFile(uint fd) {
       break;
     }
     if (ferror(fd)) {
-      fputs("ferr", stderr);
       break;
     }
     length = read_u16(fd);

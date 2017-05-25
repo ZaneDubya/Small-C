@@ -89,6 +89,13 @@ do_library(uint outfd, uint fd, uint dictOffset[], uint blockCount) {
     offsetfd(fd, dictOffset, blockOffset);
 }
 
+// F1H Library End
+do_libend(uint outfd, uint length, uint fd) {
+  fprintf(outfd, "LIBEND Padding=%x", length);
+  puthexint(stdout, length);
+  clearsilent(outfd, length, fd);
+}
+
 // F2H Extended Dictionary
 // The extended dictionary is optional and indicates dependencies between
 // modules in the library. Versions of LIB earlier than 3.09 do not create an
