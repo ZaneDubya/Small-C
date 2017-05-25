@@ -2241,262 +2241,262 @@ A0  LEDATA SegIndex=3 DataOffset=0 Length=AD
 F1  LIBEND Padding=16D
 ===Library Data===
   DictData: 1554 bytes
-    0 __bufptr 0 1
-    1 FGETC! 100 482
-    2 _itoo 200 5BC
-    3 __bufnxt 300 1
-    4 __bufeof 400 1
-    5 __is 500 4FE
-    6 _isspace 600 4FE
-    7 _strcmp 700 6AE
-    8 _strncpy 800 708
-    9 __empty 900 1
-    A FPUTS! A00 1D1
-    B _fwrite B00 27F
-    C _itoab C00 583
-    D STRRCHR! D00 71C
-    E _itou E00 5D6
-    F _itod F00 59F
-    10 _utoi 1000 785
-    11 __ugt 1100 7C9
-    12 ISATTY! 1200 546
-    13 _putc 1300 4BE
-    14 FOPEN! 1400 4AD
-    15 STRLEN! 1500 6D0
-    16 __uge 1600 7C9
-    17 _puts 1700 134
-    18 __lex 1800 620
-    19 __open 1900 1
-    1A __alloc 1A00 1
-    1B __flush 1B00 1
-    1C _itoa 1C00 56D
-    1D _itox 1D00 5F2
-    1E BTELL! 1E00 374
+    0 __bufptr 0 module_page=1
+    1 FGETC! 100 module_page=482
+    2 _itoo 200 module_page=5BC
+    3 __bufnxt 300 module_page=1
+    4 __bufeof 400 module_page=1
+    5 __is 500 module_page=4FE
+    6 _isspace 600 module_page=4FE
+    7 _strcmp 700 module_page=6AE
+    8 _strncpy 800 module_page=708
+    9 __empty 900 module_page=1
+    A FPUTS! A00 module_page=1D1
+    B _fwrite B00 module_page=27F
+    C _itoab C00 module_page=583
+    D STRRCHR! D00 module_page=71C
+    E _itou E00 module_page=5D6
+    F _itod F00 module_page=59F
+    10 _utoi 1000 module_page=785
+    11 __ugt 1100 module_page=7C9
+    12 ISATTY! 1200 module_page=546
+    13 _putc 1300 module_page=4BE
+    14 FOPEN! 1400 module_page=4AD
+    15 STRLEN! 1500 module_page=6D0
+    16 __uge 1600 module_page=7C9
+    17 _puts 1700 module_page=134
+    18 __lex 1800 module_page=620
+    19 __open 1900 module_page=1
+    1A __alloc 1A00 module_page=1
+    1B __flush 1B00 module_page=1
+    1C _itoa 1C00 module_page=56D
+    1D _itox 1D00 module_page=5F2
+    1E BTELL! 1E00 module_page=374
     1F --------
-    20 __clrerr 2000 1
-    21 STRNCAT! 2100 6DE
-    22 _ferror 2200 473
-    23 STRCPY! 2300 6C0
-    24 _getchar 2400 298
+    20 __clrerr 2000 module_page=1
+    21 STRNCAT! 2100 module_page=6DE
+    22 _ferror 2200 module_page=473
+    23 STRCPY! 2300 module_page=6C0
+    24 _getchar 2400 module_page=298
     25 --------
-    26 _fclose 101 44B
+    26 _fclose 101 module_page=44B
     27 --------
-    28 _isatty 301 546
-    29 STRCAT! 401 68B
-    2A REWIND! 501 2EF
-    2B XTOI! 601 79E
+    28 _isatty 301 module_page=546
+    29 STRCAT! 401 module_page=68B
+    2A REWIND! 501 module_page=2EF
+    2B XTOI! 601 module_page=79E
     2C --------
-    2D ITOA! 801 56D
-    2E __seteof 901 1
+    2D ITOA! 801 module_page=56D
+    2E __seteof 901 module_page=1
     2F --------
-    30 __backup B01 1
-    31 _pad C01 2A7
-    32 __gets D01 144
+    30 __backup B01 module_page=1
+    31 _pad C01 module_page=2A7
+    32 __gets D01 module_page=144
     33 --------
-    34 _strrchr F01 71C
-    35 _isalpha 1001 4FE
-    36 __status 1101 1
-    37 _ispunct 1201 4FE
-    38 FEOF! 1301 464
+    34 _strrchr F01 module_page=71C
+    35 _isalpha 1001 module_page=4FE
+    36 __status 1101 module_page=1
+    37 _ispunct 1201 module_page=4FE
+    38 FEOF! 1301 module_page=464
     39 --------
-    3A FPRINTF! 1501 170
+    3A FPRINTF! 1501 module_page=170
     3B --------
-    3C __bufuse 1701 1
-    3D CLEARERR! 1801 39C
-    3E OTOI! 1901 64F
-    3F _rewind 1A01 2EF
-    40 FWRITE! 1B01 27F
+    3C __bufuse 1701 module_page=1
+    3D CLEARERR! 1801 module_page=39C
+    3E OTOI! 1901 module_page=64F
+    3F _rewind 1A01 module_page=2EF
+    40 FWRITE! 1B01 module_page=27F
     41 --------
-    42 __read 1D01 1
+    42 __read 1D01 module_page=1
     43 --------
-    44 ATOI! 1F01 30C
-    45 _strcpy 2001 6C0
+    44 ATOI! 1F01 module_page=30C
+    45 _strcpy 2001 module_page=6C0
     46 --------
-    47 FCLOSE! 2201 44B
+    47 FCLOSE! 2201 module_page=44B
     48 --------
-    49 _toascii 2401 72E
-    4A __seterr 2 1
+    49 _toascii 2401 module_page=72E
+    4A __seterr 2 module_page=1
     4B --------
-    4C __cnt 202 1
-    4D _reverse 302 668
-    4E AVAIL! 402 342
-    4F _fputc 502 4BE
+    4C __cnt 202 module_page=1
+    4D _reverse 302 module_page=668
+    4E AVAIL! 402 module_page=342
+    4F _fputc 502 module_page=4BE
     50 --------
-    51 __mode 702 1
-    52 _malloc 802 640
-    53 __lt 902 7C9
-    54 _fscanf A02 215
-    55 __seek B02 1
-    56 FSCANF! C02 215
-    57 _tolower D02 73B
+    51 __mode 702 module_page=1
+    52 _malloc 802 module_page=640
+    53 __lt 902 module_page=7C9
+    54 _fscanf A02 module_page=215
+    55 __seek B02 module_page=1
+    56 FSCANF! C02 module_page=215
+    57 _tolower D02 module_page=73B
     58 --------
-    59 _isalnum F02 4FE
-    5A _toupper 1002 74D
-    5B _fputs 1102 1D1
-    5C _gets 1202 144
-    5D _calloc 1302 38D
-    5E _iscntrl 1402 4FE
-    5F CSYSLIB! 1502 1
-    60 _otoi 1602 64F
-    61 __adjust 1702 1
+    59 _isalnum F02 module_page=4FE
+    5A _toupper 1002 module_page=74D
+    5B _fputs 1102 module_page=1D1
+    5C _gets 1202 module_page=144
+    5D _calloc 1302 module_page=38D
+    5E _iscntrl 1402 module_page=4FE
+    5F CSYSLIB! 1502 module_page=1
+    60 _otoi 1602 module_page=64F
+    61 __adjust 1702 module_page=1
     62 --------
-    63 __memptr 1902 1
-    64 ITOU! 1A02 5D6
-    65 FGETS! 1B02 144
-    66 _getc 1C02 482
-    67 _btell 1D02 374
-    68 _read 1E02 1E1
-    69 __scan 1F02 215
+    63 __memptr 1902 module_page=1
+    64 ITOU! 1A02 module_page=5D6
+    65 FGETS! 1B02 module_page=144
+    66 _getc 1C02 module_page=482
+    67 _btell 1D02 module_page=374
+    68 _read 1E02 module_page=1E1
+    69 __scan 1F02 module_page=215
     6A --------
     6B --------
-    6C STRNCMP! 2202 6F2
-    6D __le 2302 7C9
-    6E __lneg 2402 7C9
-    6F _ctellc 3 3EC
-    70 STRCHR! 103 69D
+    6C STRNCMP! 2202 module_page=6F2
+    6D __le 2302 module_page=7C9
+    6E __lneg 2402 module_page=7C9
+    6F _ctellc 3 module_page=3EC
+    70 STRCHR! 103 module_page=69D
     71 --------
-    72 _fprintf 303 170
+    72 _fprintf 303 module_page=170
     73 --------
-    74 LEFT! 503 60E
-    75 UNLINK! 603 776
-    76 BSEEK! 703 355
+    74 LEFT! 503 module_page=60E
+    75 UNLINK! 603 module_page=776
+    76 BSEEK! 703 module_page=355
     77 --------
     78 --------
-    79 __getkey A03 1
-    7A _exit B03 42A
-    7B _strlen C03 6D0
-    7C __print D03 170
-    7D _getarg E03 4E7
-    7E __vec F03 1
-    7F REVERSE! 1003 668
-    80 _left 1103 60E
-    81 EXIT! 1203 42A
-    82 TOLOWER! 1303 73B
-    83 _putchar 1403 2CE
-    84 ATOIB! 1503 326
-    85 _ctell 1603 3EC
+    79 __getkey A03 module_page=1
+    7A _exit B03 module_page=42A
+    7B _strlen C03 module_page=6D0
+    7C __print D03 module_page=170
+    7D _getarg E03 module_page=4E7
+    7E __vec F03 module_page=1
+    7F REVERSE! 1003 module_page=668
+    80 _left 1103 module_page=60E
+    81 EXIT! 1203 module_page=42A
+    82 TOLOWER! 1303 module_page=73B
+    83 _putchar 1403 module_page=2CE
+    84 ATOIB! 1503 module_page=326
+    85 _ctell 1603 module_page=3EC
     86 --------
-    87 _auxbuf 1803 11A
+    87 _auxbuf 1803 module_page=11A
     88 --------
-    89 _isgraph 1A03 4FE
-    8A _cseek 1B03 3AE
-    8B _isascii 1C03 538
-    8C TOUPPER! 1D03 74D
+    89 _isgraph 1A03 module_page=4FE
+    8A _cseek 1B03 module_page=3AE
+    8B _isascii 1C03 module_page=538
+    8C TOUPPER! 1D03 module_page=74D
     8D --------
-    8E ITOD! 1F03 59F
-    8F GETCHAR! 2003 298
+    8E ITOD! 1F03 module_page=59F
+    8F GETCHAR! 2003 module_page=298
     90 --------
-    91 DTOI! 2203 413
-    92 ITOAB! 2303 583
-    93 _unlink 2403 776
-    94 ISASCII! 4 538
-    95 __writebu 104 1
-    96 _lexcmp 204 620
-    97 _abort 304 42A
-    98 _rename 404 2DD
-    99 ITOX! 504 5F2
-    9A STRCMP! 604 6AE
-    9B ABS! 704 2FE
-    9C _poll 804 2B5
-    9D AUXBUF! 904 11A
-    9E PAD! A04 2A7
-    9F SIGN! B04 67C
-    A0 __readbuf C04 1
-    A1 __iscons D04 554
-    A2 _fgets E04 144
-    A3 __link F04 7C9
-    A4 _strncmp 1004 6F2
+    91 DTOI! 2203 module_page=413
+    92 ITOAB! 2303 module_page=583
+    93 _unlink 2403 module_page=776
+    94 ISASCII! 4 module_page=538
+    95 __writebu 104 module_page=1
+    96 _lexcmp 204 module_page=620
+    97 _abort 304 module_page=42A
+    98 _rename 404 module_page=2DD
+    99 ITOX! 504 module_page=5F2
+    9A STRCMP! 604 module_page=6AE
+    9B ABS! 704 module_page=2FE
+    9C _poll 804 module_page=2B5
+    9D AUXBUF! 904 module_page=11A
+    9E PAD! A04 module_page=2A7
+    9F SIGN! B04 module_page=67C
+    A0 __readbuf C04 module_page=1
+    A1 __iscons D04 module_page=554
+    A2 _fgets E04 module_page=144
+    A3 __link F04 module_page=7C9
+    A4 _strncmp 1004 module_page=6F2
     A5 --------
-    A6 __cons 1204 1
-    A7 ISCONS! 1304 554
-    A8 __parse 1404 1
-    A9 _sign 1504 67C
-    AA TOASCII! 1604 72E
-    AB _islower 1704 4FE
-    AC __bdos2 1804 1
-    AD _isupper 1904 4FE
-    AE _fgetc 1A04 482
+    A6 __cons 1204 module_page=1
+    A7 ISCONS! 1304 module_page=554
+    A8 __parse 1404 module_page=1
+    A9 _sign 1504 module_page=67C
+    AA TOASCII! 1604 module_page=72E
+    AB _islower 1704 module_page=4FE
+    AC __bdos2 1804 module_page=1
+    AD _isupper 1904 module_page=4FE
+    AE _fgetc 1A04 module_page=482
     AF --------
-    B0 _cfree 1C04 4D8
-    B1 __eq 1D04 7C9
+    B0 _cfree 1C04 module_page=4D8
+    B1 __eq 1D04 module_page=7C9
     B2 --------
-    B3 CTELL! 1F04 3EC
-    B4 __ne 2004 7C9
-    B5 _isdigit 2104 4FE
-    B6 _avail 2204 342
-    B7 _ungetc 2304 75F
-    B8 _bseek 2404 355
+    B3 CTELL! 1F04 module_page=3EC
+    B4 __ne 2004 module_page=7C9
+    B5 _isdigit 2104 module_page=4FE
+    B6 _avail 2204 module_page=342
+    B7 _ungetc 2304 module_page=75F
+    B8 _bseek 2404 module_page=355
     B9 --------
-    BA _free 105 4D8
-    BB CALLOC! 205 38D
-    BC __hitkey 305 1
-    BD FREAD! 405 1E1
+    BA _free 105 module_page=4D8
+    BB CALLOC! 205 module_page=38D
+    BC __hitkey 305 module_page=1
+    BD FREAD! 405 module_page=1E1
     BE --------
-    BF FREOPEN! 605 1F9
-    C0 FREE! 705 4D8
-    C1 _atoi 805 30C
-    C2 __rename 905 2DD
-    C3 ITOO! A05 5BC
+    BF FREOPEN! 605 module_page=1F9
+    C0 FREE! 705 module_page=4D8
+    C1 _atoi 805 module_page=30C
+    C2 __rename 905 module_page=2DD
+    C3 ITOO! A05 module_page=5BC
     C4 --------
     C5 --------
-    C6 IS! D05 4FE
-    C7 _fopen E05 4AD
-    C8 _strcat F05 68B
-    C9 _isprint 1005 4FE
-    CA _atoib 1105 326
-    CB POLL! 1205 2B5
-    CC PUTCHAR! 1305 2CE
+    C6 IS! D05 module_page=4FE
+    C7 _fopen E05 module_page=4AD
+    C8 _strcat F05 module_page=68B
+    C9 _isprint 1005 module_page=4FE
+    CA _atoib 1105 module_page=326
+    CB POLL! 1205 module_page=2B5
+    CC PUTCHAR! 1305 module_page=2CE
     CD --------
-    CE FPUTC! 1505 4BE
+    CE FPUTC! 1505 module_page=4BE
     CF --------
-    D0 _delete 1705 776
-    D1 _abs 1805 2FE
-    D2 PUTS! 1905 134
-    D3 _xtoi 1A05 79E
+    D0 _delete 1705 module_page=776
+    D1 _abs 1805 module_page=2FE
+    D2 PUTS! 1905 module_page=134
+    D3 _xtoi 1A05 module_page=79E
     D4 --------
-    D5 __nextc 1C05 1
-    D6 MALLOC! 1D05 640
-    D7 LEXCMP! 1E05 620
-    D8 UNGETC! 1F05 75F
-    D9 __ule 2005 7C9
-    DA __ult 2105 7C9
-    DB _scanf 2205 215
-    DC _strchr 2305 69D
-    DD RENAME! 2405 2DD
-    DE _lexorder 6 620
+    D5 __nextc 1C05 module_page=1
+    D6 MALLOC! 1D05 module_page=640
+    D7 LEXCMP! 1E05 module_page=620
+    D8 UNGETC! 1F05 module_page=75F
+    D9 __ule 2005 module_page=7C9
+    DA __ult 2105 module_page=7C9
+    DB _scanf 2205 module_page=215
+    DC _strchr 2305 module_page=69D
+    DD RENAME! 2405 module_page=2DD
+    DE _lexorder 6 module_page=620
     DF --------
-    E0 __bufsiz 206 1
-    E1 _strncat 306 6DE
-    E2 _iscons 406 554
-    E3 __main 506 1
-    E4 CSEEK! 606 3AE
-    E5 STRNCPY! 706 708
+    E0 __bufsiz 206 module_page=1
+    E1 _strncat 306 module_page=6DE
+    E2 _iscons 406 module_page=554
+    E3 __main 506 module_page=1
+    E4 CSEEK! 606 module_page=3AE
+    E5 STRNCPY! 706 module_page=708
     E6 --------
     E7 --------
-    E8 _dtoi A06 413
+    E8 _dtoi A06 module_page=413
     E9 --------
-    EA GETARG! C06 4E7
-    EB __bufend D06 1
+    EA GETARG! C06 module_page=4E7
+    EB __bufend D06 module_page=1
     EC --------
     ED --------
-    EE _fread 1006 1E1
-    EF __gt 1106 7C9
-    F0 _freopen 1206 1F9
-    F1 UTOI! 1306 785
-    F2 _write 1406 27F
-    F3 _cseekc 1506 3AE
-    F4 _printf 1606 170
+    EE _fread 1006 module_page=1E1
+    EF __gt 1106 module_page=7C9
+    F0 _freopen 1206 module_page=1F9
+    F1 UTOI! 1306 module_page=785
+    F2 _write 1406 module_page=27F
+    F3 _cseekc 1506 module_page=3AE
+    F4 _printf 1606 module_page=170
     F5 --------
-    F6 _isxdigit 1806 4FE
+    F6 _isxdigit 1806 module_page=4FE
     F7 --------
-    F8 FERROR! 1A06 473
-    F9 __arg1 1B06 1
-    FA __clreof 1C06 1
-    FB __ge 1D06 7C9
-    FC _feof 1E06 464
-    FD __write 1F06 1
-    FE _ccargc 2006 7C9
+    F8 FERROR! 1A06 module_page=473
+    F9 __arg1 1B06 module_page=1
+    FA __clreof 1C06 module_page=1
+    FB __ge 1D06 module_page=7C9
+    FC _feof 1E06 module_page=464
+    FD __write 1F06 module_page=1
+    FE _ccargc 2006 module_page=7C9
     FF --------
-    100 _clearerr 2206 39C
-    101 __switch 2306 7C9
-    102 CALL! 2406 7C9
+    100 _clearerr 2206 module_page=39C
+    101 __switch 2306 module_page=7C9
+    102 CALL! 2406 module_page=7C9

@@ -227,7 +227,7 @@ writeLibData(uint fd) {
     }
     else {
       name = dictNames + nameOffset;
-      fprintf(fd, "\n    %x %s %x %x", i, name, hash, moduleOffset);
+      fprintf(fd, "\n    %x %s %x module_page=%x", i, name, hash, moduleOffset);
     }
   }
   /* This would write out the dependancy data table.
