@@ -2,3 +2,5 @@
 *.MAP
 *.ASM
 *.OBJ
+hello/*.EXE
+ylink/*.EXE
