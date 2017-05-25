@@ -34,7 +34,7 @@ do_libhdr(uint outfd, uint length, uint fd) {
   isLibrary = 1;
   // seek to library data offset, read data, return to module data offset
   btell(fd, omfOffset);
-  do_library(outfd, fd, dictOffset, blockCount);
+  do_dictionary(outfd, fd, dictOffset, blockCount);
   nextRecord = read_u8(fd);
   if (nextRecord == LIBDEP) {
     hasDependancy = 1;
@@ -44,6 +44,7 @@ do_libhdr(uint outfd, uint length, uint fd) {
   }
   else {
     printf("Error: No dependancy information");
+    abort(1);
   }
   bseek(fd, omfOffset, 0);
   return;
@@ -59,41 +60,45 @@ do_libhdr(uint outfd, uint length, uint fd) {
 // offset to the next available space. If byte 38 is 255 the block is full.
 // Each entry is a length-prefixed string, followed by a two-byte LE mdoule 
 // number in which the module in the library defining this string can be found.
-do_library(uint outfd, uint fd, uint dictOffset[], uint blockCount) {
-    byte offsets[38];
-    uint iBlock, iEntry, moduleLocation, nameLength;
-    uint blockOffset[2];
-    fprintf(outfd, "    Library Block Count=%u (%u / %u)",
-            blockCount, dictCount, DICT_BLOCK_CNT);
-    for (iBlock = 0; iBlock < blockCount; iBlock++) {
-        // advance to the dictionary block
-        blockOffset[0] = iBlock * 512;
-        blockOffset[1] = 0;
-        offsetfd(fd, dictOffset, blockOffset);
-        read(fd, offsets, 38);
-        for (iEntry = 0; iEntry < 37; iEntry++) {
-            // ignore empty records (offset == 0)
-            if (offsets[iEntry] != 0) {
-                blockOffset[0] = (iBlock * 512) + (offsets[iEntry] * 2);
-                offsetfd(fd, dictOffset, blockOffset);
-                nameLength = read_strp(line, fd);
-                moduleLocation = read_u16(fd);
-                addDictData(line, iBlock, iEntry, moduleLocation);
-            }
-        }
-        blockOffset[0] = iBlock * 512;
-        blockOffset[1] = 0;
-        offsetfd(fd, dictOffset, blockOffset);
-    }
-    blockOffset[0] = blockCount * 512;
+do_dictionary(uint outfd, uint fd, uint dictOffset[], uint blockCount) {
+  byte offsets[38];
+  uint iBlock, iEntry, moduleLocation, nameLength;
+  uint blockOffset[2];
+  fprintf(outfd, "    Library Block Count=%u (%u / %u)",
+          blockCount, dictCount, DICT_BLOCK_CNT);
+  for (iBlock = 0; iBlock < blockCount; iBlock++) {
+    // advance to the dictionary block
+    blockOffset[0] = iBlock * 512;
+    blockOffset[1] = 0;
     offsetfd(fd, dictOffset, blockOffset);
+    read(fd, offsets, 38);
+    for (iEntry = 0; iEntry < 37; iEntry++) {
+      // ignore empty records (offset == 0)
+      if (offsets[iEntry] != 0) {
+        blockOffset[0] = (iBlock * 512) + (offsets[iEntry] * 2);
+        offsetfd(fd, dictOffset, blockOffset);
+        nameLength = read_strp(line, fd);
+        moduleLocation = read_u16(fd);
+        addDictData(line, iBlock, iEntry, moduleLocation);
+      }
+    }
+    blockOffset[0] = iBlock * 512;
+    blockOffset[1] = 0;
+    offsetfd(fd, dictOffset, blockOffset);
+  }
+  blockOffset[0] = blockCount * 512;
+  offsetfd(fd, dictOffset, blockOffset);
 }
 
 // F1H Library End
 do_libend(uint outfd, uint length, uint fd) {
   fprintf(outfd, "LIBEND Padding=%x", length);
-  puthexint(stdout, length);
   clearsilent(outfd, length, fd);
+  if (isLibrary) {
+    fputc('\n', outfd);
+    writeLibData(outfd);
+  }
+  fclose(fd);
 }
 
 // F2H Extended Dictionary

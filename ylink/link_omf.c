@@ -60,10 +60,18 @@ do_record(uint outfd, byte recType, uint length, uint fd) {
 }
 
 clearrecord(uint outfd, uint length, uint fd) {
+  int count;
+  byte ch;
+  count = 0;
   while (length-- > 0) {
-    byte ch;
+    if ((count % 32) == 0) {
+      fputs("\n    ", outfd);
+      puthexint(outfd, count);
+      fputs("  ", outfd);
+    }
     ch = read_u8(fd);
     puthexch(outfd, ch);
+    count++;
   }
 }
 
@@ -283,7 +291,7 @@ do_segdef(uint outfd, uint length, uint fd) {
     segname = read_u8(fd);
     classname = read_u8(fd);
     overlayname = read_u8(fd);
-    fprintf(outfd, "Length=%u Name=%u Class=%u Overlay=%u", 
+    fprintf(outfd, "Length=%x Name=%x Class=%x Overlay=%x", 
         seglength, segname, classname, overlayname);
     read_u8(fd); // checksum. assume correct.
     return;
@@ -472,13 +480,8 @@ do_ledata(uint outfd, uint length, uint fd) {
     segindex = read_u8(fd);
     dataoffset = read_u16(fd);
     length -= 4; // don't count the segindex, dataoffset, or checksum.
-    fprintf(outfd, "SegIndex=%u DataOffset=%u Length=%u\n", segindex, dataoffset, length);
-    // Data bytes
-    while (length-- > 0) {
-        char ch;
-        ch = read_u8(fd);
-        puthexch(outfd, ch);
-    }
+    fprintf(outfd, "SegIndex=%x DataOffset=%x Length=%x", segindex, dataoffset, length);
+    clearrecord(outfd, length, fd);
     read_u8(fd); // checksum. assume correct.
     return;
 }

@@ -151,9 +151,6 @@ ReadFile(uint fd) {
     length = read_u16(fd);
     do_record(outfd, recType, length, fd);
   }
-  if (isLibrary) {
-    writeLibData(outfd);
-  }
   fclose(outfd);
   return;
 }
