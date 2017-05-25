@@ -14,7 +14,7 @@ char *line;
 char *exeFile;
 int objf_ptrs[OBJF_MAX];
 int objf_cnt;
-extern byte isLibrary;
+extern byte isLibrary, idxLibMod;
 
 main(int argc, int *argv) {
   int i;
@@ -78,7 +78,7 @@ GetArgs(int argc, int *argv) {
       }
       switch (*(c+1)) {
         case 'e':
-          RdOptE(c+3);
+          RdOptExeFile(c+3);
           break;
         default:
           erroutf("Could not parse option %s\n", c);
@@ -92,7 +92,7 @@ GetArgs(int argc, int *argv) {
       start = end = c;
       while (1) {
         if ((*end == 0) || (*end == ',')) {
-          AddObjf(start, end);
+          AddObjFile(start, end);
           if (*end == 0) {
             break;
           }
@@ -105,7 +105,7 @@ GetArgs(int argc, int *argv) {
   }
 }
 
-AddObjf(char *start, char *end) {
+AddObjFile(char *start, char *end) {
   char *objf;
   if (objf_cnt == OBJF_MAX) {
     printf("  Error: max of %u input obj files.", objf_cnt);
@@ -120,7 +120,7 @@ AddObjf(char *start, char *end) {
   objf_cnt += 1;
 }
 
-RdOptE(char *str) {
+RdOptExeFile(char *str) {
   exeFile = AllocVar(strlen(str) + 1, 1);
   strcpy(exeFile, str);
 }
@@ -139,7 +139,7 @@ ReadFile(uint fd) {
   byte recType;
   uint length;
   outfd = fopen(LINKTXT, "a");
-  isLibrary = 0;
+  isLibrary = idxLibMod = 0; // reset library vars.
   while (1) {
     recType = read_u8(fd);
     if (feof(fd)) {

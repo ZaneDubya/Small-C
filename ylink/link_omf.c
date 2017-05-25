@@ -6,9 +6,10 @@
 #define LNAME_MAX 4
 
 extern char *line;
+extern byte idxLibMod;
 
 do_record(uint outfd, byte recType, uint length, uint fd) {
-        int x;
+  int x;
   puthexch(outfd, recType);
   fputs("  ", outfd);
   switch (recType) {
@@ -95,6 +96,10 @@ clearsilent(uint outfd, uint length, uint fd) {
 do_theadr(uint outfd, uint length, uint fd) {
   read_strp(line, fd);
   fprintf(outfd, "THEADR %s", line);
+  if (isLibrary) {
+    fputs("  LibMod", outfd);
+    puthexch(outfd, idxLibMod++);
+  }
   read_u8(fd); // checksum. assume correct.
   return;
 }

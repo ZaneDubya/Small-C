@@ -1,7 +1,7 @@
 #include "stdio.h"
 #include "link.h"
 
-byte isLibrary = 0, hasDependancy = 0;
+byte isLibrary = 0, hasDependancy = 0, idxLibMod = 0;
 // Library Dictionary - contains quick look up information.
 // Each DictData entry is u16 offset to name table, u16 hash, u16 module offset
 uint dictCount, *dictData;
@@ -94,10 +94,12 @@ do_dictionary(uint outfd, uint fd, uint dictOffset[], uint blockCount) {
 do_libend(uint outfd, uint length, uint fd) {
   fprintf(outfd, "LIBEND Padding=%x", length);
   clearsilent(outfd, length, fd);
-  if (isLibrary) {
-    fputc('\n', outfd);
-    writeLibData(outfd);
+  if (!isLibrary) {
+    fputs('\n    Error: not a library!', outfd);
+    abort(1);
   }
+  fputc('\n', outfd);
+  writeLibData(outfd);
   fclose(fd);
 }
 
@@ -119,7 +121,6 @@ do_libdep(uint outfd, uint length, uint fd) {
         length -= 4;
     }
     // ignore final null record
-    length -= 4;
     readDependancies(fd, length);
     fprintf(outfd, "\n    Library Dependencies (%u Modules)", count);
     writeDependancies(outfd);
@@ -193,8 +194,9 @@ writeDependancies(uint outfd) {
     offset = dependData[i * DEPEND_DATA_LENGTH + 1];
     count = dependData[i * DEPEND_DATA_LENGTH + 2];
     modules = dependMods + offset;
-    fprintf(outfd, "\n      %x Loc=%x Off=%x Cnt=%x {", 
-            i, location, offset, count);
+    fputs("\n    LibMod", outfd);
+    puthexch(outfd, i);
+    fprintf(outfd, "  Loc=%x Off=%x Cnt=%x {", location, offset, count);
     for (j = 0; j < count; j++) {
       if (j != 0) {
         fputs(", ", outfd);
@@ -230,7 +232,7 @@ writeLibData(uint fd) {
       fprintf(fd, "\n    %x %s %x module_page=%x", i, name, hash, moduleOffset);
     }
   }
-  /* This would write out the dependancy data table.
+  // This would write out the dependancy data table.
   fprintf(fd, "\n  DependData: %u bytes\n", dependCount * DEPEND_DATA_LENGTH * 2);
   for (i = 0; i < dependCount * DEPEND_DATA_LENGTH * 2; i++) {
     puthexch(fd, dependData[i]);
@@ -238,15 +240,15 @@ writeLibData(uint fd) {
       fputc('\n', fd);
     }
   }
-  */
-  /* This would write out the dependancy modules table.
+  
+  /* This would write out the dependancy modules table.*/
   fprintf(fd, "\n  DependMods: %u bytes\n", dependLength);
   for (i = 0; i < dependLength; i++) {
     puthexch(fd, dependMods[i]);
     if ((i % 32) == 31) {
       fputc('\n', fd);
     }
-  }*/
+  }
 }
 
 getDictName(uint index) {
