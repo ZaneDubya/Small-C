@@ -7,7 +7,7 @@ Expected milestones are:
     0.2     Read in complex "CC.OBJ" file.
             Display contents.
     0.3     Read in library "LIBC.LIB" file.
-            Display contents.
+            Display contents in LINK.TXT
     0.4     Dry run of linking: Calculate all necessary offsets, etc required to
             link and output HELLO.EXE from HELLO.OBJ and CLIBC.LIB.
             Display all required information.

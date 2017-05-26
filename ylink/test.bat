@@ -1,1 +1,0 @@
-link work\hello.obj,..\smalllib\clib.lib

@@ -8,7 +8,6 @@
 #define LINESIZE 128
 #define ERROR 0xFFFF
 #define OBJF_MAX 8
-#define LINKTXT "link.txt"
 
 char *line;
 char *exeFile;

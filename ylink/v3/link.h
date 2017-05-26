@@ -20,3 +20,4 @@
 #define LIBHDR 0xF0
 #define LIBEND 0xF1
 #define LIBDEP 0xF2
+#define LINKTXT "link.txt"

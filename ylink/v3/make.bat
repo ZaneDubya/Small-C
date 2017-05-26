@@ -5,24 +5,27 @@ REM The -A switch causes the alarm to sound whenever an error is reported.
 REM The -P switch causes the compiler to pause after reporting each error.
 REM     An ENTER (carriage return) keystroke resumes execution.
 
+SET BIN=..\..\bin
+SET LIB=..\..\smalllib
+
 ECHO === Compiling ===
-..\bin\cc  link -a -p
+%BIN%\cc  link -a -p
 if errorlevel 1 goto exit
-..\bin\asm link /p
-if errorlevel 1 goto exit
-
-..\bin\cc  link_omf -a -p
-if errorlevel 1 goto exit
-..\bin\asm link_omf /p
+%BIN%\asm link /p
 if errorlevel 1 goto exit
 
-..\bin\cc  link_lib -a -p
+%BIN%\cc  link_omf -a -p
 if errorlevel 1 goto exit
-..\bin\asm link_lib /p
+%BIN%\asm link_omf /p
+if errorlevel 1 goto exit
+
+%BIN%\cc  link_lib -a -p
+if errorlevel 1 goto exit
+%BIN%\asm link_lib /p
 if errorlevel 1 goto exit
 
 ECHO === Linking ===
-..\bin\link link link_omf link_lib,,,..\smalllib\clib.lib
+%BIN%\link link link_omf link_lib,,,%LIB%\clib.lib
 if errorlevel 1 goto exit
 
 :exit
