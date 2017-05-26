@@ -4,3 +4,7 @@
 *.OBJ
 hello/*.EXE
 ylink/*.EXE
+ylink/v3/LINK.EXE
+ylink/v4/LINK.EXE
+ylink/v3/LINK.TXT
+ylink/v4/LINK.TXT
