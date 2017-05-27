@@ -47,7 +47,7 @@ LnkResolveExtDefs(uint fileCnt, uint *files) {
     if (!IsExt(filename, ".obj")) {
       continue;
     }
-    AddObjFile(filename, i, 0);
+    Lnk0_AddObj(filename, i, 0);
     puts("Done.");
   }
 
@@ -91,31 +91,37 @@ LnkResolveExtDefs(uint fileCnt, uint *files) {
   //  proceed to stage 2!
 }
 
-AddObjFile(char* filename, uint idx, byte libidx) {
-  uint fd, tbObjBase;
-  tbObjBase = tbObj + idx * tbObj_EntrySize;
-  *(tbObjBase + TO_Name) = AddName(filename, tbOfNames, &ofNmsNext, ofNms_Size);
-  *(tbObjBase + TO_LibIbx) = libidx;
-  printf("  %s: ", *(tbObjBase + TO_Name));
-  if (!(fd = fopen(*(tbObjBase + TO_Name), "r"))) {
-    fatalf("Could not open file '%s'", *(tbObjBase + TO_Name));
-  }
-  Lnk0ReadFile(fd);
-  Cleanup(fd);
-}
+// ============================================================================
+// Link Pass 0
+// ============================================================================
 
-Lnk0ReadFile(uint fd) {
-  byte recType;
-  uint length;
+Lnk0_AddObj(char* filename, uint idx, byte libidx) {
+  uint fd, obj;
+  printf("  %s: ", filename);
+  obj = tbObj + idx * tbObj_EntrySize;
+  *(obj + TO_Name) = AddName(filename, tbOfNames, &ofNmsNext, ofNms_Size);
+  *(obj + TO_LibIbx) = libidx;
+  if (!(fd = fopen(*(obj + TO_Name), "r"))) {
+    fatalf("Could not open file '%s'", *(obj + TO_Name));
+  }
   while (1) {
+    byte recType;
+    uint length;
     recType = read_u8(fd);
     if (feof(fd) || ferror(fd)) {
       break;
     }
     length = read_u16(fd);
-    do_record(outfd, recType, length, fd);
+    Lnk0_DoRec(recType, length, obj);
   }
+  Cleanup(fd);
 }
+
+Lnk0_DoRec(byte recType, uint length, uint obj) {
+  
+}
+
+// === Helper Utilities =======================================================
 
 IsExt(char *str, char *ext) {
   int i, ln;
