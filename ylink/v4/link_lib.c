@@ -72,19 +72,9 @@ addDictEntry(char *name, uint hash0, uint hash1, uint moduleLocation) {
   uint iData, i, nameTableMax;
   nameTableMax = dictCount * DICT_NAME_LENGTH;
   iData = (hash0 * DICT_BLOCK_CNT + hash1) * DICT_DATA_LENGTH;
-  dictData[iData + 0] = dictNamNext;
+  dictData[iData + 0] = AddName(name, dictNames, &dictNamNext, nameTableMax);
   dictData[iData + 1] = hash0 + (hash1 << 8);
   dictData[iData + 2] = moduleLocation;
-  while (*name != 0x00) {
-    dictNames[dictNamNext++] = *name++;
-    if (dictNamNext >= nameTableMax) {
-      printf("Error: Exceeded name table length of %u", nameTableMax);
-      abort(1);
-    }
-    if (*name == 0) {
-      dictNames[dictNamNext++] = 0x00;
-    }
-  }
 }
 
 addDependancy(uint i, uint moduleLocation, uint offset) {
@@ -141,16 +131,14 @@ putLibDict(uint fd) {
   int i;
   fprintf(fd, "\n    DictData: %u bytes", dictCount * DICT_DATA_LENGTH * 2);
   for (i = 0; i < dictCount; i++) {
-    uint nameOffset, hash, moduleOffset;
-    char *name;
-    nameOffset = dictData[i * DICT_DATA_LENGTH + 0];
+    uint name, hash, moduleOffset;
+    name = dictData[i * DICT_DATA_LENGTH + 0];
     hash = dictData[i * DICT_DATA_LENGTH + 1];
     moduleOffset = dictData[i * DICT_DATA_LENGTH + 2];
     if (moduleOffset == 0) {
       fprintf(fd, "\n    %x %s", i, "--------");
     }
     else {
-      name = dictNames + nameOffset;
       fprintf(fd, "\n    %x %s %x module_page=%x", i, name, hash, moduleOffset);
     }
   }

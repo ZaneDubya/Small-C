@@ -5,27 +5,52 @@
 #include "stdio.h"
 #include "link.h"
 
-#define tbObj_EntrySize 28
+#define tbObj_EntrySize 16
 #define tbObj_Count     64
 #define tbExt_Size      2048
 #define tbPub_Size      2048
+#define ofNms_Size      1024
 
-// Object Resolution Table
-byte *tbObj;
+#define TO_Name         0
+#define TO_LibIbx       2
+#define TO_HasSegs      3
+#define TO_CodeSize     4
+#define TO_DataSize     6
+#define TO_CodeLoc      8
+#define TO_DataLoc      10
+#define TO_PubDefPtr    12
+#define TO_ExtDefPtr    14
 
-// External Definition Table
-byte *tbExt;
+#define TO_SegCode      0x01
+#define TO_SegData      0x02
+#define TO_SegStack     0x04
 
-// Public Definition Table
-byte *tbPub;
+byte *tbObj;      // Object Resolution Table
+byte *tbExt;      // External Definition Table
+byte *tbPub;      // Public Definition Table
+char *tbOfNames;  // ObjFile Names
+uint ofNmsNext;   
 
 AllocLnkMemory() {
   tbObj = allocvar(tbObj_EntrySize * tbObj_Count, 1);
+  tbOfNames = allocvar(ofNms_Size, 1);
   tbExt = allocvar(tbExt_Size, 1);
   tbPub = allocvar(tbPub_Size, 1);
 }
 
-LnkResolveExtDefs() {
+LnkResolveExtDefs(uint fileCnt, uint *files) {
+  uint i;
+  puts("\nPass 0: Resolving extdefs... ");
+  for (i = 0; i < fileCnt; i++) {
+    char *filename;
+    filename = files[i];
+    if (!IsExt(filename, ".obj")) {
+      continue;
+    }
+    AddObjFile(filename, i, 0);
+    puts("Done.");
+  }
+
   //  foreach (obj in objs) {
   //    Add obj to tblObjs: name, index (if lib), segment sizes.
   //    Get segment placement data.
@@ -64,4 +89,86 @@ LnkResolveExtDefs() {
   //    }
   //  }
   //  proceed to stage 2!
+}
+
+AddObjFile(char* filename, uint idx, byte libidx) {
+  uint fd, tbObjBase;
+  tbObjBase = tbObj + idx * tbObj_EntrySize;
+  *(tbObjBase + TO_Name) = AddName(filename, tbOfNames, &ofNmsNext, ofNms_Size);
+  *(tbObjBase + TO_LibIbx) = libidx;
+  printf("  %s: ", *(tbObjBase + TO_Name));
+  if (!(fd = fopen(*(tbObjBase + TO_Name), "r"))) {
+    fatalf("Could not open file '%s'", *(tbObjBase + TO_Name));
+  }
+  Lnk0ReadFile(fd);
+  Cleanup(fd);
+}
+
+Lnk0ReadFile(uint fd) {
+  byte recType;
+  uint length;
+  while (1) {
+    recType = read_u8(fd);
+    if (feof(fd) || ferror(fd)) {
+      break;
+    }
+    length = read_u16(fd);
+    do_record(outfd, recType, length, fd);
+  }
+}
+
+IsExt(char *str, char *ext) {
+  int i, ln;
+  ln = strlen(ext);
+  str = str + (strlen(str) - strlen(ext));
+  for (i = 0; i < ln; i++) {
+    if (toupper(str[i]) != toupper(ext[i])) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
+// searches for substr in str.
+// if found, return location of first instance.
+// if not found, return 0.
+strstr(char *str, char *substr)
+{
+  char *a, *b;
+  b = substr;
+  if (*b == 0) {
+    return str;
+  }
+  for ( ; *str != 0; str += 1) {
+	  if (*str != *b) {
+	    continue;
+	  }
+    a = str;
+    while (1) {
+        if (*b == 0) {
+          return str;
+        }
+        if (*a++ != *b++) {
+          break;
+        }
+    }
+    b = substr;
+  }
+  return 0;
+}
+
+// AddName: adds a null-terminated string to a byte array. Returns ptr to
+// byte array where string was placed. Fails if string will not fit.
+AddName(char *name, char *names, uint next, uint max) {
+  uint nameat, i;
+  nameat = i = *next;
+  while (names[i++] = *name++) {
+    if (i >= max) {
+      fprintf(stderr, "\n%s at %x exceeded names length of %x (%x)\n", 
+              name, nameat, max, i);
+      abort(1);
+    }
+  }
+  *next = i;
+  return nameat + names;
 }

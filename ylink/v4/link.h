@@ -1,5 +1,6 @@
 #define uint unsigned int
 #define byte unsigned char
+#define size_t unsigned int
 
 #define DICT_NAME_LENGTH 10
 #define DICT_DATA_LENGTH 3

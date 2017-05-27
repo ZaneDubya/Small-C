@@ -20,6 +20,7 @@ main(int argc, int *argv) {
   Setup();
   RdArgs(argc, argv);
   Initialize();
+  LnkResolveExtDefs(objf_cnt, objf_ptrs);
   ReadObjfs();
 }
 
@@ -30,7 +31,7 @@ Setup() {
 }
 
 Initialize() {
-  unlink(LINKTXT);
+  unlink(LINKTXT); // delete
   if (exeFile == 0) {
     printf("  No -e parameter. Output file will be out.exe.\n");
     exeFile = AllocVar(8, 1);
@@ -122,10 +123,7 @@ ReadFile(uint fd) {
   isLibrary = idxLibMod = 0; // reset library vars.
   while (1) {
     recType = read_u8(fd);
-    if (feof(fd)) {
-      break;
-    }
-    if (ferror(fd)) {
+    if (feof(fd) || ferror(fd)) {
       break;
     }
     length = read_u16(fd);

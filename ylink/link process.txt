@@ -4,13 +4,12 @@ entirety. Library files contain multiple object files; only the objects
 that are necessary for extdefs are included in the final exe.
 
 MEMORY USED FOR LINKING:
-  TblObjs: Object resolution table: 28 bytes for each object, max 64 objs, 1792 bytes
-    char[12]  Object/Library filename.
-    byte      Object index within library (for libraries; otherwise 0000)
+  TblObjs: Object resolution table: 16 bytes for each object, max 64 objs, 1024 bytes
+    uint      Ptr to Object filename.
+    byte      Object index within library (for libraries; otherwise 00)
     byte      HasModules bitflag (.....sdc) (code, data, stack)
     uint      Code Segment Size (bytes, 0x0000 = 64kb)
     uint      Data Segment Size
-    uint      Stack Segment Size
     uint      Code Segment Placement (para-align, loc = placement * 16)
     uint      Data Segment Placement (para-align, loc = placement * 16)
     uint      ptrPubDef (pointer to first entry in pubdef table)
