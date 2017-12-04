@@ -12,7 +12,10 @@ char *line;
 char *exeFile;
 int objf_ptrs[OBJF_MAX];
 int objf_cnt;
-byte isLibrary = 0, hasDependancy = 0, idxLibMod = 0;
+byte isLibrary = 0;
+byte idxLibMod = 0;
+byte hasDependancy = 0;
+byte gSegIdx = 0; // index of the current segment being read. first should be 1.
 
 main(int argc, int *argv) {
   int i;
@@ -121,6 +124,7 @@ ReadFile(uint fd) {
   uint length;
   outfd = fopen(LINKTXT, "a");
   isLibrary = idxLibMod = 0; // reset library vars.
+  gSegIdx = 1; // first segment should always be 1.
   while (1) {
     recType = read_u8(fd);
     if (feof(fd) || ferror(fd)) {

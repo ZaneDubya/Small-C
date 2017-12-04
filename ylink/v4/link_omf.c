@@ -7,7 +7,7 @@
 #include "link.h"
 
 extern char *line;
-extern byte isLibrary, hasDependancy, idxLibMod;
+extern byte isLibrary, hasDependancy, idxLibMod, gSegIdx;
 
 do_record(uint outfd, byte recType, uint length, uint fd) {
   int x;
@@ -266,7 +266,7 @@ do_lnames(uint outfd, uint length, uint fd) {
 // particular segment.  The SEGDEF records are ordered by occurrence, and are
 // referenced by segment indexes (starting from 1) in subsequent records.
 do_segdef(uint outfd, uint length, uint fd) {
-  byte segattr, segname, classname, overlayname;
+  byte segIndex, segattr, segname, classname, overlayname;
   uint seglength;
   fprintf(outfd, "SEGDEF ");
   // segment attribute
@@ -285,12 +285,13 @@ do_segdef(uint outfd, uint length, uint fd) {
   if ((segattr & 0x01) != 0x00) {
     fatal("do_segref: Attribute must be 16-bit addressing (flag 0x01).");
   }
+  segIndex = gSegIdx++;
   seglength = read_u16(fd);
   segname = read_u8(fd);
   classname = read_u8(fd);
   overlayname = read_u8(fd);
-  fprintf(outfd, "Length=%x Name=%x Class=%x Overlay=%x", 
-          seglength, segname, classname, overlayname);
+  fprintf(outfd, "Idx=%x Length=%x Name=%x Class=%x Overlay=%x", 
+          segIndex, seglength, segname, classname, overlayname);
   read_u8(fd); // checksum. assume correct.
   return;
 }
@@ -338,16 +339,16 @@ rd_fix_locat(uint outfd, uint length, uint fd) {
     fatalf("\nError: must be fixup, not thread (%x)", locat);
   }
   // -----------------------------------------------------------------
-  //  The  REFERENCE MODE bit indicates how the reference is made.
-  //  Self-relative references locate a target address relative to
-  //  the CPU's instruction pointer (IP); that is, the target is a
-  //  certain distance from the location  currently  indicated  by
-  //  IP.   This   sort   of  reference  is  common  to  the  jump
-  //  instructions. Such a  fixup  is  not  necessary  unless  the
-  //  reference   is  to  a  different  segment.  Segment-relative
-  //  references locate a target address in any  segment  relative
-  //  to   the   beginning  of  the  segment.  This  is  just  the
-  //  "displacement" field that occurs in so many instructions.
+  //  The REFERENCE MODE bit indicates how the reference is made.
+  //  * Self-relative references locate a target address relative to
+  //    the CPU's instruction pointer (IP); that is, the target is a
+  //    certain distance from the location currently indicated by
+  //    IP. This sort of reference is common to the jump
+  //    instructions. Such a fixup is not necessary unless the
+  //    reference is to a different segment.
+  //  * Segment-relative references locate a target address in any segment 
+  //    relative to the beginning of the segment. This is just the
+  //    "displacement" field that occurs in so many instructions.
   relativeMode = (locat & 0x40) != 0;
   if (relativeMode == 0) {
     fputs("Rel=Self, ", outfd);
@@ -369,12 +370,13 @@ rd_fix_locat(uint outfd, uint length, uint fd) {
     case 2:   // 16bit base (segment) part of a pointer
       fputs("Loc=16bit segment, ", outfd);
       break;
-    case 3:   // 32bit pointer (offset/base pair)
+    // SmallC22/SmallA do not emit 32 bit pointers or high byte offsets.
+    /*case 3:   // 32bit pointer (offset/base pair)
       fputs("Loc=16bit:16bit, ", outfd);
       break;
     case 4:   // high byte of an offset
       fputs("Loc=High, ", outfd);
-      break;
+      break;*/
     default:
       fatalf("rd_fix_locat: refType %u in fixupp", refType);
       break;
@@ -388,6 +390,8 @@ rd_fix_locat(uint outfd, uint length, uint fd) {
   fprintf(outfd, "DtOff=%x, ", dataOffset);
 }
 
+// rd_fix_data: Reads a fixupp data from a fixupp record.
+//    Returns the count of bytes remaining in the record.
 rd_fix_data(uint outfd, uint length, uint fd) {
   uint targetOffset;
   byte fixdata, frame, target;
@@ -398,28 +402,29 @@ rd_fix_data(uint outfd, uint length, uint fd) {
   //  record  and  contains an index of the specified type. In the
   //  last two cases there is no FRAME INDEX field.
   fixdata = read_u8(fd); // Format is fffftttt
+  // I have omitted the fixups thatSmallC22/SmallA do not emit.
   switch ((fixdata & 0xf0) >> 4) {
     case 0:     // frame given by a segment index
       frame = read_u8(fd);
       length -= 1;
-      fprintf(outfd, "Frm=Seg %u, ", frame);
-      break;
-    case 1:     // frame given by a group index
-      frame = read_u8(fd);
-      length -= 1;
-      fprintf(outfd, "Frm=Grp %u, ", frame);
+      fprintf(outfd, "Frm=Seg %x, ", frame);
       break;
     case 2:     // frame given by an external index
       frame = read_u8(fd);
       length -= 1;
-      fprintf(outfd, "Frm=Ext %u, ", frame);
+      fprintf(outfd, "Frm=Ext %x, ", frame);
+      break;
+    /*case 1:     // frame given by a group index
+      frame = read_u8(fd);
+      length -= 1;
+      fprintf(outfd, "Frm=Grp %x, ", frame);
       break;
     case 4:     // frame is that of the reference location
       fputs("Frm=Ref, ", outfd);
       break;
     case 5:     // frame is determined by the target
       fputs("Frm=Tgt, ", outfd);
-      break;
+      break;*/
     default:
       printf("\nError: Unknown frame method %x", fixdata >> 4);
       break;
@@ -440,25 +445,25 @@ rd_fix_data(uint outfd, uint length, uint fd) {
       length -= 2;
       fprintf(outfd, "Tgt=Seg+%x", targetOffset);
       break;
-    case 1 :  // target given by a group index + displacement
-      targetOffset = read_u16(fd);
-      length -= 2;
-      fputs(outfd, "Tgt=Grp+%x", targetOffset);
-      break;
     case 2 :  // target given by an external index + displacement
       targetOffset = read_u16(fd);
       length -= 2;
       fputs(outfd, "Tgt=Ext+%x", targetOffset);
+      break;
+    case 6 :  // target given by an external index alone
+      fputs("Tgt=Ext+0", outfd);
+      break;
+    /*case 1 :  // target given by a group index + displacement
+      targetOffset = read_u16(fd);
+      length -= 2;
+      fputs(outfd, "Tgt=Grp+%x", targetOffset);
       break;
     case 4 :  // target given by a segment index alone
       fputs("Tgt=Seg+0", outfd);
       break;
     case 5 :  // target given by a group index alone
       fputs("Tgt=Grp+0", outfd);
-      break;
-    case 6 :  // target given by an external index alone
-      fputs("Tgt=Ext+0", outfd);
-      break;
+      break;*/
     default:
       printf("\nError: Unknown target method %x", fixdata & 0x0f);
       break;

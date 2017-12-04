@@ -39,9 +39,9 @@ ECHO === Linking SmallC Compiler ===
 if errorlevel 1 goto exit
 
 REM CLEANUP
-del *.asm
-del *.obj
-del *.map
+REM del *.asm
+REM del *.obj
+REM del *.map
 
 copy CC.EXE ..\bin\CC.EXE
 del CC.EXE
