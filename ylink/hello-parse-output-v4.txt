@@ -77,9 +77,6 @@ Next is 98H SEGDEF for each present segment.
   We are ignoring CLASS, so if CLASS value is non-zero, then error.
   Set idxSegName to value at mod_lnames[].
 
-Next is 8C EXTDEF.
-  I don't see how an object file could not have these, unless it is totally self contained.
-  We won't do 
 
 
 

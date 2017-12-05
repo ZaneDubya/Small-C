@@ -10,7 +10,7 @@ Expected milestones are:
             Display contents in LINK.TXT
     0.4     Dry run of linking: Calculate all necessary offsets, etc required to
             link and output HELLO.EXE from HELLO.OBJ and CLIBC.LIB.
-            Display all required information.
+            Write up process to be followed by ylink.
     0.5     Able to link and output HELLO.EXE - an exact copy of HELLO.EXE as
             linked by Microsoft Overlay Linker (link.exe).
             Verify new copy with checksum of new and old HELLO.EXE.
