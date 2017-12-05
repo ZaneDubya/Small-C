@@ -1,12 +1,35 @@
+We're going to do linking in two passes.
+FIRST: Go through all segments.
+  Combine into two files.
+SECOND: Run through the files again, this time
+
 HELLO.OBJ begins with 80H Translator Header Record
   This identifiers the name of the object module for use within an object
   library, or in messages that will be produced by the linker, but is not
   emitted to the final exe.
+
 Then we read the 96H List of Names Record.
   These identify the type of data within each named segment record.
-  Allowed names are CODE, DATA, and STACK.
-  CODE and DATA segments will be filled with data records.
-  STACK will be added to the EXE header.
+  Allowed values: NOT_PRESENT = 0, STACK = 1, CODE = 2, and DATA = 3. '' (null) is not present.
+  STACK will inform the EXE header, but will not actually add any data.
+  CODE and DATA segments (and others) will be fixuped, combined, and copied to the exe.
+  mod_lnames[] is an array of four bytes, indicating which seg names are used, by index.
+
+Next is 98H SEGDEF for each present segment.
+  If SEGDEF references a lname[] that does not exist or is not present, error out.
+  Add the segdef information to segdefs[], 8 structs with 
+    short length, 
+    byte idxSegName
+    byte buffer
+  To find the 'owner' segment for this segdef, you combine NAME and CLASS.
+  We are ignoring CLASS, so if CLASS value is non-zero, then error.
+  Set idxSegName to value at mod_lnames[].
+
+Next is 8C EXTDEF.
+  I don't see how an object file could not have these, unless it is totally self contained.
+  We won't do 
+
+
 
 * First record must be 80, 82, or F0
 Parsing HELLO.OBJ

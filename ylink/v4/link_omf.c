@@ -167,6 +167,7 @@ do_modend(uint outfd, uint length, uint fd) {
   }
   
   fputs("\n============================================================", outfd);
+  gSegIdx = 1; // reset first segment - should always be 1.
   return;
 }
 
@@ -288,10 +289,10 @@ do_segdef(uint outfd, uint length, uint fd) {
   segIndex = gSegIdx++;
   seglength = read_u16(fd);
   segname = read_u8(fd);
-  classname = read_u8(fd);
-  overlayname = read_u8(fd);
-  fprintf(outfd, "Idx=%x Length=%x Name=%x Class=%x Overlay=%x", 
-          segIndex, seglength, segname, classname, overlayname);
+  classname = read_u8(fd); // ClassName is not used by SmallAsm.
+  overlayname = read_u8(fd); // The linker ignores the Overlay Name field.
+  fprintf(outfd, "Idx=%x Length=%x Name=%x Class=%x", 
+          segIndex, seglength, segname, classname);
   read_u8(fd); // checksum. assume correct.
   return;
 }
@@ -451,7 +452,7 @@ rd_fix_data(uint outfd, uint length, uint fd) {
       fputs(outfd, "Tgt=Ext+%x", targetOffset);
       break;
     case 6 :  // target given by an external index alone
-      fputs("Tgt=Ext+0", outfd);
+      fputs("Tgt=Ext", outfd);
       break;
     /*case 1 :  // target given by a group index + displacement
       targetOffset = read_u16(fd);
