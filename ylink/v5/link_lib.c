@@ -80,6 +80,33 @@ AddDictEntry(char *name, uint hash0, uint hash1, uint moduleLocation) {
   dictData[iData + 2] = moduleLocation;
 }
 
+
+
+// F2H Extended Dictionary
+// The extended dictionary is optional and indicates dependencies between
+// modules in the library. Versions of LIB earlier than 3.09 do not create an
+// extended dictionary. The extended dictionary is placed at the end of the
+// library. 
+do_extdict(uint length, uint fd) {
+  uint i, page, offset, count;
+  count = read_u16(fd);
+  length -= 2;
+  AllocDependancyMemory(count);
+  for (i = 0; i <= count; i++) {
+    page = read_u16(fd);
+    offset = read_u16(fd);
+    offset -= (count + 1) * 4;
+    addDependancy(i, page, offset);
+    length -= 4;
+  }
+  // ignore final null record
+  readDependancies(fd, length);
+  // fprintf(outfd, "\n    Library Dependencies (%u Modules)", count);
+  // writeDependancies(outfd);
+  // fputc('\n', outfd);
+  return;
+}
+
 addDependancy(uint i, uint moduleLocation, uint offset) {
   uint iData, count;
   iData = i * DEPEND_DATA_LENGTH;

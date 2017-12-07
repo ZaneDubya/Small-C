@@ -7,29 +7,56 @@
 #include "notice.h"
 #include "link.h"
 
+// --- 'Line' (variable used when reading strings) ----------------------------
 #define LINEMAX  127
 #define LINESIZE 128
+char *line;
+char *pathOutput;
+// --- File paths - these are the files that are read in by the linker --------
 #define FILE_MAX 8
-#define MOD_MAX 128
-#define FlgInLib 0x0100
-#define FlgHasStart 0x200
-#define LNAMES_MAX 4
-#define LNAME_NULL 0
-#define LNAME_CODE 1
-#define LNAME_DATA 2
-#define LNAME_STACK 3
-
-char* line;
-char* pathOutput;
-int filePaths[FILE_MAX];
+int *filePaths; // ptrs to input file paths, including library files.
 int fileCount; // equal to the number of input files.
-int modNames[MOD_MAX];
-int modData[3 * MOD_MAX]; // each obj has 2 seg origins (Data, Code), and flag
+// --- ModData - information about the modules loaded for linking -------------
+#define MDAT_CNT 128
+#define MDAT_PER 4
+#define MDAT_NAM 0
+#define MDAT_CSO 1 // code segment origin
+#define MDAT_DSO 2 // data segment origin
+#define MDAT_FLG 3 // data segment origin
+#define FlgInLib 0x0100
+#define FlgStart 0x200
+#define FlgStack 0x400
+int *modData; // each obj has name ptr, 2 fields for seg
+              // origin, and flag.
               // flag is 0x00ff lib_mod_idx, where 0..7==lib mod index,
               // 0x0100 in_lib, 0x0200 has start, 0x0400 has stack
               // 12..15=file index
 int modCount; // incremented by 1 for each obj and library module in exe.
-byte lstNames[LNAMES_Max];
+// --- ListNames - temporary LNAMES data (reloaded for each module) -----------
+#define LNAMES_CNT 4
+#define LNAME_NULL 0xFF
+#define LNAME_CODE 0x00
+#define LNAME_DATA 0x01
+#define LNAME_STACK 0x02
+byte *locNames;
+// --- Segment Data -----------------------------------------------------------
+#define SEGS_CNT 3
+#define SEG_CODE 0
+#define SEG_DATA 1
+#define SEG_STACK 2
+#define SEG_NOTPRESENT 0xFF
+int *segLengths; // length of segdefs, index is seg_xxx
+byte *locSegs; // seg_xxxs in this module, in order they were defined
+int segIndex; // index of next segdef that will be defined
+// --- Public Definitions -----------------------------------------------------
+#define PBDF_PER 3
+#define PBDF_CNT 512
+#define PBDF_NAME 0   // ptr to name of pubdef
+#define PBDF_WHERE 1  // hi: index of module where it is located
+                      // low: index of segment where it is located
+#define PBDF_ADDR 2   // address in segment (+module origin) where it is located
+int *pbdfData;
+int pbdfCount;
 
 main(int argc, int *argv) {
   int i;
@@ -39,19 +66,32 @@ main(int argc, int *argv) {
   Initialize();
   Pass1();
   for (i = 0; i < modCount; i++) {
-    printf("Mod %x = %s (%x) [%x %x %x] \n", i, modNames[i], modNames[i],
-      modData[i * 3 + 0], modData[i * 3 + 1], modData[i * 3 + 2]);
+    printf("\n  Mod %u = %s [cs:%x ds:%x flgs:%x]", i, 
+      modData[i * MDAT_PER + MDAT_NAM],
+      modData[i * MDAT_PER + MDAT_CSO], 
+      modData[i * MDAT_PER + MDAT_DSO], 
+      modData[i * MDAT_PER + MDAT_FLG]);
     getchar();
   }
+  printf("\nMod Count: %u\nPubdef Count: %u\nCode: %u\nData: %u\nStack: %u",
+    modCount, pbdfCount, segLengths[SEG_CODE], segLengths[SEG_DATA],
+    segLengths[SEG_STACK]);
   return;
 }
 
 AllocAll() {
   line = AllocMem(LINESIZE, 1);
+  filePaths = AllocMem(FILE_MAX, 2);
+  modData = AllocMem(MDAT_PER * MDAT_CNT, 2);
+  locNames = AllocMem(LNAMES_CNT, 1);
+  segLengths = AllocMem(SEGS_CNT, 2);
+  locSegs = AllocMem(SEGS_CNT, 1);
+  pbdfData = AllocMem(PBDF_PER * PBDF_CNT, 2);
   pathOutput = 0;
 }
 
 Initialize() {
+  int i;
   // handle any uninitalized variables, unlink output
   unlink(LINKTXT); // delete
   if (pathOutput == 0) {
@@ -60,6 +100,9 @@ Initialize() {
     strcpy(pathOutput, "out.exe");
   }
   unlink(pathOutput); // delete
+  for (i = 0; i < SEGS_CNT; i++) {
+    segLengths[i] = 0;
+  }
 }
 
 RdArgs(int argc, int *argv) {
@@ -131,12 +174,12 @@ RdArgExe(char *str) {
 // 3. for each pubdef, add to pubdefs.
 byte libInLib; // if 1, we are in a library obj.
 byte libIdxModule;
-byte segIndex; // index of current segment being read. first should be 1.
 
 Pass1() {
   uint i, fd;
   puts("Pass 1:");
   modCount = 0;
+  pbdfCount = 0;
   for (i = 0; i < fileCount; i++) {
     printf("  Reading %s... ", filePaths[i],);
     if (!(fd = fopen(filePaths[i], "r"))) {
@@ -213,30 +256,39 @@ P1_DoRec(uint fileIndex, byte recType, uint length, uint fd) {
 // library file, which has an internal organization different from that of an
 // object module.
 P1_THEADR(uint fileIndex, uint length, uint fd) {
+  int i;
+  if (modCount == MDAT_CNT) {
+    fatalf("  Error: max of %u object modules.", MDAT_CNT);
+  }
+  AddModule(fileIndex, fd);
+  // reset segments to not present
+  for (i = 0; i < SEGS_CNT; i++) {
+    locSegs[i] = SEG_NOTPRESENT;
+  }
+  // first segment index is 0
+  segIndex = 0;
+  read_u8(fd); // checksum. assume correct.
+}
+
+AddModule(uint fileIndex, uint fd) {
   int length, i;
   char *path, *c;
-  // copy the module name.
+  // copy the module name and set up data.
   length = read_strpre(line, fd);
-  if (modCount == MOD_MAX) {
-    fatalf("  Error: max of %u object modules.", MOD_MAX);
-  }
   c = line;
-  modNames[modCount] = AllocMem(length, 1);
-  path = modNames[modCount];
+  path = modData[modCount * MDAT_PER + MDAT_NAM] = AllocMem(length, 1);
   for (i = 0; i < length; i++) {
     *path++ = *c++;
   }
   *path = 0;
   // set the module data.
-  segIndex = 1; // first segment should always be 1.
-  modData[modCount * 3] = 0;
-  modData[modCount * 3 + 1] = 0;
-  modData[modCount * 3 + 2] = (fileIndex << 12);
+  modData[modCount * MDAT_PER + MDAT_CSO] = 0;
+  modData[modCount * MDAT_PER + MDAT_DSO] = 0;
+  modData[modCount * MDAT_PER + MDAT_FLG] = (fileIndex << 12);
   if (libInLib) {
-    modData[modCount * 3 + 2] |= libIdxModule | FlgInLib;
+    modData[modCount * MDAT_PER + MDAT_FLG] |= libIdxModule | FlgInLib;
     libIdxModule += 1;
   }
-  read_u8(fd); // checksum. assume correct.
 }
 
 // 8AH MODEND Module End Record
@@ -253,7 +305,7 @@ P1_MODEND(uint length, uint fd) {
     // field starting with the End Data byte is present and specifies the start
     // address.
     rd_fix_data(0, fd);
-    modData[modCount * 3 + 2] |= FlgHasStart;
+    modData[modCount * MDAT_PER + MDAT_FLG] |= FlgStart;
   }
   read_u8(fd); // checksum. assume correct.
   // MODEND can be followed with up to a paragraph of unknown data.
@@ -279,29 +331,29 @@ P1_LNAMES(uint length, uint fd) {
   char *c;
   nameIndex = 0;
   while (length > 1) {
-    if (nameIndex == LNAMES_MAX) {
-      fatalf("  Error: P1_LNAMES max of %u local names.", LNAMES_MAX);
+    if (nameIndex == LNAMES_CNT) {
+      fatalf("  Error: P1_LNAMES max of %u local names.", LNAMES_CNT);
     }
     length -= read_strpre(line, fd); // line = local name at index nameIndex.
     if (strcmp(line, "") == 0) {
-      lstNames[nameIndex] = LNAME_NULL;
+      locNames[nameIndex] = LNAME_NULL;
     }
     else if (strcmp(line, "CODE") == 0) {
-      lstNames[nameIndex] = LNAME_CODE;
+      locNames[nameIndex] = LNAME_CODE;
     }
     else if (strcmp(line, "DATA") == 0) {
-      lstNames[nameIndex] = LNAME_DATA;
+      locNames[nameIndex] = LNAME_DATA;
     }
     else if (strcmp(line, "STACK") == 0) {
-      lstNames[nameIndex] = LNAME_STACK;
+      locNames[nameIndex] = LNAME_STACK;
     }
     else {
       fatalf("  Error: P1_LNAMES does not handle name %s.", line);
     }
     nameIndex++;
   }
-  while (nameIndex < LNAMES_MAX) {
-    lstNames[nameIndex++] = LNAME_NULL;
+  while (nameIndex < LNAMES_CNT) {
+    locNames[nameIndex++] = LNAME_NULL;
   }
   read_u8(fd); // checksum. assume correct.
   return;
@@ -312,8 +364,10 @@ P1_LNAMES(uint length, uint fd) {
 // in this object module available to satisfy external references in other
 // modules with which it is bound or linked. The symbols are also available
 // for export if so indicated in an EXPDEF comment record.
-P1_PUBDEF(uint length, uint fd) {
+P1_PUBDEF(uint length, uint fd) {  byte typeindex;
+  int i, puboffset;
   byte basegroup, basesegment, typeindex;
+  char *pdbfname, *c;
   uint puboffset;
   // BaseGroup and BaseSegment fields contain indexes specifying previously
   // defined SEGDEF and GRPDEF records.  The group index may be 0, meaning
@@ -321,22 +375,35 @@ P1_PUBDEF(uint length, uint fd) {
   // BaseFrame field is present only if BaseSegment field is 0, but the
   // contents of BaseFrame field are ignored.
   // BaseSegment idx is normally nonzero and no BaseFrame field is present.
-  basegroup = read_u8(fd);
-  basesegment = read_u8(fd);
+  basegroup = read_u8(fd); // we don't use this value
   if (basegroup != 0) {
     fatal("P1_PUBDEF: BaseGroup must be 0.");
   }
+  basesegment = read_u8(fd);
   if (basesegment == 0) {
     fatal("P1_PUBDEF: BaseSegment must be nonzero.");
   }
   length -= 2;
   while (length > 1) {
-    length -= (read_strpre(line, fd) + 3);
+    int namelen;
+    namelen = read_strpre(line, fd);
     puboffset = read_u16(fd);
-    typeindex = read_u8(fd);
+    typeindex = read_u8(fd); // we don't use this value
     if (typeindex != 0) {
       fatal("P1_PUBDEF: Type is not 0. ");
     }
+    c = line;
+    pdbfname = pbdfData[pbdfCount * PBDF_PER + PBDF_NAME] = AllocMem(namelen, 1);
+    for (i = 0; i < namelen; i++) {
+      *pdbfname++ = *c++;
+    }
+    *pdbfname = 0;
+    // set the module data.
+    pbdfData[pbdfCount * PBDF_PER + PBDF_WHERE] = locSegs[basesegment - 1];
+    pbdfData[pbdfCount * PBDF_PER + PBDF_WHERE] |= modCount << 8;
+    pbdfData[pbdfCount * PBDF_PER + PBDF_ADDR] = puboffset;
+    length -= namelen + 3;
+    pbdfCount += 1;
   }
   read_u8(fd); // checksum. assume correct.
   return;
@@ -350,8 +417,8 @@ P1_PUBDEF(uint length, uint fd) {
 // particular segment.  The SEGDEF records are ordered by occurrence, and are
 // referenced by segment indexes (starting from 1) in subsequent records.
 P1_SEGDEF(uint length, uint fd) {
-  byte segIndex, segattr, segname, classname, overlayname;
-  uint seglength;
+  byte segattr, segname, classname;
+  uint seglen;
   // segment attribute
   segattr = read_u8(fd);
   if ((segattr & 0xe0) != 0x60) {
@@ -360,7 +427,7 @@ P1_SEGDEF(uint length, uint fd) {
   if (((segattr & 0x1c) != 0x08) && ((segattr & 0x1c) != 0x14)) {
     // 0x08 = Public. Combine by appending at an offset that meets the alignment requirement.
     // 0x14 = Stack. Combine as for C=2. This combine type forces byte alignment.
-    fatalf("P1_SEGDEF: Unknown combo %x (must be 0x08).", segattr & 0x1c);
+    fatalf("P1_SEGDEF: Unknown combine %x (req: 0x08 or 0x14).", segattr & 0x1c);
   }
   if ((segattr & 0x02) != 0x00) {
     fatal("P1_SEGDEF: Attribute may not be big (flag 0x02).");
@@ -368,73 +435,56 @@ P1_SEGDEF(uint length, uint fd) {
   if ((segattr & 0x01) != 0x00) {
     fatal("P1_SEGDEF: Attribute must be 16-bit addressing (flag 0x01).");
   }
-  segIndex = segIndex++;
-  seglength = read_u16(fd);
+  seglen = read_u16(fd);
   segname = read_u8(fd);
   classname = read_u8(fd); // ClassName is not used by SmallAsm.
-  overlayname = read_u8(fd); // The linker ignores the Overlay Name field.
+  read_u8(fd); // The linker ignores the Overlay Name field.
   read_u8(fd); // checksum. assume correct.
+  // fprintf(0, "\nLength=%x Name=%x Class=%x", seglen, segname, classname);
+  segname = locNames[segname - 1];
+  classname = locNames[classname - 1];
+  if (classname != LNAME_NULL) {
+    fatalf("P1_SEGDEF: ClassName must be null; LNAME == %x", classname);
+  }
+  if (segname == LNAME_CODE) {
+    modData[modCount * MDAT_PER + MDAT_CSO] = segLengths[SEG_CODE];
+    locSegs[segIndex] = SEG_CODE;
+    segLengths[SEG_CODE] += seglen;
+  }
+  else if (segname == LNAME_DATA) {
+    modData[modCount * MDAT_PER + MDAT_DSO] = segLengths[SEG_DATA];
+    locSegs[segIndex] = SEG_DATA;
+    segLengths[SEG_DATA] += seglen;
+  }
+  else if (segname == LNAME_STACK) {
+    modData[modCount * MDAT_PER + MDAT_FLG] |= FlgStack;
+    locSegs[segIndex] = SEG_STACK;
+    segLengths[SEG_STACK] += seglen;
+  }
+  else {
+    fatalf("P1_SEGDEF: Linker does not handle LNAME of %x", segname);
+  }
+  segIndex += 1;
   return;
 }
 
+// Note: I've removed code to load the library dictionary and dependancies.
+// This should be parsed, not loaded in memory and kept there. In the v4 
+// codebase, this is everything between btell and bseek.
 P1_LIBHDR(uint length, uint fd) {
   byte flags, nextRecord;
-  uint omfOffset[2], dictOffset[2], blockCount, nextLength;
+  uint dictOffset[2], blockCount;
   dictOffset[0] = read_u16(fd);
   dictOffset[1] = read_u16(fd);
   blockCount = read_u16(fd);
-  flags = read_u8(fd);
-  AllocDictMemory(blockCount * DICT_BLOCK_CNT);
-  length -= 8;
-  // rest of record is zeros.
-  while (length-- > 0) {
-    read_u8(fd);
-  }
+  flags = read_u8(fd); // 0x01 - is case sensitive. others 0.
+  clearsilent(length - 8, fd); // rest of record is zeroes.
   read_u8(fd); // checksum. assume correct.
   libInLib = 1;
-  // seek to library data offset, read data, return to module data offset
-  btell(fd, omfOffset);
-  do_dictionary(fd, dictOffset, blockCount);
-  // putLibDict(0);
-  nextRecord = read_u8(fd);
-  if (nextRecord == LIBDEP) {
-    nextLength = read_u16(fd);
-    P1_LIBDEP(nextLength, fd);
-  }
-  else {
-    fatal("P1_LIBHDR: No dependancy information");
-  }
-  bseek(fd, omfOffset, 0);
   return;
 }
 
-
-
-// F2H Extended Dictionary
-// The extended dictionary is optional and indicates dependencies between
-// modules in the library. Versions of LIB earlier than 3.09 do not create an
-// extended dictionary. The extended dictionary is placed at the end of the
-// library. 
-P1_LIBDEP(uint length, uint fd) {
-  uint i, page, offset, count;
-  count = read_u16(fd);
-  length -= 2;
-  AllocDependancyMemory(count);
-  for (i = 0; i <= count; i++) {
-    page = read_u16(fd);
-    offset = read_u16(fd);
-    offset -= (count + 1) * 4;
-    addDependancy(i, page, offset);
-    length -= 4;
-  }
-  // ignore final null record
-  readDependancies(fd, length);
-  // fprintf(outfd, "\n    Library Dependencies (%u Modules)", count);
-  // writeDependancies(outfd);
-  // fputc('\n', outfd);
-  return;
-}
-
+// F1H End Library
 P1_LIBEND(uint length, uint fd) {
   if (!libInLib) {
     fatal("P1_LIBEND: not a library!", 0);
@@ -750,20 +800,4 @@ strcmp(char *s1, char *s2)
         if(*s1 == 0)
             return 0;
     return *s1 < *s2 ? -1 : 1;
-}
-
-// AddName: adds a null-terminated string to a byte array. Returns ptr to
-// byte array where string was placed. Fails if string will not fit.
-AddName(char *name, char *names, uint next, uint max) {
-  uint nameat, i;
-  nameat = i = *next;
-  while (names[i++] = *name++) {
-    if (i >= max) {
-      fprintf(stderr, "\n%s at %x exceeded names length of %x (%x)\n", 
-              name, nameat, max, i);
-      abort(1);
-    }
-  }
-  *next = i;
-  return nameat + names;
 }

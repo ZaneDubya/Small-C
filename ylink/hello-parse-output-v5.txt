@@ -1,6 +1,4 @@
-Data:
-  tblObjs[64]
-  
+NOTE: Skipping loading library dependancy data for now.
 
 Linking procedes in three stages:
 
@@ -14,18 +12,13 @@ FIRST: Get all object file pubdefs and segment locations. Get all libhdrs.
     LNAMES
       Read in LNames to local name data.
       These are stored as bytes.
-  --------^done^------------^done^--------
     SEGDEF(s)
       For each segment definition:
         Get name.
         If name is null, error out.
-        If no segment header exists with this name:
-          Check name against known list of good names (CODE, DATA, STACK)
-          If name is good, create new segment header:
-          segdefs [10 bytes ea], 4 total
-            byte[8] name,
-            ushort length.
-        Set segOrigins for each named segment to segOrigins.Length.
+        Track lengths for each segment, and origins for each module's place in
+          those segments.
+  --------^done^------------^done^--------
     PUBDEF(s)
       For each pubef:
         If pubdef already exists with this name, error out.
