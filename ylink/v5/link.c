@@ -54,7 +54,7 @@ int segIndex; // index of next segdef that will be defined
 #define PBDF_NAME 0   // ptr to name of pubdef
 #define PBDF_WHERE 1  // hi: index of module where it is located
                       // low: index of segment where it is located
-#define PBDF_ADDR 2   // address in segment (+module origin) where it is located
+#define PBDF_ADDR 2   // offset in segment (+module origin) where it is located
 int *pbdfData;
 int pbdfCount;
 
@@ -71,11 +71,14 @@ main(int argc, int *argv) {
       modData[i * MDAT_PER + MDAT_CSO], 
       modData[i * MDAT_PER + MDAT_DSO], 
       modData[i * MDAT_PER + MDAT_FLG]);
-    getchar();
   }
   printf("\nMod Count: %u\nPubdef Count: %u\nCode: %u\nData: %u\nStack: %u",
     modCount, pbdfCount, segLengths[SEG_CODE], segLengths[SEG_DATA],
     segLengths[SEG_STACK]);
+  putc(NEWLINE, 0);
+  write_x16(0, FindPubDef("__ult"));
+  write_x16(0, FindPubDef("__ugt"));
+  write_x16(0, FindPubDef("_ccargc"));
   return;
 }
 
@@ -166,8 +169,9 @@ RdArgExe(char *str) {
   strcpy(pathOutput, str);
 }
 
-
+// ============================================================================
 // === Pass1 ==================================================================
+// ============================================================================
 // For each object file,
 // 1. get object file description and save in objdefs,
 // 2. for each segment, get name, create seg def (if necessary), set origins,
@@ -369,6 +373,7 @@ P1_PUBDEF(uint length, uint fd) {  byte typeindex;
   byte basegroup, basesegment, typeindex;
   char *pdbfname, *c;
   uint puboffset;
+  int alreadyDefined;
   // BaseGroup and BaseSegment fields contain indexes specifying previously
   // defined SEGDEF and GRPDEF records.  The group index may be 0, meaning
   // that no group is associated with this PUBDEF record.
@@ -387,6 +392,16 @@ P1_PUBDEF(uint length, uint fd) {  byte typeindex;
   while (length > 1) {
     int namelen;
     namelen = read_strpre(line, fd);
+    alreadyDefined = FindPubDef(line);
+    if (alreadyDefined != -1) {
+      int otherMod;
+      otherMod = pbdfData[alreadyDefined * PBDF_PER + PBDF_WHERE] >> 8;
+      printf("Duplicate pubdef of '%s' in modules %s and %s.",
+        line,
+        modData[MDAT_PER * otherMod + MDAT_NAM],
+        modData[MDAT_PER * modCount + MDAT_NAM]);
+      fatal("Duplicate pubdefs not allowed.");
+    }
     puboffset = read_u16(fd);
     typeindex = read_u8(fd); // we don't use this value
     if (typeindex != 0) {
@@ -670,6 +685,31 @@ rd_fix_data(uint length, uint fd) {
   }
   length -= 3;
   return length;
+}
+
+// ============================================================================
+// === Pass2 ==================================================================
+// ============================================================================
+// returns index of pubdef with this name, or -1 (0xffff) if it is not present
+FindPubDef(char* name) {
+  int i, j, length;
+  char* matching;
+  length = strlen(name);
+  // printf("\nFindPubDef for %s, length=%u", name, length);
+  for (i = 0; i < pbdfCount; i++) {
+    matching = pbdfData[i * PBDF_PER + PBDF_NAME];
+    // printf("\nAttempt Match against for %s...", matching);
+    for (j = 0; j <= length; j++) {
+      // printf("\n  %u: %c vs %c", j, name[j], matching[j]);
+      if (name[j] == 0 && matching[j] == 0) {
+        return i;
+      }
+      if (toupper(name[j]) != toupper(matching[j])) {
+        break;
+      }
+    }
+  }
+  return -1;
 }
 
 // === Write Hexidecimal numbers ==============================================

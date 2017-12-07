@@ -18,7 +18,6 @@ FIRST: Get all object file pubdefs and segment locations. Get all libhdrs.
         If name is null, error out.
         Track lengths for each segment, and origins for each module's place in
           those segments.
-  --------^done^------------^done^--------
     PUBDEF(s)
       For each pubef:
         If pubdef already exists with this name, error out.
@@ -31,6 +30,7 @@ FIRST: Get all object file pubdefs and segment locations. Get all libhdrs.
     * Where all segments in all object files will be placed (objdefs)
     * Name and total length of all segments (segdefs)
     * Where all pubdefs are located (pubdefs)
+  --------^done^------------^done^--------
 
 SECOND: Make sure we have all extdefs so we can resolve in third pass.
   For each object file:
