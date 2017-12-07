@@ -30,7 +30,6 @@ FIRST: Get all object file pubdefs and segment locations. Get all libhdrs.
     * Where all segments in all object files will be placed (objdefs)
     * Name and total length of all segments (segdefs)
     * Where all pubdefs are located (pubdefs)
-  --------^done^------------^done^--------
 
 SECOND: Make sure we have all extdefs so we can resolve in third pass.
   For each object file:
@@ -46,6 +45,7 @@ SECOND: Make sure we have all extdefs so we can resolve in third pass.
             Continue with next extdef.
   At the end of this pass, we know
     * That each extdef has an associated pubdef.
+  --------^done^------------^done^--------
 
 THIRD: Combine all segments and resolve all fixupps.
   Order segments to be added to file in byte[4] segorders.

@@ -32,6 +32,7 @@ int *modData; // each obj has name ptr, 2 fields for seg
               // 0x0100 in_lib, 0x0200 has start, 0x0400 has stack
               // 12..15=file index
 int modCount; // incremented by 1 for each obj and library module in exe.
+int modIndex; // used in pass2 to count modules as we parse their extdefs.
 // --- ListNames - temporary LNAMES data (reloaded for each module) -----------
 #define LNAMES_CNT 4
 #define LNAME_NULL 0xFF
@@ -65,20 +66,10 @@ main(int argc, int *argv) {
   RdArgs(argc, argv);
   Initialize();
   Pass1();
-  for (i = 0; i < modCount; i++) {
-    printf("\n  Mod %u = %s [cs:%x ds:%x flgs:%x]", i, 
-      modData[i * MDAT_PER + MDAT_NAM],
-      modData[i * MDAT_PER + MDAT_CSO], 
-      modData[i * MDAT_PER + MDAT_DSO], 
-      modData[i * MDAT_PER + MDAT_FLG]);
-  }
+  Pass2();
   printf("\nMod Count: %u\nPubdef Count: %u\nCode: %u\nData: %u\nStack: %u",
     modCount, pbdfCount, segLengths[SEG_CODE], segLengths[SEG_DATA],
     segLengths[SEG_STACK]);
-  putc(NEWLINE, 0);
-  write_x16(0, FindPubDef("__ult"));
-  write_x16(0, FindPubDef("__ugt"));
-  write_x16(0, FindPubDef("_ccargc"));
   return;
 }
 
@@ -205,12 +196,12 @@ P1_RdFile(uint fileIndex, uint objfd) {
       break;
     }
     length = read_u16(objfd);
-    P1_DoRec(fileIndex, recType, length, objfd);
+    P1_DoRecord(fileIndex, recType, length, objfd);
   }
   return;
 }
 
-P1_DoRec(uint fileIndex, byte recType, uint length, uint fd) {
+P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
   switch (recType) {
     case THEADR:
       P1_THEADR(fileIndex, length, fd);
@@ -312,14 +303,7 @@ P1_MODEND(uint length, uint fd) {
     modData[modCount * MDAT_PER + MDAT_FLG] |= FlgStart;
   }
   read_u8(fd); // checksum. assume correct.
-  // MODEND can be followed with up to a paragraph of unknown data.
-  if (!feof(fd)) {
-    int remaining;
-    remaining = 16 - (ctellc(fd) % 16);
-    if (remaining != 16) {
-      clearsilent(remaining, fd);
-    }
-  }
+  ClearPara(fd);
   modCount += 1;
   return;
 }
@@ -530,7 +514,7 @@ P1_LIBEND(uint length, uint fd) {
 // target or frame. Because the same THREAD subrecord can be referenced in
 // several subsequent FIXUP subrecords, a FIXUPP object record that uses THREAD
 // subrecords may be smaller than one in which THREAD subrecords are not used.
-do_fixupp(uint outfd, uint length, uint fd) {
+P1_FIXUPP(uint outfd, uint length, uint fd) {
   fprintf(outfd, "FIXUPP");
   while (length > 1) {
     fputs("\n    ", outfd);
@@ -539,6 +523,127 @@ do_fixupp(uint outfd, uint length, uint fd) {
   }
   read_u8(fd); // checksum. assume correct.
   return;
+}
+
+// ============================================================================
+// === Pass2 ==================================================================
+// ============================================================================
+
+Pass2() {
+  uint i, fd;
+  puts("Pass 2:");
+  modIndex = 0;
+  for (i = 0; i < fileCount; i++) {
+    printf("  Reading %s... ", filePaths[i],);
+    if (!(fd = fopen(filePaths[i], "r"))) {
+      fatalf("Could not open file '%s'", filePaths[i]);
+    }
+    P2_RdFile(i, fd);
+    cleanupfd(fd);
+    puts("Done.");
+  }
+}
+
+P2_RdFile(uint fileIndex, uint objfd) {
+  uint length;
+  byte recType;
+  while (1) {
+    recType = read_u8(objfd);
+    if (feof(objfd) || ferror(objfd)) {
+      break;
+    }
+    length = read_u16(objfd);
+    P2_DoRecord(fileIndex, recType, length, objfd);
+  }
+  return;
+}
+
+P2_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
+  switch (recType) {
+    case EXTDEF:
+      P2_EXTDEF(fileIndex, length, fd);
+      break;
+    case MODEND:
+      forward(fd, length);
+      ClearPara(fd);
+      modIndex += 1;
+      break;
+    case LIBEND:
+      clearsilent(length, fd);
+      fclose(fd);
+      break;
+    case THEADR: 
+    case LNAMES:
+    case PUBDEF:
+    case SEGDEF:
+    case LIBHDR:
+    case LIBEND:
+    case COMMNT:
+    case EXTDEF:
+    case FIXUPP:
+    case LEDATA:
+    case LIDATA:
+    case LIBDEP:
+      forward(fd, length);
+      break;
+    default:
+      printf("P2_DoRec: Unknown record of type %u in %s (%s).\n", recType, 
+        modData[MDAT_PER * modIndex + MDAT_NAM], filePaths[fileIndex]);
+      abort(1);
+      break;
+  }
+}
+
+// 8CH EXTDEF External Names Definition Record
+// The EXTDEF record contains a list of symbolic external references—that is,
+// references to symbols defined in other object modules. The linker resolves
+// external references by matching the symbols declared in EXTDEF records
+// with symbols declared in PUBDEF records.
+P2_EXTDEF(uint fileIndex, uint length, uint fd) {
+  byte deftype, strlength;
+  while (length > 1) {
+    strlength = read_strpre(line, fd);
+    deftype = read_u8(fd);
+    length -= (strlength + 1);
+    if (FindPubDef(line) == -1) {
+      printf("Error: unmatched extdef %s in %s (%s), ", 
+        line, 
+        modData[MDAT_PER * modIndex + MDAT_NAM], 
+        filePaths[fileIndex]);
+      abort(1);
+    }
+    if (deftype != 0) {
+      fatal("P2_EXTDEF: Type is not 0. ");
+    }
+  }
+  read_u8(fd); // checksum. assume correct.
+  return;
+}
+
+// ============================================================================
+// === Common Routines ========================================================
+// ============================================================================
+
+// returns index of pubdef with this name, or -1 (0xffff) if it is not present
+FindPubDef(char* name) {
+  int i, j, length;
+  char* matching;
+  length = strlen(name);
+  // printf("\nFindPubDef for %s, length=%u", name, length);
+  for (i = 0; i < pbdfCount; i++) {
+    matching = pbdfData[i * PBDF_PER + PBDF_NAME];
+    // printf("\nAttempt Match against for %s...", matching);
+    for (j = 0; j <= length; j++) {
+      // printf("\n  %u: %c vs %c", j, name[j], matching[j]);
+      if (name[j] == 0 && matching[j] == 0) {
+        return i;
+      }
+      if (toupper(name[j]) != toupper(matching[j])) {
+        break;
+      }
+    }
+  }
+  return -1;
 }
 
 rd_fix_locat(uint outfd, uint length, uint fd) {
@@ -687,31 +792,6 @@ rd_fix_data(uint length, uint fd) {
   return length;
 }
 
-// ============================================================================
-// === Pass2 ==================================================================
-// ============================================================================
-// returns index of pubdef with this name, or -1 (0xffff) if it is not present
-FindPubDef(char* name) {
-  int i, j, length;
-  char* matching;
-  length = strlen(name);
-  // printf("\nFindPubDef for %s, length=%u", name, length);
-  for (i = 0; i < pbdfCount; i++) {
-    matching = pbdfData[i * PBDF_PER + PBDF_NAME];
-    // printf("\nAttempt Match against for %s...", matching);
-    for (j = 0; j <= length; j++) {
-      // printf("\n  %u: %c vs %c", j, name[j], matching[j]);
-      if (name[j] == 0 && matching[j] == 0) {
-        return i;
-      }
-      if (toupper(name[j]) != toupper(matching[j])) {
-        break;
-      }
-    }
-  }
-  return -1;
-}
-
 // === Write Hexidecimal numbers ==============================================
 
 write_x16(uint fd, uint value) {
@@ -790,6 +870,17 @@ forward(uint fd, uint offset) {
   bseek(fd, iOffset, 1);
 }
 
+ClearPara(uint fd) {
+  // MODEND can be followed with up to a paragraph of unknown data.
+  if (!feof(fd)) {
+    int remaining;
+    remaining = 16 - (ctellc(fd) % 16);
+    if (remaining != 16) {
+      clearsilent(remaining, fd);
+    }
+  }
+}
+
 clearsilent(uint length, uint fd) {
   while (length-- > 0) {
     read_u8(fd);
@@ -834,10 +925,9 @@ AllocMem(int nItems, int itemSize) {
 
 // === String Functions =======================================================
 
-strcmp(char *s1, char *s2)
-{
-    for(; *s1 == *s2; ++s1, ++s2)
-        if(*s1 == 0)
-            return 0;
-    return *s1 < *s2 ? -1 : 1;
+strcmp(char *s1, char *s2) {
+  for(; *s1 == *s2; ++s1, ++s2)
+    if(*s1 == 0)
+      return 0;
+  return *s1 < *s2 ? -1 : 1;
 }
