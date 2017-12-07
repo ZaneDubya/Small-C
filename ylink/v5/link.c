@@ -67,6 +67,7 @@ main(int argc, int *argv) {
   Initialize();
   Pass1();
   Pass2();
+  Pass3();
   printf("\nMod Count: %u\nPubdef Count: %u\nCode: %u\nData: %u\nStack: %u",
     modCount, pbdfCount, segLengths[SEG_CODE], segLengths[SEG_DATA],
     segLengths[SEG_STACK]);
@@ -621,10 +622,79 @@ P2_EXTDEF(uint fileIndex, uint length, uint fd) {
 }
 
 // ============================================================================
+// === Pass3 ==================================================================
+// ============================================================================
+
+Pass3() {
+  uint i, fd;
+  puts("Pass 3:");
+  modIndex = 0;
+  for (i = 0; i < fileCount; i++) {
+    printf("  Reading %s... ", filePaths[i],);
+    if (!(fd = fopen(filePaths[i], "r"))) {
+      fatalf("Could not open file '%s'", filePaths[i]);
+    }
+    P2_RdFile(i, fd);
+    cleanupfd(fd);
+    puts("Done.");
+  }
+}
+
+P3_RdFile(uint fileIndex, uint objfd) {
+  uint length;
+  byte recType;
+  while (1) {
+    recType = read_u8(objfd);
+    if (feof(objfd) || ferror(objfd)) {
+      break;
+    }
+    length = read_u16(objfd);
+    P2_DoRecord(fileIndex, recType, length, objfd);
+  }
+  return;
+}
+
+P3_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
+  switch (recType) {
+    case EXTDEF:
+      P2_EXTDEF(fileIndex, length, fd);
+      break;
+    case MODEND:
+      forward(fd, length);
+      ClearPara(fd);
+      modIndex += 1;
+      break;
+    case LIBEND:
+      clearsilent(length, fd);
+      fclose(fd);
+      break;
+    case THEADR: 
+    case LNAMES:
+    case PUBDEF:
+    case SEGDEF:
+    case LIBHDR:
+    case LIBEND:
+    case COMMNT:
+    case EXTDEF:
+    case FIXUPP:
+    case LEDATA:
+    case LIDATA:
+    case LIBDEP:
+      forward(fd, length);
+      break;
+    default:
+      printf("P2_DoRec: Unknown record of type %u in %s (%s).\n", recType, 
+        modData[MDAT_PER * modIndex + MDAT_NAM], filePaths[fileIndex]);
+      abort(1);
+      break;
+  }
+}
+
+// ============================================================================
 // === Common Routines ========================================================
 // ============================================================================
 
-// returns index of pubdef with this name, or -1 (0xffff) if it is not present
+// Returns index of pubdef with this name, or -1 (0xffff) if it is not present
 FindPubDef(char* name) {
   int i, j, length;
   char* matching;
