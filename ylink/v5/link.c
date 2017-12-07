@@ -698,15 +698,21 @@ P3_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
       clearsilent(length, fd);
       fclose(fd);
       break;
+    case LEDATA:
+      P3_LEDATA(length, fd);
+      break;
+    case LIDATA:
+      P3_LIDATA(length, fd);
+      break;
+    case FIXUPP:
+      P3_FIXUPP(length, fd);
+      break;
     case LNAMES:
     case PUBDEF:
     case LIBHDR:
     case LIBEND:
     case COMMNT:
     case EXTDEF:
-    case FIXUPP:
-    case LEDATA:
-    case LIDATA:
     case LIBDEP:
       forward(fd, length);
       break;
@@ -729,6 +735,58 @@ P3_EXTDEF(uint length, uint fd) {
     deftype = read_u8(fd);
     length -= (strlength + 1);
     // AddName(line, extBuffer, &next, EXTBUF_CNT);
+  }
+  read_u8(fd); // checksum. assume correct.
+  return;
+}
+
+P3_LEDATA(uint length, uint fd) {
+  byte segindex;
+  uint dataoffset;
+  fputs("LEDATA ", 0);
+  segindex = read_u8(fd);
+  dataoffset = read_u16(fd);
+  length -= 4; // don't count the segindex, dataoffset, or checksum.
+  fprintf(0, "SegIndex=%x DataOffset=%x Length=%x", segindex, dataoffset, length);
+  clearrecord(0, length, fd);
+  read_u8(fd); // checksum. assume correct.
+}
+
+// A2H LIDATA Logical Iterated Data Record
+// Like the LEDATA record, the LIDATA record contains binary data—executable
+// code or program data. The data in an LIDATA record, however, is specified
+// as a repeating pattern (iterated), rather than by explicit enumeration.
+// The data in an LIDATA record can be modified by the linker if the LIDATA
+// record is followed by a FIXUPP record, although this is not recommended.
+P3_LIDATA(uint length, uint fd) {
+  clearrecord(0, length, fd);
+}
+
+// 9CH FIXUPP Fixup Record
+// The FIXUPP record contains information that allows the linker to resolve
+// (fix up) and eventually relocate references between object modules. FIXUPP
+// records describe the LOCATION of each address value to be fixed up, the
+// TARGET address to which the fixup refers, and the FRAME relative to which
+// the address computation is performed.
+// Each subrecord in a FIXUPP object record either defines a thread for
+// subsequent use, or refers to a data location in the nearest previous LEDATA
+// or LIDATA record. The high-order bit of the subrecord determines the
+// subrecord type: if the high-order bit is 0, the subrecord is a THREAD
+// subrecord; if the high-order bit is 1, the subrecord is a FIXUP subrecord.
+// Subrecords of different types can be mixed within one object record.
+// Information that determines how to resolve a reference can be specified
+// explicitly in a FIXUP subrecord, or it can be specified within a FIXUP
+// subrecord by a reference to a previous THREAD subrecord. A THREAD subrecord
+// describes only the method to be used by the linker to refer to a particular
+// target or frame. Because the same THREAD subrecord can be referenced in
+// several subsequent FIXUP subrecords, a FIXUPP object record that uses THREAD
+// subrecords may be smaller than one in which THREAD subrecords are not used.
+P3_FIXUPP(uint length, uint fd) {
+  fprintf(0, "FIXUPP");
+  while (length > 1) {
+    fputs("\n    ", 0);
+    rd_fix_locat(0, length, fd);
+    length = rd_fix_data(0, length, fd);
   }
   read_u8(fd); // checksum. assume correct.
   return;
@@ -992,6 +1050,22 @@ ClearPara(uint fd) {
     if (remaining != 16) {
       clearsilent(remaining, fd);
     }
+  }
+}
+
+clearrecord(uint length, uint fd) {
+  int count;
+  byte ch;
+  count = 0;
+  while (length-- > 0) {
+    if ((count % 32) == 0) {
+      fputs("\n    ", 0);
+      write_x16(0, count);
+      fputs(": ", 0);
+    }
+    ch = read_u8(fd);
+    write_x8(0, ch);
+    count++;
   }
 }
 
