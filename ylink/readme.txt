@@ -11,13 +11,15 @@ Expected milestones are:
     0.4     Dry run of linking: Calculate all necessary offsets, etc required to
             link and output HELLO.EXE from HELLO.OBJ and CLIBC.LIB.
             Write up process to be followed by ylink.
-    0.5     Able to link and output HELLO.EXE - an exact copy of HELLO.EXE as
+    0.5     Able to link and output HELLO.EXE, which works.
+    0.6     Same as 0.5, but now it is an exact copy of HELLO.EXE as
             linked by Microsoft Overlay Linker (link.exe).
             Verify new copy with checksum of new and old HELLO.EXE.
-    0.6     Able to link and output CC.EXE - an exact copy of CC.EXE as linked
+    0.7     Able to link and output CC.EXE, which works.
+    0.8     Same as 0.7, but now it is an exact copy of CC.EXE as linked
             by Microsoft Overlay Linker (link.exe).
             Verify new copy with checksum of new and old CC.EXE.
-    0.7     Able to create new library file CLIB.LIB - an exact copy of CLIB.LIB
+    0.9     Able to create new library file CLIB.LIB - an exact copy of CLIB.LIB
             that is packaged with SmallC22 (or as close as possible) from
             included archived clib file.
             If possible, verify new copy of checksum of new and old CLIB.LIB.
@@ -25,4 +27,4 @@ Expected milestones are:
             and CC.EXE from source.
             If it was possible to verify new CLIB.LIB, verify new CLIB.LIB,
             HELLO.EXE, and CC.EXE
-    1.1+    Optimizations to reduce size of output EXE files. Rewrite of clib?
+    Future  Optimizations to reduce size of output EXE files. Rewrite of clib?

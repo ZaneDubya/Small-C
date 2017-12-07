@@ -58,6 +58,9 @@ int segIndex; // index of next segdef that will be defined
 #define PBDF_ADDR 2   // offset in segment (+module origin) where it is located
 int *pbdfData;
 int pbdfCount;
+// --- ExtDef buffer ----------------------------------------------------------
+#define EXTBUF_CNT 512
+char *extBuffer;
 
 main(int argc, int *argv) {
   int i;
@@ -82,6 +85,7 @@ AllocAll() {
   segLengths = AllocMem(SEGS_CNT, 2);
   locSegs = AllocMem(SEGS_CNT, 1);
   pbdfData = AllocMem(PBDF_PER * PBDF_CNT, 2);
+  extBuffer = AllocMem(EXTBUF_CNT, 1);
   pathOutput = 0;
 }
 
@@ -203,9 +207,11 @@ P1_RdFile(uint fileIndex, uint objfd) {
 }
 
 P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
+  int i;
   switch (recType) {
     case THEADR:
       P1_THEADR(fileIndex, length, fd);
+      ResetSegments();
       break;
     case MODEND:
       P1_MODEND(length, fd);
@@ -217,7 +223,7 @@ P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
       P1_PUBDEF(length, fd);
       break;
     case SEGDEF:
-      P1_SEGDEF(length, fd);
+      P1_SEGDEF(length, fd, 1);
       break;
     case LIBHDR:
       P1_LIBHDR(length, fd);
@@ -235,7 +241,7 @@ P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
       forward(fd, length);
       break;
     default:
-      fatalf("P1_DoRec: Unknown record of type %x. Exiting.", recType);
+      fatalf("DoRec: Unknown record of type %x. Exiting.", recType);
       break;
   }
 }
@@ -257,12 +263,6 @@ P1_THEADR(uint fileIndex, uint length, uint fd) {
     fatalf("  Error: max of %u object modules.", MDAT_CNT);
   }
   AddModule(fileIndex, fd);
-  // reset segments to not present
-  for (i = 0; i < SEGS_CNT; i++) {
-    locSegs[i] = SEG_NOTPRESENT;
-  }
-  // first segment index is 0
-  segIndex = 0;
   read_u8(fd); // checksum. assume correct.
 }
 
@@ -285,6 +285,15 @@ AddModule(uint fileIndex, uint fd) {
     modData[modCount * MDAT_PER + MDAT_FLG] |= libIdxModule | FlgInLib;
     libIdxModule += 1;
   }
+}
+
+ResetSegments() {
+  int i;
+  // reset segments to not present, first segment index will be 0
+  for (i = 0; i < SEGS_CNT; i++) {
+    locSegs[i] = SEG_NOTPRESENT;
+  }
+  segIndex = 0;
 }
 
 // 8AH MODEND Module End Record
@@ -367,11 +376,11 @@ P1_PUBDEF(uint length, uint fd) {  byte typeindex;
   // BaseSegment idx is normally nonzero and no BaseFrame field is present.
   basegroup = read_u8(fd); // we don't use this value
   if (basegroup != 0) {
-    fatal("P1_PUBDEF: BaseGroup must be 0.");
+    fatal("PUBDEF: BaseGroup must be 0.");
   }
   basesegment = read_u8(fd);
   if (basesegment == 0) {
-    fatal("P1_PUBDEF: BaseSegment must be nonzero.");
+    fatal("PUBDEF: BaseSegment must be nonzero.");
   }
   length -= 2;
   while (length > 1) {
@@ -390,7 +399,7 @@ P1_PUBDEF(uint length, uint fd) {  byte typeindex;
     puboffset = read_u16(fd);
     typeindex = read_u8(fd); // we don't use this value
     if (typeindex != 0) {
-      fatal("P1_PUBDEF: Type is not 0. ");
+      fatal("PUBDEF: Type is not 0. ");
     }
     c = line;
     pdbfname = pbdfData[pbdfCount * PBDF_PER + PBDF_NAME] = AllocMem(namelen, 1);
@@ -416,24 +425,26 @@ P1_PUBDEF(uint length, uint fd) {  byte typeindex;
 // Object records that follow a SEGDEF record can refer to it to identify a
 // particular segment.  The SEGDEF records are ordered by occurrence, and are
 // referenced by segment indexes (starting from 1) in subsequent records.
-P1_SEGDEF(uint length, uint fd) {
+// When 'pass1' is 1, this routine will set modData and segLengths. When
+//    1 or 0, this routine will set locSegs.
+P1_SEGDEF(uint length, uint fd, uint pass1) {
   byte segattr, segname, classname;
   uint seglen;
   // segment attribute
   segattr = read_u8(fd);
   if ((segattr & 0xe0) != 0x60) {
-    fatal("P1_SEGDEF: Unknown segment attribute field (must be 0x60).");
+    fatal("SEGDEF: Unknown segment attribute field (must be 0x60).");
   }
   if (((segattr & 0x1c) != 0x08) && ((segattr & 0x1c) != 0x14)) {
     // 0x08 = Public. Combine by appending at an offset that meets the alignment requirement.
     // 0x14 = Stack. Combine as for C=2. This combine type forces byte alignment.
-    fatalf("P1_SEGDEF: Unknown combine %x (req: 0x08 or 0x14).", segattr & 0x1c);
+    fatalf("SEGDEF: Unknown combine %x (req: 0x08 or 0x14).", segattr & 0x1c);
   }
   if ((segattr & 0x02) != 0x00) {
-    fatal("P1_SEGDEF: Attribute may not be big (flag 0x02).");
+    fatal("SEGDEF: Attribute may not be big (flag 0x02).");
   }
   if ((segattr & 0x01) != 0x00) {
-    fatal("P1_SEGDEF: Attribute must be 16-bit addressing (flag 0x01).");
+    fatal("SEGDEF: Attribute must be 16-bit addressing (flag 0x01).");
   }
   seglen = read_u16(fd);
   segname = read_u8(fd);
@@ -444,28 +455,33 @@ P1_SEGDEF(uint length, uint fd) {
   segname = locNames[segname - 1];
   classname = locNames[classname - 1];
   if (classname != LNAME_NULL) {
-    fatalf("P1_SEGDEF: ClassName must be null; LNAME == %x", classname);
+    fatalf("SEGDEF: ClassName must be null; LNAME == %x", classname);
   }
   if (segname == LNAME_CODE) {
-    modData[modCount * MDAT_PER + MDAT_CSO] = segLengths[SEG_CODE];
+    if (pass1 == 1) {
+      modData[modCount * MDAT_PER + MDAT_CSO] = segLengths[SEG_CODE];
+      segLengths[SEG_CODE] += seglen;
+    }
     locSegs[segIndex] = SEG_CODE;
-    segLengths[SEG_CODE] += seglen;
   }
   else if (segname == LNAME_DATA) {
-    modData[modCount * MDAT_PER + MDAT_DSO] = segLengths[SEG_DATA];
+    if (pass1 == 1) {
+      modData[modCount * MDAT_PER + MDAT_DSO] = segLengths[SEG_DATA];
+      segLengths[SEG_DATA] += seglen;
+    }
     locSegs[segIndex] = SEG_DATA;
-    segLengths[SEG_DATA] += seglen;
   }
   else if (segname == LNAME_STACK) {
-    modData[modCount * MDAT_PER + MDAT_FLG] |= FlgStack;
+    if (pass1 == 1) {
+      modData[modCount * MDAT_PER + MDAT_FLG] |= FlgStack;
+      segLengths[SEG_STACK] += seglen;
+    }
     locSegs[segIndex] = SEG_STACK;
-    segLengths[SEG_STACK] += seglen;
   }
   else {
-    fatalf("P1_SEGDEF: Linker does not handle LNAME of %x", segname);
+    fatalf("SEGDEF: Linker does not handle LNAME of %x", segname);
   }
   segIndex += 1;
-  return;
 }
 
 // Note: I've removed code to load the library dictionary and dependancies.
@@ -487,7 +503,7 @@ P1_LIBHDR(uint length, uint fd) {
 // F1H End Library
 P1_LIBEND(uint length, uint fd) {
   if (!libInLib) {
-    fatal("P1_LIBEND: not a library!", 0);
+    fatal("LIBEND: not a library!", 0);
   }
   clearsilent(length, fd);
   fclose(fd);
@@ -562,6 +578,8 @@ P2_RdFile(uint fileIndex, uint objfd) {
 P2_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
   switch (recType) {
     case EXTDEF:
+      // If we are missing any references here, this is where we could go back
+      // to the unloaded library files and add them.
       P2_EXTDEF(fileIndex, length, fd);
       break;
     case MODEND:
@@ -588,7 +606,7 @@ P2_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
       forward(fd, length);
       break;
     default:
-      printf("P2_DoRec: Unknown record of type %u in %s (%s).\n", recType, 
+      printf("DoRec: Unknown record of type %u in %s (%s).\n", recType, 
         modData[MDAT_PER * modIndex + MDAT_NAM], filePaths[fileIndex]);
       abort(1);
       break;
@@ -602,19 +620,20 @@ P2_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
 // with symbols declared in PUBDEF records.
 P2_EXTDEF(uint fileIndex, uint length, uint fd) {
   byte deftype, strlength;
+  int i;
   while (length > 1) {
     strlength = read_strpre(line, fd);
     deftype = read_u8(fd);
     length -= (strlength + 1);
     if (FindPubDef(line) == -1) {
-      printf("Error: unmatched extdef %s in %s (%s), ", 
+      printf("\n  Error: unmatched extdef %s in %s (%s). ", 
         line, 
         modData[MDAT_PER * modIndex + MDAT_NAM], 
         filePaths[fileIndex]);
       abort(1);
     }
     if (deftype != 0) {
-      fatal("P2_EXTDEF: Type is not 0. ");
+      fatal("EXTDEF: Type is not 0. ");
     }
   }
   read_u8(fd); // checksum. assume correct.
@@ -634,7 +653,7 @@ Pass3() {
     if (!(fd = fopen(filePaths[i], "r"))) {
       fatalf("Could not open file '%s'", filePaths[i]);
     }
-    P2_RdFile(i, fd);
+    P3_RdFile(i, fd);
     cleanupfd(fd);
     puts("Done.");
   }
@@ -649,15 +668,26 @@ P3_RdFile(uint fileIndex, uint objfd) {
       break;
     }
     length = read_u16(objfd);
-    P2_DoRecord(fileIndex, recType, length, objfd);
+    P3_DoRecord(fileIndex, recType, length, objfd);
   }
   return;
 }
 
 P3_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
   switch (recType) {
+    case THEADR: 
+      // we are assuming that all modules are included.
+      // if this is not the cases, then we must match our modData names against
+      // this combination of file/object.
+      forward(fd, length);
+      ResetSegments();
+      break;
+    case SEGDEF:
+      // must restore locSegs so we know the names of segments in this module.
+      P1_SEGDEF(length, fd, 0);
+      break;
     case EXTDEF:
-      P2_EXTDEF(fileIndex, length, fd);
+      P3_EXTDEF(length, fd);
       break;
     case MODEND:
       forward(fd, length);
@@ -668,10 +698,8 @@ P3_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
       clearsilent(length, fd);
       fclose(fd);
       break;
-    case THEADR: 
     case LNAMES:
     case PUBDEF:
-    case SEGDEF:
     case LIBHDR:
     case LIBEND:
     case COMMNT:
@@ -683,11 +711,27 @@ P3_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
       forward(fd, length);
       break;
     default:
-      printf("P2_DoRec: Unknown record of type %u in %s (%s).\n", recType, 
+      printf("DoRec: Unknown record of type %u in %s (%s).\n", recType, 
         modData[MDAT_PER * modIndex + MDAT_NAM], filePaths[fileIndex]);
       abort(1);
       break;
   }
+}
+
+// Read all the extdefs for this module into a buffer. extdef names are null-
+// terminated.
+P3_EXTDEF(uint length, uint fd) {
+  byte deftype;
+  uint next, strlength;
+  next = 0;
+  while (length > 1) {
+    strlength = read_strpre(line, fd);
+    deftype = read_u8(fd);
+    length -= (strlength + 1);
+    // AddName(line, extBuffer, &next, EXTBUF_CNT);
+  }
+  read_u8(fd); // checksum. assume correct.
+  return;
 }
 
 // ============================================================================
@@ -993,11 +1037,18 @@ AllocMem(int nItems, int itemSize) {
   return result;
 }
 
-// === String Functions =======================================================
-
-strcmp(char *s1, char *s2) {
-  for(; *s1 == *s2; ++s1, ++s2)
-    if(*s1 == 0)
-      return 0;
-  return *s1 < *s2 ? -1 : 1;
+// AddName: adds a null-terminated string to a byte array. Returns ptr to
+// byte array where string was placed. Fails if string will not fit.
+AddName(char *name, char *names, uint next, uint max) {
+  uint nameat, i;
+  nameat = i = *next;
+  while (names[i++] = *name++) {
+    if (i >= max) {
+      fprintf(stderr, "\n%s at 0x%x exceeded names length of %u (0x%x)\n", 
+              name, nameat, max, i);
+      abort(1);
+    }
+  }
+  *next = i;
+  return nameat + names;
 }
