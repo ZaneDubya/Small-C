@@ -1,9 +1,12 @@
 /******************************************************************************
+* ylink - the ypsilon linker (c) 2017 Zane Wagner. All rights reserved.
 * link_lib.c
 * Methods that handle library object files.
 ******************************************************************************/
 #include "stdio.h"
 #include "link.h"
+
+extern char* line;
 
 // Library Dictionary - contains quick look up information.
 // Each DictData entry is u16 offset to name table, u16 hash, u16 module offset
@@ -27,12 +30,12 @@ byte *dependMods; // dependancy modules table
 //   get offset to the next available space. If byte 38 is 255, block is full.
 // * Each entry is a length-prefixed string, followed by a two-byte LE index 
 //   of the module in the library defining this string can be found.
-do_dictionary(uint outfd, uint fd, uint dictOffset[], uint blockCount) {
+do_dictionary(uint fd, uint dictOffset[], uint blockCount) {
   byte offsets[38];
   uint iBlock, iEntry, moduleLocation, nameLength;
   uint blockOffset[2];
-  fprintf(outfd, "    Library Block Count=%u (%u / %u)",
-          blockCount, dictCount, DICT_BLOCK_CNT);
+  // fprintf(outfd, "    Library Block Count=%u (%u / %u)",
+  //        blockCount, dictCount, DICT_BLOCK_CNT);
   for (iBlock = 0; iBlock < blockCount; iBlock++) {
     // advance to the dictionary block
     blockOffset[0] = iBlock * 512;
@@ -44,9 +47,9 @@ do_dictionary(uint outfd, uint fd, uint dictOffset[], uint blockCount) {
       if (offsets[iEntry] != 0) {
         blockOffset[0] = (iBlock * 512) + (offsets[iEntry] * 2);
         offsetfd(fd, dictOffset, blockOffset);
-        nameLength = read_strp(line, fd);
+        nameLength = read_strpre(line, fd);
         moduleLocation = read_u16(fd);
-        addDictEntry(line, iBlock, iEntry, moduleLocation);
+        AddDictEntry(line, iBlock, iEntry, moduleLocation);
       }
     }
     blockOffset[0] = iBlock * 512;
@@ -57,18 +60,18 @@ do_dictionary(uint outfd, uint fd, uint dictOffset[], uint blockCount) {
   offsetfd(fd, dictOffset, blockOffset);
 }
 
-allocDictMemory(uint count) {
+AllocDictMemory(uint count) {
   dictCount = count;
-  dictNames = allocvar(dictCount * DICT_NAME_LENGTH, 1);
-  dictData = allocvar(dictCount * DICT_DATA_LENGTH, 2);
+  dictNames = AllocMem(dictCount * DICT_NAME_LENGTH, 1);
+  dictData = AllocMem(dictCount * DICT_DATA_LENGTH, 2);
 }
 
-allocDependancyMemory(uint count) {
+AllocDependancyMemory(uint count) {
   dependCount = count;
-  dependData = allocvar(dependCount * DEPEND_DATA_LENGTH, 2);
+  dependData = AllocMem(dependCount * DEPEND_DATA_LENGTH, 2);
 }
 
-addDictEntry(char *name, uint hash0, uint hash1, uint moduleLocation) {
+AddDictEntry(char *name, uint hash0, uint hash1, uint moduleLocation) {
   uint iData, i, nameTableMax;
   nameTableMax = dictCount * DICT_NAME_LENGTH;
   iData = (hash0 * DICT_BLOCK_CNT + hash1) * DICT_DATA_LENGTH;
@@ -101,7 +104,7 @@ readDependancies(uint fd, uint length) {
   dependData[lastDepend * DEPEND_DATA_LENGTH + 2] = 
     (dependLength - dependData[lastDepend * DEPEND_DATA_LENGTH + 1]) / 2;
   // read module dependancy data:
-  dependMods = allocvar(dependLength, 1);
+  dependMods = AllocMem(dependLength, 1);
   read(fd, dependMods, dependLength);
 }
 

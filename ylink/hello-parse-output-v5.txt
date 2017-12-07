@@ -1,0 +1,70 @@
+Data:
+  tblObjs[64]
+  
+
+Linking procedes in three stages:
+
+FIRST: Get all object file pubdefs and segment locations. Get all libhdrs.
+  ADDOBJ: For each object file:
+    THEADR
+      Save the object file description (objdefs) [6 bytes ea], 64 total.
+        short[2] segOrigins, (will fill this in in segdef, next)
+          only two because we only care about code and data for this iteration.
+        short flags (1b inLib, hasStart, modIdx, fileIdx)
+    LNAMES
+      Read in LNames to local name data.
+      These are stored as bytes.
+  --------^done^------------^done^--------
+    SEGDEF(s)
+      For each segment definition:
+        Get name.
+        If name is null, error out.
+        If no segment header exists with this name:
+          Check name against known list of good names (CODE, DATA, STACK)
+          If name is good, create new segment header:
+          segdefs [10 bytes ea], 4 total
+            byte[8] name,
+            ushort length.
+        Set segOrigins for each named segment to segOrigins.Length.
+    PUBDEF(s)
+      For each pubef:
+        If pubdef already exists with this name, error out.
+        Add to pubdefs [12 bytes ea], 512 total.
+          byte[8] name,
+          byte objectFileIndex,
+          byte segmentIndex
+          ushort originInSegment
+  At the end of this pass, we know
+    * Where all segments in all object files will be placed (objdefs)
+    * Name and total length of all segments (segdefs)
+    * Where all pubdefs are located (pubdefs)
+
+SECOND: Make sure we have all extdefs so we can resolve in third pass.
+  For each object file:
+    EXTDEF(s)
+      For each extdef:
+        If matching pubdef exists, great, already have needed pubdef, continue to next.
+        Else
+          Remember which extdef we're working on (obj index and extdef index)
+          Check LIBHDR of all passed libraries for matching pubdef.
+          If LIBHDRs do not contain, error out.
+          Else
+            Add the libmod containing that pubdef as ADDOBJ (add to end of objdefs)
+            Continue with next extdef.
+  At the end of this pass, we know
+    * That each extdef has an associated pubdef.
+
+THIRD: Combine all segments and resolve all fixupps.
+  Order segments to be added to file in byte[4] segorders.
+    Order should be 'CODE', 'DATA', 'STACK'. Index to segdefs.
+  Open the output file.
+  Add the header at the beginning of the file.
+  Advance to the beginning of the first segment offset.
+  For each ordered segment:
+    For each object file:
+      If the object file contains the named segment we are currently working on:
+        LEDATA, FIXUPP
+          For each DATA record:
+            Copy the data into the output file.
+            If Fixupp exists, resolve fixupps.
+  

@@ -1,6 +1,6 @@
 /******************************************************************************
+* ylink - the ypsilon linker (c) 2017 Zane Wagner. All rights reserved.
 * link_lnk.c
-* Actual linking happens here!
 ******************************************************************************/
 #include "stdio.h"
 #include "link.h"
@@ -32,10 +32,10 @@ char *tbOfNames;  // ObjFile Names
 uint ofNmsNext;   
 
 AllocLnkMemory() {
-  tbObj = allocvar(tbObj_EntrySize * tbObj_Count, 1);
-  tbOfNames = allocvar(ofNms_Size, 1);
-  tbExt = allocvar(tbExt_Size, 1);
-  tbPub = allocvar(tbPub_Size, 1);
+  tbObj = AllocMem(tbObj_EntrySize * tbObj_Count, 1);
+  tbOfNames = AllocMem(ofNms_Size, 1);
+  tbExt = AllocMem(tbExt_Size, 1);
+  tbPub = AllocMem(tbPub_Size, 1);
 }
 
 LnkResolveExtDefs(uint fileCnt, uint *files) {
@@ -114,7 +114,7 @@ Lnk0_AddObj(char* filename, uint idx, byte libidx) {
     length = read_u16(fd);
     Lnk0_DoRec(recType, length, obj);
   }
-  Cleanup(fd);
+  cleanupfd(fd);
 }
 
 Lnk0_DoRec(byte recType, uint length, uint obj) {
@@ -161,20 +161,4 @@ strstr(char *str, char *substr)
     b = substr;
   }
   return 0;
-}
-
-// AddName: adds a null-terminated string to a byte array. Returns ptr to
-// byte array where string was placed. Fails if string will not fit.
-AddName(char *name, char *names, uint next, uint max) {
-  uint nameat, i;
-  nameat = i = *next;
-  while (names[i++] = *name++) {
-    if (i >= max) {
-      fprintf(stderr, "\n%s at %x exceeded names length of %x (%x)\n", 
-              name, nameat, max, i);
-      abort(1);
-    }
-  }
-  *next = i;
-  return nameat + names;
 }

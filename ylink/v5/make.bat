@@ -14,23 +14,23 @@ if errorlevel 1 goto exit
 %BIN%\asm link /p
 if errorlevel 1 goto exit
 
-%BIN%\cc  link_omf -a -p
-if errorlevel 1 goto exit
-%BIN%\asm link_omf /p
-if errorlevel 1 goto exit
+REM %BIN%\cc  link_omf -a -p
+REM if errorlevel 1 goto exit
+REM %BIN%\asm link_omf /p
+REM if errorlevel 1 goto exit
 
 %BIN%\cc  link_lib -a -p
 if errorlevel 1 goto exit
 %BIN%\asm link_lib /p
 if errorlevel 1 goto exit
 
-%BIN%\cc  link_lnk -a -p
-if errorlevel 1 goto exit
-%BIN%\asm link_lnk /p
-if errorlevel 1 goto exit
+REM %BIN%\cc  link_lnk -a -p
+REM if errorlevel 1 goto exit
+REM %BIN%\asm link_lnk /p
+REM if errorlevel 1 goto exit
 
 ECHO === Linking ===
-%BIN%\link link link_omf link_lib link_lnk,,,%LIB%\clib.lib
+%BIN%\link link link_lib,,,%LIB%\clib.lib
 if errorlevel 1 goto exit
 
 :exit
