@@ -59,7 +59,7 @@ int segIndex; // index of next segdef that will be defined
 int *pbdfData;
 int pbdfCount;
 // --- ExtDef buffer ----------------------------------------------------------
-#define EXTBUF_LEN 512
+#define EXTBUF_LEN 1024
 char *extBuffer;
 // --- DOS exe data -----------------------------------------------------------
 #define EXE_HDR_LEN 512
@@ -325,7 +325,9 @@ P1_MODEND(uint length, uint fd) {
     // Is set if the module contains a start address; if this bit is set, the
     // field starting with the End Data byte is present and specifies the start
     // address.
-    rd_fix_data(0, fd);
+    uint offset;
+    byte fixdata, frame, target;
+    length -= rd_fix_target(length, fd, &offset, &fixdata, &frame, &target);
     modData[modCount * MDAT_PER + MDAT_FLG] |= FlgStart;
   }
   read_u8(fd); // checksum. assume correct.
@@ -854,9 +856,14 @@ P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   byte *segType, int *segOffset) {
   printf("\n  FIXUPP ");
   while (length > 1) {
+    uint tOffset, lOffset;
+    byte tFixdata, tFrame, tTarget;
+    byte lLocat;
+    byte lRelType;  // 1 == segment relative, 0 == self relative.
+    byte lRefType;      // 4-bit value
     printf("\n    ");
-    rd_fix_locat(0, length, fd);
-    length = rd_fix_data(0, length, fd);
+    length = rd_fix_locat(length, fd, &lOffset, &lLocat, &lRelType, &lRefType);
+    length = rd_fix_target(length, fd, &tOffset, &tFixdata, &tFrame, &tTarget);
   }
   read_u8(fd); // checksum. assume correct.
 }
@@ -884,17 +891,77 @@ FindPubDef(char* name) {
   return -1;
 }
 
-rd_fix_locat(uint outfd, uint length, uint fd) {
-  byte locat;
-  byte relativeMode;  // 1 == segment relative, 0 == self relative.
-  byte refType;      // 4-bit value   
-  uint offset;
+// rd_fix_target: Reads the target location of a fixupp.
+//    Returns the count of bytes remaining in the record.
+rd_fix_target(uint length, uint fd, 
+              uint *offset, byte *fixdata, byte *frame, byte *target) {
+  // -----------------------------------------------------------------
+  //  FRAME/TARGET METHODS is a byte which encodes the methods by which 
+  //  the fixup "frame" and "target" are to be determined, as follows.
+  //  In the first three cases  FRAME  INDEX  is  present  in  the
+  //  record  and  contains an index of the specified type. In the
+  //  last two cases there is no FRAME INDEX field.
+  *fixdata = read_u8(fd); // Format is fffftttt
+  length -= 1;
+  // I have omitted frame/target methods that SmallC22/SmallA do not emit.
+  switch ((*fixdata & 0xf0) >> 4) {
+    case 0:     // frame given by a segment index
+      *frame = read_u8(fd);
+      length -= 1;
+      printf("Frm=Seg%x, ", *frame);
+      break;
+    case 2:     // frame given by an external index
+      *frame = read_u8(fd);
+      length -= 1;
+      printf("Frm=Ext%x, ", *frame);
+      break;
+    default:
+      printf("\nError: Unknown frame method %x", *fixdata >> 4);
+      break;
+  }
+  // -----------------------------------------------------------------
+  //  The TARGET bits tell LINK to determine the target of  the
+  //  reference in one of the following ways. In each case TARGET INDEX
+  //  is present in the record and contains an index of the indicated
+  //  type. In the first three cases TARGET OFFSET is present and
+  //  specifies the offset from the location of the segment, group, 
+  //  or external address to the target. In the last three cases there
+  //  is no TARGET OFFSET because an offset of zero is assumed.
+  *target = read_u8(fd);
+  length -= 1;
+  // As with frame methods, I have omitted targets SmallC22/SmallA do not emit.
+  switch ((*fixdata & 0x0f)) {
+    case 0 :  // target given by a segment index + displacement
+      *offset = read_u16(fd);
+      length -= 2;
+      printf("Tgt=Seg%x+%x ", *target, *offset);
+      break;
+    case 2 :  // target given by an external index + displacement
+      *offset = read_u16(fd);
+      length -= 2;
+      printf("Tgt=Ext%x+%x ", *target, *offset);
+      abort(1);
+      break;
+    case 6 :  // target given by an external index alone
+      printf("Tgt=Ext%x ", *target);
+      break;
+    default:
+      printf("d_fix_target: Unhandled target method %x", *fixdata & 0x0f);
+      break;
+  }
+  return length;
+}
+
+// rd_fix_locat: reads the place where the fixupp will be written.
+//    Returns the count of bytes remaining in the record.
+rd_fix_locat(uint length, uint fd, 
+             uint *offset, byte *locat, byte *relativeMode, byte *refType) {
   // -----------------------------------------------------------------
   // The first bit (in the low byte) is always  one  to  indicate
   // that this block defines a "fixup" as opposed to a "thread."
-  locat = read_u8(fd);
-  if ((locat & 0x80) == 0) {
-    fatalf("\nError: must be fixup, not thread (%x)", locat);
+  *locat = read_u8(fd);
+  if ((*locat & 0x80) == 0) {
+    fatalf("d_fix_target: must be fixup, not thread (%x)", *locat);
   }
   // -----------------------------------------------------------------
   //  The REFERENCE MODE bit indicates how the reference is made.
@@ -907,126 +974,36 @@ rd_fix_locat(uint outfd, uint length, uint fd) {
   //  * Segment-relative references locate a target address in any segment 
   //    relative to the beginning of the segment. This is just the
   //    "displacement" field that occurs in so many instructions.
-  relativeMode = (locat & 0x40) != 0;
-  if (relativeMode == 0) {
-    fputs("Rel=Self, ", outfd);
-  }
-  else {
-    fputs("Rel=Sgmt, ", outfd);
-  }
+  *relativeMode = (*locat & 0x40) != 0;
   // -----------------------------------------------------------------
   // The TYPE REFERENCE bits (called the LOC  bits  in  Microsoft
   // documentation) encode the type of reference as follows:
-  refType = (locat & 0x3c) >> 2; // 4 bit field.
-  switch (refType) {
-    case 0:   // low byte of an offset
-      fputs("Loc=Low, ", outfd);
-      break;
-    case 1:   // 16bit offset part of a pointer
-      fputs("Loc=16bit offset, ", outfd);
-      break;
-    case 2:   // 16bit base (segment) part of a pointer
-      fputs("Loc=16bit segment, ", outfd);
-      break;
     // SmallC22/SmallA do not emit 32 bit pointers or high byte offsets.
-    /*case 3:   // 32bit pointer (offset/base pair)
-      fputs("Loc=16bit:16bit, ", outfd);
-      break;
-    case 4:   // high byte of an offset
-      fputs("Loc=High, ", outfd);
-      break;*/
-    default:
-      fatalf("rd_fix_locat: refType %u in fixupp", refType);
-      break;
-  }
+  *refType = (*locat & 0x3c) >> 2; // 4 bit field.
   // -----------------------------------------------------------------
   //  The DATA RECORD OFFSET subfield specifies the offset, within
   //  the preceding data record, to the reference. Since a  record
   //  can  have at most 1024 data bytes, 10 bits are sufficient to
   //  locate any reference.
-  offset = read_u8(fd) + ((locat & 0x03) << 8);
-  fprintf(outfd, "DtOff=%x, ", offset);
-}
-
-// rd_fix_data: Reads a fixupp data from a fixupp record.
-//    Returns the count of bytes remaining in the record.
-rd_fix_data(uint length, uint fd) {
-  uint targetOffset;
-  byte fixdata, frame, target;
-  // -----------------------------------------------------------------
-  //  FRAME/TARGET METHODS is a byte which encodes the methods by which 
-  //  the fixup "frame" and "target" are to be determined, as follows.
-  //  In the first three cases  FRAME  INDEX  is  present  in  the
-  //  record  and  contains an index of the specified type. In the
-  //  last two cases there is no FRAME INDEX field.
-  fixdata = read_u8(fd); // Format is fffftttt
-  // I have omitted the fixups that SmallC22/SmallA do not emit.
-  switch ((fixdata & 0xf0) >> 4) {
-    case 0:     // frame given by a segment index
-      frame = read_u8(fd);
-      length -= 1;
-      // fprintf(outfd, "Frame=Seg %x, ", frame);
+  *offset = read_u8(fd) + ((*locat & 0x03) << 8);
+  length -= 2;
+  if (relativeMode == 0) {
+    printf("Rel=Self, ");
+  }
+  else {
+    printf("Rel=Sgmt, ");
+  }
+  switch (*refType) {
+    case 1:   // 16bit offset, part of a pointer
+      printf("Loc=Offset+0x%x, ", *offset);
       break;
-    case 2:     // frame given by an external index
-      frame = read_u8(fd);
-      length -= 1;
-      // fprintf(outfd, "Frame=Ext %x, ", frame);
+    case 2:   // 16bit base (segment), part of a pointer
+      printf("Loc=Segment+0x%x, ", *offset);
       break;
-    /*case 1:     // frame given by a group index
-      frame = read_u8(fd);
-      length -= 1;
-      fprintf(outfd, "Frame=Grp %x, ", frame);
-      break;
-    case 4:     // frame is that of the reference location
-      fputs("Frame=Ref, ", outfd);
-      break;
-    case 5:     // frame is determined by the target
-      fputs("Frame=Tgt, ", outfd);
-      break;*/
     default:
-      printf("\nError: Unknown frame method %x", fixdata >> 4);
+      fatalf("rd_fix_locat: Unhandled Reference Type %u in fixupp", *refType);
       break;
   }
-  // -----------------------------------------------------------------
-  //  The TARGET bits tell LINK to determine  the  target  of  the
-  //  reference in one of the following ways. In each case TARGET INDEX
-  //  is present in the record and contains an index of the indicated
-  //  type. In the first three cases TARGET OFFSET is present and
-  //  specifies the offset from the location of the segment, group, 
-  //  or external address to the target. In the last three cases there
-  //  is no TARGET OFFSET because an offset of zero is assumed.
-  target = read_u8(fd);
-  length -= 1;
-  switch ((fixdata & 0x0f)) {
-    case 0 :  // target given by a segment index + displacement
-      targetOffset = read_u16(fd);
-      length -= 2;
-      // fprintf(outfd, "Target=Seg+%x [%x]", targetOffset, target);
-      break;
-    case 2 :  // target given by an external index + displacement
-      targetOffset = read_u16(fd);
-      length -= 2;
-      // fputs(outfd, "Target=Ext+%x [%x]", targetOffset, target);
-      break;
-    case 6 :  // target given by an external index alone
-      // fputs(outfd, "Target=Ext [%x]", target);
-      break;
-    /*case 1 :  // target given by a group index + displacement
-      targetOffset = read_u16(fd);
-      length -= 2;
-      fputs(outfd, "Target=Grp+%x", targetOffset);
-      break;
-    case 4 :  // target given by a segment index alone
-      fputs("Target=Seg+0", outfd);
-      break;
-    case 5 :  // target given by a group index alone
-      fputs("Target=Grp+0", outfd);
-      break;*/
-    default:
-      printf("\nError: Unknown target method %x", fixdata & 0x0f);
-      break;
-  }
-  length -= 3;
   return length;
 }
 
