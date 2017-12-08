@@ -61,6 +61,8 @@ int pbdfCount;
 // --- ExtDef buffer ----------------------------------------------------------
 #define EXTBUF_LEN 512
 char *extBuffer;
+// --- DOS exe data -----------------------------------------------------------
+#define EXE_HDR_LEN 512
 
 main(int argc, int *argv) {
   int i;
@@ -194,6 +196,7 @@ Pass1() {
     cleanupfd(fd);
     puts("Done.");
   }
+  IncSegLengthsToNextParagraph();
 }
 
 P1_RdFile(uint fileIndex, uint fd) {
@@ -519,6 +522,16 @@ P1_LIBEND(uint length, uint fd) {
   libInLib = 0;
 }
 
+IncSegLengthsToNextParagraph() {
+  int i, next;
+  for (i = 0; i < SEGS_CNT; i++) {
+    next = segLengths[i] % 16;
+    if (next != 0) {
+      segLengths[i] += (16 - next);
+    }
+  }
+}
+
 // ============================================================================
 // === Pass2 ==================================================================
 // ============================================================================
@@ -589,8 +602,7 @@ P2_EXTDEF(uint length, uint fd) {
     deftype = read_u8(fd);
     length -= (strlength + 1);
     if (FindPubDef(line) == -1) {
-      printf("\n  Error: unmatched extdef %s.", line);
-      abort(1);
+      fatalf("\n  Error: unmatched extdef %s.", line);
     }
     if (deftype != 0) {
       fatalf("EXTDEF: Type of %u, must by type 0. ", deftype);
@@ -615,7 +627,7 @@ Pass3() {
     int mdatBase, mdatFile;
     mdatBase = i * MDAT_PER;
     mdatFile = modData[mdatBase + MDAT_FLG] >> 12;
-    printf("  Linking %s (%s)... ", 
+    printf("Linking %s (%s)... ", 
       modData[mdatBase + MDAT_NAM], 
       filePaths[mdatFile]);
     if (!(fd = fopen(filePaths[mdatFile], "r"))) {
@@ -628,15 +640,27 @@ Pass3() {
       fatalf("Could not seek to position %u, file too short.", modOffset[0]);
     }
     // place base code and data offsets in the output file:
-  codeBase[0] = 512 + modData[mdatBase + MDAT_CSO];
-  codeBase[1] = 0;
-  dataBase[0] = 512 + segLengths[SEG_CODE] + modData[mdatBase + MDAT_DSO];
-  dataBase[1] = 0;
+    codeBase[0] = EXE_HDR_LEN + modData[mdatBase + MDAT_CSO];
+    codeBase[1] = 0;
+    dataBase[0] = EXE_HDR_LEN + segLengths[SEG_CODE] + modData[mdatBase + MDAT_DSO];
+    dataBase[1] = 0;
     P3_DoMod(fd, outfd, codeBase, dataBase);
     cleanupfd(fd);
-    // puts("Done.");
+    puts("Done.");
   }
+  printf("Writing Header... ");
+  puts("Done.");
+  WriteExeHeader(outfd);
   cleanupfd(outfd);
+}
+
+WriteExeHeader(uint outfd) {
+  uint beginning[2];
+  beginning[0] = beginning[1] = 0;
+  bseek(outfd, beginning, 0);
+  fputs("MZ", outfd);
+  fputs("MZ", outfd);
+  fputs("MZ", outfd);
 }
 
 P3_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
@@ -711,24 +735,24 @@ P3_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   length -= 4; // length includes segment type, offset, and checksum
   *segType = read_u8(fd);
   *segOffset = read_u16(fd);
-  printf("\n  LEDATA Type=%x Offset=%x Length=%x ", 
-    *segType, *segOffset, length);
+  printf("\n  LEDATA SegIdx=%x Offs=%x Len=%x ", *segType, *segOffset, length);
   if (*segType == 0 || *segType > SEGS_CNT) {
     fatalf("P3_LEDATA: segType of %u, must be between 1 and 3.", *segType);
   }
   *segType = locSegs[*segType - 1]; // transform to local segment index.
   if (*segType == SEG_CODE) {
-    segBase[0] = codeBase[0] + *segOffset;
+    segBase[0] = codeBase[0];
     segBase[1] = codeBase[1];
   }
   else if (*segType == SEG_DATA) {
-    segBase[0] = dataBase[0] + *segOffset;
+    segBase[0] = dataBase[0];
     segBase[1] = dataBase[1];
   }
   else {
     printf(" Segs=%x %x %x ", locSegs[0], locSegs[1], locSegs[2]);
     fatalf("P3_LEDATA: Local segType of %u, must be 0 or 1. ", *segType);
   }
+  segBase[0] += *segOffset;
   bseek(outfd, segBase, 0);
   for (i = 0; i < length; i++) {
     fputc(read_u8(fd), outfd);
@@ -744,8 +768,67 @@ P3_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
 // record is followed by a FIXUPP record, although this is not recommended.
 P3_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   byte *segType, int *segOffset) {
-  printf("\n  LIDATA ");
-  clearrecord(0, length, fd);
+  uint segBase[2];
+  uint i, j, repeat, count;
+  length -= 4; // length includes segment type, offset, and checksum
+  *segType = read_u8(fd);
+  *segOffset = read_u16(fd);
+  printf("\n  LIDATA SegIdx=%x Offs=%x Len=%x ", *segType, *segOffset, length);
+  if (*segType == 0 || *segType > SEGS_CNT) {
+    fatalf("P3_LIDATA: segType of %u, must be between 1 and 3.", *segType);
+  }
+  *segType = locSegs[*segType - 1]; // transform to local segment index.
+  if (*segType == SEG_CODE) {
+    segBase[0] = codeBase[0];
+    segBase[1] = codeBase[1];
+  }
+  else if (*segType == SEG_DATA) {
+    segBase[0] = dataBase[0];
+    segBase[1] = dataBase[1];
+  }
+  else if (*segType == SEG_STACK) {
+    // this is why we can only have one stack segment.
+    segBase[0] = segLengths[SEG_CODE] + segLengths[SEG_DATA] + EXE_HDR_LEN;
+    segBase[1] = 0;
+    printf(" Stack at %x", segBase[0]);
+  }
+  else {
+    printf(" Segs=%x %x %x ", locSegs[0], locSegs[1], locSegs[2]);
+    clearrecord(length, fd);
+    fatalf("P3_LIDATA: Local segType of %u, must be 0, 1, or 2. ", *segType);
+  }
+  segBase[0] += *segOffset;
+  bseek(outfd, segBase, 0);
+  while (length > 1) {
+    repeat = read_u16(fd); // number of times the Content field will repeat. 
+    count = read_u16(fd); // determines interpretation of the Content field:
+    // 0  Indicates that the Content field that follows is a 1-byte count value  
+    //    followed by count data bytes. Data bytes will be mapped to memory, 
+    //    repeated as many times as are specified in the Repeat Count field.
+    // !0 Indicates that the Content field that follows is composed of one or
+    //    more Data Block fields. The value in the Block Count field specifies
+    //    the number of Data Block fields (recursive definition).
+    if (count != 0) {
+      fatalf("P3_LIDATA: Block Count of %u, must be 0. ", count);
+    }
+    else {
+      count = read_u8(fd);
+      length -= 5 + count;
+      if (count > LINESIZE) {
+        // we COULD handle block size of 256 if necessary...
+        fatalf("P3_LIDATA: Block Size of %u, must be 128 or less. ", count);
+      }
+      for (i = 0; i < count; i++) {
+        line[i] = read_u8(fd);
+      }
+      for (i = 0; i < repeat; i++) {
+        for (j = 0; j < count; j++) {
+          fputc(line[j], outfd);
+        }
+      }
+    }
+  }
+  read_u8(fd); // checksum. assume correct.
 }
 
 // 9CH FIXUPP Fixup Record
@@ -787,12 +870,9 @@ FindPubDef(char* name) {
   int i, j, length;
   char* matching;
   length = strlen(name);
-  // printf("\nFindPubDef for %s, length=%u", name, length);
   for (i = 0; i < pbdfCount; i++) {
     matching = pbdfData[i * PBDF_PER + PBDF_NAME];
-    // printf("\nAttempt Match against for %s...", matching);
     for (j = 0; j <= length; j++) {
-      // printf("\n  %u: %c vs %c", j, name[j], matching[j]);
       if (name[j] == 0 && matching[j] == 0) {
         return i;
       }
