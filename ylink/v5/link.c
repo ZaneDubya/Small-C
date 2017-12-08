@@ -59,7 +59,7 @@ int segIndex; // index of next segdef that will be defined
 int *pbdfData;
 int pbdfCount;
 // --- ExtDef buffer ----------------------------------------------------------
-#define EXTBUF_CNT 512
+#define EXTBUF_LEN 512
 char *extBuffer;
 
 main(int argc, int *argv) {
@@ -86,12 +86,12 @@ AllocAll() {
   segLengths = AllocMem(SEGS_CNT, 2);
   locSegs = AllocMem(SEGS_CNT, 1);
   pbdfData = AllocMem(PBDF_PER * PBDF_CNT, 2);
-  extBuffer = AllocMem(EXTBUF_CNT, 1);
+  extBuffer = AllocMem(EXTBUF_LEN, 1);
   pathOutput = 0;
 }
 
 DeAllocAll() {
-  
+  // need to write this.
 }
 
 Initialize() {
@@ -607,12 +607,8 @@ P2_EXTDEF(uint length, uint fd) {
 Pass3() {
   uint i, fd, outfd;
   uint modOffset[2]; // offset to object module that we are currently reading
-  uint codeOffset[2]; // offset to code segment in output file.
-  uint dataOffset[2]; // offset to data segment in output file.
-  codeOffset[0] = 512;
-  codeOffset[1] = 0;
-  dataOffset[0] = 512 + segLengths[SEG_CODE];
-  dataOffset[1] = 0;
+  uint codeBase[2]; // offset to code segment in output file.
+  uint dataBase[2]; // offset to data segment in output file.
   outfd = fopen(pathOutput, "a");
   puts("Pass 3:");
   for (i = 0; i < modCount; i++) {
@@ -625,21 +621,29 @@ Pass3() {
     if (!(fd = fopen(filePaths[mdatFile], "r"))) {
       fatal("Could not open file.");
     }
+    // seek to module in input object file:
     modOffset[0] = modData[mdatBase + MDAT_THD];
     modOffset[1] = 0;
     if (bseek(fd, modOffset, 0) == EOF) {
       fatalf("Could not seek to position %u, file too short.", modOffset[0]);
     }
-    P3_DoMod(fd, outfd, codeOffset, dataOffset);
+    // place base code and data offsets in the output file:
+  codeBase[0] = 512 + modData[mdatBase + MDAT_CSO];
+  codeBase[1] = 0;
+  dataBase[0] = 512 + segLengths[SEG_CODE] + modData[mdatBase + MDAT_DSO];
+  dataBase[1] = 0;
+    P3_DoMod(fd, outfd, codeBase, dataBase);
     cleanupfd(fd);
     // puts("Done.");
   }
   cleanupfd(outfd);
 }
 
-P3_DoMod(uint fd, uint outfd, uint codeOffset[], uint dataOffset[]) {
-  uint length;
-  byte recType;
+P3_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
+  uint length, segOffset;
+  byte recType, segType;
+  ResetSegments();
+  segType = SEG_NOTPRESENT; // in case we hit a fixupp before a data record
   while (1) {
     recType = read_u8(fd);
     if (feof(fd) || ferror(fd)) {
@@ -647,8 +651,12 @@ P3_DoMod(uint fd, uint outfd, uint codeOffset[], uint dataOffset[]) {
     }
     length = read_u16(fd);
     switch (recType) {
+      case LNAMES:
+        // restore locNames so we know the names of the segments in this module
+        P1_LNAMES(length, fd);
+        break;
       case SEGDEF:
-        // restore locSegs so we know the names of segments in this module.
+        // restore locSegs so we know the names of segments in this module
         P1_SEGDEF(length, fd, 0);
         break;
       case EXTDEF:
@@ -656,19 +664,19 @@ P3_DoMod(uint fd, uint outfd, uint codeOffset[], uint dataOffset[]) {
         P3_EXTDEF(length, fd);
         break;
       case LEDATA:
-        P3_LEDATA(length, fd);
+        P3_LEDATA(length, fd, outfd, codeBase, dataBase, &segType, &segOffset);
         break;
       case LIDATA:
-        P3_LIDATA(length, fd);
+        P3_LIDATA(length, fd, outfd, codeBase, dataBase, &segType, &segOffset);
         break;
       case FIXUPP:
-        P3_FIXUPP(length, fd);
+        P3_FIXUPP(length, fd, outfd, codeBase, dataBase, &segType, &segOffset);
+        segType = SEG_NOTPRESENT; // only one fixupp per data record allowed
         break;
       case MODEND:
         // exit reading module
         return;
       case THEADR: 
-      case LNAMES:
       case PUBDEF:
       case COMMNT:
       case EXTDEF:
@@ -691,20 +699,40 @@ P3_EXTDEF(uint length, uint fd) {
     strlength = read_strpre(line, fd);
     deftype = read_u8(fd);
     length -= (strlength + 1);
-    // AddName(line, extBuffer, &next, EXTBUF_CNT);
+    AddName(line, extBuffer, &next, EXTBUF_LEN);
   }
   read_u8(fd); // checksum. assume correct.
 }
 
-P3_LEDATA(uint length, uint fd) {
-  byte segindex;
-  uint dataoffset;
-  printf("\n  LEDATA ");
-  segindex = read_u8(fd);
-  dataoffset = read_u16(fd);
-  length -= 4; // don't count the segindex, dataoffset, or checksum.
-  printf(0, "SegIndex=%x DataOffset=%x Length=%x", segindex, dataoffset, length);
-  clearrecord(0, length, fd);
+P3_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
+  byte *segType, int *segOffset) {
+  uint segBase[2];
+  uint i;
+  length -= 4; // length includes segment type, offset, and checksum
+  *segType = read_u8(fd);
+  *segOffset = read_u16(fd);
+  printf("\n  LEDATA Type=%x Offset=%x Length=%x ", 
+    *segType, *segOffset, length);
+  if (*segType == 0 || *segType > SEGS_CNT) {
+    fatalf("P3_LEDATA: segType of %u, must be between 1 and 3.", *segType);
+  }
+  *segType = locSegs[*segType - 1]; // transform to local segment index.
+  if (*segType == SEG_CODE) {
+    segBase[0] = codeBase[0] + *segOffset;
+    segBase[1] = codeBase[1];
+  }
+  else if (*segType == SEG_DATA) {
+    segBase[0] = dataBase[0] + *segOffset;
+    segBase[1] = dataBase[1];
+  }
+  else {
+    printf(" Segs=%x %x %x ", locSegs[0], locSegs[1], locSegs[2]);
+    fatalf("P3_LEDATA: Local segType of %u, must be 0 or 1. ", *segType);
+  }
+  bseek(outfd, segBase, 0);
+  for (i = 0; i < length; i++) {
+    fputc(read_u8(fd), outfd);
+  }
   read_u8(fd); // checksum. assume correct.
 }
 
@@ -714,7 +742,8 @@ P3_LEDATA(uint length, uint fd) {
 // as a repeating pattern (iterated), rather than by explicit enumeration.
 // The data in an LIDATA record can be modified by the linker if the LIDATA
 // record is followed by a FIXUPP record, although this is not recommended.
-P3_LIDATA(uint length, uint fd) {
+P3_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
+  byte *segType, int *segOffset) {
   printf("\n  LIDATA ");
   clearrecord(0, length, fd);
 }
@@ -738,7 +767,8 @@ P3_LIDATA(uint length, uint fd) {
 // target or frame. Because the same THREAD subrecord can be referenced in
 // several subsequent FIXUP subrecords, a FIXUPP object record that uses THREAD
 // subrecords may be smaller than one in which THREAD subrecords are not used.
-P3_FIXUPP(uint length, uint fd) {
+P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
+  byte *segType, int *segOffset) {
   printf("\n  FIXUPP ");
   while (length > 1) {
     printf("\n    ");
@@ -778,7 +808,7 @@ rd_fix_locat(uint outfd, uint length, uint fd) {
   byte locat;
   byte relativeMode;  // 1 == segment relative, 0 == self relative.
   byte refType;      // 4-bit value   
-  uint dataOffset;
+  uint offset;
   // -----------------------------------------------------------------
   // The first bit (in the low byte) is always  one  to  indicate
   // that this block defines a "fixup" as opposed to a "thread."
@@ -834,8 +864,8 @@ rd_fix_locat(uint outfd, uint length, uint fd) {
   //  the preceding data record, to the reference. Since a  record
   //  can  have at most 1024 data bytes, 10 bits are sufficient to
   //  locate any reference.
-  dataOffset = read_u8(fd) + ((locat & 0x03) << 8);
-  fprintf(outfd, "DtOff=%x, ", dataOffset);
+  offset = read_u8(fd) + ((locat & 0x03) << 8);
+  fprintf(outfd, "DtOff=%x, ", offset);
 }
 
 // rd_fix_data: Reads a fixupp data from a fixupp record.
