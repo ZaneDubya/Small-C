@@ -17,22 +17,22 @@ char *pathOutput;
 int *filePaths; // ptrs to input file paths, including library files.
 int fileCount; // equal to the number of input files.
 // --- ModData - information about the modules loaded for linking -------------
-#define MDAT_CNT 128
-#define MDAT_PER 4
+#define MOD_MAX 128
+#define MDAT_PER 5
 #define MDAT_NAM 0
 #define MDAT_CSO 1 // code segment origin
 #define MDAT_DSO 2 // data segment origin
-#define MDAT_FLG 3 // data segment origin
+#define MDAT_THD 3 // offset to THEADR in file
+#define MDAT_FLG 4 // flags
 #define FlgInLib 0x0100
 #define FlgStart 0x200
 #define FlgStack 0x400
 int *modData; // each obj has name ptr, 2 fields for seg
-              // origin, and flag.
-              // flag is 0x00ff lib_mod_idx, where 0..7==lib mod index,
-              // 0x0100 in_lib, 0x0200 has start, 0x0400 has stack
-              // 12..15=file index
+              // origin, theadr offset in file, and flag.
+              // flag is: 0xf000 file index (max 16 files),
+              // 0x00ff file_mod_idx (max 256 mods per file), and 0x0f00 flags:
+              //    0x0100 in_lib, 0x0200 has start, 0x0400 has stack
 int modCount; // incremented by 1 for each obj and library module in exe.
-int modIndex; // used in pass2 to count modules as we parse their extdefs.
 // --- ListNames - temporary LNAMES data (reloaded for each module) -----------
 #define LNAMES_CNT 4
 #define LNAME_NULL 0xFF
@@ -74,19 +74,24 @@ main(int argc, int *argv) {
   printf("\nMod Count: %u\nPubdef Count: %u\nCode: %u\nData: %u\nStack: %u",
     modCount, pbdfCount, segLengths[SEG_CODE], segLengths[SEG_DATA],
     segLengths[SEG_STACK]);
-  return;
+  DeAllocAll();
+  return 0;
 }
 
 AllocAll() {
   line = AllocMem(LINESIZE, 1);
   filePaths = AllocMem(FILE_MAX, 2);
-  modData = AllocMem(MDAT_PER * MDAT_CNT, 2);
+  modData = AllocMem(MDAT_PER * MOD_MAX, 2);
   locNames = AllocMem(LNAMES_CNT, 1);
   segLengths = AllocMem(SEGS_CNT, 2);
   locSegs = AllocMem(SEGS_CNT, 1);
   pbdfData = AllocMem(PBDF_PER * PBDF_CNT, 2);
   extBuffer = AllocMem(EXTBUF_CNT, 1);
   pathOutput = 0;
+}
+
+DeAllocAll() {
+  
 }
 
 Initialize() {
@@ -181,7 +186,7 @@ Pass1() {
   modCount = 0;
   pbdfCount = 0;
   for (i = 0; i < fileCount; i++) {
-    printf("  Reading %s... ", filePaths[i],);
+    printf("  Reading %s... ", filePaths[i]);
     if (!(fd = fopen(filePaths[i], "r"))) {
       fatalf("Could not open file '%s'", filePaths[i]);
     }
@@ -191,19 +196,18 @@ Pass1() {
   }
 }
 
-P1_RdFile(uint fileIndex, uint objfd) {
+P1_RdFile(uint fileIndex, uint fd) {
   uint length;
   byte recType;
   libInLib = libIdxModule = 0; // reset library vars.
   while (1) {
-    recType = read_u8(objfd);
-    if (feof(objfd) || ferror(objfd)) {
+    recType = read_u8(fd);
+    if (feof(fd) || ferror(fd)) {
       break;
     }
-    length = read_u16(objfd);
-    P1_DoRecord(fileIndex, recType, length, objfd);
+    length = read_u16(fd);
+    P1_DoRecord(fileIndex, recType, length, fd);
   }
-  return;
 }
 
 P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
@@ -259,8 +263,8 @@ P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
 // object module.
 P1_THEADR(uint fileIndex, uint length, uint fd) {
   int i;
-  if (modCount == MDAT_CNT) {
-    fatalf("  Error: max of %u object modules.", MDAT_CNT);
+  if (modCount == MOD_MAX) {
+    fatalf("  Error: max of %u object modules.", MOD_MAX);
   }
   AddModule(fileIndex, fd);
   read_u8(fd); // checksum. assume correct.
@@ -269,6 +273,14 @@ P1_THEADR(uint fileIndex, uint length, uint fd) {
 AddModule(uint fileIndex, uint fd) {
   int length, i;
   char *path, *c;
+  uint offset[2];
+  // get offset to this THEADR record. We only handle files < 65kb in size.
+  btell(fd, offset);
+  if (offset[1] > 0) {
+    fatal("Could not load module from file; file larger than 65kb.");
+  }
+  // rewind offset 3 bytes to beginning of header file.
+  offset[0] -= 3;
   // copy the module name and set up data.
   length = read_strpre(line, fd);
   c = line;
@@ -280,6 +292,7 @@ AddModule(uint fileIndex, uint fd) {
   // set the module data.
   modData[modCount * MDAT_PER + MDAT_CSO] = 0;
   modData[modCount * MDAT_PER + MDAT_DSO] = 0;
+  modData[modCount * MDAT_PER + MDAT_THD] = offset[0];
   modData[modCount * MDAT_PER + MDAT_FLG] = (fileIndex << 12);
   if (libInLib) {
     modData[modCount * MDAT_PER + MDAT_FLG] |= libIdxModule | FlgInLib;
@@ -315,7 +328,6 @@ P1_MODEND(uint length, uint fd) {
   read_u8(fd); // checksum. assume correct.
   ClearPara(fd);
   modCount += 1;
-  return;
 }
 
 // 96H LNAMES List of Names Record
@@ -354,7 +366,6 @@ P1_LNAMES(uint length, uint fd) {
     locNames[nameIndex++] = LNAME_NULL;
   }
   read_u8(fd); // checksum. assume correct.
-  return;
 }
 
 // 90H PUBDEF Public Names Definition Record
@@ -415,7 +426,6 @@ P1_PUBDEF(uint length, uint fd) {  byte typeindex;
     pbdfCount += 1;
   }
   read_u8(fd); // checksum. assume correct.
-  return;
 }
 
 // 98H SEGDEF Segment Definition Record
@@ -497,7 +507,6 @@ P1_LIBHDR(uint length, uint fd) {
   clearsilent(length - 8, fd); // rest of record is zeroes.
   read_u8(fd); // checksum. assume correct.
   libInLib = 1;
-  return;
 }
 
 // F1H End Library
@@ -510,106 +519,60 @@ P1_LIBEND(uint length, uint fd) {
   libInLib = 0;
 }
 
-// === Fixup Routines =========================================================
-
-// 9CH FIXUPP Fixup Record
-// The FIXUPP record contains information that allows the linker to resolve
-// (fix up) and eventually relocate references between object modules. FIXUPP
-// records describe the LOCATION of each address value to be fixed up, the
-// TARGET address to which the fixup refers, and the FRAME relative to which
-// the address computation is performed.
-// Each subrecord in a FIXUPP object record either defines a thread for
-// subsequent use, or refers to a data location in the nearest previous LEDATA
-// or LIDATA record. The high-order bit of the subrecord determines the
-// subrecord type: if the high-order bit is 0, the subrecord is a THREAD
-// subrecord; if the high-order bit is 1, the subrecord is a FIXUP subrecord.
-// Subrecords of different types can be mixed within one object record.
-// Information that determines how to resolve a reference can be specified
-// explicitly in a FIXUP subrecord, or it can be specified within a FIXUP
-// subrecord by a reference to a previous THREAD subrecord. A THREAD subrecord
-// describes only the method to be used by the linker to refer to a particular
-// target or frame. Because the same THREAD subrecord can be referenced in
-// several subsequent FIXUP subrecords, a FIXUPP object record that uses THREAD
-// subrecords may be smaller than one in which THREAD subrecords are not used.
-P1_FIXUPP(uint outfd, uint length, uint fd) {
-  fprintf(outfd, "FIXUPP");
-  while (length > 1) {
-    fputs("\n    ", outfd);
-    rd_fix_locat(outfd, length, fd);
-    length = rd_fix_data(length, fd);
-  }
-  read_u8(fd); // checksum. assume correct.
-  return;
-}
-
 // ============================================================================
 // === Pass2 ==================================================================
 // ============================================================================
-
+// In Pass2, we are only making sure that all required EXTDEFs are matched by
+// an existing PUBDEF. If not, then we will attempt to find a matching PUBDEF
+// in an available LIBRARY file. If we can't, then error out.
 Pass2() {
+  // For each mod: open the mod's file, then read the file to that mod.
   uint i, fd;
+  uint offset[2];
   puts("Pass 2:");
-  modIndex = 0;
-  for (i = 0; i < fileCount; i++) {
-    printf("  Reading %s... ", filePaths[i],);
-    if (!(fd = fopen(filePaths[i], "r"))) {
-      fatalf("Could not open file '%s'", filePaths[i]);
+  for (i = 0; i < modCount; i++) {
+    int mdatBase, mdatFile;
+    mdatBase = i * MDAT_PER;
+    mdatFile = modData[mdatBase + MDAT_FLG] >> 12;
+    printf("  Resolving %s (%s)... ", 
+      modData[mdatBase + MDAT_NAM], 
+      filePaths[mdatFile]);
+    if (!(fd = fopen(filePaths[mdatFile], "r"))) {
+      fatal("Could not open file.");
     }
-    P2_RdFile(i, fd);
+    offset[0] = modData[mdatBase + MDAT_THD];
+    offset[1] = 0;
+    if (bseek(fd, offset, 0) == EOF) {
+      fatalf("Could not seek to position %u, file too short.", offset[0]);
+    }
+    P2_DoMod(fd);
     cleanupfd(fd);
     puts("Done.");
   }
 }
 
-P2_RdFile(uint fileIndex, uint objfd) {
+P2_DoMod(uint fd) {
   uint length;
   byte recType;
   while (1) {
-    recType = read_u8(objfd);
-    if (feof(objfd) || ferror(objfd)) {
+    recType = read_u8(fd);
+    if (feof(fd) || ferror(fd)) {
       break;
     }
-    length = read_u16(objfd);
-    P2_DoRecord(fileIndex, recType, length, objfd);
-  }
-  return;
-}
-
-P2_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
-  switch (recType) {
-    case EXTDEF:
+    length = read_u16(fd);
+    if (recType == EXTDEF) {
       // If we are missing any references here, this is where we could go back
       // to the unloaded library files and add them.
-      P2_EXTDEF(fileIndex, length, fd);
+      P2_EXTDEF(length, fd);
+    }
+    else if (recType == MODEND) {
       break;
-    case MODEND:
+    }
+    else {
+      // LIBEND requires special handling (must close instead of forward),
+      // but we will always hit MODEND before LIBEND.
       forward(fd, length);
-      ClearPara(fd);
-      modIndex += 1;
-      break;
-    case LIBEND:
-      clearsilent(length, fd);
-      fclose(fd);
-      break;
-    case THEADR: 
-    case LNAMES:
-    case PUBDEF:
-    case SEGDEF:
-    case LIBHDR:
-    case LIBEND:
-    case COMMNT:
-    case EXTDEF:
-    case FIXUPP:
-    case LEDATA:
-    case LIDATA:
-    case LIBDEP:
-      forward(fd, length);
-      break;
-    default:
-      printf("DoRec: Unknown record of type %u in %s (%s).\n", recType, 
-        modData[MDAT_PER * modIndex + MDAT_NAM], filePaths[fileIndex]);
-      abort(1);
-      break;
+    }
   }
 }
 
@@ -618,7 +581,7 @@ P2_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
 // references to symbols defined in other object modules. The linker resolves
 // external references by matching the symbols declared in EXTDEF records
 // with symbols declared in PUBDEF records.
-P2_EXTDEF(uint fileIndex, uint length, uint fd) {
+P2_EXTDEF(uint length, uint fd) {
   byte deftype, strlength;
   int i;
   while (length > 1) {
@@ -626,101 +589,95 @@ P2_EXTDEF(uint fileIndex, uint length, uint fd) {
     deftype = read_u8(fd);
     length -= (strlength + 1);
     if (FindPubDef(line) == -1) {
-      printf("\n  Error: unmatched extdef %s in %s (%s). ", 
-        line, 
-        modData[MDAT_PER * modIndex + MDAT_NAM], 
-        filePaths[fileIndex]);
+      printf("\n  Error: unmatched extdef %s.", line);
       abort(1);
     }
     if (deftype != 0) {
-      fatal("EXTDEF: Type is not 0. ");
+      fatalf("EXTDEF: Type of %u, must by type 0. ", deftype);
     }
   }
   read_u8(fd); // checksum. assume correct.
-  return;
 }
 
 // ============================================================================
 // === Pass3 ==================================================================
 // ============================================================================
-
+// In Pass3, we are copying in the DATA from the modules, and handling all
+// FIXUPP records.
 Pass3() {
-  uint i, fd;
+  uint i, fd, outfd;
+  uint modOffset[2]; // offset to object module that we are currently reading
+  uint codeOffset[2]; // offset to code segment in output file.
+  uint dataOffset[2]; // offset to data segment in output file.
+  codeOffset[0] = 512;
+  codeOffset[1] = 0;
+  dataOffset[0] = 512 + segLengths[SEG_CODE];
+  dataOffset[1] = 0;
+  outfd = fopen(pathOutput, "a");
   puts("Pass 3:");
-  modIndex = 0;
-  for (i = 0; i < fileCount; i++) {
-    printf("  Reading %s... ", filePaths[i],);
-    if (!(fd = fopen(filePaths[i], "r"))) {
-      fatalf("Could not open file '%s'", filePaths[i]);
+  for (i = 0; i < modCount; i++) {
+    int mdatBase, mdatFile;
+    mdatBase = i * MDAT_PER;
+    mdatFile = modData[mdatBase + MDAT_FLG] >> 12;
+    printf("  Linking %s (%s)... ", 
+      modData[mdatBase + MDAT_NAM], 
+      filePaths[mdatFile]);
+    if (!(fd = fopen(filePaths[mdatFile], "r"))) {
+      fatal("Could not open file.");
     }
-    P3_RdFile(i, fd);
+    modOffset[0] = modData[mdatBase + MDAT_THD];
+    modOffset[1] = 0;
+    if (bseek(fd, modOffset, 0) == EOF) {
+      fatalf("Could not seek to position %u, file too short.", modOffset[0]);
+    }
+    P3_DoMod(fd, outfd, codeOffset, dataOffset);
     cleanupfd(fd);
-    puts("Done.");
+    // puts("Done.");
   }
+  cleanupfd(outfd);
 }
 
-P3_RdFile(uint fileIndex, uint objfd) {
+P3_DoMod(uint fd, uint outfd, uint codeOffset[], uint dataOffset[]) {
   uint length;
   byte recType;
   while (1) {
-    recType = read_u8(objfd);
-    if (feof(objfd) || ferror(objfd)) {
-      break;
+    recType = read_u8(fd);
+    if (feof(fd) || ferror(fd)) {
+        fatal("P3_DoMod: Unexpected file termination.\n");
     }
-    length = read_u16(objfd);
-    P3_DoRecord(fileIndex, recType, length, objfd);
-  }
-  return;
-}
-
-P3_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
-  switch (recType) {
-    case THEADR: 
-      // we are assuming that all modules are included.
-      // if this is not the cases, then we must match our modData names against
-      // this combination of file/object.
-      forward(fd, length);
-      ResetSegments();
-      break;
-    case SEGDEF:
-      // must restore locSegs so we know the names of segments in this module.
-      P1_SEGDEF(length, fd, 0);
-      break;
-    case EXTDEF:
-      P3_EXTDEF(length, fd);
-      break;
-    case MODEND:
-      forward(fd, length);
-      ClearPara(fd);
-      modIndex += 1;
-      break;
-    case LIBEND:
-      clearsilent(length, fd);
-      fclose(fd);
-      break;
-    case LEDATA:
-      P3_LEDATA(length, fd);
-      break;
-    case LIDATA:
-      P3_LIDATA(length, fd);
-      break;
-    case FIXUPP:
-      P3_FIXUPP(length, fd);
-      break;
-    case LNAMES:
-    case PUBDEF:
-    case LIBHDR:
-    case LIBEND:
-    case COMMNT:
-    case EXTDEF:
-    case LIBDEP:
-      forward(fd, length);
-      break;
-    default:
-      printf("DoRec: Unknown record of type %u in %s (%s).\n", recType, 
-        modData[MDAT_PER * modIndex + MDAT_NAM], filePaths[fileIndex]);
-      abort(1);
-      break;
+    length = read_u16(fd);
+    switch (recType) {
+      case SEGDEF:
+        // restore locSegs so we know the names of segments in this module.
+        P1_SEGDEF(length, fd, 0);
+        break;
+      case EXTDEF:
+        // read into buffer
+        P3_EXTDEF(length, fd);
+        break;
+      case LEDATA:
+        P3_LEDATA(length, fd);
+        break;
+      case LIDATA:
+        P3_LIDATA(length, fd);
+        break;
+      case FIXUPP:
+        P3_FIXUPP(length, fd);
+        break;
+      case MODEND:
+        // exit reading module
+        return;
+      case THEADR: 
+      case LNAMES:
+      case PUBDEF:
+      case COMMNT:
+      case EXTDEF:
+        forward(fd, length);
+        break;
+      default:
+        fatal("P3_DoMod: Unknown record of type %u.\n", recType);
+        break;
+    }
   }
 }
 
@@ -737,17 +694,16 @@ P3_EXTDEF(uint length, uint fd) {
     // AddName(line, extBuffer, &next, EXTBUF_CNT);
   }
   read_u8(fd); // checksum. assume correct.
-  return;
 }
 
 P3_LEDATA(uint length, uint fd) {
   byte segindex;
   uint dataoffset;
-  fputs("LEDATA ", 0);
+  printf("\n  LEDATA ");
   segindex = read_u8(fd);
   dataoffset = read_u16(fd);
   length -= 4; // don't count the segindex, dataoffset, or checksum.
-  fprintf(0, "SegIndex=%x DataOffset=%x Length=%x", segindex, dataoffset, length);
+  printf(0, "SegIndex=%x DataOffset=%x Length=%x", segindex, dataoffset, length);
   clearrecord(0, length, fd);
   read_u8(fd); // checksum. assume correct.
 }
@@ -759,6 +715,7 @@ P3_LEDATA(uint length, uint fd) {
 // The data in an LIDATA record can be modified by the linker if the LIDATA
 // record is followed by a FIXUPP record, although this is not recommended.
 P3_LIDATA(uint length, uint fd) {
+  printf("\n  LIDATA ");
   clearrecord(0, length, fd);
 }
 
@@ -782,14 +739,13 @@ P3_LIDATA(uint length, uint fd) {
 // several subsequent FIXUP subrecords, a FIXUPP object record that uses THREAD
 // subrecords may be smaller than one in which THREAD subrecords are not used.
 P3_FIXUPP(uint length, uint fd) {
-  fprintf(0, "FIXUPP");
+  printf("\n  FIXUPP ");
   while (length > 1) {
-    fputs("\n    ", 0);
+    printf("\n    ");
     rd_fix_locat(0, length, fd);
     length = rd_fix_data(0, length, fd);
   }
   read_u8(fd); // checksum. assume correct.
-  return;
 }
 
 // ============================================================================
@@ -969,7 +925,6 @@ rd_fix_data(uint length, uint fd) {
 write_x16(uint fd, uint value) {
   write_x8(fd, value >> 8);
   write_x8(fd, value & 0x00ff);
-  return;
 }
 
 write_x8(uint fd, byte value) {
@@ -990,7 +945,6 @@ write_x8(uint fd, byte value) {
     ch0 += 55;
   }
   fputc(ch0, fd);
-  return;
 }
 
 // === Binary Reading Routines ================================================
@@ -1027,7 +981,6 @@ cleanupfd(uint fd) {
   if (fd != 0) {
     fclose(fd);
   }
-  return;
 }
 
 offsetfd(uint fd, uint base[], uint offset[]) {
