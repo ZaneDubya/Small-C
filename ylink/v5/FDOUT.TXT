@@ -1,0 +1,943 @@
+Pass 1:
+  Reading work\hello.obj... Done.
+  Reading ..\..\smalllib\clib.lib... Done.
+Pass 2:
+  Resolving HELLO.OBJ (work\hello.obj)... Done.
+  Resolving CSYSLIB.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving AUXBUF.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving PUTS.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving FGETS.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving FPRINTF.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving FPUTS.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving FREAD.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving FREOPEN.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving FSCANF.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving FWRITE.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving GETCHAR.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving PAD.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving POLL.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving PUTCHAR.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving RENAME.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving REWIND.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving ABS.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving ATOI.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving ATOIB.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving AVAIL.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving BSEEK.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving BTELL.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving CALLOC.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving CLEARERR.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving CSEEK.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving CTELL.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving DTOI.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving EXIT.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving FCLOSE.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving FEOF.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving FERROR.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving FGETC.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving FOPEN.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving FPUTC.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving FREE.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving GETARG.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving IS.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving ISASCII.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving ISATTY.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving ISCONS.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving ITOA.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving ITOAB.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving ITOD.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving ITOO.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving ITOU.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving ITOX.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving LEFT.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving LEXCMP.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving MALLOC.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving OTOI.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving REVERSE.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving SIGN.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving STRCAT.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving STRCHR.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving STRCMP.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving STRCPY.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving STRLEN.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving STRNCAT.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving STRNCMP.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving STRNCPY.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving STRRCHR.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving TOASCII.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving TOLOWER.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving TOUPPER.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving UNGETC.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving UNLINK.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving UTOI.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving XTOI.OBJ (..\..\smalllib\clib.lib)... Done.
+  Resolving CALL.OBJ (..\..\smalllib\clib.lib)... Done.
+Pass 3:
+Linking HELLO.OBJ (work\hello.obj)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=44 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x11), Tgt=Ext4, Ext4 
+    Rel=Self, Offset=Ptr(0x1F), Tgt=ExtE, ExtE 
+    Rel=Sgmt, Offset=Ptr(0x29), Tgt=Seg2, Seg2+2 
+    Rel=Self, Offset=Ptr(0x2F), Tgt=Ext2, Ext2 
+    Rel=Sgmt, Offset=Ptr(0x35), Tgt=Seg2, Seg2+8 
+    Rel=Self, Offset=Ptr(0x3B), Tgt=Ext2, Ext2 
+  LEDATA SegIdx=2 Offs=2 Len=13 Done.
+Linking CSYSLIB.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=4 
+  LIDATA SegIdx=2 Offs=4 Len=7 
+  LEDATA SegIdx=2 Offs=2C Len=A 
+  LIDATA SegIdx=2 Offs=36 Len=E 
+  LEDATA SegIdx=2 Offs=7C Len=A 
+  LIDATA SegIdx=2 Offs=86 Len=31 
+  LEDATA SegIdx=2 Offs=194 Len=4 
+  LEDATA SegIdx=1 Offs=2 Len=3FC 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x9), Tgt=Seg1, Seg1+9E 
+    Rel=Self, Offset=Ptr(0x19), Tgt=Ext11, Ext11 
+    Rel=Self, Offset=Ptr(0x3A), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x48), Tgt=Ext5, Ext5 
+    Rel=Self, Offset=Ptr(0x4E), Tgt=ExtA, ExtA 
+    Rel=Sgmt, Offset=Ptr(0x58), Tgt=Seg2, Seg2+A4 
+    Rel=Self, Offset=Ptr(0x66), Tgt=Ext5, Ext5 
+    Rel=Self, Offset=Ptr(0x6C), Tgt=ExtA, ExtA 
+    Rel=Sgmt, Offset=Ptr(0x76), Tgt=Seg2, Seg2+A6 
+    Rel=Sgmt, Offset=Ptr(0x7F), Tgt=Seg2, Seg2+2 
+    Rel=Sgmt, Offset=Ptr(0x82), Tgt=Seg2, Seg2+4 
+    Rel=Self, Offset=Ptr(0x88), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x93), Tgt=Ext6, Ext6 
+    Rel=Self, Offset=Ptr(0xB1), Tgt=Seg1, Seg1+9E9 
+    Rel=Sgmt, Offset=Ptr(0xCC), Tgt=Seg2, Seg2+196 
+    Rel=Sgmt, Offset=Ptr(0xCF), Tgt=Seg2, Seg2+4 
+    Rel=Self, Offset=Ptr(0xDE), Tgt=Seg1, Seg1+16D 
+    Rel=Self, Offset=Ptr(0xEA), Tgt=Ext4, Ext4 
+    Rel=Sgmt, Offset=Ptr(0x103), Tgt=Seg2, Seg2+2 
+    Rel=Self, Offset=Ptr(0x109), Tgt=Ext11, Ext11 
+    Rel=Sgmt, Offset=Ptr(0x113), Tgt=Seg2, Seg2+2 
+    Rel=Sgmt, Offset=Ptr(0x117), Tgt=Seg2, Seg2+2 
+    Rel=Sgmt, Offset=Ptr(0x11B), Tgt=Seg2, Seg2+4 
+    Rel=Self, Offset=Ptr(0x13F), Tgt=Ext4, Ext4 
+    Rel=Self, Offset=Ptr(0x169), Tgt=Seg1, Seg1+D5 
+    Rel=Self, Offset=Ptr(0x17C), Tgt=Seg1, Seg1+2EC 
+    Rel=Self, Offset=Ptr(0x18B), Tgt=Ext14, Ext14 
+    Rel=Self, Offset=Ptr(0x1BB), Tgt=Seg1, Seg1+A45 
+    Rel=Self, Offset=Ptr(0x1D3), Tgt=Seg1, Seg1+300 
+    Rel=Self, Offset=Ptr(0x1E2), Tgt=Ext14, Ext14 
+    Rel=Self, Offset=Ptr(0x20F), Tgt=Seg1, Seg1+A45 
+    Rel=Self, Offset=Ptr(0x236), Tgt=Seg1, Seg1+A45 
+    Rel=Self, Offset=Ptr(0x250), Tgt=Seg1, Seg1+A45 
+    Rel=Self, Offset=Ptr(0x268), Tgt=Seg1, Seg1+300 
+    Rel=Self, Offset=Ptr(0x277), Tgt=Ext14, Ext14 
+    Rel=Self, Offset=Ptr(0x2A8), Tgt=Seg1, Seg1+A45 
+    Rel=Self, Offset=Ptr(0x2BA), Tgt=Seg1, Seg1+200 
+    Rel=Self, Offset=Ptr(0x2CC), Tgt=Seg1, Seg1+A45 
+    Rel=Self, Offset=Ptr(0x2EB), Tgt=Ext9, Ext9 
+    Rel=Sgmt, Offset=Ptr(0x2ED), Tgt=Seg1, Seg1+180 
+    Rel=Sgmt, Offset=Ptr(0x2F1), Tgt=Seg1, Seg1+1D7 
+    Rel=Sgmt, Offset=Ptr(0x2F5), Tgt=Seg1, Seg1+26C 
+    Rel=Self, Offset=Ptr(0x308), Tgt=Seg1, Seg1+8F8 
+    Rel=Self, Offset=Ptr(0x313), Tgt=Ext5, Ext5 
+    Rel=Sgmt, Offset=Ptr(0x323), Tgt=Seg2, Seg2+A4 
+    Rel=Sgmt, Offset=Ptr(0x339), Tgt=Seg2, Seg2+54 
+    Rel=Sgmt, Offset=Ptr(0x347), Tgt=Seg2, Seg2+7C 
+    Rel=Sgmt, Offset=Ptr(0x356), Tgt=Seg2, Seg2+2C 
+    Rel=Sgmt, Offset=Ptr(0x372), Tgt=Seg2, Seg2+7C 
+    Rel=Self, Offset=Ptr(0x380), Tgt=Ext13, Ext13 
+    Rel=Sgmt, Offset=Ptr(0x38D), Tgt=Seg2, Seg2+7C 
+    Rel=Sgmt, Offset=Ptr(0x39E), Tgt=Seg2, Seg2+7C 
+    Rel=Self, Offset=Ptr(0x3B8), Tgt=Ext8, Ext8 
+    Rel=Self, Offset=Ptr(0x3C7), Tgt=Seg1, Seg1+AA0 
+    Rel=Sgmt, Offset=Ptr(0x3D1), Tgt=Seg2, Seg2+A4 
+    Rel=Self, Offset=Ptr(0x3E6), Tgt=Seg1, Seg1+44F 
+  LEDATA SegIdx=1 Offs=3FE Len=3FC 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x5), Tgt=Seg1, Seg1+A45 
+    Rel=Self, Offset=Ptr(0x1C), Tgt=Seg1, Seg1+971 
+    Rel=Self, Offset=Ptr(0x2E), Tgt=Seg1, Seg1+9AD 
+    Rel=Self, Offset=Ptr(0x3E), Tgt=Ext9, Ext9 
+    Rel=Sgmt, Offset=Ptr(0x40), Tgt=Seg1, Seg1+40B 
+    Rel=Sgmt, Offset=Ptr(0x44), Tgt=Seg1, Seg1+414 
+    Rel=Sgmt, Offset=Ptr(0x5B), Tgt=Seg2, Seg2+A4 
+    Rel=Self, Offset=Ptr(0x69), Tgt=Ext14, Ext14 
+    Rel=Self, Offset=Ptr(0x78), Tgt=Seg1, Seg1+72F 
+    Rel=Sgmt, Offset=Ptr(0x9E), Tgt=Seg2, Seg2+11C 
+    Rel=Sgmt, Offset=Ptr(0xAF), Tgt=Seg2, Seg2+144 
+    Rel=Self, Offset=Ptr(0xBB), Tgt=ExtD, ExtD 
+    Rel=Sgmt, Offset=Ptr(0xC8), Tgt=Seg2, Seg2+11C 
+    Rel=Sgmt, Offset=Ptr(0xE1), Tgt=Seg2, Seg2+16C 
+    Rel=Self, Offset=Ptr(0xF6), Tgt=Seg1, Seg1+971 
+    Rel=Sgmt, Offset=Ptr(0x106), Tgt=Seg2, Seg2+144 
+    Rel=Sgmt, Offset=Ptr(0x111), Tgt=Seg2, Seg2+F4 
+    Rel=Sgmt, Offset=Ptr(0x126), Tgt=Seg2, Seg2+CC 
+    Rel=Self, Offset=Ptr(0x144), Tgt=Ext11, Ext11 
+    Rel=Self, Offset=Ptr(0x17B), Tgt=Seg1, Seg1+A45 
+    Rel=Self, Offset=Ptr(0x192), Tgt=Ext11, Ext11 
+    Rel=Sgmt, Offset=Ptr(0x19F), Tgt=Seg2, Seg2+16C 
+    Rel=Self, Offset=Ptr(0x1B4), Tgt=ExtD, ExtD 
+    Rel=Self, Offset=Ptr(0x1BE), Tgt=Seg1, Seg1+534 
+    Rel=Sgmt, Offset=Ptr(0x1C4), Tgt=Seg2, Seg2+144 
+    Rel=Sgmt, Offset=Ptr(0x1D5), Tgt=Seg2, Seg2+11C 
+    Rel=Sgmt, Offset=Ptr(0x1E0), Tgt=Seg2, Seg2+F4 
+    Rel=Sgmt, Offset=Ptr(0x1EF), Tgt=Seg2, Seg2+A4 
+    Rel=Self, Offset=Ptr(0x1FB), Tgt=Seg1, Seg1+498 
+    Rel=Sgmt, Offset=Ptr(0x208), Tgt=Seg2, Seg2+A4 
+    Rel=Self, Offset=Ptr(0x220), Tgt=Seg1, Seg1+660 
+    Rel=Self, Offset=Ptr(0x239), Tgt=Seg1, Seg1+A45 
+    Rel=Self, Offset=Ptr(0x244), Tgt=Ext13, Ext13 
+    Rel=Self, Offset=Ptr(0x253), Tgt=Seg1, Seg1+9AD 
+    Rel=Sgmt, Offset=Ptr(0x26C), Tgt=Seg2, Seg2+A4 
+    Rel=Self, Offset=Ptr(0x27A), Tgt=Ext14, Ext14 
+    Rel=Self, Offset=Ptr(0x289), Tgt=Seg1, Seg1+87A 
+    Rel=Sgmt, Offset=Ptr(0x2AF), Tgt=Seg2, Seg2+11C 
+    Rel=Sgmt, Offset=Ptr(0x2C0), Tgt=Seg2, Seg2+F4 
+    Rel=Sgmt, Offset=Ptr(0x2CC), Tgt=Seg2, Seg2+CC 
+    Rel=Self, Offset=Ptr(0x2DB), Tgt=ExtD, ExtD 
+    Rel=Sgmt, Offset=Ptr(0x2F0), Tgt=Seg2, Seg2+11C 
+    Rel=Sgmt, Offset=Ptr(0x2FF), Tgt=Seg2, Seg2+A4 
+    Rel=Self, Offset=Ptr(0x317), Tgt=Seg1, Seg1+72F 
+    Rel=Self, Offset=Ptr(0x32B), Tgt=Seg1, Seg1+6A9 
+    Rel=Sgmt, Offset=Ptr(0x33B), Tgt=Seg2, Seg2+A4 
+    Rel=Self, Offset=Ptr(0x349), Tgt=Ext14, Ext14 
+    Rel=Self, Offset=Ptr(0x350), Tgt=Seg1, Seg1+810 
+    Rel=Sgmt, Offset=Ptr(0x356), Tgt=Seg2, Seg2+11C 
+    Rel=Sgmt, Offset=Ptr(0x362), Tgt=Seg2, Seg2+F4 
+    Rel=Self, Offset=Ptr(0x382), Tgt=Seg1, Seg1+810 
+    Rel=Self, Offset=Ptr(0x38B), Tgt=Ext11, Ext11 
+    Rel=Sgmt, Offset=Ptr(0x3BB), Tgt=Seg2, Seg2+F4 
+    Rel=Self, Offset=Ptr(0x3CD), Tgt=Seg1, Seg1+A45 
+    Rel=Self, Offset=Ptr(0x3E4), Tgt=Ext11, Ext11 
+    Rel=Self, Offset=Ptr(0x3F3), Tgt=Seg1, Seg1+9AD 
+  LEDATA SegIdx=1 Offs=7FA Len=2C2 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x14), Tgt=Seg1, Seg1+778 
+    Rel=Self, Offset=Ptr(0x20), Tgt=Seg1, Seg1+8F8 
+    Rel=Sgmt, Offset=Ptr(0x32), Tgt=Seg2, Seg2+A4 
+    Rel=Self, Offset=Ptr(0x40), Tgt=Ext14, Ext14 
+    Rel=Self, Offset=Ptr(0x4F), Tgt=Seg1, Seg1+72F 
+    Rel=Sgmt, Offset=Ptr(0x5A), Tgt=Seg2, Seg2+A4 
+    Rel=Self, Offset=Ptr(0x68), Tgt=Ext14, Ext14 
+    Rel=Self, Offset=Ptr(0x77), Tgt=Seg1, Seg1+87A 
+    Rel=Sgmt, Offset=Ptr(0x8A), Tgt=Seg2, Seg2+11C 
+    Rel=Sgmt, Offset=Ptr(0x96), Tgt=Seg2, Seg2+144 
+    Rel=Self, Offset=Ptr(0xC8), Tgt=Seg1, Seg1+A5E 
+    Rel=Self, Offset=Ptr(0xCE), Tgt=ExtA, ExtA 
+    Rel=Self, Offset=Ptr(0xDD), Tgt=Seg1, Seg1+9AD 
+    Rel=Self, Offset=Ptr(0xF3), Tgt=Seg1, Seg1+8F8 
+    Rel=Sgmt, Offset=Ptr(0x105), Tgt=Seg2, Seg2+11C 
+    Rel=Sgmt, Offset=Ptr(0x110), Tgt=Seg2, Seg2+144 
+    Rel=Sgmt, Offset=Ptr(0x11B), Tgt=Seg2, Seg2+F4 
+    Rel=Sgmt, Offset=Ptr(0x12D), Tgt=Seg2, Seg2+16C 
+    Rel=Sgmt, Offset=Ptr(0x145), Tgt=Seg2, Seg2+A4 
+    Rel=Self, Offset=Ptr(0x15C), Tgt=ExtD, ExtD 
+    Rel=Sgmt, Offset=Ptr(0x169), Tgt=Seg2, Seg2+2C 
+    Rel=Sgmt, Offset=Ptr(0x17E), Tgt=Seg2, Seg2+2C 
+    Rel=Sgmt, Offset=Ptr(0x19C), Tgt=Seg2, Seg2+2C 
+    Rel=Sgmt, Offset=Ptr(0x1BA), Tgt=Seg2, Seg2+2C 
+    Rel=Sgmt, Offset=Ptr(0x1D8), Tgt=Seg2, Seg2+2C 
+    Rel=Self, Offset=Ptr(0x1FC), Tgt=Ext7, Ext7 
+    Rel=Self, Offset=Ptr(0x205), Tgt=ExtD, ExtD 
+    Rel=Sgmt, Offset=Ptr(0x21A), Tgt=Seg2, Seg2+194 
+    Rel=Self, Offset=Ptr(0x225), Tgt=Ext2, Ext2 
+    Rel=Sgmt, Offset=Ptr(0x22B), Tgt=Seg2, Seg2+194 
+    Rel=Sgmt, Offset=Ptr(0x237), Tgt=Seg2, Seg2+194 
+    Rel=Sgmt, Offset=Ptr(0x23C), Tgt=Seg2, Seg2+194 Done.
+Linking AUXBUF.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=7A 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x7), Tgt=Ext7, Ext7 
+    Rel=Self, Offset=Ptr(0x16), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x21), Tgt=ExtA, ExtA 
+    Rel=Sgmt, Offset=Ptr(0x42), Tgt=Ext4, Ext4 
+    Rel=Self, Offset=Ptr(0x4F), Tgt=Ext2, Ext2 
+    Rel=Sgmt, Offset=Ptr(0x5B), Tgt=Ext5, Ext5 
+    Rel=Self, Offset=Ptr(0x71), Tgt=Ext1, Ext1 Done.
+Linking PUTS.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=24 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0xD), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x1D), Tgt=Ext2, Ext2 Done.
+Linking FGETS.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=14F 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x13), Tgt=Seg1, Seg1+36 
+    Rel=Self, Offset=Ptr(0x2D), Tgt=Seg1, Seg1+36 
+    Rel=Self, Offset=Ptr(0x4F), Tgt=Seg1, Seg1+143 
+    Rel=Self, Offset=Ptr(0x57), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0x62), Tgt=Seg1, Seg1+128 
+    Rel=Self, Offset=Ptr(0x72), Tgt=ExtF, ExtF 
+    Rel=Self, Offset=Ptr(0xA2), Tgt=Ext6, Ext6 
+    Rel=Self, Offset=Ptr(0xD3), Tgt=Ext3, Ext3 
+    Rel=Sgmt, Offset=Ptr(0xF6), Tgt=Seg2, Seg2+2 
+    Rel=Self, Offset=Ptr(0x100), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x119), Tgt=Seg1, Seg1+44 
+    Rel=Self, Offset=Ptr(0x127), Tgt=Ext4, Ext4 
+    Rel=Sgmt, Offset=Ptr(0x129), Tgt=Seg1, Seg1+66 
+    Rel=Sgmt, Offset=Ptr(0x12D), Tgt=Seg1, Seg1+8A 
+    Rel=Sgmt, Offset=Ptr(0x131), Tgt=Seg1, Seg1+9D 
+    Rel=Sgmt, Offset=Ptr(0x135), Tgt=Seg1, Seg1+C2 
+    Rel=Self, Offset=Ptr(0x13F), Tgt=Seg1, Seg1+44 
+  LEDATA SegIdx=2 Offs=2 Len=4 Done.
+Linking FPRINTF.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=3EF 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x7), Tgt=Ext4, Ext4 
+    Rel=Self, Offset=Ptr(0x31), Tgt=Seg1, Seg1+60 
+    Rel=Self, Offset=Ptr(0x42), Tgt=Ext4, Ext4 
+    Rel=Self, Offset=Ptr(0x57), Tgt=Seg1, Seg1+60 
+    Rel=Self, Offset=Ptr(0x87), Tgt=Seg1, Seg1+3EA 
+    Rel=Self, Offset=Ptr(0x95), Tgt=Ext12, Ext12 
+    Rel=Self, Offset=Ptr(0xB1), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0xD8), Tgt=Ext13, Ext13 
+    Rel=Self, Offset=Ptr(0xF4), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x102), Tgt=Seg1, Seg1+7E 
+    Rel=Self, Offset=Ptr(0x110), Tgt=Ext13, Ext13 
+    Rel=Self, Offset=Ptr(0x13F), Tgt=Ext13, Ext13 
+    Rel=Self, Offset=Ptr(0x165), Tgt=Ext5, Ext5 
+    Rel=Self, Offset=Ptr(0x17C), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x190), Tgt=Ext5, Ext5 
+    Rel=Self, Offset=Ptr(0x1BD), Tgt=Ext13, Ext13 
+    Rel=Self, Offset=Ptr(0x1D2), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x1E6), Tgt=Ext5, Ext5 
+    Rel=Self, Offset=Ptr(0x22D), Tgt=Seg1, Seg1+2C5 
+    Rel=Self, Offset=Ptr(0x242), Tgt=Seg1, Seg1+2E9 
+    Rel=Self, Offset=Ptr(0x24D), Tgt=Seg1, Seg1+2E9 
+    Rel=Self, Offset=Ptr(0x259), Tgt=Ext6, Ext6 
+    Rel=Self, Offset=Ptr(0x25F), Tgt=Seg1, Seg1+2E9 
+    Rel=Self, Offset=Ptr(0x26F), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0x285), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0x29B), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0x2B1), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0x2C4), Tgt=Ext8, Ext8 
+    Rel=Sgmt, Offset=Ptr(0x2C6), Tgt=Seg1, Seg1+231 
+    Rel=Sgmt, Offset=Ptr(0x2CA), Tgt=Seg1, Seg1+246 
+    Rel=Sgmt, Offset=Ptr(0x2CE), Tgt=Seg1, Seg1+251 
+    Rel=Sgmt, Offset=Ptr(0x2D2), Tgt=Seg1, Seg1+263 
+    Rel=Sgmt, Offset=Ptr(0x2D6), Tgt=Seg1, Seg1+279 
+    Rel=Sgmt, Offset=Ptr(0x2DA), Tgt=Seg1, Seg1+28F 
+    Rel=Sgmt, Offset=Ptr(0x2DE), Tgt=Seg1, Seg1+2A5 
+    Rel=Self, Offset=Ptr(0x2ED), Tgt=Ext7, Ext7 
+    Rel=Self, Offset=Ptr(0x308), Tgt=Ext10, Ext10 
+    Rel=Self, Offset=Ptr(0x32F), Tgt=ExtE, ExtE 
+    Rel=Self, Offset=Ptr(0x353), Tgt=Ext9, Ext9 
+    Rel=Self, Offset=Ptr(0x373), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x3A4), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x3D5), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x3E6), Tgt=Seg1, Seg1+7E Done.
+Linking FPUTS.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=2D 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x23), Tgt=Ext1, Ext1 Done.
+Linking FREAD.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=86 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x15), Tgt=Seg1, Seg1+28 
+    Rel=Self, Offset=Ptr(0x4F), Tgt=Ext1, Ext1 
+    Rel=Sgmt, Offset=Ptr(0x5B), Tgt=Ext2, Ext2 Done.
+Linking FREOPEN.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=A1 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0xC), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x2B), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x31), Tgt=Ext6, Ext6 
+    Rel=Self, Offset=Ptr(0x47), Tgt=ExtF, ExtF 
+    Rel=Self, Offset=Ptr(0x60), Tgt=Ext2, Ext2 
+    Rel=Sgmt, Offset=Ptr(0x76), Tgt=Ext4, Ext4 
+    Rel=Sgmt, Offset=Ptr(0x81), Tgt=Ext4, Ext4 
+    Rel=Sgmt, Offset=Ptr(0x90), Tgt=Ext4, Ext4 Done.
+Linking FSCANF.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=3FC 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x7), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x31), Tgt=Seg1, Seg1+5F 
+    Rel=Self, Offset=Ptr(0x41), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x56), Tgt=Seg1, Seg1+5F 
+    Rel=Self, Offset=Ptr(0x86), Tgt=Seg1, Seg1+453 
+    Rel=Self, Offset=Ptr(0x92), Tgt=Ext4, Ext4 
+    Rel=Self, Offset=Ptr(0xBB), Tgt=Ext10, Ext10 
+    Rel=Self, Offset=Ptr(0xD3), Tgt=Ext11, Ext11 
+    Rel=Self, Offset=Ptr(0x11A), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x129), Tgt=Ext7, Ext7 
+    Rel=Self, Offset=Ptr(0x14C), Tgt=Ext7, Ext7 
+    Rel=Self, Offset=Ptr(0x156), Tgt=Seg1, Seg1+453 
+    Rel=Self, Offset=Ptr(0x15E), Tgt=Ext5, Ext5 
+    Rel=Self, Offset=Ptr(0x16C), Tgt=Ext4, Ext4 
+    Rel=Self, Offset=Ptr(0x182), Tgt=Ext11, Ext11 
+    Rel=Self, Offset=Ptr(0x196), Tgt=Seg1, Seg1+453 
+    Rel=Self, Offset=Ptr(0x1AB), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0x1B4), Tgt=Seg1, Seg1+438 
+    Rel=Self, Offset=Ptr(0x1BC), Tgt=Ext5, Ext5 
+    Rel=Self, Offset=Ptr(0x1C7), Tgt=Seg1, Seg1+448 
+    Rel=Self, Offset=Ptr(0x1DD), Tgt=Ext5, Ext5 
+    Rel=Self, Offset=Ptr(0x1ED), Tgt=Ext11, Ext11 
+    Rel=Self, Offset=Ptr(0x203), Tgt=Ext4, Ext4 
+    Rel=Self, Offset=Ptr(0x219), Tgt=Ext10, Ext10 
+    Rel=Self, Offset=Ptr(0x235), Tgt=Seg1, Seg1+448 
+    Rel=Self, Offset=Ptr(0x23B), Tgt=Seg1, Seg1+2CF 
+    Rel=Self, Offset=Ptr(0x256), Tgt=Seg1, Seg1+2EB 
+    Rel=Self, Offset=Ptr(0x2CE), Tgt=Ext6, Ext6 
+    Rel=Sgmt, Offset=Ptr(0x2D0), Tgt=Seg1, Seg1+23F 
+    Rel=Sgmt, Offset=Ptr(0x2D4), Tgt=Seg1, Seg1+25A 
+    Rel=Sgmt, Offset=Ptr(0x2D8), Tgt=Seg1, Seg1+274 
+    Rel=Sgmt, Offset=Ptr(0x2DC), Tgt=Seg1, Seg1+28F 
+    Rel=Sgmt, Offset=Ptr(0x2E0), Tgt=Seg1, Seg1+2AA 
+    Rel=Self, Offset=Ptr(0x309), Tgt=Ext5, Ext5 
+    Rel=Self, Offset=Ptr(0x317), Tgt=Ext4, Ext4 
+    Rel=Self, Offset=Ptr(0x31D), Tgt=Ext7, Ext7 
+    Rel=Self, Offset=Ptr(0x32D), Tgt=Ext10, Ext10 
+    Rel=Self, Offset=Ptr(0x343), Tgt=Seg1, Seg1+428 
+    Rel=Self, Offset=Ptr(0x349), Tgt=Ext7, Ext7 
+    Rel=Self, Offset=Ptr(0x359), Tgt=Ext11, Ext11 
+    Rel=Self, Offset=Ptr(0x37F), Tgt=ExtE, ExtE 
+    Rel=Self, Offset=Ptr(0x396), Tgt=ExtD, ExtD 
+    Rel=Self, Offset=Ptr(0x3B5), Tgt=ExtD, ExtD 
+    Rel=Self, Offset=Ptr(0x3E0), Tgt=ExtD, ExtD 
+    Rel=Self, Offset=Ptr(0x3F0), Tgt=Ext8, Ext8 
+  LEDATA SegIdx=1 Offs=3FE Len=5C 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x28), Tgt=Seg1, Seg1+2F7 
+    Rel=Self, Offset=Ptr(0x3B), Tgt=Ext6, Ext6 
+    Rel=Sgmt, Offset=Ptr(0x3D), Tgt=Seg1, Seg1+1B8 
+    Rel=Sgmt, Offset=Ptr(0x41), Tgt=Seg1, Seg1+1CB 
+    Rel=Self, Offset=Ptr(0x48), Tgt=Seg1, Seg1+239 
+    Rel=Self, Offset=Ptr(0x53), Tgt=Seg1, Seg1+7D Done.
+Linking FWRITE.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=92 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x15), Tgt=Seg1, Seg1+34 
+    Rel=Self, Offset=Ptr(0x20), Tgt=ExtE, ExtE 
+    Rel=Self, Offset=Ptr(0x62), Tgt=Ext1, Ext1 
+    Rel=Sgmt, Offset=Ptr(0x6B), Tgt=Ext2, Ext2 Done.
+Linking GETCHAR.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=10 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x9), Tgt=Ext1, Ext1 Done.
+Linking PAD.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=24 Done.
+Linking POLL.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=8A 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x9), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0x1A), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x32), Tgt=ExtF, ExtF 
+    Rel=Self, Offset=Ptr(0x3E), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x4C), Tgt=ExtF, ExtF 
+    Rel=Self, Offset=Ptr(0x5C), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x6E), Tgt=ExtF, ExtF 
+    Rel=Self, Offset=Ptr(0x7E), Tgt=Ext3, Ext3 Done.
+Linking PUTCHAR.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=14 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0xD), Tgt=Ext1, Ext1 Done.
+Linking RENAME.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=3C 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0xC), Tgt=Seg1, Seg1+23 Done.
+Linking REWIND.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=16 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0xF), Tgt=Ext1, Ext1 Done.
+Linking ABS.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=19 Done.
+Linking ATOI.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=A7 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x10), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x4C), Tgt=Ext3, Ext3 
+    Rel=Sgmt, Offset=Ptr(0x4E), Tgt=Seg1, Seg1+3A 
+    Rel=Sgmt, Offset=Ptr(0x52), Tgt=Seg1, Seg1+42 
+    Rel=Self, Offset=Ptr(0x69), Tgt=Ext2, Ext2 Done.
+Linking ATOIB.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=CE 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x17), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x4A), Tgt=Ext9, Ext9 
+    Rel=Self, Offset=Ptr(0x5A), Tgt=Ext9, Ext9 
+    Rel=Self, Offset=Ptr(0x79), Tgt=Ext9, Ext9 
+    Rel=Self, Offset=Ptr(0xA4), Tgt=Ext9, Ext9 
+    Rel=Self, Offset=Ptr(0xC5), Tgt=Seg1, Seg1+30 Done.
+Linking AVAIL.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=3F 
+  FIXUPP
+    Rel=Sgmt, Offset=Ptr(0x7), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0xD), Tgt=Ext7, Ext7 
+    Rel=Self, Offset=Ptr(0x27), Tgt=Ext1, Ext1 
+    Rel=Sgmt, Offset=Ptr(0x33), Tgt=Ext2, Ext2 Done.
+Linking BSEEK.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=BD 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0xC), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0x12), Tgt=Ext8, Ext8 
+    Rel=Sgmt, Offset=Ptr(0x1F), Tgt=Ext5, Ext5 
+    Rel=Self, Offset=Ptr(0x28), Tgt=Ext8, Ext8 
+    Rel=Self, Offset=Ptr(0x4D), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x87), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x8D), Tgt=Ext8, Ext8 
+    Rel=Sgmt, Offset=Ptr(0xA1), Tgt=Ext6, Ext6 
+    Rel=Self, Offset=Ptr(0xB2), Tgt=Ext4, Ext4 Done.
+Linking BTELL.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=83 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x9), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0xF), Tgt=Ext6, Ext6 
+    Rel=Sgmt, Offset=Ptr(0x1C), Tgt=Ext4, Ext4 
+    Rel=Self, Offset=Ptr(0x25), Tgt=Ext6, Ext6 
+    Rel=Self, Offset=Ptr(0x48), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x7A), Tgt=Ext1, Ext1 Done.
+Linking CALLOC.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=1A 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x13), Tgt=Ext1, Ext1 Done.
+Linking CLEARERR.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=22 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x9), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x1B), Tgt=Ext2, Ext2 Done.
+Linking CSEEK.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=22F 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0xC), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0x12), Tgt=ExtB, ExtB 
+    Rel=Sgmt, Offset=Ptr(0x1F), Tgt=Ext8, Ext8 
+    Rel=Self, Offset=Ptr(0x28), Tgt=ExtB, ExtB 
+    Rel=Self, Offset=Ptr(0x4D), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x64), Tgt=Seg1, Seg1+FC 
+    Rel=Self, Offset=Ptr(0x6F), Tgt=Seg1, Seg1+110 
+    Rel=Self, Offset=Ptr(0x77), Tgt=Ext5, Ext5 
+    Rel=Self, Offset=Ptr(0xA2), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0xA8), Tgt=ExtB, ExtB 
+    Rel=Self, Offset=Ptr(0xFB), Tgt=ExtA, ExtA 
+    Rel=Sgmt, Offset=Ptr(0xFD), Tgt=Seg1, Seg1+68 
+    Rel=Sgmt, Offset=Ptr(0x101), Tgt=Seg1, Seg1+73 
+    Rel=Sgmt, Offset=Ptr(0x105), Tgt=Seg1, Seg1+86 
+    Rel=Self, Offset=Ptr(0x148), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x14E), Tgt=ExtB, ExtB 
+    Rel=Sgmt, Offset=Ptr(0x162), Tgt=Ext9, Ext9 
+    Rel=Self, Offset=Ptr(0x173), Tgt=Ext4, Ext4 
+    Rel=Self, Offset=Ptr(0x18A), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0x190), Tgt=ExtB, ExtB 
+    Rel=Self, Offset=Ptr(0x19F), Tgt=Ext6, Ext6 
+    Rel=Self, Offset=Ptr(0x1B1), Tgt=Ext7, Ext7 
+    Rel=Self, Offset=Ptr(0x1C3), Tgt=Ext12, Ext12 
+    Rel=Self, Offset=Ptr(0x1D3), Tgt=Ext10, Ext10 
+    Rel=Self, Offset=Ptr(0x213), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x219), Tgt=ExtB, ExtB Done.
+Linking CTELL.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=139 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0xC), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0x12), Tgt=Ext6, Ext6 
+    Rel=Sgmt, Offset=Ptr(0x1F), Tgt=Ext4, Ext4 
+    Rel=Self, Offset=Ptr(0x28), Tgt=Ext6, Ext6 
+    Rel=Self, Offset=Ptr(0x4D), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x7E), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0xB6), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0xBC), Tgt=Ext6, Ext6 
+    Rel=Sgmt, Offset=Ptr(0xC9), Tgt=Ext4, Ext4 
+    Rel=Self, Offset=Ptr(0xD2), Tgt=Ext6, Ext6 
+    Rel=Self, Offset=Ptr(0xF7), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x128), Tgt=Ext1, Ext1 Done.
+Linking DTOI.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=96 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x12), Tgt=ExtD, ExtD 
+    Rel=Self, Offset=Ptr(0x3E), Tgt=Ext1, Ext1 Done.
+Linking EXIT.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=C0 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x2E), Tgt=Ext5, Ext5 
+    Rel=Self, Offset=Ptr(0x37), Tgt=Ext1, Ext1 
+    Rel=Sgmt, Offset=Ptr(0x3D), Tgt=Seg2, Seg2+2 
+    Rel=Self, Offset=Ptr(0x47), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x57), Tgt=Ext3, Ext3 
+    Rel=Sgmt, Offset=Ptr(0x5D), Tgt=Seg2, Seg2+E 
+    Rel=Self, Offset=Ptr(0x67), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x7A), Tgt=ExtE, ExtE 
+    Rel=Self, Offset=Ptr(0x97), Tgt=Ext4, Ext4 
+    Rel=Self, Offset=Ptr(0xB4), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0xBA), Tgt=Seg1, Seg1+2 
+  LEDATA SegIdx=2 Offs=2 Len=E Done.
+Linking FCLOSE.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=77 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x9), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0xF), Tgt=Ext6, Ext6 
+    Rel=Self, Offset=Ptr(0x1E), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x4E), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0x59), Tgt=Ext10, Ext10 
+    Rel=Sgmt, Offset=Ptr(0x6B), Tgt=Ext4, Ext4 Done.
+Linking FEOF.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=18 
+  FIXUPP
+    Rel=Sgmt, Offset=Ptr(0x7), Tgt=Ext1, Ext1 Done.
+Linking FERROR.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=18 
+  FIXUPP
+    Rel=Sgmt, Offset=Ptr(0x7), Tgt=Ext1, Ext1 Done.
+Linking FGETC.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=124 
+  FIXUPP
+    Rel=Sgmt, Offset=Ptr(0xA), Tgt=Ext6, Ext6 
+    Rel=Self, Offset=Ptr(0x18), Tgt=Ext11, Ext11 
+    Rel=Sgmt, Offset=Ptr(0x25), Tgt=Ext6, Ext6 
+    Rel=Sgmt, Offset=Ptr(0x36), Tgt=Ext6, Ext6 
+    Rel=Self, Offset=Ptr(0x53), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x63), Tgt=Ext5, Ext5 
+    Rel=Self, Offset=Ptr(0x7C), Tgt=Ext4, Ext4 
+    Rel=Self, Offset=Ptr(0x8C), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0x9C), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0xB9), Tgt=Ext3, Ext3 
+    Rel=Self, Offset=Ptr(0xC2), Tgt=Ext7, Ext7 
+    Rel=Sgmt, Offset=Ptr(0xC4), Tgt=Seg1, Seg1+77 
+    Rel=Sgmt, Offset=Ptr(0xC8), Tgt=Seg1, Seg1+83 
+    Rel=Sgmt, Offset=Ptr(0xCC), Tgt=Seg1, Seg1+A6 
+    Rel=Sgmt, Offset=Ptr(0xD0), Tgt=Seg1, Seg1+AE 
+    Rel=Sgmt, Offset=Ptr(0xD4), Tgt=Seg1, Seg1+AE 
+    Rel=Self, Offset=Ptr(0xF0), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0x107), Tgt=Ext7, Ext7 
+    Rel=Sgmt, Offset=Ptr(0x109), Tgt=Seg1, Seg1+EC 
+    Rel=Sgmt, Offset=Ptr(0x10D), Tgt=Seg1, Seg1+FE 
+    Rel=Sgmt, Offset=Ptr(0x111), Tgt=Seg1, Seg1+105 
+    Rel=Self, Offset=Ptr(0x11B), Tgt=Seg1, Seg1+4F 
+    Rel=Self, Offset=Ptr(0x122), Tgt=Seg1, Seg1+2 Done.
+Linking FOPEN.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=2F 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x13), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x19), Tgt=Ext3, Ext3 Done.
+Linking FPUTC.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=84 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x13), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x25), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x34), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x45), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x4E), Tgt=Ext3, Ext3 
+    Rel=Sgmt, Offset=Ptr(0x50), Tgt=Seg1, Seg1+B 
+    Rel=Sgmt, Offset=Ptr(0x54), Tgt=Seg1, Seg1+1D 
+    Rel=Sgmt, Offset=Ptr(0x61), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0x82), Tgt=Seg1, Seg1+2 Done.
+Linking FREE.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=E 
+  FIXUPP
+    Rel=Sgmt, Offset=Ptr(0x7), Tgt=Ext1, Ext1 Done.
+Linking GETARG.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=97 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0xC), Tgt=Ext9, Ext9 
+    Rel=Self, Offset=Ptr(0x16), Tgt=Ext8, Ext8 
+    Rel=Self, Offset=Ptr(0x4F), Tgt=Ext9, Ext9 Done.
+Linking IS.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=102 
+  LEDATA SegIdx=1 Offs=2 Len=108 
+  FIXUPP
+    Rel=Sgmt, Offset=Ptr(0x7), Tgt=Seg2, Seg2+2 
+    Rel=Sgmt, Offset=Ptr(0x1F), Tgt=Seg2, Seg2+2 
+    Rel=Sgmt, Offset=Ptr(0x37), Tgt=Seg2, Seg2+2 
+    Rel=Sgmt, Offset=Ptr(0x4F), Tgt=Seg2, Seg2+2 
+    Rel=Sgmt, Offset=Ptr(0x67), Tgt=Seg2, Seg2+2 
+    Rel=Sgmt, Offset=Ptr(0x7F), Tgt=Seg2, Seg2+2 
+    Rel=Sgmt, Offset=Ptr(0x97), Tgt=Seg2, Seg2+2 
+    Rel=Sgmt, Offset=Ptr(0xAF), Tgt=Seg2, Seg2+2 
+    Rel=Sgmt, Offset=Ptr(0xC7), Tgt=Seg2, Seg2+2 
+    Rel=Sgmt, Offset=Ptr(0xDF), Tgt=Seg2, Seg2+2 
+    Rel=Sgmt, Offset=Ptr(0xF7), Tgt=Seg2, Seg2+2 Done.
+Linking ISASCII.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=E 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0xA), Tgt=Ext5, Ext5 Done.
+Linking ISATTY.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=16 Done.
+Linking ISCONS.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=8A 
+  FIXUPP
+    Rel=Sgmt, Offset=Ptr(0x7), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x1C), Tgt=Seg1, Seg1+6F 
+    Rel=Sgmt, Offset=Ptr(0x2C), Tgt=Ext1, Ext1 
+    Rel=Sgmt, Offset=Ptr(0x3E), Tgt=Ext1, Ext1 
+    Rel=Sgmt, Offset=Ptr(0x4D), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x5B), Tgt=ExtD, ExtD Done.
+Linking ITOA.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=88 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x7F), Tgt=Ext1, Ext1 Done.
+Linking ITOAB.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=D8 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x75), Tgt=ExtA, ExtA 
+    Rel=Self, Offset=Ptr(0xC0), Tgt=Seg1, Seg1+24 
+    Rel=Self, Offset=Ptr(0xCF), Tgt=Ext1, Ext1 Done.
+Linking ITOD.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=10A Done.
+Linking ITOO.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=D4 Done.
+Linking ITOU.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=FB Done.
+Linking ITOX.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=F9 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x8E), Tgt=Ext9, Ext9 Done.
+Linking LEFT.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=53 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x1A), Tgt=ExtC, ExtC Done.
+Linking LEXCMP.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=82 
+  LEDATA SegIdx=1 Offs=2 Len=7D 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x14), Tgt=Seg1, Seg1+5F 
+    Rel=Self, Offset=Ptr(0x56), Tgt=Seg1, Seg1+5F 
+    Rel=Sgmt, Offset=Ptr(0x64), Tgt=Seg2, Seg2+2 
+    Rel=Sgmt, Offset=Ptr(0x70), Tgt=Seg2, Seg2+2 Done.
+Linking MALLOC.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=13 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0xC), Tgt=Ext1, Ext1 Done.
+Linking OTOI.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=A8 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x20), Tgt=Ext8, Ext8 
+    Rel=Self, Offset=Ptr(0x2F), Tgt=ExtA, ExtA 
+    Rel=Self, Offset=Ptr(0x6F), Tgt=Ext8, Ext8 
+    Rel=Self, Offset=Ptr(0x7C), Tgt=Ext9, Ext9 
+    Rel=Self, Offset=Ptr(0x9F), Tgt=Seg1, Seg1+16 Done.
+Linking REVERSE.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=62 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0xC), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x28), Tgt=Ext6, Ext6 Done.
+Linking SIGN.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=25 Done.
+Linking STRCAT.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=55 Done.
+Linking STRCHR.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=3A 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x1D), Tgt=ExtC, ExtC Done.
+Linking STRCMP.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=52 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x12), Tgt=ExtC, ExtC Done.
+Linking STRCPY.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=36 Done.
+Linking STRLEN.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=15 Done.
+Linking STRNCAT.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=74 Done.
+Linking STRNCMP.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=81 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x1C), Tgt=ExtC, ExtC Done.
+Linking STRNCPY.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=6C Done.
+Linking STRRCHR.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=4A 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x27), Tgt=ExtC, ExtC Done.
+Linking TOASCII.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=8 Done.
+Linking TOLOWER.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=3F 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0xA), Tgt=ExtA, ExtA 
+    Rel=Self, Offset=Ptr(0x1A), Tgt=Ext8, Ext8 Done.
+Linking TOUPPER.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=3F 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0xA), Tgt=ExtA, ExtA 
+    Rel=Self, Offset=Ptr(0x1A), Tgt=Ext8, Ext8 Done.
+Linking UNGETC.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=6A 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x9), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0xF), Tgt=Ext4, Ext4 
+    Rel=Sgmt, Offset=Ptr(0x1C), Tgt=Ext2, Ext2 
+    Rel=Self, Offset=Ptr(0x2A), Tgt=ExtD, ExtD 
+    Rel=Self, Offset=Ptr(0x3A), Tgt=ExtE, ExtE 
+    Rel=Sgmt, Offset=Ptr(0x5B), Tgt=Ext2, Ext2 Done.
+Linking UNLINK.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=19 Done.
+Linking UTOI.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=A4 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x20), Tgt=Ext8, Ext8 
+    Rel=Self, Offset=Ptr(0x2F), Tgt=ExtA, ExtA 
+    Rel=Self, Offset=Ptr(0x6B), Tgt=Ext8, Ext8 
+    Rel=Self, Offset=Ptr(0x78), Tgt=Ext9, Ext9 
+    Rel=Self, Offset=Ptr(0x9B), Tgt=Seg1, Seg1+16 Done.
+Linking XTOI.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LEDATA SegIdx=2 Offs=0 Len=2 
+  LEDATA SegIdx=1 Offs=2 Len=129 
+  FIXUPP
+    Rel=Self, Offset=Ptr(0x26), Tgt=ExtC, ExtC 
+    Rel=Self, Offset=Ptr(0x4C), Tgt=Seg1, Seg1+D5 
+    Rel=Self, Offset=Ptr(0x74), Tgt=Ext1, Ext1 
+    Rel=Sgmt, Offset=Ptr(0x76), Tgt=Seg1, Seg1+45 
+    Rel=Sgmt, Offset=Ptr(0x7A), Tgt=Seg1, Seg1+45 
+    Rel=Sgmt, Offset=Ptr(0x7E), Tgt=Seg1, Seg1+45 
+    Rel=Sgmt, Offset=Ptr(0x82), Tgt=Seg1, Seg1+45 
+    Rel=Sgmt, Offset=Ptr(0x86), Tgt=Seg1, Seg1+45 
+    Rel=Sgmt, Offset=Ptr(0x8A), Tgt=Seg1, Seg1+45 
+    Rel=Sgmt, Offset=Ptr(0x8E), Tgt=Seg1, Seg1+45 
+    Rel=Sgmt, Offset=Ptr(0x92), Tgt=Seg1, Seg1+45 
+    Rel=Sgmt, Offset=Ptr(0x96), Tgt=Seg1, Seg1+45 
+    Rel=Sgmt, Offset=Ptr(0x9A), Tgt=Seg1, Seg1+45 
+    Rel=Sgmt, Offset=Ptr(0x9E), Tgt=Seg1, Seg1+50 
+    Rel=Sgmt, Offset=Ptr(0xA2), Tgt=Seg1, Seg1+50 
+    Rel=Sgmt, Offset=Ptr(0xA6), Tgt=Seg1, Seg1+50 
+    Rel=Sgmt, Offset=Ptr(0xAA), Tgt=Seg1, Seg1+50 
+    Rel=Sgmt, Offset=Ptr(0xAE), Tgt=Seg1, Seg1+50 
+    Rel=Sgmt, Offset=Ptr(0xB2), Tgt=Seg1, Seg1+50 
+    Rel=Sgmt, Offset=Ptr(0xB6), Tgt=Seg1, Seg1+5B 
+    Rel=Sgmt, Offset=Ptr(0xBA), Tgt=Seg1, Seg1+5B 
+    Rel=Sgmt, Offset=Ptr(0xBE), Tgt=Seg1, Seg1+5B 
+    Rel=Sgmt, Offset=Ptr(0xC2), Tgt=Seg1, Seg1+5B 
+    Rel=Sgmt, Offset=Ptr(0xC6), Tgt=Seg1, Seg1+5B 
+    Rel=Sgmt, Offset=Ptr(0xCA), Tgt=Seg1, Seg1+5B 
+    Rel=Self, Offset=Ptr(0xDA), Tgt=Ext9, Ext9 
+    Rel=Self, Offset=Ptr(0x123), Tgt=Seg1, Seg1+3C Done.
+Linking CALL.OBJ (..\..\smalllib\clib.lib)... 
+  LEDATA SegIdx=1 Offs=0 Len=2 
+  LIDATA SegIdx=2 Offs=0 Len=7  Stack at 3920
+  LEDATA SegIdx=3 Offs=0 Len=AD 
+  FIXUPP
+    Rel=Sgmt, Offset=Seg+0x1, Tgt=Seg1, Seg1+2 
+    Rel=Sgmt, Offset=Seg+0xA, Tgt=Seg1, Seg1+2 
+    Rel=Sgmt, Offset=Seg+0x22, Tgt=Seg2, Seg2+40 
+    Rel=Sgmt, Offset=Seg+0x25, Tgt=Seg1, Seg1+2 
+    Rel=Self, Offset=Ptr(0x36), Tgt=Ext2, Ext2 
+    Rel=Sgmt, Offset=Ptr(0x39), Tgt=Ext1, Ext1 
+    Rel=Self, Offset=Ptr(0x3C), Tgt=Ext3, Ext3 Done.

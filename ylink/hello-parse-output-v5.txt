@@ -45,7 +45,6 @@ SECOND: Make sure we have all extdefs so we can resolve in third pass.
             Continue with next extdef.
   At the end of this pass, we know
     * That each extdef has an associated pubdef.
-  --------^done^------------^done^--------
 
 THIRD: Combine all segments and resolve all fixupps.
   Order segments to be added to file in byte[4] segorders.
@@ -59,5 +58,6 @@ THIRD: Combine all segments and resolve all fixupps.
         LEDATA, FIXUPP
           For each DATA record:
             Copy the data into the output file.
+  --------^done^------------^done^--------
             If Fixupp exists, resolve fixupps.
   

@@ -15,12 +15,12 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=44
     0020: 000BC07503EB0D90B8000050B101E8000083C402B8000050B101E8000083C402
     0040: 8BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=11, Frm=Ext 4, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1F, Frm=Ext E, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=29, Frm=Seg 2, Tgt=Seg+2
-    Rel=Self, Loc=16bit offset, DtOff=2F, Frm=Ext 2, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=35, Frm=Seg 2, Tgt=Seg+8
-    Rel=Self, Loc=16bit offset, DtOff=3B, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=11, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1F, Frm=Ext E, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=29, Frm=Seg 2, Tgt=Seg+2
+    Rel=Self, Loc=16bit offset, Off=2F, Frm=Ext 2, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=35, Frm=Seg 2, Tgt=Seg+8
+    Rel=Self, Loc=16bit offset, Off=3B, Frm=Ext 2, Tgt=Ext
 A0  LEDATA SegIndex=2 DataOffset=2 Length=13
     0000: 4E6F70650A0068656C6C6F20776F726C640A00
 8A  MODEND 
@@ -450,62 +450,62 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=3FC
     03C0: 03EB0A9032C9E800008BE55DC38B4604BB0000D1E003D88B070BC07503EB1090
     03E0: FF7604B101E8000083C4028BE55DC3B8003F50FF7604B80100508D46
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=9, Frm=Seg 1, Tgt=Seg+9E
-    Rel=Self, Loc=16bit offset, DtOff=19, Frm=Ext 11, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=3A, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=48, Frm=Ext 5, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=4E, Frm=Ext A, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=58, Frm=Seg 2, Tgt=Seg+A4
-    Rel=Self, Loc=16bit offset, DtOff=66, Frm=Ext 5, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=6C, Frm=Ext A, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=76, Frm=Seg 2, Tgt=Seg+A6
-    Rel=Sgmt, Loc=16bit offset, DtOff=7F, Frm=Seg 2, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit offset, DtOff=82, Frm=Seg 2, Tgt=Seg+4
-    Rel=Self, Loc=16bit offset, DtOff=88, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=93, Frm=Ext 6, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=B1, Frm=Seg 1, Tgt=Seg+9E9
-    Rel=Sgmt, Loc=16bit offset, DtOff=CC, Frm=Seg 2, Tgt=Seg+196
-    Rel=Sgmt, Loc=16bit offset, DtOff=CF, Frm=Seg 2, Tgt=Seg+4
-    Rel=Self, Loc=16bit offset, DtOff=DE, Frm=Seg 1, Tgt=Seg+16D
-    Rel=Self, Loc=16bit offset, DtOff=EA, Frm=Ext 4, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=103, Frm=Seg 2, Tgt=Seg+2
-    Rel=Self, Loc=16bit offset, DtOff=109, Frm=Ext 11, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=113, Frm=Seg 2, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit offset, DtOff=117, Frm=Seg 2, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit offset, DtOff=11B, Frm=Seg 2, Tgt=Seg+4
-    Rel=Self, Loc=16bit offset, DtOff=13F, Frm=Ext 4, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=169, Frm=Seg 1, Tgt=Seg+D5
-    Rel=Self, Loc=16bit offset, DtOff=17C, Frm=Seg 1, Tgt=Seg+2EC
-    Rel=Self, Loc=16bit offset, DtOff=18B, Frm=Ext 14, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1BB, Frm=Seg 1, Tgt=Seg+A45
-    Rel=Self, Loc=16bit offset, DtOff=1D3, Frm=Seg 1, Tgt=Seg+300
-    Rel=Self, Loc=16bit offset, DtOff=1E2, Frm=Ext 14, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=20F, Frm=Seg 1, Tgt=Seg+A45
-    Rel=Self, Loc=16bit offset, DtOff=236, Frm=Seg 1, Tgt=Seg+A45
-    Rel=Self, Loc=16bit offset, DtOff=250, Frm=Seg 1, Tgt=Seg+A45
-    Rel=Self, Loc=16bit offset, DtOff=268, Frm=Seg 1, Tgt=Seg+300
-    Rel=Self, Loc=16bit offset, DtOff=277, Frm=Ext 14, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=2A8, Frm=Seg 1, Tgt=Seg+A45
-    Rel=Self, Loc=16bit offset, DtOff=2BA, Frm=Seg 1, Tgt=Seg+200
-    Rel=Self, Loc=16bit offset, DtOff=2CC, Frm=Seg 1, Tgt=Seg+A45
-    Rel=Self, Loc=16bit offset, DtOff=2EB, Frm=Ext 9, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=2ED, Frm=Seg 1, Tgt=Seg+180
-    Rel=Sgmt, Loc=16bit offset, DtOff=2F1, Frm=Seg 1, Tgt=Seg+1D7
-    Rel=Sgmt, Loc=16bit offset, DtOff=2F5, Frm=Seg 1, Tgt=Seg+26C
-    Rel=Self, Loc=16bit offset, DtOff=308, Frm=Seg 1, Tgt=Seg+8F8
-    Rel=Self, Loc=16bit offset, DtOff=313, Frm=Ext 5, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=323, Frm=Seg 2, Tgt=Seg+A4
-    Rel=Sgmt, Loc=16bit offset, DtOff=339, Frm=Seg 2, Tgt=Seg+54
-    Rel=Sgmt, Loc=16bit offset, DtOff=347, Frm=Seg 2, Tgt=Seg+7C
-    Rel=Sgmt, Loc=16bit offset, DtOff=356, Frm=Seg 2, Tgt=Seg+2C
-    Rel=Sgmt, Loc=16bit offset, DtOff=372, Frm=Seg 2, Tgt=Seg+7C
-    Rel=Self, Loc=16bit offset, DtOff=380, Frm=Ext 13, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=38D, Frm=Seg 2, Tgt=Seg+7C
-    Rel=Sgmt, Loc=16bit offset, DtOff=39E, Frm=Seg 2, Tgt=Seg+7C
-    Rel=Self, Loc=16bit offset, DtOff=3B8, Frm=Ext 8, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=3C7, Frm=Seg 1, Tgt=Seg+AA0
-    Rel=Sgmt, Loc=16bit offset, DtOff=3D1, Frm=Seg 2, Tgt=Seg+A4
-    Rel=Self, Loc=16bit offset, DtOff=3E6, Frm=Seg 1, Tgt=Seg+44F
+    Rel=Self, Loc=16bit offset, Off=9, Frm=Seg 1, Tgt=Seg+9E
+    Rel=Self, Loc=16bit offset, Off=19, Frm=Ext 11, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=3A, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=48, Frm=Ext 5, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=4E, Frm=Ext A, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=58, Frm=Seg 2, Tgt=Seg+A4
+    Rel=Self, Loc=16bit offset, Off=66, Frm=Ext 5, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=6C, Frm=Ext A, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=76, Frm=Seg 2, Tgt=Seg+A6
+    Rel=Sgmt, Loc=16bit offset, Off=7F, Frm=Seg 2, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=82, Frm=Seg 2, Tgt=Seg+4
+    Rel=Self, Loc=16bit offset, Off=88, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=93, Frm=Ext 6, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=B1, Frm=Seg 1, Tgt=Seg+9E9
+    Rel=Sgmt, Loc=16bit offset, Off=CC, Frm=Seg 2, Tgt=Seg+196
+    Rel=Sgmt, Loc=16bit offset, Off=CF, Frm=Seg 2, Tgt=Seg+4
+    Rel=Self, Loc=16bit offset, Off=DE, Frm=Seg 1, Tgt=Seg+16D
+    Rel=Self, Loc=16bit offset, Off=EA, Frm=Ext 4, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=103, Frm=Seg 2, Tgt=Seg+2
+    Rel=Self, Loc=16bit offset, Off=109, Frm=Ext 11, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=113, Frm=Seg 2, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=117, Frm=Seg 2, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=11B, Frm=Seg 2, Tgt=Seg+4
+    Rel=Self, Loc=16bit offset, Off=13F, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=169, Frm=Seg 1, Tgt=Seg+D5
+    Rel=Self, Loc=16bit offset, Off=17C, Frm=Seg 1, Tgt=Seg+2EC
+    Rel=Self, Loc=16bit offset, Off=18B, Frm=Ext 14, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1BB, Frm=Seg 1, Tgt=Seg+A45
+    Rel=Self, Loc=16bit offset, Off=1D3, Frm=Seg 1, Tgt=Seg+300
+    Rel=Self, Loc=16bit offset, Off=1E2, Frm=Ext 14, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=20F, Frm=Seg 1, Tgt=Seg+A45
+    Rel=Self, Loc=16bit offset, Off=236, Frm=Seg 1, Tgt=Seg+A45
+    Rel=Self, Loc=16bit offset, Off=250, Frm=Seg 1, Tgt=Seg+A45
+    Rel=Self, Loc=16bit offset, Off=268, Frm=Seg 1, Tgt=Seg+300
+    Rel=Self, Loc=16bit offset, Off=277, Frm=Ext 14, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=2A8, Frm=Seg 1, Tgt=Seg+A45
+    Rel=Self, Loc=16bit offset, Off=2BA, Frm=Seg 1, Tgt=Seg+200
+    Rel=Self, Loc=16bit offset, Off=2CC, Frm=Seg 1, Tgt=Seg+A45
+    Rel=Self, Loc=16bit offset, Off=2EB, Frm=Ext 9, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=2ED, Frm=Seg 1, Tgt=Seg+180
+    Rel=Sgmt, Loc=16bit offset, Off=2F1, Frm=Seg 1, Tgt=Seg+1D7
+    Rel=Sgmt, Loc=16bit offset, Off=2F5, Frm=Seg 1, Tgt=Seg+26C
+    Rel=Self, Loc=16bit offset, Off=308, Frm=Seg 1, Tgt=Seg+8F8
+    Rel=Self, Loc=16bit offset, Off=313, Frm=Ext 5, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=323, Frm=Seg 2, Tgt=Seg+A4
+    Rel=Sgmt, Loc=16bit offset, Off=339, Frm=Seg 2, Tgt=Seg+54
+    Rel=Sgmt, Loc=16bit offset, Off=347, Frm=Seg 2, Tgt=Seg+7C
+    Rel=Sgmt, Loc=16bit offset, Off=356, Frm=Seg 2, Tgt=Seg+2C
+    Rel=Sgmt, Loc=16bit offset, Off=372, Frm=Seg 2, Tgt=Seg+7C
+    Rel=Self, Loc=16bit offset, Off=380, Frm=Ext 13, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=38D, Frm=Seg 2, Tgt=Seg+7C
+    Rel=Sgmt, Loc=16bit offset, Off=39E, Frm=Seg 2, Tgt=Seg+7C
+    Rel=Self, Loc=16bit offset, Off=3B8, Frm=Ext 8, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=3C7, Frm=Seg 1, Tgt=Seg+AA0
+    Rel=Sgmt, Loc=16bit offset, Off=3D1, Frm=Seg 2, Tgt=Seg+A4
+    Rel=Self, Loc=16bit offset, Off=3E6, Frm=Seg 1, Tgt=Seg+44F
 A0  LEDATA SegIndex=1 DataOffset=3FE Length=3FC
     0000: FF50B104E8000083C408EB31908A46FF32E48BE55DC3FF7604B101E8000083C4
     0020: 02B8FFFF8BE55DC3FF7604B101E8000083C402B8FFFF8BE55DC3EB1190E80000
@@ -540,62 +540,62 @@ A0  LEDATA SegIndex=1 DataOffset=3FE Length=3FC
     03C0: D8FF378B46FA5B03C350B104E8000083C4088D5EFC89075B03C35B89078B46F8
     03E0: 8B5EFCE800000BC07503EB1390FF7604B101E8000083C402B8FFFF8B
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=5, Frm=Seg 1, Tgt=Seg+A45
-    Rel=Self, Loc=16bit offset, DtOff=1C, Frm=Seg 1, Tgt=Seg+971
-    Rel=Self, Loc=16bit offset, DtOff=2E, Frm=Seg 1, Tgt=Seg+9AD
-    Rel=Self, Loc=16bit offset, DtOff=3E, Frm=Ext 9, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=40, Frm=Seg 1, Tgt=Seg+40B
-    Rel=Sgmt, Loc=16bit offset, DtOff=44, Frm=Seg 1, Tgt=Seg+414
-    Rel=Sgmt, Loc=16bit offset, DtOff=5B, Frm=Seg 2, Tgt=Seg+A4
-    Rel=Self, Loc=16bit offset, DtOff=69, Frm=Ext 14, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=78, Frm=Seg 1, Tgt=Seg+72F
-    Rel=Sgmt, Loc=16bit offset, DtOff=9E, Frm=Seg 2, Tgt=Seg+11C
-    Rel=Sgmt, Loc=16bit offset, DtOff=AF, Frm=Seg 2, Tgt=Seg+144
-    Rel=Self, Loc=16bit offset, DtOff=BB, Frm=Ext D, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=C8, Frm=Seg 2, Tgt=Seg+11C
-    Rel=Sgmt, Loc=16bit offset, DtOff=E1, Frm=Seg 2, Tgt=Seg+16C
-    Rel=Self, Loc=16bit offset, DtOff=F6, Frm=Seg 1, Tgt=Seg+971
-    Rel=Sgmt, Loc=16bit offset, DtOff=106, Frm=Seg 2, Tgt=Seg+144
-    Rel=Sgmt, Loc=16bit offset, DtOff=111, Frm=Seg 2, Tgt=Seg+F4
-    Rel=Sgmt, Loc=16bit offset, DtOff=126, Frm=Seg 2, Tgt=Seg+CC
-    Rel=Self, Loc=16bit offset, DtOff=144, Frm=Ext 11, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=17B, Frm=Seg 1, Tgt=Seg+A45
-    Rel=Self, Loc=16bit offset, DtOff=192, Frm=Ext 11, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=19F, Frm=Seg 2, Tgt=Seg+16C
-    Rel=Self, Loc=16bit offset, DtOff=1B4, Frm=Ext D, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1BE, Frm=Seg 1, Tgt=Seg+534
-    Rel=Sgmt, Loc=16bit offset, DtOff=1C4, Frm=Seg 2, Tgt=Seg+144
-    Rel=Sgmt, Loc=16bit offset, DtOff=1D5, Frm=Seg 2, Tgt=Seg+11C
-    Rel=Sgmt, Loc=16bit offset, DtOff=1E0, Frm=Seg 2, Tgt=Seg+F4
-    Rel=Sgmt, Loc=16bit offset, DtOff=1EF, Frm=Seg 2, Tgt=Seg+A4
-    Rel=Self, Loc=16bit offset, DtOff=1FB, Frm=Seg 1, Tgt=Seg+498
-    Rel=Sgmt, Loc=16bit offset, DtOff=208, Frm=Seg 2, Tgt=Seg+A4
-    Rel=Self, Loc=16bit offset, DtOff=220, Frm=Seg 1, Tgt=Seg+660
-    Rel=Self, Loc=16bit offset, DtOff=239, Frm=Seg 1, Tgt=Seg+A45
-    Rel=Self, Loc=16bit offset, DtOff=244, Frm=Ext 13, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=253, Frm=Seg 1, Tgt=Seg+9AD
-    Rel=Sgmt, Loc=16bit offset, DtOff=26C, Frm=Seg 2, Tgt=Seg+A4
-    Rel=Self, Loc=16bit offset, DtOff=27A, Frm=Ext 14, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=289, Frm=Seg 1, Tgt=Seg+87A
-    Rel=Sgmt, Loc=16bit offset, DtOff=2AF, Frm=Seg 2, Tgt=Seg+11C
-    Rel=Sgmt, Loc=16bit offset, DtOff=2C0, Frm=Seg 2, Tgt=Seg+F4
-    Rel=Sgmt, Loc=16bit offset, DtOff=2CC, Frm=Seg 2, Tgt=Seg+CC
-    Rel=Self, Loc=16bit offset, DtOff=2DB, Frm=Ext D, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=2F0, Frm=Seg 2, Tgt=Seg+11C
-    Rel=Sgmt, Loc=16bit offset, DtOff=2FF, Frm=Seg 2, Tgt=Seg+A4
-    Rel=Self, Loc=16bit offset, DtOff=317, Frm=Seg 1, Tgt=Seg+72F
-    Rel=Self, Loc=16bit offset, DtOff=32B, Frm=Seg 1, Tgt=Seg+6A9
-    Rel=Sgmt, Loc=16bit offset, DtOff=33B, Frm=Seg 2, Tgt=Seg+A4
-    Rel=Self, Loc=16bit offset, DtOff=349, Frm=Ext 14, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=350, Frm=Seg 1, Tgt=Seg+810
-    Rel=Sgmt, Loc=16bit offset, DtOff=356, Frm=Seg 2, Tgt=Seg+11C
-    Rel=Sgmt, Loc=16bit offset, DtOff=362, Frm=Seg 2, Tgt=Seg+F4
-    Rel=Self, Loc=16bit offset, DtOff=382, Frm=Seg 1, Tgt=Seg+810
-    Rel=Self, Loc=16bit offset, DtOff=38B, Frm=Ext 11, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=3BB, Frm=Seg 2, Tgt=Seg+F4
-    Rel=Self, Loc=16bit offset, DtOff=3CD, Frm=Seg 1, Tgt=Seg+A45
-    Rel=Self, Loc=16bit offset, DtOff=3E4, Frm=Ext 11, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=3F3, Frm=Seg 1, Tgt=Seg+9AD
+    Rel=Self, Loc=16bit offset, Off=5, Frm=Seg 1, Tgt=Seg+A45
+    Rel=Self, Loc=16bit offset, Off=1C, Frm=Seg 1, Tgt=Seg+971
+    Rel=Self, Loc=16bit offset, Off=2E, Frm=Seg 1, Tgt=Seg+9AD
+    Rel=Self, Loc=16bit offset, Off=3E, Frm=Ext 9, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=40, Frm=Seg 1, Tgt=Seg+40B
+    Rel=Sgmt, Loc=16bit offset, Off=44, Frm=Seg 1, Tgt=Seg+414
+    Rel=Sgmt, Loc=16bit offset, Off=5B, Frm=Seg 2, Tgt=Seg+A4
+    Rel=Self, Loc=16bit offset, Off=69, Frm=Ext 14, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=78, Frm=Seg 1, Tgt=Seg+72F
+    Rel=Sgmt, Loc=16bit offset, Off=9E, Frm=Seg 2, Tgt=Seg+11C
+    Rel=Sgmt, Loc=16bit offset, Off=AF, Frm=Seg 2, Tgt=Seg+144
+    Rel=Self, Loc=16bit offset, Off=BB, Frm=Ext D, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=C8, Frm=Seg 2, Tgt=Seg+11C
+    Rel=Sgmt, Loc=16bit offset, Off=E1, Frm=Seg 2, Tgt=Seg+16C
+    Rel=Self, Loc=16bit offset, Off=F6, Frm=Seg 1, Tgt=Seg+971
+    Rel=Sgmt, Loc=16bit offset, Off=106, Frm=Seg 2, Tgt=Seg+144
+    Rel=Sgmt, Loc=16bit offset, Off=111, Frm=Seg 2, Tgt=Seg+F4
+    Rel=Sgmt, Loc=16bit offset, Off=126, Frm=Seg 2, Tgt=Seg+CC
+    Rel=Self, Loc=16bit offset, Off=144, Frm=Ext 11, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=17B, Frm=Seg 1, Tgt=Seg+A45
+    Rel=Self, Loc=16bit offset, Off=192, Frm=Ext 11, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=19F, Frm=Seg 2, Tgt=Seg+16C
+    Rel=Self, Loc=16bit offset, Off=1B4, Frm=Ext D, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1BE, Frm=Seg 1, Tgt=Seg+534
+    Rel=Sgmt, Loc=16bit offset, Off=1C4, Frm=Seg 2, Tgt=Seg+144
+    Rel=Sgmt, Loc=16bit offset, Off=1D5, Frm=Seg 2, Tgt=Seg+11C
+    Rel=Sgmt, Loc=16bit offset, Off=1E0, Frm=Seg 2, Tgt=Seg+F4
+    Rel=Sgmt, Loc=16bit offset, Off=1EF, Frm=Seg 2, Tgt=Seg+A4
+    Rel=Self, Loc=16bit offset, Off=1FB, Frm=Seg 1, Tgt=Seg+498
+    Rel=Sgmt, Loc=16bit offset, Off=208, Frm=Seg 2, Tgt=Seg+A4
+    Rel=Self, Loc=16bit offset, Off=220, Frm=Seg 1, Tgt=Seg+660
+    Rel=Self, Loc=16bit offset, Off=239, Frm=Seg 1, Tgt=Seg+A45
+    Rel=Self, Loc=16bit offset, Off=244, Frm=Ext 13, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=253, Frm=Seg 1, Tgt=Seg+9AD
+    Rel=Sgmt, Loc=16bit offset, Off=26C, Frm=Seg 2, Tgt=Seg+A4
+    Rel=Self, Loc=16bit offset, Off=27A, Frm=Ext 14, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=289, Frm=Seg 1, Tgt=Seg+87A
+    Rel=Sgmt, Loc=16bit offset, Off=2AF, Frm=Seg 2, Tgt=Seg+11C
+    Rel=Sgmt, Loc=16bit offset, Off=2C0, Frm=Seg 2, Tgt=Seg+F4
+    Rel=Sgmt, Loc=16bit offset, Off=2CC, Frm=Seg 2, Tgt=Seg+CC
+    Rel=Self, Loc=16bit offset, Off=2DB, Frm=Ext D, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=2F0, Frm=Seg 2, Tgt=Seg+11C
+    Rel=Sgmt, Loc=16bit offset, Off=2FF, Frm=Seg 2, Tgt=Seg+A4
+    Rel=Self, Loc=16bit offset, Off=317, Frm=Seg 1, Tgt=Seg+72F
+    Rel=Self, Loc=16bit offset, Off=32B, Frm=Seg 1, Tgt=Seg+6A9
+    Rel=Sgmt, Loc=16bit offset, Off=33B, Frm=Seg 2, Tgt=Seg+A4
+    Rel=Self, Loc=16bit offset, Off=349, Frm=Ext 14, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=350, Frm=Seg 1, Tgt=Seg+810
+    Rel=Sgmt, Loc=16bit offset, Off=356, Frm=Seg 2, Tgt=Seg+11C
+    Rel=Sgmt, Loc=16bit offset, Off=362, Frm=Seg 2, Tgt=Seg+F4
+    Rel=Self, Loc=16bit offset, Off=382, Frm=Seg 1, Tgt=Seg+810
+    Rel=Self, Loc=16bit offset, Off=38B, Frm=Ext 11, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=3BB, Frm=Seg 2, Tgt=Seg+F4
+    Rel=Self, Loc=16bit offset, Off=3CD, Frm=Seg 1, Tgt=Seg+A45
+    Rel=Self, Loc=16bit offset, Off=3E4, Frm=Ext 11, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=3F3, Frm=Seg 1, Tgt=Seg+9AD
 A0  LEDATA SegIndex=1 DataOffset=7FA Length=2C2
     0000: E55DC38D5EFE53FF378B46FC5B932BC35B8907E90000FF7604B8010050B102E8
     0020: 000083C40433C08BE55DC3558BEC8B4604BB0000D1E003D88B078BD8B80300E8
@@ -621,38 +621,38 @@ A0  LEDATA SegIndex=1 DataOffset=7FA Length=2C2
     02A0: 90B801005DC3558BECB400CD160AC0750D8AC43C03750532C0EB0390047132E4
     02C0: 5DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=14, Frm=Seg 1, Tgt=Seg+778
-    Rel=Self, Loc=16bit offset, DtOff=20, Frm=Seg 1, Tgt=Seg+8F8
-    Rel=Sgmt, Loc=16bit offset, DtOff=32, Frm=Seg 2, Tgt=Seg+A4
-    Rel=Self, Loc=16bit offset, DtOff=40, Frm=Ext 14, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=4F, Frm=Seg 1, Tgt=Seg+72F
-    Rel=Sgmt, Loc=16bit offset, DtOff=5A, Frm=Seg 2, Tgt=Seg+A4
-    Rel=Self, Loc=16bit offset, DtOff=68, Frm=Ext 14, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=77, Frm=Seg 1, Tgt=Seg+87A
-    Rel=Sgmt, Loc=16bit offset, DtOff=8A, Frm=Seg 2, Tgt=Seg+11C
-    Rel=Sgmt, Loc=16bit offset, DtOff=96, Frm=Seg 2, Tgt=Seg+144
-    Rel=Self, Loc=16bit offset, DtOff=C8, Frm=Seg 1, Tgt=Seg+A5E
-    Rel=Self, Loc=16bit offset, DtOff=CE, Frm=Ext A, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=DD, Frm=Seg 1, Tgt=Seg+9AD
-    Rel=Self, Loc=16bit offset, DtOff=F3, Frm=Seg 1, Tgt=Seg+8F8
-    Rel=Sgmt, Loc=16bit offset, DtOff=105, Frm=Seg 2, Tgt=Seg+11C
-    Rel=Sgmt, Loc=16bit offset, DtOff=110, Frm=Seg 2, Tgt=Seg+144
-    Rel=Sgmt, Loc=16bit offset, DtOff=11B, Frm=Seg 2, Tgt=Seg+F4
-    Rel=Sgmt, Loc=16bit offset, DtOff=12D, Frm=Seg 2, Tgt=Seg+16C
-    Rel=Sgmt, Loc=16bit offset, DtOff=145, Frm=Seg 2, Tgt=Seg+A4
-    Rel=Self, Loc=16bit offset, DtOff=15C, Frm=Ext D, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=169, Frm=Seg 2, Tgt=Seg+2C
-    Rel=Sgmt, Loc=16bit offset, DtOff=17E, Frm=Seg 2, Tgt=Seg+2C
-    Rel=Sgmt, Loc=16bit offset, DtOff=19C, Frm=Seg 2, Tgt=Seg+2C
-    Rel=Sgmt, Loc=16bit offset, DtOff=1BA, Frm=Seg 2, Tgt=Seg+2C
-    Rel=Sgmt, Loc=16bit offset, DtOff=1D8, Frm=Seg 2, Tgt=Seg+2C
-    Rel=Self, Loc=16bit offset, DtOff=1FC, Frm=Ext 7, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=205, Frm=Ext D, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=21A, Frm=Seg 2, Tgt=Seg+194
-    Rel=Self, Loc=16bit offset, DtOff=225, Frm=Ext 2, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=22B, Frm=Seg 2, Tgt=Seg+194
-    Rel=Sgmt, Loc=16bit offset, DtOff=237, Frm=Seg 2, Tgt=Seg+194
-    Rel=Sgmt, Loc=16bit offset, DtOff=23C, Frm=Seg 2, Tgt=Seg+194
+    Rel=Self, Loc=16bit offset, Off=14, Frm=Seg 1, Tgt=Seg+778
+    Rel=Self, Loc=16bit offset, Off=20, Frm=Seg 1, Tgt=Seg+8F8
+    Rel=Sgmt, Loc=16bit offset, Off=32, Frm=Seg 2, Tgt=Seg+A4
+    Rel=Self, Loc=16bit offset, Off=40, Frm=Ext 14, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=4F, Frm=Seg 1, Tgt=Seg+72F
+    Rel=Sgmt, Loc=16bit offset, Off=5A, Frm=Seg 2, Tgt=Seg+A4
+    Rel=Self, Loc=16bit offset, Off=68, Frm=Ext 14, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=77, Frm=Seg 1, Tgt=Seg+87A
+    Rel=Sgmt, Loc=16bit offset, Off=8A, Frm=Seg 2, Tgt=Seg+11C
+    Rel=Sgmt, Loc=16bit offset, Off=96, Frm=Seg 2, Tgt=Seg+144
+    Rel=Self, Loc=16bit offset, Off=C8, Frm=Seg 1, Tgt=Seg+A5E
+    Rel=Self, Loc=16bit offset, Off=CE, Frm=Ext A, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=DD, Frm=Seg 1, Tgt=Seg+9AD
+    Rel=Self, Loc=16bit offset, Off=F3, Frm=Seg 1, Tgt=Seg+8F8
+    Rel=Sgmt, Loc=16bit offset, Off=105, Frm=Seg 2, Tgt=Seg+11C
+    Rel=Sgmt, Loc=16bit offset, Off=110, Frm=Seg 2, Tgt=Seg+144
+    Rel=Sgmt, Loc=16bit offset, Off=11B, Frm=Seg 2, Tgt=Seg+F4
+    Rel=Sgmt, Loc=16bit offset, Off=12D, Frm=Seg 2, Tgt=Seg+16C
+    Rel=Sgmt, Loc=16bit offset, Off=145, Frm=Seg 2, Tgt=Seg+A4
+    Rel=Self, Loc=16bit offset, Off=15C, Frm=Ext D, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=169, Frm=Seg 2, Tgt=Seg+2C
+    Rel=Sgmt, Loc=16bit offset, Off=17E, Frm=Seg 2, Tgt=Seg+2C
+    Rel=Sgmt, Loc=16bit offset, Off=19C, Frm=Seg 2, Tgt=Seg+2C
+    Rel=Sgmt, Loc=16bit offset, Off=1BA, Frm=Seg 2, Tgt=Seg+2C
+    Rel=Sgmt, Loc=16bit offset, Off=1D8, Frm=Seg 2, Tgt=Seg+2C
+    Rel=Self, Loc=16bit offset, Off=1FC, Frm=Ext 7, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=205, Frm=Ext D, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=21A, Frm=Seg 2, Tgt=Seg+194
+    Rel=Self, Loc=16bit offset, Off=225, Frm=Ext 2, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=22B, Frm=Seg 2, Tgt=Seg+194
+    Rel=Sgmt, Loc=16bit offset, Off=237, Frm=Seg 2, Tgt=Seg+194
+    Rel=Sgmt, Loc=16bit offset, Off=23C, Frm=Seg 2, Tgt=Seg+194
 8A  MODEND 
 ============================================================
 80  THEADR AUXBUF.OBJ  LibMod01
@@ -674,13 +674,13 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=7A
     0040: 06BB0000D1E003C350FF7604B101E8000083C4025B89078B4606BB0000D1E003
     0060: C3508B46045B8907FF760633C050B102E8000083C40433C05DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=7, Frm=Ext 7, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=16, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=21, Frm=Ext A, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=42, Frm=Ext 4, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=4F, Frm=Ext 2, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=5B, Frm=Ext 5, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=71, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=7, Frm=Ext 7, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=16, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=21, Frm=Ext A, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=42, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=4F, Frm=Ext 2, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=5B, Frm=Ext 5, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=71, Frm=Ext 1, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR PUTS.OBJ  LibMod02
@@ -700,8 +700,8 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=24
     0000: 558BECFF7604B8010050B102E8000083C404B80A0050B8010050B102E8000083
     0020: C4045DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=D, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1D, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=D, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1D, Frm=Ext 2, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR FGETS.OBJ  LibMod03
@@ -732,23 +732,23 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=14F
     0120: 408907EB1990E800000000FFFF00000A0000000800000018000000EBDE90E900
     0140: 008B5EFC33C088078B460A8BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=13, Frm=Seg 1, Tgt=Seg+36
-    Rel=Self, Loc=16bit offset, DtOff=2D, Frm=Seg 1, Tgt=Seg+36
-    Rel=Self, Loc=16bit offset, DtOff=4F, Frm=Seg 1, Tgt=Seg+143
-    Rel=Self, Loc=16bit offset, DtOff=57, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=62, Frm=Seg 1, Tgt=Seg+128
-    Rel=Self, Loc=16bit offset, DtOff=72, Frm=Ext F, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=A2, Frm=Ext 6, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=D3, Frm=Ext 3, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=F6, Frm=Seg 2, Tgt=Seg+2
-    Rel=Self, Loc=16bit offset, DtOff=100, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=119, Frm=Seg 1, Tgt=Seg+44
-    Rel=Self, Loc=16bit offset, DtOff=127, Frm=Ext 4, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=129, Frm=Seg 1, Tgt=Seg+66
-    Rel=Sgmt, Loc=16bit offset, DtOff=12D, Frm=Seg 1, Tgt=Seg+8A
-    Rel=Sgmt, Loc=16bit offset, DtOff=131, Frm=Seg 1, Tgt=Seg+9D
-    Rel=Sgmt, Loc=16bit offset, DtOff=135, Frm=Seg 1, Tgt=Seg+C2
-    Rel=Self, Loc=16bit offset, DtOff=13F, Frm=Seg 1, Tgt=Seg+44
+    Rel=Self, Loc=16bit offset, Off=13, Frm=Seg 1, Tgt=Seg+36
+    Rel=Self, Loc=16bit offset, Off=2D, Frm=Seg 1, Tgt=Seg+36
+    Rel=Self, Loc=16bit offset, Off=4F, Frm=Seg 1, Tgt=Seg+143
+    Rel=Self, Loc=16bit offset, Off=57, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=62, Frm=Seg 1, Tgt=Seg+128
+    Rel=Self, Loc=16bit offset, Off=72, Frm=Ext F, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=A2, Frm=Ext 6, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=D3, Frm=Ext 3, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=F6, Frm=Seg 2, Tgt=Seg+2
+    Rel=Self, Loc=16bit offset, Off=100, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=119, Frm=Seg 1, Tgt=Seg+44
+    Rel=Self, Loc=16bit offset, Off=127, Frm=Ext 4, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=129, Frm=Seg 1, Tgt=Seg+66
+    Rel=Sgmt, Loc=16bit offset, Off=12D, Frm=Seg 1, Tgt=Seg+8A
+    Rel=Sgmt, Loc=16bit offset, Off=131, Frm=Seg 1, Tgt=Seg+9D
+    Rel=Sgmt, Loc=16bit offset, Off=135, Frm=Seg 1, Tgt=Seg+C2
+    Rel=Self, Loc=16bit offset, Off=13F, Frm=Seg 1, Tgt=Seg+44
 A0  LEDATA SegIndex=2 DataOffset=2 Length=4
     0000: 08200800
 8A  MODEND 
@@ -802,49 +802,49 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=3EF
     03C0: F28B07FF0F0BC07503EB1A90FF76FAFF7606B102E8000083C4048D5EF88B0740
     03E0: 8907EBDA90E900008B46F88BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=7, Frm=Ext 4, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=31, Frm=Seg 1, Tgt=Seg+60
-    Rel=Self, Loc=16bit offset, DtOff=42, Frm=Ext 4, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=57, Frm=Seg 1, Tgt=Seg+60
-    Rel=Self, Loc=16bit offset, DtOff=87, Frm=Seg 1, Tgt=Seg+3EA
-    Rel=Self, Loc=16bit offset, DtOff=95, Frm=Ext 12, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=B1, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=D8, Frm=Ext 13, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=F4, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=102, Frm=Seg 1, Tgt=Seg+7E
-    Rel=Self, Loc=16bit offset, DtOff=110, Frm=Ext 13, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=13F, Frm=Ext 13, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=165, Frm=Ext 5, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=17C, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=190, Frm=Ext 5, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1BD, Frm=Ext 13, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1D2, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1E6, Frm=Ext 5, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=22D, Frm=Seg 1, Tgt=Seg+2C5
-    Rel=Self, Loc=16bit offset, DtOff=242, Frm=Seg 1, Tgt=Seg+2E9
-    Rel=Self, Loc=16bit offset, DtOff=24D, Frm=Seg 1, Tgt=Seg+2E9
-    Rel=Self, Loc=16bit offset, DtOff=259, Frm=Ext 6, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=25F, Frm=Seg 1, Tgt=Seg+2E9
-    Rel=Self, Loc=16bit offset, DtOff=26F, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=285, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=29B, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=2B1, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=2C4, Frm=Ext 8, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=2C6, Frm=Seg 1, Tgt=Seg+231
-    Rel=Sgmt, Loc=16bit offset, DtOff=2CA, Frm=Seg 1, Tgt=Seg+246
-    Rel=Sgmt, Loc=16bit offset, DtOff=2CE, Frm=Seg 1, Tgt=Seg+251
-    Rel=Sgmt, Loc=16bit offset, DtOff=2D2, Frm=Seg 1, Tgt=Seg+263
-    Rel=Sgmt, Loc=16bit offset, DtOff=2D6, Frm=Seg 1, Tgt=Seg+279
-    Rel=Sgmt, Loc=16bit offset, DtOff=2DA, Frm=Seg 1, Tgt=Seg+28F
-    Rel=Sgmt, Loc=16bit offset, DtOff=2DE, Frm=Seg 1, Tgt=Seg+2A5
-    Rel=Self, Loc=16bit offset, DtOff=2ED, Frm=Ext 7, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=308, Frm=Ext 10, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=32F, Frm=Ext E, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=353, Frm=Ext 9, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=373, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=3A4, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=3D5, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=3E6, Frm=Seg 1, Tgt=Seg+7E
+    Rel=Self, Loc=16bit offset, Off=7, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=31, Frm=Seg 1, Tgt=Seg+60
+    Rel=Self, Loc=16bit offset, Off=42, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=57, Frm=Seg 1, Tgt=Seg+60
+    Rel=Self, Loc=16bit offset, Off=87, Frm=Seg 1, Tgt=Seg+3EA
+    Rel=Self, Loc=16bit offset, Off=95, Frm=Ext 12, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=B1, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=D8, Frm=Ext 13, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=F4, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=102, Frm=Seg 1, Tgt=Seg+7E
+    Rel=Self, Loc=16bit offset, Off=110, Frm=Ext 13, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=13F, Frm=Ext 13, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=165, Frm=Ext 5, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=17C, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=190, Frm=Ext 5, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1BD, Frm=Ext 13, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1D2, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1E6, Frm=Ext 5, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=22D, Frm=Seg 1, Tgt=Seg+2C5
+    Rel=Self, Loc=16bit offset, Off=242, Frm=Seg 1, Tgt=Seg+2E9
+    Rel=Self, Loc=16bit offset, Off=24D, Frm=Seg 1, Tgt=Seg+2E9
+    Rel=Self, Loc=16bit offset, Off=259, Frm=Ext 6, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=25F, Frm=Seg 1, Tgt=Seg+2E9
+    Rel=Self, Loc=16bit offset, Off=26F, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=285, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=29B, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=2B1, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=2C4, Frm=Ext 8, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=2C6, Frm=Seg 1, Tgt=Seg+231
+    Rel=Sgmt, Loc=16bit offset, Off=2CA, Frm=Seg 1, Tgt=Seg+246
+    Rel=Sgmt, Loc=16bit offset, Off=2CE, Frm=Seg 1, Tgt=Seg+251
+    Rel=Sgmt, Loc=16bit offset, Off=2D2, Frm=Seg 1, Tgt=Seg+263
+    Rel=Sgmt, Loc=16bit offset, Off=2D6, Frm=Seg 1, Tgt=Seg+279
+    Rel=Sgmt, Loc=16bit offset, Off=2DA, Frm=Seg 1, Tgt=Seg+28F
+    Rel=Sgmt, Loc=16bit offset, Off=2DE, Frm=Seg 1, Tgt=Seg+2A5
+    Rel=Self, Loc=16bit offset, Off=2ED, Frm=Ext 7, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=308, Frm=Ext 10, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=32F, Frm=Ext E, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=353, Frm=Ext 9, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=373, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=3A4, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=3D5, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=3E6, Frm=Seg 1, Tgt=Seg+7E
 8A  MODEND 
 ============================================================
 80  THEADR FPUTS.OBJ  LibMod05
@@ -864,7 +864,7 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=2D
     0000: 558BEC8B5E068A07980BC07503EB1C908D5E068B07FF078BD88A079850FF7604
     0020: B102E8000083C404EBD9905DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=23, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=23, Frm=Ext 1, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR FREAD.OBJ  LibMod06
@@ -888,9 +888,9 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=86
     0060: D88B078BD8B8060023C30BC07503EB0490EB0C908D5EFE8B07408907EBB5908B
     0080: 46FE8BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=15, Frm=Seg 1, Tgt=Seg+28
-    Rel=Self, Loc=16bit offset, DtOff=4F, Frm=Ext 1, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=5B, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=15, Frm=Seg 1, Tgt=Seg+28
+    Rel=Self, Loc=16bit offset, Off=4F, Frm=Ext 1, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=5B, Frm=Ext 2, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR FREOPEN.OBJ  LibMod07
@@ -914,14 +914,14 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=A1
     0080: BB0000D1E003D88B075B89078B46FEBB0000D1E003D833C089078B46048BE55D
     00A0: C3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=C, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=2B, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=31, Frm=Ext 6, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=47, Frm=Ext F, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=60, Frm=Ext 2, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=76, Frm=Ext 4, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=81, Frm=Ext 4, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=90, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=C, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=2B, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=31, Frm=Ext 6, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=47, Frm=Ext F, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=60, Frm=Ext 2, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=76, Frm=Ext 4, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=81, Frm=Ext 4, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=90, Frm=Ext 4, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR FSCANF.OBJ  LibMod08
@@ -973,62 +973,62 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=3FC
     03C0: F0538B072D37005B8907EB0D908D5EF0538B072D30005B89078B46EC8B5EF0E8
     03E0: 00000BC07403EB16908B46EA8B5EFAE800000BC07403EB069033C0EB
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=7, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=31, Frm=Seg 1, Tgt=Seg+5F
-    Rel=Self, Loc=16bit offset, DtOff=41, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=56, Frm=Seg 1, Tgt=Seg+5F
-    Rel=Self, Loc=16bit offset, DtOff=86, Frm=Seg 1, Tgt=Seg+453
-    Rel=Self, Loc=16bit offset, DtOff=92, Frm=Ext 4, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=BB, Frm=Ext 10, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=D3, Frm=Ext 11, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=11A, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=129, Frm=Ext 7, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=14C, Frm=Ext 7, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=156, Frm=Seg 1, Tgt=Seg+453
-    Rel=Self, Loc=16bit offset, DtOff=15E, Frm=Ext 5, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=16C, Frm=Ext 4, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=182, Frm=Ext 11, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=196, Frm=Seg 1, Tgt=Seg+453
-    Rel=Self, Loc=16bit offset, DtOff=1AB, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1B4, Frm=Seg 1, Tgt=Seg+438
-    Rel=Self, Loc=16bit offset, DtOff=1BC, Frm=Ext 5, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1C7, Frm=Seg 1, Tgt=Seg+448
-    Rel=Self, Loc=16bit offset, DtOff=1DD, Frm=Ext 5, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1ED, Frm=Ext 11, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=203, Frm=Ext 4, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=219, Frm=Ext 10, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=235, Frm=Seg 1, Tgt=Seg+448
-    Rel=Self, Loc=16bit offset, DtOff=23B, Frm=Seg 1, Tgt=Seg+2CF
-    Rel=Self, Loc=16bit offset, DtOff=256, Frm=Seg 1, Tgt=Seg+2EB
-    Rel=Self, Loc=16bit offset, DtOff=2CE, Frm=Ext 6, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=2D0, Frm=Seg 1, Tgt=Seg+23F
-    Rel=Sgmt, Loc=16bit offset, DtOff=2D4, Frm=Seg 1, Tgt=Seg+25A
-    Rel=Sgmt, Loc=16bit offset, DtOff=2D8, Frm=Seg 1, Tgt=Seg+274
-    Rel=Sgmt, Loc=16bit offset, DtOff=2DC, Frm=Seg 1, Tgt=Seg+28F
-    Rel=Sgmt, Loc=16bit offset, DtOff=2E0, Frm=Seg 1, Tgt=Seg+2AA
-    Rel=Self, Loc=16bit offset, DtOff=309, Frm=Ext 5, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=317, Frm=Ext 4, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=31D, Frm=Ext 7, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=32D, Frm=Ext 10, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=343, Frm=Seg 1, Tgt=Seg+428
-    Rel=Self, Loc=16bit offset, DtOff=349, Frm=Ext 7, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=359, Frm=Ext 11, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=37F, Frm=Ext E, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=396, Frm=Ext D, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=3B5, Frm=Ext D, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=3E0, Frm=Ext D, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=3F0, Frm=Ext 8, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=7, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=31, Frm=Seg 1, Tgt=Seg+5F
+    Rel=Self, Loc=16bit offset, Off=41, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=56, Frm=Seg 1, Tgt=Seg+5F
+    Rel=Self, Loc=16bit offset, Off=86, Frm=Seg 1, Tgt=Seg+453
+    Rel=Self, Loc=16bit offset, Off=92, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=BB, Frm=Ext 10, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=D3, Frm=Ext 11, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=11A, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=129, Frm=Ext 7, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=14C, Frm=Ext 7, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=156, Frm=Seg 1, Tgt=Seg+453
+    Rel=Self, Loc=16bit offset, Off=15E, Frm=Ext 5, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=16C, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=182, Frm=Ext 11, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=196, Frm=Seg 1, Tgt=Seg+453
+    Rel=Self, Loc=16bit offset, Off=1AB, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1B4, Frm=Seg 1, Tgt=Seg+438
+    Rel=Self, Loc=16bit offset, Off=1BC, Frm=Ext 5, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1C7, Frm=Seg 1, Tgt=Seg+448
+    Rel=Self, Loc=16bit offset, Off=1DD, Frm=Ext 5, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1ED, Frm=Ext 11, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=203, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=219, Frm=Ext 10, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=235, Frm=Seg 1, Tgt=Seg+448
+    Rel=Self, Loc=16bit offset, Off=23B, Frm=Seg 1, Tgt=Seg+2CF
+    Rel=Self, Loc=16bit offset, Off=256, Frm=Seg 1, Tgt=Seg+2EB
+    Rel=Self, Loc=16bit offset, Off=2CE, Frm=Ext 6, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=2D0, Frm=Seg 1, Tgt=Seg+23F
+    Rel=Sgmt, Loc=16bit offset, Off=2D4, Frm=Seg 1, Tgt=Seg+25A
+    Rel=Sgmt, Loc=16bit offset, Off=2D8, Frm=Seg 1, Tgt=Seg+274
+    Rel=Sgmt, Loc=16bit offset, Off=2DC, Frm=Seg 1, Tgt=Seg+28F
+    Rel=Sgmt, Loc=16bit offset, Off=2E0, Frm=Seg 1, Tgt=Seg+2AA
+    Rel=Self, Loc=16bit offset, Off=309, Frm=Ext 5, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=317, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=31D, Frm=Ext 7, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=32D, Frm=Ext 10, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=343, Frm=Seg 1, Tgt=Seg+428
+    Rel=Self, Loc=16bit offset, Off=349, Frm=Ext 7, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=359, Frm=Ext 11, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=37F, Frm=Ext E, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=396, Frm=Ext D, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=3B5, Frm=Ext D, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=3E0, Frm=Ext D, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=3F0, Frm=Ext 8, Tgt=Ext
 A0  LEDATA SegIndex=1 DataOffset=3FE Length=5C
     0000: 0490B801000BC07503EB08908B46F48BE55DC38B46EC8B5EFAF7E3508B46F05B
     0020: 03C38D5EFA8907E900008B46FA8B5EE8F7E38B5EF88907EB1190E80000000063
     0040: 00000073000000E900008D5EF48B07408907E900008B46F48BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=28, Frm=Seg 1, Tgt=Seg+2F7
-    Rel=Self, Loc=16bit offset, DtOff=3B, Frm=Ext 6, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=3D, Frm=Seg 1, Tgt=Seg+1B8
-    Rel=Sgmt, Loc=16bit offset, DtOff=41, Frm=Seg 1, Tgt=Seg+1CB
-    Rel=Self, Loc=16bit offset, DtOff=48, Frm=Seg 1, Tgt=Seg+239
-    Rel=Self, Loc=16bit offset, DtOff=53, Frm=Seg 1, Tgt=Seg+7D
+    Rel=Self, Loc=16bit offset, Off=28, Frm=Seg 1, Tgt=Seg+2F7
+    Rel=Self, Loc=16bit offset, Off=3B, Frm=Ext 6, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=3D, Frm=Seg 1, Tgt=Seg+1B8
+    Rel=Sgmt, Loc=16bit offset, Off=41, Frm=Seg 1, Tgt=Seg+1CB
+    Rel=Self, Loc=16bit offset, Off=48, Frm=Seg 1, Tgt=Seg+239
+    Rel=Self, Loc=16bit offset, Off=53, Frm=Seg 1, Tgt=Seg+7D
 8A  MODEND 
 ============================================================
 80  THEADR FWRITE.OBJ  LibMod09
@@ -1052,10 +1052,10 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=92
     0060: 02E8000083C4048B4608BB0000D1E003D88B078BD8B8040023C30BC07503EB08
     0080: 90B8FFFF8BE55DC3EBB6908B46048BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=15, Frm=Seg 1, Tgt=Seg+34
-    Rel=Self, Loc=16bit offset, DtOff=20, Frm=Ext E, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=62, Frm=Ext 1, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=6B, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=15, Frm=Seg 1, Tgt=Seg+34
+    Rel=Self, Loc=16bit offset, Off=20, Frm=Ext E, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=62, Frm=Ext 1, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=6B, Frm=Ext 2, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR GETCHAR.OBJ  LibMod0A
@@ -1074,7 +1074,7 @@ A0  LEDATA SegIndex=2 DataOffset=0 Length=2
 A0  LEDATA SegIndex=1 DataOffset=2 Length=10
     0000: 558BEC33C050B101E8000083C4025DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=9, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=9, Frm=Ext 1, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR PAD.OBJ  LibMod0B
@@ -1115,14 +1115,14 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=8A
     0060: 0233C08BE55DC38B5EFEB80300E800000BC07503EB0D90B8020050B101E80000
     0080: 83C4028B46FE8BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=9, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1A, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=32, Frm=Ext F, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=3E, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=4C, Frm=Ext F, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=5C, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=6E, Frm=Ext F, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=7E, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=9, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1A, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=32, Frm=Ext F, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=3E, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=4C, Frm=Ext F, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=5C, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=6E, Frm=Ext F, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=7E, Frm=Ext 3, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR PUTCHAR.OBJ  LibMod0D
@@ -1141,7 +1141,7 @@ A0  LEDATA SegIndex=2 DataOffset=0 Length=2
 A0  LEDATA SegIndex=1 DataOffset=2 Length=14
     0000: 558BECFF7604B8010050B102E8000083C4045DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=D, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=D, Frm=Ext 1, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR RENAME.OBJ  LibMod0E
@@ -1162,7 +1162,7 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=3C
     0000: 558BECFF7606FF7604B102E8000083C4040BC07503EB059033C05DC3B8FEFF5D
     0020: C3558BEC1E078B7E048B5606B456CD21730533C0EB0490B801005DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=C, Frm=Seg 1, Tgt=Seg+23
+    Rel=Self, Loc=16bit offset, Off=C, Frm=Seg 1, Tgt=Seg+23
 8A  MODEND 
 ============================================================
 80  THEADR REWIND.OBJ  LibMod0F
@@ -1181,7 +1181,7 @@ A0  LEDATA SegIndex=2 DataOffset=0 Length=2
 A0  LEDATA SegIndex=1 DataOffset=2 Length=16
     0000: 558BECFF760433C05033C050B103E8000083C4065DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=F, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=F, Frm=Ext 1, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR ABS.OBJ  LibMod10
@@ -1222,11 +1222,11 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=A7
     0080: 048B07FF078BD88A07985B03D8B83000932BC38D5EFC8907EBC5908B46FC8B5E
     00A0: FEF7EB8BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=10, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=4C, Frm=Ext 3, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=4E, Frm=Seg 1, Tgt=Seg+3A
-    Rel=Sgmt, Loc=16bit offset, DtOff=52, Frm=Seg 1, Tgt=Seg+42
-    Rel=Self, Loc=16bit offset, DtOff=69, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=10, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=4C, Frm=Ext 3, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=4E, Frm=Seg 1, Tgt=Seg+3A
+    Rel=Sgmt, Loc=16bit offset, Off=52, Frm=Seg 1, Tgt=Seg+42
+    Rel=Self, Loc=16bit offset, Off=69, Frm=Ext 2, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR ATOIB.OBJ  LibMod12
@@ -1251,12 +1251,12 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=CE
     00A0: 8B5EFCE800000BC07503EB0490EB18908B46FE8B5E04F7EB508B46FC5B03C38D
     00C0: 5EFE8907E900008B46FE8BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=17, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=4A, Frm=Ext 9, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=5A, Frm=Ext 9, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=79, Frm=Ext 9, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=A4, Frm=Ext 9, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=C5, Frm=Seg 1, Tgt=Seg+30
+    Rel=Self, Loc=16bit offset, Off=17, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=4A, Frm=Ext 9, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=5A, Frm=Ext 9, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=79, Frm=Ext 9, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=A4, Frm=Ext 9, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=C5, Frm=Seg 1, Tgt=Seg+30
 8A  MODEND 
 ============================================================
 80  THEADR AVAIL.OBJ  LibMod13
@@ -1276,10 +1276,10 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=3F
     0000: 558BEC83C4FFA100008D5EFFE800000BC07503EB1D908B46040BC07503EB0D90
     0020: B8010050B101E8000083C40233C08BE55DC3A100008D5EFF932BC38BE55DC3
 9C  FIXUPP
-    Rel=Sgmt, Loc=16bit offset, DtOff=7, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=D, Frm=Ext 7, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=27, Frm=Ext 1, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=33, Frm=Ext 2, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=7, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=D, Frm=Ext 7, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=27, Frm=Ext 1, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=33, Frm=Ext 2, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR BSEEK.OBJ  LibMod14
@@ -1303,15 +1303,15 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=BD
     0080: 8D46FC50B104E8000083C408E800000BC07503EB0890B8FFFF8BE55DC38B4608
     00A0: BB0000D1E003D8B8FFFF8907FF7608B101E8000083C40233C08BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=C, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=12, Frm=Ext 8, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=1F, Frm=Ext 5, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=28, Frm=Ext 8, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=4D, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=87, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=8D, Frm=Ext 8, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=A1, Frm=Ext 6, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=B2, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=C, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=12, Frm=Ext 8, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=1F, Frm=Ext 5, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=28, Frm=Ext 8, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=4D, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=87, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=8D, Frm=Ext 8, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=A1, Frm=Ext 6, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=B2, Frm=Ext 4, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR BTELL.OBJ  LibMod15
@@ -1334,12 +1334,12 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=83
     0060: 89078B5E048907B8010050FF76068B4604404050FF7604B104E8000083C40833
     0080: C05DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=9, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=F, Frm=Ext 6, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=1C, Frm=Ext 4, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=25, Frm=Ext 6, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=48, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=7A, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=9, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=F, Frm=Ext 6, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=1C, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=25, Frm=Ext 6, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=48, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=7A, Frm=Ext 1, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR CALLOC.OBJ  LibMod16
@@ -1358,7 +1358,7 @@ A0  LEDATA SegIndex=2 DataOffset=0 Length=2
 A0  LEDATA SegIndex=1 DataOffset=2 Length=1A
     0000: 558BEC8B46048B5E06F7E350B8010050B102E8000083C4045DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=13, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=13, Frm=Ext 1, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR CLEARERR.OBJ  LibMod17
@@ -1378,8 +1378,8 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=22
     0000: 558BECFF7604B101E8000083C4020BC07503EB0C90FF7604B101E8000083C402
     0020: 5DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=9, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1B, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=9, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1B, Frm=Ext 2, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR CSEEK.OBJ  LibMod18
@@ -1417,32 +1417,32 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=22F
     0200: 07B8010050FF76068D46FE508D46FC50B104E8000083C408E800000BC07503EB
     0220: 0890B8FFFF8BE55DC333C08BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=C, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=12, Frm=Ext B, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=1F, Frm=Ext 8, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=28, Frm=Ext B, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=4D, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=64, Frm=Seg 1, Tgt=Seg+FC
-    Rel=Self, Loc=16bit offset, DtOff=6F, Frm=Seg 1, Tgt=Seg+110
-    Rel=Self, Loc=16bit offset, DtOff=77, Frm=Ext 5, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=A2, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=A8, Frm=Ext B, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=FB, Frm=Ext A, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=FD, Frm=Seg 1, Tgt=Seg+68
-    Rel=Sgmt, Loc=16bit offset, DtOff=101, Frm=Seg 1, Tgt=Seg+73
-    Rel=Sgmt, Loc=16bit offset, DtOff=105, Frm=Seg 1, Tgt=Seg+86
-    Rel=Self, Loc=16bit offset, DtOff=148, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=14E, Frm=Ext B, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=162, Frm=Ext 9, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=173, Frm=Ext 4, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=18A, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=190, Frm=Ext B, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=19F, Frm=Ext 6, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1B1, Frm=Ext 7, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1C3, Frm=Ext 12, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1D3, Frm=Ext 10, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=213, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=219, Frm=Ext B, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=C, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=12, Frm=Ext B, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=1F, Frm=Ext 8, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=28, Frm=Ext B, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=4D, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=64, Frm=Seg 1, Tgt=Seg+FC
+    Rel=Self, Loc=16bit offset, Off=6F, Frm=Seg 1, Tgt=Seg+110
+    Rel=Self, Loc=16bit offset, Off=77, Frm=Ext 5, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=A2, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=A8, Frm=Ext B, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=FB, Frm=Ext A, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=FD, Frm=Seg 1, Tgt=Seg+68
+    Rel=Sgmt, Loc=16bit offset, Off=101, Frm=Seg 1, Tgt=Seg+73
+    Rel=Sgmt, Loc=16bit offset, Off=105, Frm=Seg 1, Tgt=Seg+86
+    Rel=Self, Loc=16bit offset, Off=148, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=14E, Frm=Ext B, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=162, Frm=Ext 9, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=173, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=18A, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=190, Frm=Ext B, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=19F, Frm=Ext 6, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1B1, Frm=Ext 7, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1C3, Frm=Ext 12, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1D3, Frm=Ext 10, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=213, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=219, Frm=Ext B, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR CTELL.OBJ  LibMod19
@@ -1471,18 +1471,18 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=139
     0100: EB0890B8FFFF8BE55DC38D5EFC33C089078D5EFE8907B8010050FF76048D46FE
     0120: 508D46FC50B104E8000083C4088B5EFCB87F0023C38BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=C, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=12, Frm=Ext 6, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=1F, Frm=Ext 4, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=28, Frm=Ext 6, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=4D, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=7E, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=B6, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=BC, Frm=Ext 6, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=C9, Frm=Ext 4, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=D2, Frm=Ext 6, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=F7, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=128, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=C, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=12, Frm=Ext 6, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=1F, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=28, Frm=Ext 6, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=4D, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=7E, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=B6, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=BC, Frm=Ext 6, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=C9, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=D2, Frm=Ext 6, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=F7, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=128, Frm=Ext 1, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR DTOI.OBJ  LibMod1A
@@ -1505,8 +1505,8 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=96
     0060: 0890B8FEFF8BE55DC38B46FC0BC07503EB19908B5E048B07F7D88B5E0489078D
     0080: 5EFE8B074089078BE55DC38B46FE8BE55DC38BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=12, Frm=Ext D, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=3E, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=12, Frm=Ext D, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=3E, Frm=Ext 1, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR EXIT.OBJ  LibMod1B
@@ -1531,17 +1531,17 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=C0
     0080: EB1D90EB0C908D5EFE8B07408907EBE390FF76FEB101E8000083C402EBE8908B
     00A0: 4604BB004C0BC35033C05033C05033C050B104E8000083C408E900008BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=2E, Frm=Ext 5, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=37, Frm=Ext 1, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=3D, Frm=Seg 2, Tgt=Seg+2
-    Rel=Self, Loc=16bit offset, DtOff=47, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=57, Frm=Ext 3, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=5D, Frm=Seg 2, Tgt=Seg+E
-    Rel=Self, Loc=16bit offset, DtOff=67, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=7A, Frm=Ext E, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=97, Frm=Ext 4, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=B4, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=BA, Frm=Seg 1, Tgt=Seg+2
+    Rel=Self, Loc=16bit offset, Off=2E, Frm=Ext 5, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=37, Frm=Ext 1, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=3D, Frm=Seg 2, Tgt=Seg+2
+    Rel=Self, Loc=16bit offset, Off=47, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=57, Frm=Ext 3, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=5D, Frm=Seg 2, Tgt=Seg+E
+    Rel=Self, Loc=16bit offset, Off=67, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=7A, Frm=Ext E, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=97, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=B4, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=BA, Frm=Seg 1, Tgt=Seg+2
 A0  LEDATA SegIndex=2 DataOffset=2 Length=E
     0000: 4578697420436F64653A20000A00
 8A  MODEND 
@@ -1565,12 +1565,12 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=77
     0040: 3E50FF760433C05033C050B104E8000083C4088BD8B8FAFFE800000BC07503EB
     0060: 0690B8FEFF5DC38B4604BB0000D1E003D833C089075DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=9, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=F, Frm=Ext 6, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1E, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=4E, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=59, Frm=Ext 10, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=6B, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=9, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=F, Frm=Ext 6, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1E, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=4E, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=59, Frm=Ext 10, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=6B, Frm=Ext 4, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR FEOF.OBJ  LibMod1D
@@ -1589,7 +1589,7 @@ A0  LEDATA SegIndex=2 DataOffset=0 Length=2
 A0  LEDATA SegIndex=1 DataOffset=2 Length=18
     0000: 558BEC8B4604BB0000D1E003D88B078BD8B8020023C35DC3
 9C  FIXUPP
-    Rel=Sgmt, Loc=16bit offset, DtOff=7, Frm=Ext 1, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=7, Frm=Ext 1, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR FERROR.OBJ  LibMod1E
@@ -1608,7 +1608,7 @@ A0  LEDATA SegIndex=2 DataOffset=0 Length=2
 A0  LEDATA SegIndex=1 DataOffset=2 Length=18
     0000: 558BEC8B4604BB0000D1E003D88B078BD8B8040023C35DC3
 9C  FIXUPP
-    Rel=Sgmt, Loc=16bit offset, DtOff=7, Frm=Ext 1, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=7, Frm=Ext 1, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR FGETC.OBJ  LibMod1F
@@ -1637,29 +1637,29 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=124
     0100: E55DC3EB1590E8000000001A0000000D0000000A000000EBCA90E900008BE55D
     0120: C3E90000
 9C  FIXUPP
-    Rel=Sgmt, Loc=16bit offset, DtOff=A, Frm=Ext 6, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=18, Frm=Ext 11, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=25, Frm=Ext 6, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=36, Frm=Ext 6, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=53, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=63, Frm=Ext 5, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=7C, Frm=Ext 4, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=8C, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=9C, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=B9, Frm=Ext 3, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=C2, Frm=Ext 7, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=C4, Frm=Seg 1, Tgt=Seg+77
-    Rel=Sgmt, Loc=16bit offset, DtOff=C8, Frm=Seg 1, Tgt=Seg+83
-    Rel=Sgmt, Loc=16bit offset, DtOff=CC, Frm=Seg 1, Tgt=Seg+A6
-    Rel=Sgmt, Loc=16bit offset, DtOff=D0, Frm=Seg 1, Tgt=Seg+AE
-    Rel=Sgmt, Loc=16bit offset, DtOff=D4, Frm=Seg 1, Tgt=Seg+AE
-    Rel=Self, Loc=16bit offset, DtOff=F0, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=107, Frm=Ext 7, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=109, Frm=Seg 1, Tgt=Seg+EC
-    Rel=Sgmt, Loc=16bit offset, DtOff=10D, Frm=Seg 1, Tgt=Seg+FE
-    Rel=Sgmt, Loc=16bit offset, DtOff=111, Frm=Seg 1, Tgt=Seg+105
-    Rel=Self, Loc=16bit offset, DtOff=11B, Frm=Seg 1, Tgt=Seg+4F
-    Rel=Self, Loc=16bit offset, DtOff=122, Frm=Seg 1, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=A, Frm=Ext 6, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=18, Frm=Ext 11, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=25, Frm=Ext 6, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=36, Frm=Ext 6, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=53, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=63, Frm=Ext 5, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=7C, Frm=Ext 4, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=8C, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=9C, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=B9, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=C2, Frm=Ext 7, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=C4, Frm=Seg 1, Tgt=Seg+77
+    Rel=Sgmt, Loc=16bit offset, Off=C8, Frm=Seg 1, Tgt=Seg+83
+    Rel=Sgmt, Loc=16bit offset, Off=CC, Frm=Seg 1, Tgt=Seg+A6
+    Rel=Sgmt, Loc=16bit offset, Off=D0, Frm=Seg 1, Tgt=Seg+AE
+    Rel=Sgmt, Loc=16bit offset, Off=D4, Frm=Seg 1, Tgt=Seg+AE
+    Rel=Self, Loc=16bit offset, Off=F0, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=107, Frm=Ext 7, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=109, Frm=Seg 1, Tgt=Seg+EC
+    Rel=Sgmt, Loc=16bit offset, Off=10D, Frm=Seg 1, Tgt=Seg+FE
+    Rel=Sgmt, Loc=16bit offset, Off=111, Frm=Seg 1, Tgt=Seg+105
+    Rel=Self, Loc=16bit offset, Off=11B, Frm=Seg 1, Tgt=Seg+4F
+    Rel=Self, Loc=16bit offset, Off=122, Frm=Seg 1, Tgt=Seg+2
 8A  MODEND 
 ============================================================
 80  THEADR FOPEN.OBJ  LibMod20
@@ -1679,8 +1679,8 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=2F
     0000: 558BEC83C4FEFF7606FF76048D46FE50B103E8000083C406E800000BC07503EB
     0020: 079033C08BE55DC38B46FE8BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=13, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=19, Frm=Ext 3, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=13, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=19, Frm=Ext 3, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR FPUTC.OBJ  LibMod21
@@ -1704,15 +1704,15 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=84
     0060: BB0000D1E003D88B078BD8B8040023C30BC07503EB0690B8FFFF5DC38B46065D
     0080: C3E90000
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=13, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=25, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=34, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=45, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=4E, Frm=Ext 3, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=50, Frm=Seg 1, Tgt=Seg+B
-    Rel=Sgmt, Loc=16bit offset, DtOff=54, Frm=Seg 1, Tgt=Seg+1D
-    Rel=Sgmt, Loc=16bit offset, DtOff=61, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=82, Frm=Seg 1, Tgt=Seg+2
+    Rel=Self, Loc=16bit offset, Off=13, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=25, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=34, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=45, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=4E, Frm=Ext 3, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=50, Frm=Seg 1, Tgt=Seg+B
+    Rel=Sgmt, Loc=16bit offset, Off=54, Frm=Seg 1, Tgt=Seg+1D
+    Rel=Sgmt, Loc=16bit offset, Off=61, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=82, Frm=Seg 1, Tgt=Seg+2
 8A  MODEND 
 ============================================================
 80  THEADR FREE.OBJ  LibMod22
@@ -1732,7 +1732,7 @@ A0  LEDATA SegIndex=2 DataOffset=0 Length=2
 A0  LEDATA SegIndex=1 DataOffset=2 Length=E
     0000: 558BEC8B4604A300005DC3EBF390
 9C  FIXUPP
-    Rel=Sgmt, Loc=16bit offset, DtOff=7, Frm=Ext 1, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=7, Frm=Ext 1, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR GETARG.OBJ  LibMod23
@@ -1755,9 +1755,9 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=97
     0060: 508B46FC8B5EFE03D88A07985B88070BC07403EB0490EB0C908D5EFC8B074089
     0080: 07EBC5908B46FC8B5E0A03D833C088078B46FC8BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=C, Frm=Ext 9, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=16, Frm=Ext 8, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=4F, Frm=Ext 9, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=C, Frm=Ext 9, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=16, Frm=Ext 8, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=4F, Frm=Ext 9, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR IS.OBJ  LibMod24
@@ -1804,17 +1804,17 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=108
     00E0: 00D1E003D88B078BD8B8000223C35DC3558BEC8B4604BB0000D1E003D88B078B
     0100: D8B8000423C35DC3
 9C  FIXUPP
-    Rel=Sgmt, Loc=16bit offset, DtOff=7, Frm=Seg 2, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit offset, DtOff=1F, Frm=Seg 2, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit offset, DtOff=37, Frm=Seg 2, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit offset, DtOff=4F, Frm=Seg 2, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit offset, DtOff=67, Frm=Seg 2, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit offset, DtOff=7F, Frm=Seg 2, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit offset, DtOff=97, Frm=Seg 2, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit offset, DtOff=AF, Frm=Seg 2, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit offset, DtOff=C7, Frm=Seg 2, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit offset, DtOff=DF, Frm=Seg 2, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit offset, DtOff=F7, Frm=Seg 2, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=7, Frm=Seg 2, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=1F, Frm=Seg 2, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=37, Frm=Seg 2, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=4F, Frm=Seg 2, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=67, Frm=Seg 2, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=7F, Frm=Seg 2, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=97, Frm=Seg 2, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=AF, Frm=Seg 2, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=C7, Frm=Seg 2, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=DF, Frm=Seg 2, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=F7, Frm=Seg 2, Tgt=Seg+2
 8A  MODEND 
 ============================================================
 80  THEADR ISASCII.OBJ  LibMod25
@@ -1833,7 +1833,7 @@ A0  LEDATA SegIndex=2 DataOffset=0 Length=2
 A0  LEDATA SegIndex=1 DataOffset=2 Length=E
     0000: 558BEC8B5E04B88000E800005DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=A, Frm=Ext 5, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=A, Frm=Ext 5, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR ISATTY.OBJ  LibMod26
@@ -1874,12 +1874,12 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=8A
     0060: 03EB059033C05DC3B801005DC3558BEC8B4604538BD8B80044CD215B8BC22583
     0080: 003D80007F0233C05DC3
 9C  FIXUPP
-    Rel=Sgmt, Loc=16bit offset, DtOff=7, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1C, Frm=Seg 1, Tgt=Seg+6F
-    Rel=Sgmt, Loc=16bit offset, DtOff=2C, Frm=Ext 1, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=3E, Frm=Ext 1, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=4D, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=5B, Frm=Ext D, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=7, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1C, Frm=Seg 1, Tgt=Seg+6F
+    Rel=Sgmt, Loc=16bit offset, Off=2C, Frm=Ext 1, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=3E, Frm=Ext 1, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=4D, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=5B, Frm=Ext D, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR ITOA.OBJ  LibMod28
@@ -1902,7 +1902,7 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=88
     0060: 03EB0F908D5EFC8B07FF078BD8B82D0088078B5EFC33C08807FF7604B101E800
     0080: 0083C4028BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=7F, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=7F, Frm=Ext 1, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR ITOAB.OBJ  LibMod29
@@ -1927,9 +1927,9 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=D8
     00A0: 5EFE8B074089078D5E0853FF378B46045B9399F7FB5B89070BC07503EB0490E9
     00C0: 00008B5EFE33C08807FF7606B101E8000083C4028BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=75, Frm=Ext A, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=C0, Frm=Seg 1, Tgt=Seg+24
-    Rel=Self, Loc=16bit offset, DtOff=CF, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=75, Frm=Ext A, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=C0, Frm=Seg 1, Tgt=Seg+24
+    Rel=Self, Loc=16bit offset, Off=CF, Frm=Ext 1, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR ITOD.OBJ  LibMod2A
@@ -2027,7 +2027,7 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=F9
     00C0: 5B88078B46080BC07403EB0490EB0490EB86908B46040BC07503EB16908D5E04
     00E0: 8B074889078B5E0603D8B820008807EBE2908B46068BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=8E, Frm=Ext 9, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=8E, Frm=Ext 9, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR LEFT.OBJ  LibMod2E
@@ -2048,7 +2048,7 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=53
     0020: EB0C908D5EFE8B07408907EBE1908D5E048B07FF07508D5EFE8B07FF078BD88A
     0040: 07985B88070BC07503EB0490EBE0908BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=1A, Frm=Ext C, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1A, Frm=Ext C, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR LEXCMP.OBJ  LibMod2F
@@ -2077,10 +2077,10 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=7D
     0040: 5DC3EBBF908B5E068A0798508B5E048A079850B102E8000083C4045DC3558BEC
     0060: 8B4606BB000003D88A0798508B4604BB000003D88A07985B932BC35DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=14, Frm=Seg 1, Tgt=Seg+5F
-    Rel=Self, Loc=16bit offset, DtOff=56, Frm=Seg 1, Tgt=Seg+5F
-    Rel=Sgmt, Loc=16bit offset, DtOff=64, Frm=Seg 2, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit offset, DtOff=70, Frm=Seg 2, Tgt=Seg+2
+    Rel=Self, Loc=16bit offset, Off=14, Frm=Seg 1, Tgt=Seg+5F
+    Rel=Self, Loc=16bit offset, Off=56, Frm=Seg 1, Tgt=Seg+5F
+    Rel=Sgmt, Loc=16bit offset, Off=64, Frm=Seg 2, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit offset, Off=70, Frm=Seg 2, Tgt=Seg+2
 8A  MODEND 
 ============================================================
 80  THEADR MALLOC.OBJ  LibMod30
@@ -2099,7 +2099,7 @@ A0  LEDATA SegIndex=2 DataOffset=0 Length=2
 A0  LEDATA SegIndex=1 DataOffset=2 Length=13
     0000: 558BECFF760433C050B102E8000083C4045DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=C, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=C, Frm=Ext 1, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR OTOI.OBJ  LibMod31
@@ -2123,11 +2123,11 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=A8
     0080: C30BC07503EB0890B8FEFF8BE55DC38D5EFE8B07FF078B46FC8B5E048907E900
     00A0: 008B46FE8BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=20, Frm=Ext 8, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=2F, Frm=Ext A, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=6F, Frm=Ext 8, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=7C, Frm=Ext 9, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=9F, Frm=Seg 1, Tgt=Seg+16
+    Rel=Self, Loc=16bit offset, Off=20, Frm=Ext 8, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=2F, Frm=Ext A, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=6F, Frm=Ext 8, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=7C, Frm=Ext 9, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=9F, Frm=Seg 1, Tgt=Seg+16
 8A  MODEND 
 ============================================================
 80  THEADR REVERSE.OBJ  LibMod32
@@ -2149,8 +2149,8 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=62
     0040: 07FF07508B5EFE8A07985B88078D5EFE8B07FF0F508B46FC5B8807EBC4908BE5
     0060: 5DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=C, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=28, Frm=Ext 6, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=C, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=28, Frm=Ext 6, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR SIGN.OBJ  LibMod33
@@ -2207,7 +2207,7 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=3A
     0000: 558BEC8B5E068A07980BC07503EB27908B5E068A0798508A4604985BE800000B
     0020: C07503EB06908B46065DC38D5E068B07408907EBCE9033C05DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=1D, Frm=Ext C, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1D, Frm=Ext C, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR STRCMP.OBJ  LibMod36
@@ -2228,7 +2228,7 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=52
     0020: 980BC07403EB059033C05DC38D5E068B074089078D5E048B07408907EBC5908B
     0040: 5E068A0798508B5E048A07985B932BC35DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=12, Frm=Ext C, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=12, Frm=Ext C, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR STRCPY.OBJ  LibMod37
@@ -2306,7 +2306,7 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=81
     0060: 8B46040BC07503EB14908B5E088A0798508B5E068A07985B932BC35DC333C05D
     0080: C3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=1C, Frm=Ext C, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1C, Frm=Ext C, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR STRNCPY.OBJ  LibMod3B
@@ -2347,7 +2347,7 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=4A
     0020: 508A4604985BE800000BC07503EB09908B46068D5EFE89078D5E068B07408907
     0040: EBCB908B46FE8BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=27, Frm=Ext C, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=27, Frm=Ext C, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR TOASCII.OBJ  LibMod3D
@@ -2384,8 +2384,8 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=3F
     0000: 558BEC8B5E04B85A00E800000BC07503EB17908B5E04B84100E800000BC07503
     0020: EB0790B80100EB039033C00BC07503EB09908B46040520005DC38B46045DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=A, Frm=Ext A, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1A, Frm=Ext 8, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=A, Frm=Ext A, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1A, Frm=Ext 8, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR TOUPPER.OBJ  LibMod3F
@@ -2405,8 +2405,8 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=3F
     0000: 558BEC8B5E04B87A00E800000BC07503EB17908B5E04B86100E800000BC07503
     0020: EB0790B80100EB039033C00BC07503EB09908B46042D20005DC38B46045DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=A, Frm=Ext A, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=1A, Frm=Ext 8, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=A, Frm=Ext A, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=1A, Frm=Ext 8, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR UNGETC.OBJ  LibMod40
@@ -2428,12 +2428,12 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=6A
     0040: EB069033C0EB0490B801000BC07503EB0690B8FFFF5DC38B4604BB0000D1E003
     0060: C3508B46065B89075DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=9, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=F, Frm=Ext 4, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=1C, Frm=Ext 2, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=2A, Frm=Ext D, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=3A, Frm=Ext E, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=5B, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=9, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=F, Frm=Ext 4, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=1C, Frm=Ext 2, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=2A, Frm=Ext D, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=3A, Frm=Ext E, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=5B, Frm=Ext 2, Tgt=Ext
 8A  MODEND 
 ============================================================
 80  THEADR UNLINK.OBJ  LibMod41
@@ -2475,11 +2475,11 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=A4
     0080: 03EB0890B8FEFF8BE55DC38D5EFE8B07FF078B46FC8B5E048907E900008B46FE
     00A0: 8BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=20, Frm=Ext 8, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=2F, Frm=Ext A, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=6B, Frm=Ext 8, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=78, Frm=Ext 9, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=9B, Frm=Seg 1, Tgt=Seg+16
+    Rel=Self, Loc=16bit offset, Off=20, Frm=Ext 8, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=2F, Frm=Ext A, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=6B, Frm=Ext 8, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=78, Frm=Ext 9, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=9B, Frm=Seg 1, Tgt=Seg+16
 8A  MODEND 
 ============================================================
 80  THEADR XTOI.OBJ  LibMod43
@@ -2507,33 +2507,33 @@ A0  LEDATA SegIndex=1 DataOffset=2 Length=129
     0100: C88BC3D3E0508D5EFA8B07FF078BD88A0798508B46FC5B932BC35B03C38B5E04
     0120: 8907E900008BE55DC3
 9C  FIXUPP
-    Rel=Self, Loc=16bit offset, DtOff=26, Frm=Ext C, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=4C, Frm=Seg 1, Tgt=Seg+D5
-    Rel=Self, Loc=16bit offset, DtOff=74, Frm=Ext 1, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=76, Frm=Seg 1, Tgt=Seg+45
-    Rel=Sgmt, Loc=16bit offset, DtOff=7A, Frm=Seg 1, Tgt=Seg+45
-    Rel=Sgmt, Loc=16bit offset, DtOff=7E, Frm=Seg 1, Tgt=Seg+45
-    Rel=Sgmt, Loc=16bit offset, DtOff=82, Frm=Seg 1, Tgt=Seg+45
-    Rel=Sgmt, Loc=16bit offset, DtOff=86, Frm=Seg 1, Tgt=Seg+45
-    Rel=Sgmt, Loc=16bit offset, DtOff=8A, Frm=Seg 1, Tgt=Seg+45
-    Rel=Sgmt, Loc=16bit offset, DtOff=8E, Frm=Seg 1, Tgt=Seg+45
-    Rel=Sgmt, Loc=16bit offset, DtOff=92, Frm=Seg 1, Tgt=Seg+45
-    Rel=Sgmt, Loc=16bit offset, DtOff=96, Frm=Seg 1, Tgt=Seg+45
-    Rel=Sgmt, Loc=16bit offset, DtOff=9A, Frm=Seg 1, Tgt=Seg+45
-    Rel=Sgmt, Loc=16bit offset, DtOff=9E, Frm=Seg 1, Tgt=Seg+50
-    Rel=Sgmt, Loc=16bit offset, DtOff=A2, Frm=Seg 1, Tgt=Seg+50
-    Rel=Sgmt, Loc=16bit offset, DtOff=A6, Frm=Seg 1, Tgt=Seg+50
-    Rel=Sgmt, Loc=16bit offset, DtOff=AA, Frm=Seg 1, Tgt=Seg+50
-    Rel=Sgmt, Loc=16bit offset, DtOff=AE, Frm=Seg 1, Tgt=Seg+50
-    Rel=Sgmt, Loc=16bit offset, DtOff=B2, Frm=Seg 1, Tgt=Seg+50
-    Rel=Sgmt, Loc=16bit offset, DtOff=B6, Frm=Seg 1, Tgt=Seg+5B
-    Rel=Sgmt, Loc=16bit offset, DtOff=BA, Frm=Seg 1, Tgt=Seg+5B
-    Rel=Sgmt, Loc=16bit offset, DtOff=BE, Frm=Seg 1, Tgt=Seg+5B
-    Rel=Sgmt, Loc=16bit offset, DtOff=C2, Frm=Seg 1, Tgt=Seg+5B
-    Rel=Sgmt, Loc=16bit offset, DtOff=C6, Frm=Seg 1, Tgt=Seg+5B
-    Rel=Sgmt, Loc=16bit offset, DtOff=CA, Frm=Seg 1, Tgt=Seg+5B
-    Rel=Self, Loc=16bit offset, DtOff=DA, Frm=Ext 9, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=123, Frm=Seg 1, Tgt=Seg+3C
+    Rel=Self, Loc=16bit offset, Off=26, Frm=Ext C, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=4C, Frm=Seg 1, Tgt=Seg+D5
+    Rel=Self, Loc=16bit offset, Off=74, Frm=Ext 1, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=76, Frm=Seg 1, Tgt=Seg+45
+    Rel=Sgmt, Loc=16bit offset, Off=7A, Frm=Seg 1, Tgt=Seg+45
+    Rel=Sgmt, Loc=16bit offset, Off=7E, Frm=Seg 1, Tgt=Seg+45
+    Rel=Sgmt, Loc=16bit offset, Off=82, Frm=Seg 1, Tgt=Seg+45
+    Rel=Sgmt, Loc=16bit offset, Off=86, Frm=Seg 1, Tgt=Seg+45
+    Rel=Sgmt, Loc=16bit offset, Off=8A, Frm=Seg 1, Tgt=Seg+45
+    Rel=Sgmt, Loc=16bit offset, Off=8E, Frm=Seg 1, Tgt=Seg+45
+    Rel=Sgmt, Loc=16bit offset, Off=92, Frm=Seg 1, Tgt=Seg+45
+    Rel=Sgmt, Loc=16bit offset, Off=96, Frm=Seg 1, Tgt=Seg+45
+    Rel=Sgmt, Loc=16bit offset, Off=9A, Frm=Seg 1, Tgt=Seg+45
+    Rel=Sgmt, Loc=16bit offset, Off=9E, Frm=Seg 1, Tgt=Seg+50
+    Rel=Sgmt, Loc=16bit offset, Off=A2, Frm=Seg 1, Tgt=Seg+50
+    Rel=Sgmt, Loc=16bit offset, Off=A6, Frm=Seg 1, Tgt=Seg+50
+    Rel=Sgmt, Loc=16bit offset, Off=AA, Frm=Seg 1, Tgt=Seg+50
+    Rel=Sgmt, Loc=16bit offset, Off=AE, Frm=Seg 1, Tgt=Seg+50
+    Rel=Sgmt, Loc=16bit offset, Off=B2, Frm=Seg 1, Tgt=Seg+50
+    Rel=Sgmt, Loc=16bit offset, Off=B6, Frm=Seg 1, Tgt=Seg+5B
+    Rel=Sgmt, Loc=16bit offset, Off=BA, Frm=Seg 1, Tgt=Seg+5B
+    Rel=Sgmt, Loc=16bit offset, Off=BE, Frm=Seg 1, Tgt=Seg+5B
+    Rel=Sgmt, Loc=16bit offset, Off=C2, Frm=Seg 1, Tgt=Seg+5B
+    Rel=Sgmt, Loc=16bit offset, Off=C6, Frm=Seg 1, Tgt=Seg+5B
+    Rel=Sgmt, Loc=16bit offset, Off=CA, Frm=Seg 1, Tgt=Seg+5B
+    Rel=Self, Loc=16bit offset, Off=DA, Frm=Ext 9, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=123, Frm=Seg 1, Tgt=Seg+3C
 8A  MODEND 
 ============================================================
 80  THEADR CALL.OBJ  LibMod44
@@ -2569,13 +2569,13 @@ A0  LEDATA SegIndex=3 DataOffset=0 Length=AD
     0080: C0C33BC37E0733C0C30BC07504B80100C333C0C35BEB049083C3042E8B0FE308
     00A0: 2E3B470275F2FFE14343FFE3C3
 9C  FIXUPP
-    Rel=Sgmt, Loc=16bit segment, DtOff=1, Frm=Seg 1, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit segment, DtOff=A, Frm=Seg 1, Tgt=Seg+2
-    Rel=Sgmt, Loc=16bit segment, DtOff=22, Frm=Seg 2, Tgt=Seg+40
-    Rel=Sgmt, Loc=16bit segment, DtOff=25, Frm=Seg 1, Tgt=Seg+2
-    Rel=Self, Loc=16bit offset, DtOff=36, Frm=Ext 2, Tgt=Ext
-    Rel=Sgmt, Loc=16bit offset, DtOff=39, Frm=Ext 1, Tgt=Ext
-    Rel=Self, Loc=16bit offset, DtOff=3C, Frm=Ext 3, Tgt=Ext
+    Rel=Sgmt, Loc=16bit segment, Off=1, Frm=Seg 1, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit segment, Off=A, Frm=Seg 1, Tgt=Seg+2
+    Rel=Sgmt, Loc=16bit segment, Off=22, Frm=Seg 2, Tgt=Seg+40
+    Rel=Sgmt, Loc=16bit segment, Off=25, Frm=Seg 1, Tgt=Seg+2
+    Rel=Self, Loc=16bit offset, Off=36, Frm=Ext 2, Tgt=Ext
+    Rel=Sgmt, Loc=16bit offset, Off=39, Frm=Ext 1, Tgt=Ext
+    Rel=Self, Loc=16bit offset, Off=3C, Frm=Ext 3, Tgt=Ext
 8A  MODEND Main Start Frm=Seg 3, Tgt=Seg+0
 ============================================================
 F1  LIBEND Padding=16D
