@@ -874,17 +874,19 @@ P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
     if ((lLocat & 0x80) == 0) {
       fatal("P3_FIXUPP: must be fixup, not thread (locat=%x).", lLocat);
     }
+    // for our purposes, lRelType and lOffType do not matter. They both encode
+    // a location at offset from the beginning of this segment record.
     if (lRelType == 0) {
-      fprintf(fdOut, "Rel=Self, ");
+      fprintf(fdOut, "Rel=Self, "); // relative to a different segment
     }
     else {
-      fprintf(fdOut, "Rel=Sgmt, ");
+      fprintf(fdOut, "Rel=Sgmt, "); // relative to this record in the segment
     }
     if (lOffType == 1) {
-      fprintf(fdOut, "Offset=Ptr(0x%x), ", lOffset);
+      fprintf(fdOut, "Off=0x%x, ", lOffset); // Offset from Relative
     }
     else if (lOffType == 2) {
-      fprintf(fdOut, "Offset=Seg+0x%x, ", lOffset);
+      fprintf(fdOut, "Off=Seg+0x%x, ", lOffset); // Only seen in call.obj?
     }
     else {
       fatal("P3_FIXUPP: unhandled offset type (%x).", lOffType);
