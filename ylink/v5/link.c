@@ -1,7 +1,5 @@
 /******************************************************************************
 * ylink - the ypsilon linker (c) 2017 Zane Wagner. All rights reserved.
-* link.c
-* Reads args, inits variables, utility functions
 ******************************************************************************/
 #include "stdio.h"
 #include "notice.h"
@@ -61,6 +59,7 @@ int pbdfCount;
 // --- ExtDef buffer ----------------------------------------------------------
 #define EXTBUF_LEN 1024
 char *extBuffer;
+int extCount;
 // --- DOS exe data -----------------------------------------------------------
 #define EXE_HDR_LEN 512
 uint fdOut;
@@ -91,7 +90,7 @@ AllocAll() {
   pbdfData = AllocMem(PBDF_PER * PBDF_CNT, 2);
   extBuffer = AllocMem(EXTBUF_LEN, 1);
   pathOutput = 0;
-  if (1 == 0) {
+  if (1 == 1) {
     unlink("fdOut.txt");
     fdOut = fopen("fdOut.txt", "a");
   }
@@ -640,7 +639,7 @@ Pass3() {
     int mdatBase, mdatFile;
     mdatBase = i * MDAT_PER;
     mdatFile = modData[mdatBase + MDAT_FLG] >> 12;
-    fprintf(fdOut, "Linking %s (%s)... ", 
+    fprintf(fdOut, "Linking %s (%s)...\n", 
       modData[mdatBase + MDAT_NAM], 
       filePaths[mdatFile]);
     if (!(fd = fopen(filePaths[mdatFile], "r"))) {
@@ -659,7 +658,6 @@ Pass3() {
     dataBase[1] = 0;
     P3_DoMod(fd, outfd, codeBase, dataBase);
     cleanupfd(fd);
-    fprintf(fdOut, "Done.\n");
   }
   printf("Writing Header... ");
   puts("Done.");
@@ -707,7 +705,7 @@ P3_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
         P3_LIDATA(length, fd, outfd, codeBase, dataBase, &segType, &segOffset);
         break;
       case FIXUPP:
-        P3_FIXUPP(length, fd, outfd, codeBase, dataBase, &segType, &segOffset);
+        P3_FIXUPP(length, fd, outfd, codeBase, dataBase, segType, segOffset);
         segType = SEG_NOTPRESENT; // only one fixupp per data record allowed
         break;
       case MODEND:
@@ -732,12 +730,17 @@ P3_EXTDEF(uint length, uint fd) {
   byte deftype;
   uint next, strlength;
   next = 0;
+  extCount = 0;
+  fprintf(fdOut, "  EXTDEF\n    ");
   while (length > 1) {
     strlength = read_strpre(line, fd);
+    fprintf(fdOut, "%s, ", line);
     deftype = read_u8(fd);
     length -= (strlength + 1);
     AddName(line, extBuffer, &next, EXTBUF_LEN);
+    extCount += 1;
   }
+  fprintf(fdOut, "\n");
   read_u8(fd); // checksum. assume correct.
 }
 
@@ -748,7 +751,7 @@ P3_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   length -= 4; // length includes segment type, offset, and checksum
   *segType = read_u8(fd);
   *segOffset = read_u16(fd);
-  fprintf(fdOut, "\n  LEDATA SegIdx=%x Offs=%x Len=%x ", *segType, *segOffset, length);
+  fprintf(fdOut, "  LEDATA SegIdx=%x Offs=%x Len=%x\n", *segType, *segOffset, length);
   if (*segType == 0 || *segType > SEGS_CNT) {
     fatalf("P3_LEDATA: segType of %u, must be between 1 and 3.", *segType);
   }
@@ -775,7 +778,7 @@ P3_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   length -= 4; // length includes segment type, offset, and checksum
   *segType = read_u8(fd);
   *segOffset = read_u16(fd);
-  fprintf(fdOut, "\n  LIDATA SegIdx=%x Offs=%x Len=%x ", *segType, *segOffset, length);
+  fprintf(fdOut, "  LIDATA SegIdx=%x Offs=%x Len=%x\n", *segType, *segOffset, length);
   if (*segType == 0 || *segType > SEGS_CNT) {
     fatalf("P3_LIDATA: segType of %u, must be between 1 and 3.", *segType);
   }
@@ -835,88 +838,172 @@ P3_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
 // several subsequent FIXUP subrecords, a FIXUPP object record that uses THREAD
 // subrecords may be smaller than one in which THREAD subrecords are not used.
 P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
-  byte *segType, int *segOffset) {
-  byte lLocat;    // 0x80 always set, indicates fixup (0: thread not handled)
-  byte lRelType;  // relative? 0: Self (to ip), 1: segment (to beginning)
-  byte lOffType;  // type reference? 1: ptr offset, 2: segment offset
+  byte segType, int segOffset) {
+  byte lLocat;    // 0x80 set: this is a fixup (unset: a thread, not handled)
+                  // 0x40 unset: Self-relative, set: segment-relative
+  byte lRefType;  // type of reference
   uint lOffset;   // location offset
   byte tFixdata;  // ffff.... 0x00: seg frame, 0x20: ext frame
                   // ....tttt 0x00: seg+offs, 0x02: ext+offs, 0x06: ext only
   byte tFrame;    // frame index
   byte tTarget;   // target index
   uint tOffset;   // target offset (when indicated by fixdata)
-  fprintf(fdOut, "\n  FIXUPP");
+  fprintf(fdOut, "  FIXUPP\n");
   while (length > 1) {
-    length = rd_fix_locat(length, fd, &lOffset, &lLocat, &lRelType, &lOffType);
+    length = rd_fix_locat(length, fd, &lOffset, &lLocat, &lRefType);
     length = rd_fix_target(length, fd, &tOffset, &tFixdata, &tFrame, &tTarget);
-    // --- location of fixupp -------------------------------------------------
-    // if lRelType is 0, then the fixup is relative to the instruction pointer
-    // value of the next instruction.
-    // if lRelType is 1, then
-    // values of lRelType and lOffType do not seem to matter. They all encode
-    // a location at offset from the beginning of this segment record. But I
-    // might be wrong, so we'll keep reading them.
-    fprintf(fdOut, "\n    ");
+    // --- fixupp reference data ----------------------------------------------
+    fprintf(fdOut, "    ");
     if ((lLocat & 0x80) == 0) {
       fatal("P3_FIXUPP: must be fixup, not thread (locat=%x).", lLocat);
     }
-    if (lRelType == 0) {
-      fprintf(fdOut, "Rel=IP, "); // relative to a different segment
+    if ((lLocat & 0x40) == 0) {
+      fprintf(fdOut, "Rel=IP, "); // relative to location of fixed up address.
     }
     else {
-      fprintf(fdOut, "Rel=Sgmt, "); // relative to this record in the segment
+      fprintf(fdOut, "Rel=Sgmt, "); // relative to beginning of segment.
     }
-    if (lOffType == 1) {
+    if (lRefType == 1) {
       fprintf(fdOut, "Off=0x%x, ", lOffset); // Offset from Relative
     }
-    else if (lOffType == 2) {
+    else if (lRefType == 2) {
       fprintf(fdOut, "Off=Seg+0x%x, ", lOffset); // Only seen in call.obj?
     }
     else {
-      fatal("P3_FIXUPP: unhandled offset type (%x).", lOffType);
+      fatal("P3_FIXUPP: unhandled reference type %x.", lRefType);
+    }
+    if (tFrame != tTarget) {
+      fatalf("P3_FIXUPP: Segment frame and target must match.");
     }
     // --- target of fixupp ---------------------------------------------------
-    switch (tFixdata >> 4) {
-      case 0:     // frame given by a segment index
-        fprintf(fdOut, "Tgt=Seg%x, ", tFrame);
-        switch ((tFixdata & 0x0f)) {
-          case 0: // target given by a segment index + displacement
-            if (tFrame != tTarget) {
-              fatalf("P3_FIXUPP: Segment frame and target must match.");
-            }
-            P3_FixExt(tFrame, tOffset, codeBase, dataBase, *segType, *segOffset);
-            break;
-          default:
-            fatalf("P3_FIXUPP: Unhandled tgt %u in segment frame.", 
-              (tFixdata & 0x0f));
-            break;
-        }
-        break;
-      case 2:     // frame given by an external index
-        fprintf(fdOut, "Tgt=Ext%x, ", tFrame);
-        switch ((tFixdata & 0x0f)) {
-          case 2: // target given by an external index + displacement
-            fprintf(fdOut, "Ext%x+%x ", tTarget, tOffset);
-            break;
-          case 6:  // target given by an external index alone
-            fprintf(fdOut, "Ext%x ", tTarget);
-            break;
-          default:
-            fatalf("P3_FIXUPP: Unhandled tgt %u in ext frame.", 
-              (tFixdata & 0x0f));
-            break;
-        }
-        break;
+    if ((tFixdata & 0xf0) == 0x00) { // frame given by a segment index
+      P3_FixSeg(lLocat, lRefType, lOffset, tFrame, tOffset, codeBase, dataBase, 
+        segType, segOffset);
+    }
+    else if ((tFixdata & 0xf0) == 0x20) { // frame given by an external index
+      if ((tFixdata & 0x0f) != 6) {
+        fatalf("P3_FIXUPP: Unhandled frame type %u in ext.", (tFixdata & 0x0f));
+      }
+      // target given by an external index alone
+      P3_FixExt(lLocat, lRefType, lOffset, tFrame, tOffset, codeBase, dataBase, 
+        segType, segOffset);
+    }
+    else {
+      fatal("P3_FIXUPP: unhandled Fixdata frame of %x.", tFixdata & 0xf0);
     }
   }
   read_u8(fd); // checksum. assume correct.
 }
 
-// Puts the address of the 
-P3_FixExt(byte extSeg, uint extOffset, uint codeBase[], uint dataBase[], 
-  byte *segType, int *segOffset) {
-  fprintf(fdOut, "Seg%x+%x ", extSeg, extOffset);
-  
+P3_FixExt(byte lLocat, byte lRefType, uint lOffset, byte fixExt, uint fixOffset,
+  uint codeBase[], uint dataBase[], byte segType, int segOffset) {
+  int extName, pbdfIndex, modOrigin;
+  if (lRefType != 1) {
+    fatalf("P3_FixExt: Unhandled ref type &u.", lRefType);
+  }
+  if (segType != SEG_CODE) {
+    fatal("P3_FixExt: Segment type must be CODE");
+  }
+  if (fixExt > extCount) {
+    fatalf2("P3_FixExt: Ext index of %u is greater than ext count of %u.", 
+      fixExt, extCount);
+  }
+  if ((lLocat & 0x40) == 0) {
+    // IP-relative.
+    // Value to be written is ext-address - segOffset - lOffset - 2
+  }
+  else {
+    // relative to beginning of segment.
+    // fatal("P3_FixExt: Not yet implemented");
+  }
+  extName = GetName(fixExt - 1, extBuffer, EXTBUF_LEN);
+  if (extName == 0xffff) {
+    fatalf("P3_FixExt: Could not find ext index %u.", fixExt);
+  }
+  pbdfIndex = FindPubDef(extName);
+  if (pbdfIndex == 0xffff) {
+    fatalf("P3_FixExt: Could not find pubdef matching extdef %s.", extName);
+  }
+  pbdfIndex = pbdfIndex * PBDF_PER;
+  modOrigin = (pbdfData[pbdfIndex + PBDF_WHERE] >> 8) * MDAT_PER;
+  switch (pbdfData[pbdfIndex + PBDF_WHERE] & 0x00ff) {
+    case SEG_CODE:
+      modOrigin = modData[modOrigin + MDAT_CSO];
+      break;
+    case SEG_DATA:
+      modOrigin = modData[modOrigin + MDAT_DSO];
+      break;
+    default:
+      fatalf("P3_FixExt: Ext is in unhandled seg of index %x", 
+        pbdfData[pbdfIndex + PBDF_WHERE] & 0x00ff);
+      break;
+  }
+  fprintf(fdOut, "Tgt=Ext%x (%s; Seg=0x%x Mod=%s+0x%x)\n",
+    fixExt,
+    extName, 
+    pbdfData[pbdfIndex + PBDF_WHERE] & 0x00ff, 
+    modData[(pbdfData[pbdfIndex + PBDF_WHERE] >> 8) * MDAT_PER + MDAT_NAM],
+    pbdfData[pbdfIndex + PBDF_ADDR]);
+  fprintf(fdOut, "      WRITE 0x%x+0x%x at 0x%x+0x%x\n",
+    modOrigin, pbdfData[pbdfIndex + PBDF_ADDR], 
+    codeBase[0], lOffset + segOffset);
+}
+
+P3_FixSeg(byte lLocat, byte lRefType, uint lOffset, byte fixSeg, uint fixOffset,
+  uint codeBase[], uint dataBase[], byte segType, int segOffset) {
+  uint segBase[2];
+  fprintf(fdOut, "Tgt=Seg%u+0x%x ", fixSeg, fixOffset);
+  fixSeg -= 1;
+  P3_SetBase(fixSeg, codeBase, dataBase, segBase);
+  // location of fixup: segBase[segIndex] + segOffset + lOffset
+  // fprintf(fdOut, "(%u, %u)", codeBase[0], dataBase[0]);
+  if ((lLocat & 0x40) == 0) {
+    // IP-relative.
+    // Value to be written is fixOffset - segOffset - lOffset - 2
+    if (fixSeg != segType) {
+      // Make sure we're in the same segment (this SHOULD be the case, because
+      // we're fixing up code, and code is always in the same segment in the 
+      // NEAR model that SmallC uses.
+      fatalf2("P3_FixSeg: IP-rel, seg %u must equal seg %u.", fixSeg, segType);
+    }
+    if (lRefType == 1) {
+      // 16-bit offset
+      fprintf(fdOut, "WRITE 0x%x at 0x%x+0x%x\n",
+        fixOffset - segOffset - lOffset - 2, codeBase[0], lOffset + segOffset);
+    }
+    else {
+      // 16-bit logical segment base
+      fatal("P3_FixSeg: Unhandled segment base ref in IP-relative fixupp.");
+    }
+  }
+  else {
+    // relative to beginning of segment.
+    if (lRefType == 1) {
+      // 16-bit offset
+      fprintf(fdOut, "WRITE 0x%x at 0x%x+0x%x\n",
+        fixOffset, codeBase[0], lOffset + segOffset);
+    }
+    else if (lRefType == 2) {
+      // 16-bit logical segment base
+      uint logBase;
+      switch (locSegs[fixSeg]) {
+        case SEG_CODE:
+          logBase = 0;
+          break;
+        case SEG_DATA:
+          logBase = segLengths[0] >> 4;
+          break;
+        case SEG_STACK:
+          logBase = (segLengths[0] + segLengths[1]) >> 4;
+          break;
+        default:
+          fatalf2("P3_FixSeg: Unhandled logical segment base index %u, %u",
+            fixSeg, locSegs[fixSeg]);
+      }
+      fprintf(fdOut, "WRITE 0x%x at 0x%x+0x%x\n",
+        logBase, codeBase[0], lOffset + segOffset);
+    }
+  }
 }
 
 P3_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
@@ -1010,6 +1097,7 @@ rd_fix_target(uint length, uint fd,
       length -= 2;
       break;
     case 6 :  // target given by an external index alone
+      *offset = 0;
       break;
     default:
       printf("d_fix_target: unhandled target method %x.", *fixdata & 0x0f);
@@ -1020,14 +1108,11 @@ rd_fix_target(uint length, uint fd,
 
 // rd_fix_locat: reads the place where the fixupp will be written.
 //    Returns the count of bytes remaining in the record.
-rd_fix_locat(uint length, uint fd, 
-             uint *offset, byte *locat, byte *lRelType, byte *lOffType) {
+rd_fix_locat(uint length, uint fd, uint *offset, byte *locat, byte *lRefType) {
   // -----------------------------------------------------------------
   // The first bit (in the low byte) is always  one  to  indicate
   // that this block defines a "fixup" as opposed to a "thread."
-  *locat = read_u8(fd);
-  // -----------------------------------------------------------------
-  //  The REFERENCE MODE bit indicates how the reference is made.
+  //  The REFERENCE MODE bit (0x40) indicates how the reference is made.
   //  * Self-relative references locate a target address relative to
   //    the CPU's instruction pointer (IP); that is, the target is a
   //    certain distance from the location currently indicated by
@@ -1037,12 +1122,11 @@ rd_fix_locat(uint length, uint fd,
   //  * Segment-relative references locate a target address in any segment 
   //    relative to the beginning of the segment. This is just the
   //    "displacement" field that occurs in so many instructions.
-  *lRelType = (*locat & 0x40) != 0;
+  *locat = read_u8(fd);
   // -----------------------------------------------------------------
   // The TYPE REFERENCE bits (called the LOC  bits  in  Microsoft
-  // documentation) encode the type of reference as follows:
-    // SmallC22/SmallA do not emit 32 bit pointers or high byte offsets.
-  *lOffType = (*locat & 0x3c) >> 2; // 4 bit field.
+  // documentation) encode the type of reference.
+  *lRefType = (*locat & 0x3c) >> 2; // 4 bit field.
   // -----------------------------------------------------------------
   //  The DATA RECORD OFFSET subfield specifies the offset, within
   //  the preceding data record, to the reference. Since a  record
@@ -1164,25 +1248,24 @@ clearsilent(uint length, uint fd) {
 // === Error Routines =========================================================
 
 fatal(char *str) {
-  errout(str);
+  fputs("  Error: ", stderr);
+  fputs(str, stderr);
+  fputc(NEWLINE, stderr);
   abort(1);
 }
 
 fatalf(char *format, char *arg) {
-  erroutf(format, arg);
+  fputs("  Error: ", stderr); 
+  fprintf(stderr, format, arg);
+  fputc(NEWLINE, stderr);
   abort(1);
 }
-
-errout(char *str) {
-    fputs("    Error: ", stderr);
-    fputs(str, stderr);
-    fputc(NEWLINE, stderr);
-}
-
-erroutf(char *format, char *arg) {
-    fputs("    Error: ", stderr); 
-    fprintf(stderr, format, arg);
-    fputc(NEWLINE, stderr);
+  
+fatalf2(char *format, char *arg0, char *arg1) {
+  fputs("  Error: ", stderr); 
+  fprintf(stderr, format, arg0, arg1);
+  fputc(NEWLINE, stderr);
+  abort(1);
 }
 
 // === Memory Management ======================================================
@@ -1199,16 +1282,54 @@ AllocMem(int nItems, int itemSize) {
 
 // AddName: adds a null-terminated string to a byte array. Returns ptr to
 // byte array where string was placed. Fails if string will not fit.
-AddName(char *name, char *names, uint next, uint max) {
+AddName(char *name, char *names, uint *next, uint max) {
   uint nameat, i;
   nameat = i = *next;
-  while (names[i++] = *name++) {
+  while (*name != 0) {
+    names[i++] = *name++;
     if (i >= max) {
-      fprintf(stderr, "\n%s at 0x%x exceeded names length of %u (0x%x)\n", 
+      fprintf(stderr, "\n%s at 0x%x exceeded names length of 0x%x.\n", 
               name, nameat, max, i);
       abort(1);
     }
   }
+  names[i++] = 0;
   *next = i;
-  return nameat + names;
+  return names + nameat;
+}
+
+GetName(int index, char *names, uint max) {
+  uint i, start, count;
+  i = start = count = 0;
+  while (i < max) {
+    if (count == index) {
+      return names + start;
+    }
+    if (names[i] == 0) {
+      start = i + 1;
+      count += 1;
+    }
+    i++;
+  }
+  return 0xffff;
+}
+
+MatchName(char* name, char *names, uint max) {
+  uint i, j, index;
+  i = index = 0;
+  while (i < max) {
+    j = 0;
+    while (name[j] == names[i]) {
+      if (name[j] == 0) {
+        return index;
+      }
+      i++;
+      j++;
+    }
+    while (names[i] != 0) {
+      i++;
+    }
+    index = i;
+  }
+  return -1;
 }
