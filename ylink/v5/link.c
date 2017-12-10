@@ -71,15 +71,12 @@ main(int argc, int *argv) {
   AllocAll();
   RdArgs(argc, argv);
   Initialize();
-  unlink("fdOut.txt");
-  fdOut = fopen("fdOut.txt", "a");
   Pass1();
   Pass2();
   Pass3();
-  fclose(fdOut);
-  /*printf("\nMod Count: %u\nPubdef Count: %u\nCode: %u\nData: %u\nStack: %u",
+  fprintf(fdOut, "Mods: %u\nPubdefs: %u\nCode: %u b\nData: %u b\nStack: %u b",
     modCount, pbdfCount, segLengths[SEG_CODE], segLengths[SEG_DATA],
-    segLengths[SEG_STACK]);*/
+    segLengths[SEG_STACK]);
   DeAllocAll();
   return 0;
 }
@@ -94,10 +91,20 @@ AllocAll() {
   pbdfData = AllocMem(PBDF_PER * PBDF_CNT, 2);
   extBuffer = AllocMem(EXTBUF_LEN, 1);
   pathOutput = 0;
+  if (1 == 0) {
+    unlink("fdOut.txt");
+    fdOut = fopen("fdOut.txt", "a");
+  }
+  else {
+    fdOut = stdout;
+  }
 }
 
 DeAllocAll() {
   // need to write this.
+  if (fdOut != stdout) {
+    fclose(fdOut);
+  }
 }
 
 Initialize() {
@@ -113,6 +120,7 @@ Initialize() {
   for (i = 0; i < SEGS_CNT; i++) {
     segLengths[i] = 0;
   }
+  
 }
 
 RdArgs(int argc, int *argv) {
@@ -745,17 +753,7 @@ P3_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
     fatalf("P3_LEDATA: segType of %u, must be between 1 and 3.", *segType);
   }
   *segType = locSegs[*segType - 1]; // transform to local segment index.
-  if (*segType == SEG_CODE) {
-    segBase[0] = codeBase[0];
-    segBase[1] = codeBase[1];
-  }
-  else if (*segType == SEG_DATA) {
-    segBase[0] = dataBase[0];
-    segBase[1] = dataBase[1];
-  }
-  else {
-    fatalf("P3_LEDATA: Local segType of %u, must be 0 or 1. ", *segType);
-  }
+  P3_SetBase(*segType, codeBase, dataBase, segBase);
   segBase[0] += *segOffset;
   bseek(outfd, segBase, 0);
   for (i = 0; i < length; i++) {
@@ -782,25 +780,7 @@ P3_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
     fatalf("P3_LIDATA: segType of %u, must be between 1 and 3.", *segType);
   }
   *segType = locSegs[*segType - 1]; // transform to local segment index.
-  if (*segType == SEG_CODE) {
-    segBase[0] = codeBase[0];
-    segBase[1] = codeBase[1];
-  }
-  else if (*segType == SEG_DATA) {
-    segBase[0] = dataBase[0];
-    segBase[1] = dataBase[1];
-  }
-  else if (*segType == SEG_STACK) {
-    // this is why we can only have one stack segment.
-    segBase[0] = segLengths[SEG_CODE] + segLengths[SEG_DATA] + EXE_HDR_LEN;
-    segBase[1] = 0;
-    fprintf(fdOut, " Stack at %x", segBase[0]);
-  }
-  else {
-    printf(" Segs=%x %x %x ", locSegs[0], locSegs[1], locSegs[2]);
-    clearrecord(length, fd);
-    fatalf("P3_LIDATA: Local segType of %u, must be 0, 1, or 2. ", *segType);
-  }
+  P3_SetBase(*segType, codeBase, dataBase, segBase);
   segBase[0] += *segOffset;
   bseek(outfd, segBase, 0);
   while (length > 1) {
@@ -870,14 +850,18 @@ P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
     length = rd_fix_locat(length, fd, &lOffset, &lLocat, &lRelType, &lOffType);
     length = rd_fix_target(length, fd, &tOffset, &tFixdata, &tFrame, &tTarget);
     // --- location of fixupp -------------------------------------------------
+    // if lRelType is 0, then the fixup is relative to the instruction pointer
+    // value of the next instruction.
+    // if lRelType is 1, then
+    // values of lRelType and lOffType do not seem to matter. They all encode
+    // a location at offset from the beginning of this segment record. But I
+    // might be wrong, so we'll keep reading them.
     fprintf(fdOut, "\n    ");
     if ((lLocat & 0x80) == 0) {
       fatal("P3_FIXUPP: must be fixup, not thread (locat=%x).", lLocat);
     }
-    // for our purposes, lRelType and lOffType do not matter. They both encode
-    // a location at offset from the beginning of this segment record.
     if (lRelType == 0) {
-      fprintf(fdOut, "Rel=Self, "); // relative to a different segment
+      fprintf(fdOut, "Rel=IP, "); // relative to a different segment
     }
     else {
       fprintf(fdOut, "Rel=Sgmt, "); // relative to this record in the segment
@@ -895,24 +879,65 @@ P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
     switch (tFixdata >> 4) {
       case 0:     // frame given by a segment index
         fprintf(fdOut, "Tgt=Seg%x, ", tFrame);
+        switch ((tFixdata & 0x0f)) {
+          case 0: // target given by a segment index + displacement
+            if (tFrame != tTarget) {
+              fatalf("P3_FIXUPP: Segment frame and target must match.");
+            }
+            P3_FixExt(tFrame, tOffset, codeBase, dataBase, *segType, *segOffset);
+            break;
+          default:
+            fatalf("P3_FIXUPP: Unhandled tgt %u in segment frame.", 
+              (tFixdata & 0x0f));
+            break;
+        }
         break;
       case 2:     // frame given by an external index
         fprintf(fdOut, "Tgt=Ext%x, ", tFrame);
-        break;
-    }
-    switch ((tFixdata & 0x0f)) {
-      case 0:  // target given by a segment index + displacement
-        fprintf(fdOut, "Seg%x+%x ", tTarget, tOffset);
-        break;
-      case 2:  // target given by an external index + displacement
-        fprintf(fdOut, "Ext%x+%x ", tTarget, tOffset);
-        break;
-      case 6:  // target given by an external index alone
-        fprintf(fdOut, "Ext%x ", tTarget);
+        switch ((tFixdata & 0x0f)) {
+          case 2: // target given by an external index + displacement
+            fprintf(fdOut, "Ext%x+%x ", tTarget, tOffset);
+            break;
+          case 6:  // target given by an external index alone
+            fprintf(fdOut, "Ext%x ", tTarget);
+            break;
+          default:
+            fatalf("P3_FIXUPP: Unhandled tgt %u in ext frame.", 
+              (tFixdata & 0x0f));
+            break;
+        }
         break;
     }
   }
   read_u8(fd); // checksum. assume correct.
+}
+
+// Puts the address of the 
+P3_FixExt(byte extSeg, uint extOffset, uint codeBase[], uint dataBase[], 
+  byte *segType, int *segOffset) {
+  fprintf(fdOut, "Seg%x+%x ", extSeg, extOffset);
+  
+}
+
+P3_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
+  if (segType == SEG_CODE) {
+    segBase[0] = codeBase[0];
+    segBase[1] = codeBase[1];
+  }
+  else if (segType == SEG_DATA) {
+    segBase[0] = dataBase[0];
+    segBase[1] = dataBase[1];
+  }
+  else if (segType == SEG_STACK) {
+    // this is why we can only have one stack segment.
+    segBase[0] = segLengths[SEG_CODE] + segLengths[SEG_DATA] + EXE_HDR_LEN;
+    segBase[1] = 0;
+    fprintf(fdOut, " Stack at %x", segBase[0]);
+  }
+  else {
+    printf(" Segs=%x %x %x ", locSegs[0], locSegs[1], locSegs[2]);
+    fatalf("P3_XXDATA: Local SegType of %u, must be 0 or 1. ", segType);
+  }
 }
 
 // ============================================================================
