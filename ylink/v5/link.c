@@ -659,9 +659,9 @@ Pass3() {
     mdatBase = i * MDAT_PER;
     if ((modData[mdatBase + MDAT_FLG] & FlgInclude) == FlgInclude) {
       mdatFile = modData[mdatBase + MDAT_FLG] >> 12;
-      fprintf(fdDebug, "Linking %s (%s)...\n", 
-        modData[mdatBase + MDAT_NAM], 
-        filePaths[mdatFile]);
+      fprintf(fdDebug, "Linking %s (%s) CODE=0x%x DATA=0x%x \n", 
+        modData[mdatBase + MDAT_NAM], filePaths[mdatFile],
+        modData[mdatBase + MDAT_CSO], modData[mdatBase + MDAT_DSO]);
       if (!(fd = fopen(filePaths[mdatFile], "r"))) {
         fatal("Could not open file.");
       }
@@ -1002,11 +1002,8 @@ P3_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
   fprintf(fdDebug, "Tgt=Seg%u+0x%x\n", fixSeg, fixOffset);
   fixSeg -= 1;
   P3_SetBase(fixSeg, codeBase, dataBase, segBase);
-  // location of fixup: segBase[segIndex] + segOffset + lOffset
-  // fprintf(fdDebug, "(%u, %u)", codeBase[0], dataBase[0]);
   if ((lLocat & 0x40) == 0) {
     // IP-relative.
-    // Value to be written is fixOffset - segOffset - lOffset - 2
     if (fixSeg != segType) {
       // Make sure we're in the same segment (this SHOULD be the case, because
       // we're fixing up code, and code is always in the same segment in the 
@@ -1027,7 +1024,19 @@ P3_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
     // relative to beginning of segment.
     if (lRefType == 1) {
       // 16-bit offset
-      P3_DoFixupp(outfd, fixOffset, 0, 0, codeBase[0], lOffset + segOffset);
+      uint whereBase;
+      switch (locSegs[fixSeg]) {
+        case SEG_CODE:
+          whereBase = codeBase[0] - EXE_HDR_LEN;
+          break;
+        case SEG_DATA:
+          whereBase = dataBase[0] - EXE_HDR_LEN - segLengths[SEG_CODE];
+          break;
+        default:
+          fatalf("P3_FixSeg: Unhandled relative seg base index %u.", fixSeg);
+      }
+      P3_DoFixupp(outfd, whereBase, fixOffset, 0,
+        codeBase[0], lOffset + segOffset);
     }
     else if (lRefType == 2) {
       // 16-bit logical segment base
@@ -1080,16 +1089,12 @@ P3_DoFixupp(uint fd, uint what, uint whatOff, uint whatRelative,
   uint offset;
   if (whatRelative == 1) {
     offset = where + whereOff + 2 - EXE_HDR_LEN;
-    // fprintf(fdDebug, "      WRITE 0x%x (0x%x+0x%x-0x%x) at 0x%x+0x%x\n",
-    //  what + whatOff - offset, what, whatOff, offset, where, whereOff);
-    fprintf(fdDebug, "      WRITE 0x%x at 0x%x\n",
-      what + whatOff - offset, where + whereOff);
   }
   else {
     offset = 0;
-    fprintf(fdDebug, "      WRITE 0x%x+0x%x at 0x%x+0x%x\n",
-      what, whatOff, where, whereOff);
   }
+    fprintf(fdDebug, "      WRITE 0x%x at 0x%x\n",
+      what + whatOff - offset, where + whereOff);
   btell(fd, nowAddr);
   outAddr[0] = where + whereOff;
   outAddr[1] = 0;
