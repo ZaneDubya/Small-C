@@ -665,13 +665,22 @@ Pass3() {
   cleanupfd(outfd);
 }
 
-WriteExeHeader(uint outfd) {
+WriteExeHeader(uint fd) {
   uint beginning[2];
+  uint blockcount, lastblock;
   beginning[0] = beginning[1] = 0;
-  bseek(outfd, beginning, 0);
-  fputs("MZ", outfd);
-  fputs("MZ", outfd);
-  fputs("MZ", outfd);
+  blockcount = segLengths[0] + segLengths[1] + segLengths[2];
+  lastblock = blockcount % 512;
+  blockcount /= 512;
+  if (lastblock != 0) {
+    blockcount += 1;
+  }
+  bseek(fd, beginning, 0);
+  fputs("MZ", fd);
+  fputc(lastblock & 0x00ff, fd);
+  fputc(lastblock >> 8, fd);
+  fputc(blockcount & 0x00ff, fd);
+  fputc(blockcount >> 8, fd);
 }
 
 P3_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
