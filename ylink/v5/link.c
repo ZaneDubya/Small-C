@@ -62,7 +62,7 @@ char *extBuffer;
 int extCount;
 // --- DOS exe data -----------------------------------------------------------
 #define EXE_HDR_LEN 512
-uint fdOut;
+uint fdDebug;
 
 main(int argc, int *argv) {
   int i;
@@ -73,7 +73,7 @@ main(int argc, int *argv) {
   Pass1();
   Pass2();
   Pass3();
-  fprintf(fdOut, "Mods: %u\nPubdefs: %u\nCode: %u b\nData: %u b\nStack: %u b",
+  fprintf(fdDebug, "Mods: %u\nPubdefs: %u\nCode: %u b\nData: %u b\nStack: %u b",
     modCount, pbdfCount, segLengths[SEG_CODE], segLengths[SEG_DATA],
     segLengths[SEG_STACK]);
   DeAllocAll();
@@ -91,18 +91,18 @@ AllocAll() {
   extBuffer = AllocMem(EXTBUF_LEN, 1);
   pathOutput = 0;
   if (1 == 1) {
-    unlink("fdOut.txt");
-    fdOut = fopen("fdOut.txt", "a");
+    unlink("fdDebug.txt");
+    fdDebug = fopen("fdDebug.txt", "a");
   }
   else {
-    fdOut = stdout;
+    fdDebug = stdout;
   }
 }
 
 DeAllocAll() {
   // need to write this.
-  if (fdOut != stdout) {
-    fclose(fdOut);
+  if (fdDebug != stdout) {
+    fclose(fdDebug);
   }
 }
 
@@ -195,17 +195,17 @@ byte libIdxModule;
 
 Pass1() {
   uint i, fd;
-  fprintf(fdOut, "Pass 1:\n");
+  fprintf(fdDebug, "Pass 1:\n");
   modCount = 0;
   pbdfCount = 0;
   for (i = 0; i < fileCount; i++) {
-    fprintf(fdOut, "  Reading %s... ", filePaths[i]);
+    fprintf(fdDebug, "  Reading %s... ", filePaths[i]);
     if (!(fd = fopen(filePaths[i], "r"))) {
       fatalf("Could not open file '%s'", filePaths[i]);
     }
     P1_RdFile(i, fd);
     cleanupfd(fd);
-    fprintf(fdOut, "Done.\n");
+    fprintf(fdDebug, "Done.\n");
   }
   IncSegLengthsToNextParagraph();
 }
@@ -554,12 +554,12 @@ Pass2() {
   // For each mod: open the mod's file, then read the file to that mod.
   uint i, fd;
   uint offset[2];
-  fprintf(fdOut, "Pass 2:\n");
+  fprintf(fdDebug, "Pass 2:\n");
   for (i = 0; i < modCount; i++) {
     int mdatBase, mdatFile;
     mdatBase = i * MDAT_PER;
     mdatFile = modData[mdatBase + MDAT_FLG] >> 12;
-    fprintf(fdOut, "  Resolving %s (%s)... ", 
+    fprintf(fdDebug, "  Resolving %s (%s)... ", 
       modData[mdatBase + MDAT_NAM], 
       filePaths[mdatFile]);
     if (!(fd = fopen(filePaths[mdatFile], "r"))) {
@@ -572,7 +572,7 @@ Pass2() {
     }
     P2_DoMod(fd);
     cleanupfd(fd);
-    fprintf(fdOut, "Done.\n");
+    fprintf(fdDebug, "Done.\n");
   }
 }
 
@@ -634,12 +634,12 @@ Pass3() {
   uint codeBase[2]; // offset to code segment in output file.
   uint dataBase[2]; // offset to data segment in output file.
   outfd = fopen(pathOutput, "a");
-  fprintf(fdOut, "Pass 3:\n");
+  fprintf(fdDebug, "Pass 3:\n");
   for (i = 0; i < modCount; i++) {
     int mdatBase, mdatFile;
     mdatBase = i * MDAT_PER;
     mdatFile = modData[mdatBase + MDAT_FLG] >> 12;
-    fprintf(fdOut, "Linking %s (%s)...\n", 
+    fprintf(fdDebug, "Linking %s (%s)...\n", 
       modData[mdatBase + MDAT_NAM], 
       filePaths[mdatFile]);
     if (!(fd = fopen(filePaths[mdatFile], "r"))) {
@@ -731,16 +731,16 @@ P3_EXTDEF(uint length, uint fd) {
   uint next, strlength;
   next = 0;
   extCount = 0;
-  fprintf(fdOut, "  EXTDEF\n    ");
+  fprintf(fdDebug, "  EXTDEF\n    ");
   while (length > 1) {
     strlength = read_strpre(line, fd);
-    fprintf(fdOut, "%s, ", line);
+    fprintf(fdDebug, "%s, ", line);
     deftype = read_u8(fd);
     length -= (strlength + 1);
     AddName(line, extBuffer, &next, EXTBUF_LEN);
     extCount += 1;
   }
-  fprintf(fdOut, "\n");
+  fprintf(fdDebug, "\n");
   read_u8(fd); // checksum. assume correct.
 }
 
@@ -751,7 +751,7 @@ P3_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   length -= 4; // length includes segment type, offset, and checksum
   *segType = read_u8(fd);
   *segOffset = read_u16(fd);
-  fprintf(fdOut, "  LEDATA SegIdx=%x Offs=%x Len=%x\n", *segType, *segOffset, length);
+  fprintf(fdDebug, "  LEDATA SegIdx=%x Offs=%x Len=%x\n", *segType, *segOffset, length);
   if (*segType == 0 || *segType > SEGS_CNT) {
     fatalf("P3_LEDATA: segType of %u, must be between 1 and 3.", *segType);
   }
@@ -778,7 +778,7 @@ P3_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   length -= 4; // length includes segment type, offset, and checksum
   *segType = read_u8(fd);
   *segOffset = read_u16(fd);
-  fprintf(fdOut, "  LIDATA SegIdx=%x Offs=%x Len=%x\n", *segType, *segOffset, length);
+  fprintf(fdDebug, "  LIDATA SegIdx=%x Offs=%x Len=%x\n", *segType, *segOffset, length);
   if (*segType == 0 || *segType > SEGS_CNT) {
     fatalf("P3_LIDATA: segType of %u, must be between 1 and 3.", *segType);
   }
@@ -848,26 +848,26 @@ P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   byte tFrame;    // frame index
   byte tTarget;   // target index
   uint tOffset;   // target offset (when indicated by fixdata)
-  fprintf(fdOut, "  FIXUPP\n");
+  fprintf(fdDebug, "  FIXUPP\n");
   while (length > 1) {
     length = rd_fix_locat(length, fd, &lOffset, &lLocat, &lRefType);
     length = rd_fix_target(length, fd, &tOffset, &tFixdata, &tFrame, &tTarget);
     // --- fixupp reference data ----------------------------------------------
-    fprintf(fdOut, "    ");
+    fprintf(fdDebug, "    ");
     if ((lLocat & 0x80) == 0) {
       fatal("P3_FIXUPP: must be fixup, not thread (locat=%x).", lLocat);
     }
     if ((lLocat & 0x40) == 0) {
-      fprintf(fdOut, "Rel=IP, "); // relative to location of fixed up address.
+      fprintf(fdDebug, "Rel=IP, "); // relative to location of fixed up address.
     }
     else {
-      fprintf(fdOut, "Rel=Sgmt, "); // relative to beginning of segment.
+      fprintf(fdDebug, "Rel=Sgmt, "); // relative to beginning of segment.
     }
     if (lRefType == 1) {
-      fprintf(fdOut, "Off=0x%x, ", lOffset); // Offset from Relative
+      fprintf(fdDebug, "Off=0x%x, ", lOffset); // Offset from Relative
     }
     else if (lRefType == 2) {
-      fprintf(fdOut, "Off=Seg+0x%x, ", lOffset); // Only seen in call.obj?
+      fprintf(fdDebug, "Off=Seg+0x%x, ", lOffset); // Only seen in call.obj?
     }
     else {
       fatal("P3_FIXUPP: unhandled reference type %x.", lRefType);
@@ -877,16 +877,16 @@ P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
     }
     // --- target of fixupp ---------------------------------------------------
     if ((tFixdata & 0xf0) == 0x00) { // frame given by a segment index
-      P3_FixSeg(lLocat, lRefType, lOffset, tFrame, tOffset, codeBase, dataBase, 
-        segType, segOffset);
+      P3_FixSeg(outfd, lLocat, lRefType, lOffset, tFrame, tOffset,
+        codeBase, dataBase, segType, segOffset);
     }
     else if ((tFixdata & 0xf0) == 0x20) { // frame given by an external index
       if ((tFixdata & 0x0f) != 6) {
         fatalf("P3_FIXUPP: Unhandled frame type %u in ext.", (tFixdata & 0x0f));
       }
       // target given by an external index alone
-      P3_FixExt(lLocat, lRefType, lOffset, tFrame, tOffset, codeBase, dataBase, 
-        segType, segOffset);
+      P3_FixExt(outfd, lLocat, lRefType, lOffset, tFrame, tOffset,
+        codeBase, dataBase, segType, segOffset);
     }
     else {
       fatal("P3_FIXUPP: unhandled Fixdata frame of %x.", tFixdata & 0xf0);
@@ -895,9 +895,11 @@ P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   read_u8(fd); // checksum. assume correct.
 }
 
-P3_FixExt(byte lLocat, byte lRefType, uint lOffset, byte fixExt, uint fixOffset,
-  uint codeBase[], uint dataBase[], byte segType, int segOffset) {
+P3_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
+  uint fixOffset, uint codeBase[], uint dataBase[], byte segType,
+  int segOffset) {
   int extName, pbdfIndex, modOrigin;
+  byte segOfExt, modOfExt;
   if (lRefType != 1) {
     fatalf("P3_FixExt: Unhandled ref type &u.", lRefType);
   }
@@ -910,7 +912,6 @@ P3_FixExt(byte lLocat, byte lRefType, uint lOffset, byte fixExt, uint fixOffset,
   }
   if ((lLocat & 0x40) == 0) {
     // IP-relative.
-    // Value to be written is ext-address - segOffset - lOffset - 2
   }
   else {
     // relative to beginning of segment.
@@ -925,8 +926,10 @@ P3_FixExt(byte lLocat, byte lRefType, uint lOffset, byte fixExt, uint fixOffset,
     fatalf("P3_FixExt: Could not find pubdef matching extdef %s.", extName);
   }
   pbdfIndex = pbdfIndex * PBDF_PER;
+  segOfExt = pbdfData[pbdfIndex + PBDF_WHERE] & 0x00ff;
+  modOfExt = pbdfData[pbdfIndex + PBDF_WHERE] >> 8;
   modOrigin = (pbdfData[pbdfIndex + PBDF_WHERE] >> 8) * MDAT_PER;
-  switch (pbdfData[pbdfIndex + PBDF_WHERE] & 0x00ff) {
+  switch (segOfExt) {
     case SEG_CODE:
       modOrigin = modData[modOrigin + MDAT_CSO];
       break;
@@ -934,29 +937,25 @@ P3_FixExt(byte lLocat, byte lRefType, uint lOffset, byte fixExt, uint fixOffset,
       modOrigin = modData[modOrigin + MDAT_DSO];
       break;
     default:
-      fatalf("P3_FixExt: Ext is in unhandled seg of index %x", 
-        pbdfData[pbdfIndex + PBDF_WHERE] & 0x00ff);
+      fatalf("P3_FixExt: Ext is in unhandled seg of index %x", segOfExt);
       break;
   }
-  fprintf(fdOut, "Tgt=Ext%x (%s; Seg=0x%x Mod=%s+0x%x)\n",
-    fixExt,
-    extName, 
-    pbdfData[pbdfIndex + PBDF_WHERE] & 0x00ff, 
-    modData[(pbdfData[pbdfIndex + PBDF_WHERE] >> 8) * MDAT_PER + MDAT_NAM],
+  fprintf(fdDebug, "Tgt=Ext%x (%s; Seg=0x%x Mod=%s+0x%x)\n", fixExt, extName, 
+    segOfExt, modData[(modOfExt) * MDAT_PER + MDAT_NAM],
     pbdfData[pbdfIndex + PBDF_ADDR]);
-  fprintf(fdOut, "      WRITE 0x%x+0x%x at 0x%x+0x%x\n",
-    modOrigin, pbdfData[pbdfIndex + PBDF_ADDR], 
+  P3_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR], 
     codeBase[0], lOffset + segOffset);
 }
 
-P3_FixSeg(byte lLocat, byte lRefType, uint lOffset, byte fixSeg, uint fixOffset,
-  uint codeBase[], uint dataBase[], byte segType, int segOffset) {
+P3_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
+  uint fixOffset, uint codeBase[], uint dataBase[], byte segType,
+  int segOffset) {
   uint segBase[2];
-  fprintf(fdOut, "Tgt=Seg%u+0x%x ", fixSeg, fixOffset);
+  fprintf(fdDebug, "Tgt=Seg%u+0x%x\n", fixSeg, fixOffset);
   fixSeg -= 1;
   P3_SetBase(fixSeg, codeBase, dataBase, segBase);
   // location of fixup: segBase[segIndex] + segOffset + lOffset
-  // fprintf(fdOut, "(%u, %u)", codeBase[0], dataBase[0]);
+  // fprintf(fdDebug, "(%u, %u)", codeBase[0], dataBase[0]);
   if ((lLocat & 0x40) == 0) {
     // IP-relative.
     // Value to be written is fixOffset - segOffset - lOffset - 2
@@ -964,12 +963,12 @@ P3_FixSeg(byte lLocat, byte lRefType, uint lOffset, byte fixSeg, uint fixOffset,
       // Make sure we're in the same segment (this SHOULD be the case, because
       // we're fixing up code, and code is always in the same segment in the 
       // NEAR model that SmallC uses.
-      fatalf2("P3_FixSeg: IP-rel, seg %u must equal seg %u.", fixSeg, segType);
+      fatalf2("P3_FixSeg: IP-rel, seg %u must equal seg %u.\n", fixSeg, segType);
     }
     if (lRefType == 1) {
       // 16-bit offset
-      fprintf(fdOut, "WRITE 0x%x at 0x%x+0x%x\n",
-        fixOffset - segOffset - lOffset - 2, codeBase[0], lOffset + segOffset);
+      P3_DoFixupp(outfd, fixOffset - segOffset - lOffset - 2, 0, 
+        codeBase[0], lOffset + segOffset);
     }
     else {
       // 16-bit logical segment base
@@ -980,8 +979,7 @@ P3_FixSeg(byte lLocat, byte lRefType, uint lOffset, byte fixSeg, uint fixOffset,
     // relative to beginning of segment.
     if (lRefType == 1) {
       // 16-bit offset
-      fprintf(fdOut, "WRITE 0x%x at 0x%x+0x%x\n",
-        fixOffset, codeBase[0], lOffset + segOffset);
+      P3_DoFixupp(outfd, fixOffset, 0, codeBase[0], lOffset + segOffset);
     }
     else if (lRefType == 2) {
       // 16-bit logical segment base
@@ -1000,8 +998,7 @@ P3_FixSeg(byte lLocat, byte lRefType, uint lOffset, byte fixSeg, uint fixOffset,
           fatalf2("P3_FixSeg: Unhandled logical segment base index %u, %u",
             fixSeg, locSegs[fixSeg]);
       }
-      fprintf(fdOut, "WRITE 0x%x at 0x%x+0x%x\n",
-        logBase, codeBase[0], lOffset + segOffset);
+      P3_DoFixupp(outfd, logBase, 0, codeBase[0], lOffset + segOffset);
     }
   }
 }
@@ -1019,12 +1016,26 @@ P3_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
     // this is why we can only have one stack segment.
     segBase[0] = segLengths[SEG_CODE] + segLengths[SEG_DATA] + EXE_HDR_LEN;
     segBase[1] = 0;
-    fprintf(fdOut, " Stack at %x", segBase[0]);
+    fprintf(fdDebug, " Stack at %x", segBase[0]);
   }
   else {
     printf(" Segs=%x %x %x ", locSegs[0], locSegs[1], locSegs[2]);
     fatalf("P3_XXDATA: Local SegType of %u, must be 0 or 1. ", segType);
   }
+}
+
+P3_DoFixupp(uint fd, uint what, uint whatOff, uint where, uint whereOff) {
+  uint outAddr[2];
+  uint nowAddr[2];
+  fprintf(fdDebug, "      WRITE 0x%x+0x%x at 0x%x+0x%x\n",
+    what, whatOff, where, whereOff);
+  btell(fd, nowAddr);
+  outAddr[0] = where + whereOff;
+  outAddr[1] = 0;
+  bseek(fd, outAddr, 0);
+  fputc((what + whatOff) & 0x00ff, fd);
+  fputc((what + whatOff) >> 8, fd);
+  bseek(fd, nowAddr);
 }
 
 // ============================================================================
