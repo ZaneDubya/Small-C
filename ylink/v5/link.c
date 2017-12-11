@@ -5,23 +5,32 @@
 #include "notice.h"
 #include "link.h"
 
+// --- Output variables -------------------------------------------------------
+char *pathOutput; // path to the file used for linker's output
+uint fdDebug; // fd to which we will output debug information. can be stdout
+// --- DOS exe data -----------------------------------------------------------
+#define EXE_HDR_LEN 512
+#define RELOC_COUNT 8
+#define RELOC_PER 1
+int *relocData;
+int relocCount;
+int exeStartAddress;
 // --- 'Line' (variable used when reading strings) ----------------------------
 #define LINEMAX  127
 #define LINESIZE 128
 char *line;
-char *pathOutput;
 // --- File paths - these are the files that are read in by the linker --------
 #define FILE_MAX 8
 int *filePaths; // ptrs to input file paths, including library files.
 int fileCount; // equal to the number of input files.
 // --- ModData - information about the modules loaded for linking -------------
 #define MOD_MAX 128
-#define MDAT_PER 5
 #define MDAT_NAM 0
 #define MDAT_CSO 1 // code segment origin
 #define MDAT_DSO 2 // data segment origin
 #define MDAT_THD 3 // offset to THEADR in file
 #define MDAT_FLG 4 // flags
+#define MDAT_PER 5
 #define FlgInLib 0x0100
 #define FlgStart 0x200
 #define FlgStack 0x400
@@ -48,21 +57,18 @@ int *segLengths; // length of segdefs, index is seg_xxx
 byte *locSegs; // seg_xxxs in this module, in order they were defined
 int segIndex; // index of next segdef that will be defined
 // --- Public Definitions -----------------------------------------------------
-#define PBDF_PER 3
 #define PBDF_CNT 512
 #define PBDF_NAME 0   // ptr to name of pubdef
 #define PBDF_WHERE 1  // hi: index of module where it is located
                       // low: index of segment where it is located
 #define PBDF_ADDR 2   // offset in segment (+module origin) where it is located
+#define PBDF_PER 3
 int *pbdfData;
 int pbdfCount;
 // --- ExtDef buffer ----------------------------------------------------------
 #define EXTBUF_LEN 1024
 char *extBuffer;
 int extCount;
-// --- DOS exe data -----------------------------------------------------------
-#define EXE_HDR_LEN 512
-uint fdDebug;
 
 main(int argc, int *argv) {
   int i;
@@ -89,14 +95,8 @@ AllocAll() {
   locSegs = AllocMem(SEGS_CNT, 1);
   pbdfData = AllocMem(PBDF_PER * PBDF_CNT, 2);
   extBuffer = AllocMem(EXTBUF_LEN, 1);
+  relocData = AllocMem(RELOC_PER * RELOC_COUNT, 2);
   pathOutput = 0;
-  if (1 == 1) {
-    unlink("fdDebug.txt");
-    fdDebug = fopen("fdDebug.txt", "a");
-  }
-  else {
-    fdDebug = stdout;
-  }
 }
 
 DeAllocAll() {
@@ -119,7 +119,14 @@ Initialize() {
   for (i = 0; i < SEGS_CNT; i++) {
     segLengths[i] = 0;
   }
-  
+  if (1 == 1) {
+    unlink("Debug.txt");
+    fdDebug = fopen("Debug.txt", "a");
+  }
+  else {
+    fdDebug = stdout;
+  }
+  exeStartAddress = 0xffff;
 }
 
 RdArgs(int argc, int *argv) {
@@ -340,6 +347,8 @@ P1_MODEND(uint length, uint fd) {
     byte fixdata, frame, target;
     length -= rd_fix_target(length, fd, &offset, &fixdata, &frame, &target);
     modData[modCount * MDAT_PER + MDAT_FLG] |= FlgStart;
+    exeStartAddress = modData[modCount * MDAT_PER + MDAT_CSO] + offset;
+    // fprintf(fdDebug, " START: %x %x %x %x", offset, fixdata, frame, target);
   }
   read_u8(fd); // checksum. assume correct.
   ClearPara(fd);
@@ -633,6 +642,7 @@ Pass3() {
   uint modOffset[2]; // offset to object module that we are currently reading
   uint codeBase[2]; // offset to code segment in output file.
   uint dataBase[2]; // offset to data segment in output file.
+  relocCount = 0;
   outfd = fopen(pathOutput, "a");
   fprintf(fdDebug, "Pass 3:\n");
   for (i = 0; i < modCount; i++) {
@@ -659,15 +669,17 @@ Pass3() {
     P3_DoMod(fd, outfd, codeBase, dataBase);
     cleanupfd(fd);
   }
-  printf("Writing Header... ");
-  puts("Done.");
   WriteExeHeader(outfd);
   cleanupfd(outfd);
 }
 
 WriteExeHeader(uint fd) {
   uint beginning[2];
-  uint blockcount, lastblock;
+  uint blockcount, lastblock, rvSS, i;
+  printf("Writing Header... ");
+  if (exeStartAddress == 0xffff) {
+    fatal("No start address specified.");
+  }
   beginning[0] = beginning[1] = 0;
   blockcount = segLengths[0] + segLengths[1] + segLengths[2];
   lastblock = blockcount % 512;
@@ -675,12 +687,28 @@ WriteExeHeader(uint fd) {
   if (lastblock != 0) {
     blockcount += 1;
   }
+  rvSS = (segLengths[SEG_CODE] + segLengths[SEG_DATA]) >> 4;
   bseek(fd, beginning, 0);
-  fputs("MZ", fd);
-  fputc(lastblock & 0x00ff, fd);
-  fputc(lastblock >> 8, fd);
-  fputc(blockcount & 0x00ff, fd);
-  fputc(blockcount >> 8, fd);
+  fputs("MZ", fd); // 00: "MZ"
+  fputi(fd, lastblock); // 02: count of bytes in last 512b block
+  fputi(fd, blockcount); // 04: count of 512b blocks in file
+  fputi(fd, 0x0004); // 06: relocation entry count.
+  fputi(fd, 0x0020); // 08: size of header in paras (0x20 * 0x10 = 0x200).
+  fputi(fd, 0x0000); // 0A: paras mem needed
+  fputi(fd, 0xffff); // 0C: paras mem wanted
+  fputi(fd, rvSS); // 0E: Relative value of the stack segment.
+  fputi(fd, segLengths[SEG_STACK]); // 10: Initial value of the SP register.
+  fputi(fd, 0x0000); // 12: Word checksum. Does not need to be filled in.
+  fputi(fd, exeStartAddress); // 14: Initial value of the IP register.
+  fputi(fd, 0x0000); // 16: Initial value of the CS register.
+  fputi(fd, 0x001E); // 18: Offset of the first relocation item in the file.
+  fputi(fd, 0x0000); // 1A: Overlay number. 0x0000 = main program.
+  fputi(fd, 0x0001); // 1C: ??? Not in spec, but always 0x0001.
+  for (i = 0; i < relocCount; i++) {
+    fputi(fd, relocData[i]);
+    fputi(fd, 0x0000);
+  }
+  puts("Done.");
 }
 
 P3_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
@@ -1008,6 +1036,7 @@ P3_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
             fixSeg, locSegs[fixSeg]);
       }
       P3_DoFixupp(outfd, logBase, 0, codeBase[0], lOffset + segOffset);
+      relocData[relocCount++] = codeBase[0] + lOffset + segOffset - EXE_HDR_LEN;
     }
   }
 }
@@ -1182,6 +1211,14 @@ write_x8(uint fd, byte value) {
     ch0 += 55;
   }
   fputc(ch0, fd);
+}
+
+fputi(uint fd, uint value) {
+  byte c0, c1;
+  c0 = (value & 0x00ff);
+  c1 = (value >> 8);
+  fputc(c0 , fd);
+  fputc(c1, fd);
 }
 
 // === Binary Reading Routines ================================================
