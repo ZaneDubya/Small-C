@@ -32,8 +32,9 @@ int fileCount; // equal to the number of input files.
 #define MDAT_FLG 4 // flags
 #define MDAT_PER 5
 #define FlgInLib 0x0100
-#define FlgStart 0x200
-#define FlgStack 0x400
+#define FlgStart 0x0200
+#define FlgStack 0x0400
+#define FlgInclude 0x800
 int *modData; // each obj has name ptr, 2 fields for seg
               // origin, theadr offset in file, and flag.
               // flag is: 0xf000 file index (max 16 files),
@@ -214,7 +215,6 @@ Pass1() {
     cleanupfd(fd);
     fprintf(fdDebug, "Done.\n");
   }
-  IncSegLengthsToNextParagraph();
 }
 
 P1_RdFile(uint fileIndex, uint fd) {
@@ -240,6 +240,7 @@ P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
       break;
     case MODEND:
       P1_MODEND(length, fd);
+      IncSegLengthsToNextParagraph();
       break;
     case LNAMES:
       P1_LNAMES(length, fd);
@@ -350,6 +351,12 @@ P1_MODEND(uint length, uint fd) {
     exeStartAddress = modData[modCount * MDAT_PER + MDAT_CSO] + offset;
     // fprintf(fdDebug, " START: %x %x %x %x", offset, fixdata, frame, target);
   }
+  // <<<< I was going to use this to not include unneeded library files
+  if ((modData[modCount * MDAT_PER + MDAT_FLG] & FlgInLib) == 0) {
+    modData[modCount * MDAT_PER + MDAT_FLG] |= FlgInclude;
+  }
+  // >>>>
+  modData[modCount * MDAT_PER + MDAT_FLG] |= FlgInclude;
   read_u8(fd); // checksum. assume correct.
   ClearPara(fd);
   modCount += 1;
@@ -567,21 +574,23 @@ Pass2() {
   for (i = 0; i < modCount; i++) {
     int mdatBase, mdatFile;
     mdatBase = i * MDAT_PER;
-    mdatFile = modData[mdatBase + MDAT_FLG] >> 12;
-    fprintf(fdDebug, "  Resolving %s (%s)... ", 
-      modData[mdatBase + MDAT_NAM], 
-      filePaths[mdatFile]);
-    if (!(fd = fopen(filePaths[mdatFile], "r"))) {
-      fatal("Could not open file.");
+    if ((modData[mdatBase + MDAT_FLG] & FlgInclude) == FlgInclude) {
+      mdatFile = modData[mdatBase + MDAT_FLG] >> 12;
+      fprintf(fdDebug, "  Resolving %s (%s)... ", 
+        modData[mdatBase + MDAT_NAM], 
+        filePaths[mdatFile]);
+      if (!(fd = fopen(filePaths[mdatFile], "r"))) {
+        fatal("Could not open file.");
+      }
+      offset[0] = modData[mdatBase + MDAT_THD];
+      offset[1] = 0;
+      if (bseek(fd, offset, 0) == EOF) {
+        fatalf("Could not seek to position %u, file too short.", offset[0]);
+      }
+      P2_DoMod(fd);
+      cleanupfd(fd);
+      fprintf(fdDebug, "Done.\n");
     }
-    offset[0] = modData[mdatBase + MDAT_THD];
-    offset[1] = 0;
-    if (bseek(fd, offset, 0) == EOF) {
-      fatalf("Could not seek to position %u, file too short.", offset[0]);
-    }
-    P2_DoMod(fd);
-    cleanupfd(fd);
-    fprintf(fdDebug, "Done.\n");
   }
 }
 
@@ -648,26 +657,28 @@ Pass3() {
   for (i = 0; i < modCount; i++) {
     int mdatBase, mdatFile;
     mdatBase = i * MDAT_PER;
-    mdatFile = modData[mdatBase + MDAT_FLG] >> 12;
-    fprintf(fdDebug, "Linking %s (%s)...\n", 
-      modData[mdatBase + MDAT_NAM], 
-      filePaths[mdatFile]);
-    if (!(fd = fopen(filePaths[mdatFile], "r"))) {
-      fatal("Could not open file.");
+    if ((modData[mdatBase + MDAT_FLG] & FlgInclude) == FlgInclude) {
+      mdatFile = modData[mdatBase + MDAT_FLG] >> 12;
+      fprintf(fdDebug, "Linking %s (%s)...\n", 
+        modData[mdatBase + MDAT_NAM], 
+        filePaths[mdatFile]);
+      if (!(fd = fopen(filePaths[mdatFile], "r"))) {
+        fatal("Could not open file.");
+      }
+      // seek to module in input object file:
+      modOffset[0] = modData[mdatBase + MDAT_THD];
+      modOffset[1] = 0;
+      if (bseek(fd, modOffset, 0) == EOF) {
+        fatalf("Could not seek to position %u, file too short.", modOffset[0]);
+      }
+      // place base code and data offsets in the output file:
+      codeBase[0] = EXE_HDR_LEN + modData[mdatBase + MDAT_CSO];
+      codeBase[1] = 0;
+      dataBase[0] = EXE_HDR_LEN + segLengths[SEG_CODE] + modData[mdatBase + MDAT_DSO];
+      dataBase[1] = 0;
+      P3_DoMod(fd, outfd, codeBase, dataBase);
+      cleanupfd(fd);
     }
-    // seek to module in input object file:
-    modOffset[0] = modData[mdatBase + MDAT_THD];
-    modOffset[1] = 0;
-    if (bseek(fd, modOffset, 0) == EOF) {
-      fatalf("Could not seek to position %u, file too short.", modOffset[0]);
-    }
-    // place base code and data offsets in the output file:
-    codeBase[0] = EXE_HDR_LEN + modData[mdatBase + MDAT_CSO];
-    codeBase[1] = 0;
-    dataBase[0] = EXE_HDR_LEN + segLengths[SEG_CODE] + modData[mdatBase + MDAT_DSO];
-    dataBase[1] = 0;
-    P3_DoMod(fd, outfd, codeBase, dataBase);
-    cleanupfd(fd);
   }
   WriteExeHeader(outfd);
   cleanupfd(outfd);
@@ -683,30 +694,30 @@ WriteExeHeader(uint fd) {
   beginning[0] = beginning[1] = 0;
   blockcount = segLengths[0] + segLengths[1] + segLengths[2];
   lastblock = blockcount % 512;
-  blockcount /= 512;
+  blockcount = blockcount / 512 + 1;
   if (lastblock != 0) {
     blockcount += 1;
   }
   rvSS = (segLengths[SEG_CODE] + segLengths[SEG_DATA]) >> 4;
   bseek(fd, beginning, 0);
   fputs("MZ", fd); // 00: "MZ"
-  fputi(fd, lastblock); // 02: count of bytes in last 512b block
-  fputi(fd, blockcount); // 04: count of 512b blocks in file
-  fputi(fd, 0x0004); // 06: relocation entry count.
-  fputi(fd, 0x0020); // 08: size of header in paras (0x20 * 0x10 = 0x200).
-  fputi(fd, 0x0000); // 0A: paras mem needed
-  fputi(fd, 0xffff); // 0C: paras mem wanted
-  fputi(fd, rvSS); // 0E: Relative value of the stack segment.
-  fputi(fd, segLengths[SEG_STACK]); // 10: Initial value of the SP register.
-  fputi(fd, 0x0000); // 12: Word checksum. Does not need to be filled in.
-  fputi(fd, exeStartAddress); // 14: Initial value of the IP register.
-  fputi(fd, 0x0000); // 16: Initial value of the CS register.
-  fputi(fd, 0x001E); // 18: Offset of the first relocation item in the file.
-  fputi(fd, 0x0000); // 1A: Overlay number. 0x0000 = main program.
-  fputi(fd, 0x0001); // 1C: ??? Not in spec, but always 0x0001.
+  write_f16(fd, lastblock); // 02: count of bytes in last 512b block
+  write_f16(fd, blockcount); // 04: count of 512b blocks in file
+  write_f16(fd, 0x0004); // 06: relocation entry count.
+  write_f16(fd, 0x0020); // 08: size of header in paras (0x20 * 0x10 = 0x200).
+  write_f16(fd, 0x0000); // 0A: paras mem needed
+  write_f16(fd, 0xffff); // 0C: paras mem wanted
+  write_f16(fd, rvSS); // 0E: Relative value of the stack segment.
+  write_f16(fd, segLengths[SEG_STACK]); // 10: Initial value of the SP register.
+  write_f16(fd, 0x0000); // 12: Word checksum. Does not need to be filled in.
+  write_f16(fd, exeStartAddress); // 14: Initial value of the IP register.
+  write_f16(fd, 0x0000); // 16: Initial value of the CS register.
+  write_f16(fd, 0x001E); // 18: Offset of the first relocation item in the file.
+  write_f16(fd, 0x0000); // 1A: Overlay number. 0x0000 = main program.
+  write_f16(fd, 0x0001); // 1C: ??? Not in spec, but always 0x0001.
   for (i = 0; i < relocCount; i++) {
-    fputi(fd, relocData[i]);
-    fputi(fd, 0x0000);
+    write_f16(fd, relocData[i]);
+    write_f16(fd, 0x0000);
   }
   puts("Done.");
 }
@@ -797,7 +808,7 @@ P3_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   segBase[0] += *segOffset;
   bseek(outfd, segBase, 0);
   for (i = 0; i < length; i++) {
-    fputc(read_u8(fd), outfd);
+    write_f8(outfd, read_u8(fd));
   }
   read_u8(fd); // checksum. assume correct.
 }
@@ -847,7 +858,7 @@ P3_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
       }
       for (i = 0; i < repeat; i++) {
         for (j = 0; j < count; j++) {
-          fputc(line[j], outfd);
+          write_f8(outfd, line[j]);
         }
       }
     }
@@ -980,7 +991,7 @@ P3_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
   fprintf(fdDebug, "Tgt=Ext%x (%s; Seg=0x%x Mod=%s+0x%x)\n", fixExt, extName, 
     segOfExt, modData[(modOfExt) * MDAT_PER + MDAT_NAM],
     pbdfData[pbdfIndex + PBDF_ADDR]);
-  P3_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR], 
+  P3_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR], 1, 
     codeBase[0], lOffset + segOffset);
 }
 
@@ -1004,7 +1015,7 @@ P3_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
     }
     if (lRefType == 1) {
       // 16-bit offset
-      P3_DoFixupp(outfd, fixOffset - segOffset - lOffset - 2, 0, 
+      P3_DoFixupp(outfd, fixOffset - segOffset - lOffset - 2, 0, 0,
         codeBase[0], lOffset + segOffset);
     }
     else {
@@ -1016,7 +1027,7 @@ P3_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
     // relative to beginning of segment.
     if (lRefType == 1) {
       // 16-bit offset
-      P3_DoFixupp(outfd, fixOffset, 0, codeBase[0], lOffset + segOffset);
+      P3_DoFixupp(outfd, fixOffset, 0, 0, codeBase[0], lOffset + segOffset);
     }
     else if (lRefType == 2) {
       // 16-bit logical segment base
@@ -1035,7 +1046,7 @@ P3_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
           fatalf2("P3_FixSeg: Unhandled logical segment base index %u, %u",
             fixSeg, locSegs[fixSeg]);
       }
-      P3_DoFixupp(outfd, logBase, 0, codeBase[0], lOffset + segOffset);
+      P3_DoFixupp(outfd, logBase, 0, 0, codeBase[0], lOffset + segOffset);
       relocData[relocCount++] = codeBase[0] + lOffset + segOffset - EXE_HDR_LEN;
     }
   }
@@ -1062,18 +1073,32 @@ P3_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
   }
 }
 
-P3_DoFixupp(uint fd, uint what, uint whatOff, uint where, uint whereOff) {
+P3_DoFixupp(uint fd, uint what, uint whatOff, uint whatRelative, 
+  uint where, uint whereOff) {
   uint outAddr[2];
   uint nowAddr[2];
-  fprintf(fdDebug, "      WRITE 0x%x+0x%x at 0x%x+0x%x\n",
-    what, whatOff, where, whereOff);
+  uint offset;
+  if (whatRelative == 1) {
+    offset = where + whereOff + 2 - EXE_HDR_LEN;
+    // fprintf(fdDebug, "      WRITE 0x%x (0x%x+0x%x-0x%x) at 0x%x+0x%x\n",
+    //  what + whatOff - offset, what, whatOff, offset, where, whereOff);
+    fprintf(fdDebug, "      WRITE 0x%x at 0x%x\n",
+      what + whatOff - offset, where + whereOff);
+  }
+  else {
+    offset = 0;
+    fprintf(fdDebug, "      WRITE 0x%x+0x%x at 0x%x+0x%x\n",
+      what, whatOff, where, whereOff);
+  }
   btell(fd, nowAddr);
   outAddr[0] = where + whereOff;
   outAddr[1] = 0;
   bseek(fd, outAddr, 0);
-  fputc((what + whatOff) & 0x00ff, fd);
-  fputc((what + whatOff) >> 8, fd);
+  write_f16(fd, what + whatOff - offset);
   bseek(fd, nowAddr);
+  if (what + whatOff - offset == 0xa84) {
+    // abort(1);
+  }
 }
 
 // ============================================================================
@@ -1213,12 +1238,18 @@ write_x8(uint fd, byte value) {
   fputc(ch0, fd);
 }
 
-fputi(uint fd, uint value) {
-  byte c0, c1;
+write_f8(uint fd, char value) {
+  int c0, c1;
+  c0 = (value & 0x00ff);
+  _write(c0, fd);
+}
+
+write_f16(uint fd, uint value) {
+  int c0, c1;
   c0 = (value & 0x00ff);
   c1 = (value >> 8);
-  fputc(c0 , fd);
-  fputc(c1, fd);
+  _write(c0, fd);
+  _write(c1, fd);
 }
 
 // === Binary Reading Routines ================================================
