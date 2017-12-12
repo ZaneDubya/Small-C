@@ -26,13 +26,13 @@
 /*
 ** symbol table parameters
 */
-#define NUMLOCS   25
+#define NUMLOCS   100
 #define STARTLOC  symtab
 #define ENDLOC    (symtab+NUMLOCS*SYMAVG)
-#define NUMGLBS   200
+#define NUMGLBS   400
 #define STARTGLB  ENDLOC
 #define ENDGLB    (ENDLOC+(NUMGLBS-1)*SYMMAX)
-#define SYMTBSZ   3050  /* (NUMLOCS*SYMAVG + NUMGLBS*SYMMAX) */
+#define SYMTBSZ   7600  /* (NUMLOCS*SYMAVG + NUMGLBS*SYMMAX) */
 
 /*
 ** system wide name size (for symbols)

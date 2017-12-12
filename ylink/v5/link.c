@@ -54,7 +54,7 @@ byte *locNames;
 #define SEG_DATA 1
 #define SEG_STACK 2
 #define SEG_NOTPRESENT 0xFF
-int *segLengths; // length of segdefs, index is seg_xxx
+uint *segLengths; // length of segdefs, index is seg_xxx
 byte *locSegs; // seg_xxxs in this module, in order they were defined
 int segIndex; // index of next segdef that will be defined
 // --- Public Definitions -----------------------------------------------------
@@ -67,9 +67,9 @@ int segIndex; // index of next segdef that will be defined
 int *pbdfData;
 int pbdfCount;
 // --- ExtDef buffer ----------------------------------------------------------
-#define EXTBUF_LEN 1024
+#define EXTBUF_LEN 1536
 char *extBuffer;
-int extCount;
+int extCount, extNext;
 
 main(int argc, int *argv) {
   int i;
@@ -78,9 +78,12 @@ main(int argc, int *argv) {
   RdArgs(argc, argv);
   Initialize();
   Pass1();
+  for (i = 0; i < pbdfCount; i++) {
+    fprintf(fdDebug, "\n  PUB %x=%s", i, pbdfData[i * PBDF_PER]);
+  }
   Pass2();
   Pass3();
-  fprintf(fdDebug, "Mods: %u\nPubdefs: %u\nCode: %u b\nData: %u b\nStack: %u b",
+  fprintf(fdDebug, "Mods: %u, Pubs: %u\nCode: %u b, Data: %u b, Stack: %u b\n",
     modCount, pbdfCount, segLengths[SEG_CODE], segLengths[SEG_DATA],
     segLengths[SEG_STACK]);
   DeAllocAll();
@@ -429,6 +432,9 @@ P1_PUBDEF(uint length, uint fd) {  byte typeindex;
   while (length > 1) {
     int namelen;
     namelen = read_strpre(line, fd);
+    if (pbdfCount >= PBDF_CNT) {
+      fatalf2("Could not add %s to pubdefs, max of %u.", line, PBDF_CNT);
+    }
     alreadyDefined = FindPubDef(line);
     if (alreadyDefined != -1) {
       int otherMod;
@@ -676,6 +682,10 @@ Pass3() {
       codeBase[1] = 0;
       dataBase[0] = EXE_HDR_LEN + segLengths[SEG_CODE] + modData[mdatBase + MDAT_DSO];
       dataBase[1] = 0;
+      // reset extdefs
+      extNext = 0;
+      extCount = 0;
+      // do the mod!
       P3_DoMod(fd, outfd, codeBase, dataBase);
       cleanupfd(fd);
     }
@@ -698,7 +708,7 @@ WriteExeHeader(uint fd) {
   if (lastblock != 0) {
     blockcount += 1;
   }
-  rvSS = (segLengths[SEG_CODE] + segLengths[SEG_DATA]) >> 4;
+  rvSS = (segLengths[SEG_CODE] + segLengths[SEG_DATA]) / 16;
   bseek(fd, beginning, 0);
   fputs("MZ", fd); // 00: "MZ"
   write_f16(fd, lastblock); // 02: count of bytes in last 512b block
@@ -756,13 +766,12 @@ P3_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
         P3_FIXUPP(length, fd, outfd, codeBase, dataBase, segType, segOffset);
         segType = SEG_NOTPRESENT; // only one fixupp per data record allowed
         break;
-      case MODEND:
+      case MODEND:  
         // exit reading module
         return;
       case THEADR: 
       case PUBDEF:
       case COMMNT:
-      case EXTDEF:
         forward(fd, length);
         break;
       default:
@@ -772,20 +781,18 @@ P3_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
   }
 }
 
-// Read all the extdefs for this module into a buffer. extdef names are null-
-// terminated.
+// Read all the extdefs for this module into a buffer.
+// extdef names are null-terminated.
 P3_EXTDEF(uint length, uint fd) {
   byte deftype;
-  uint next, strlength;
-  next = 0;
-  extCount = 0;
+  uint strlength;
   fprintf(fdDebug, "  EXTDEF\n    ");
   while (length > 1) {
     strlength = read_strpre(line, fd);
-    fprintf(fdDebug, "%s, ", line);
+    fprintf(fdDebug, "%x=%s, ", extCount, line);
     deftype = read_u8(fd);
     length -= (strlength + 1);
-    AddName(line, extBuffer, &next, EXTBUF_LEN);
+    AddName(line, extBuffer, &extNext, EXTBUF_LEN);
     extCount += 1;
   }
   fprintf(fdDebug, "\n");
@@ -903,7 +910,7 @@ P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
     // --- fixupp reference data ----------------------------------------------
     fprintf(fdDebug, "    ");
     if ((lLocat & 0x80) == 0) {
-      fatal("P3_FIXUPP: must be fixup, not thread (locat=%x).", lLocat);
+      fatalf("P3_FIXUPP: must be fixup, not thread (locat=%x).", lLocat);
     }
     if ((lLocat & 0x40) == 0) {
       fprintf(fdDebug, "Rel=IP, "); // relative to location of fixed up address.
@@ -918,10 +925,13 @@ P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
       fprintf(fdDebug, "Off=Seg+0x%x, ", lOffset); // Only seen in call.obj?
     }
     else {
-      fatal("P3_FIXUPP: unhandled reference type %x.", lRefType);
+      fatalf("P3_FIXUPP: unhandled reference type %x.", lRefType);
     }
     if (tFrame != tTarget) {
-      fatalf("P3_FIXUPP: Segment frame and target must match.");
+      fprintf(fdDebug, "Unmatched frame and target.");
+      fprintf(fdDebug, "\n      %x %x %x", lOffset, lLocat, lRefType);
+      fprintf(fdDebug, "\n      %x %x %x %x ", tOffset, tFixdata, tFrame, tTarget);
+      fatal("P3_FIXUPP: Segment frame and target must match.");
     }
     // --- target of fixupp ---------------------------------------------------
     if ((tFixdata & 0xf0) == 0x00) { // frame given by a segment index
@@ -937,7 +947,7 @@ P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
         codeBase, dataBase, segType, segOffset);
     }
     else {
-      fatal("P3_FIXUPP: unhandled Fixdata frame of %x.", tFixdata & 0xf0);
+      fatalf("P3_FIXUPP: unhandled Fixdata frame of %x.", tFixdata & 0xf0);
     }
   }
   read_u8(fd); // checksum. assume correct.
@@ -957,13 +967,6 @@ P3_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
   if (fixExt > extCount) {
     fatalf2("P3_FixExt: Ext index of %u is greater than ext count of %u.", 
       fixExt, extCount);
-  }
-  if ((lLocat & 0x40) == 0) {
-    // IP-relative.
-  }
-  else {
-    // relative to beginning of segment.
-    // fatal("P3_FixExt: Not yet implemented");
   }
   extName = GetName(fixExt - 1, extBuffer, EXTBUF_LEN);
   if (extName == 0xffff) {
@@ -988,11 +991,19 @@ P3_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
       fatalf("P3_FixExt: Ext is in unhandled seg of index %x", segOfExt);
       break;
   }
-  fprintf(fdDebug, "Tgt=Ext%x (%s; Seg=0x%x Mod=%s+0x%x)\n", fixExt, extName, 
-    segOfExt, modData[(modOfExt) * MDAT_PER + MDAT_NAM],
+  fprintf(fdDebug, "Tgt=Ext%x (%s; Seg=0x%x Mod=%s+0x%x)\n", 
+    fixExt, extName, segOfExt, modData[(modOfExt) * MDAT_PER + MDAT_NAM],
     pbdfData[pbdfIndex + PBDF_ADDR]);
-  P3_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR], 1, 
-    codeBase[0], lOffset + segOffset);
+  if ((lLocat & 0x40) == 0) {
+    // IP-relative.
+    P3_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR], 1, 
+      codeBase[0], lOffset + segOffset);
+  }
+  else {
+    // relative to beginning of segment.
+    P3_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR], 0, 
+      codeBase[0], lOffset + segOffset);
+  }
 }
 
 P3_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
@@ -1046,10 +1057,10 @@ P3_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
           logBase = 0;
           break;
         case SEG_DATA:
-          logBase = segLengths[0] >> 4;
+          logBase = segLengths[0] / 16;
           break;
         case SEG_STACK:
-          logBase = (segLengths[0] + segLengths[1]) >> 4;
+          logBase = (segLengths[0] + segLengths[1]) / 16;
           break;
         default:
           fatalf2("P3_FixSeg: Unhandled logical segment base index %u, %u",
@@ -1058,27 +1069,6 @@ P3_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
       P3_DoFixupp(outfd, logBase, 0, 0, codeBase[0], lOffset + segOffset);
       relocData[relocCount++] = codeBase[0] + lOffset + segOffset - EXE_HDR_LEN;
     }
-  }
-}
-
-P3_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
-  if (segType == SEG_CODE) {
-    segBase[0] = codeBase[0];
-    segBase[1] = codeBase[1];
-  }
-  else if (segType == SEG_DATA) {
-    segBase[0] = dataBase[0];
-    segBase[1] = dataBase[1];
-  }
-  else if (segType == SEG_STACK) {
-    // this is why we can only have one stack segment.
-    segBase[0] = segLengths[SEG_CODE] + segLengths[SEG_DATA] + EXE_HDR_LEN;
-    segBase[1] = 0;
-    fprintf(fdDebug, " Stack at %x", segBase[0]);
-  }
-  else {
-    printf(" Segs=%x %x %x ", locSegs[0], locSegs[1], locSegs[2]);
-    fatalf("P3_XXDATA: Local SegType of %u, must be 0 or 1. ", segType);
   }
 }
 
@@ -1103,6 +1093,27 @@ P3_DoFixupp(uint fd, uint what, uint whatOff, uint whatRelative,
   bseek(fd, nowAddr);
   if (what + whatOff - offset == 0xa84) {
     // abort(1);
+  }
+}
+
+P3_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
+  if (segType == SEG_CODE) {
+    segBase[0] = codeBase[0];
+    segBase[1] = codeBase[1];
+  }
+  else if (segType == SEG_DATA) {
+    segBase[0] = dataBase[0];
+    segBase[1] = dataBase[1];
+  }
+  else if (segType == SEG_STACK) {
+    // this is why we can only have one stack segment.
+    segBase[0] = segLengths[SEG_CODE] + segLengths[SEG_DATA] + EXE_HDR_LEN;
+    segBase[1] = 0;
+    fprintf(fdDebug, " Stack at %x", segBase[0]);
+  }
+  else {
+    printf(" Segs=%x %x %x ", locSegs[0], locSegs[1], locSegs[2]);
+    fatalf("P3_XXDATA: Local SegType of %u, must be 0 or 1. ", segType);
   }
 }
 
@@ -1142,17 +1153,24 @@ rd_fix_target(uint length, uint fd,
   *fixdata = read_u8(fd); // Format is fffftttt
   length -= 1;
   // I have omitted frame/target methods that SmallC22/SmallA do not emit.
-  switch ((*fixdata & 0xf0) >> 4) {
-    case 0:     // frame given by a segment index
+  switch (*fixdata & 0xf0) {
+    case 0x00:     // frame given by a segment index
+    case 0x20:     // frame given by an external index
       *frame = read_u8(fd);
       length -= 1;
-      break;
-    case 2:     // frame given by an external index
-      *frame = read_u8(fd);
-      length -= 1;
+      if (*frame >= 0x80) {
+        if (*frame == 0x80) {
+          *frame = read_u8(fd);
+          length -= 1;
+        }
+        else {
+          fatalf("rd_fix_target: unhandled extended frame of 0x%x.", *frame);
+        }
+      }
       break;
     default:
-      printf("rd_fix_target: unhandled frame method %x.", *fixdata >> 4);
+      fatalf2("rd_fix_target: unhandled frame method 0x%x fixdata=0x%x", 
+      *fixdata >> 4, *fixdata);
       break;
   }
   // -----------------------------------------------------------------
@@ -1165,17 +1183,23 @@ rd_fix_target(uint length, uint fd,
   //  is no TARGET OFFSET because an offset of zero is assumed.
   *target = read_u8(fd);
   length -= 1;
+  if (*target >= 0x80) {
+    if (*target == 0x80) {
+      *target = read_u8(fd);
+      length -= 1;
+    }
+    else {
+      fatalf("rd_fix_target: unhandled extended target of 0x%x.", *frame);
+    }
+  }
   // As with frame methods, I have omitted targets SmallC22/SmallA do not emit.
-  switch ((*fixdata & 0x0f)) {
-    case 0 :  // target given by a segment index + displacement
+  switch (*fixdata & 0x0f) {
+    case 0x00 :  // target given by a segment index + displacement
+    case 0x02 :  // target given by an external index + displacement
       *offset = read_u16(fd);
       length -= 2;
       break;
-    case 2 :  // target given by an external index + displacement
-      *offset = read_u16(fd);
-      length -= 2;
-      break;
-    case 6 :  // target given by an external index alone
+    case 0x06 :  // target given by an external index alone
       *offset = 0;
       break;
     default:
@@ -1376,13 +1400,15 @@ AllocMem(int nItems, int itemSize) {
 // AddName: adds a null-terminated string to a byte array. Returns ptr to
 // byte array where string was placed. Fails if string will not fit.
 AddName(char *name, char *names, uint *next, uint max) {
+  char* namesaved;
   uint nameat, i;
   nameat = i = *next;
+  namesaved = name;
   while (*name != 0) {
     names[i++] = *name++;
     if (i >= max) {
       fprintf(stderr, "\n%s at 0x%x exceeded names length of 0x%x.\n", 
-              name, nameat, max, i);
+              namesaved, nameat, max, i);
       abort(1);
     }
   }
