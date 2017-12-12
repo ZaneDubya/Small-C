@@ -1,0 +1,1 @@
+#define VERSION "YLink Version 0.10 Copyright 2017 Zane Wagner"
