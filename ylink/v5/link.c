@@ -1021,7 +1021,7 @@ P3_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
     }
   }
   else {
-    // relative to beginning of segment.
+    // relative to beginning of a segment.
     if (lRefType == 1) {
       // 16-bit offset
       uint whereBase;
