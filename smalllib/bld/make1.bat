@@ -1,6 +1,6 @@
 SET BIN=..\..\bin
 SET SRC=..\src
-SET OBJ=.\OBJ
+SET OBJ=OBJ
 
 MKDIR OBJ
 

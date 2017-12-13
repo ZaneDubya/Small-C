@@ -8,6 +8,7 @@
 // --- Output variables -------------------------------------------------------
 char *pathOutput; // path to the file used for writing output exe/lib file.
 char *pathDebug; // path to file used for debug output.
+char *pathLibInput; // path to file used as library object file input.
 uint fdDebug; // fd to which we will output debug information. can be stdout
 // --- DOS exe data -----------------------------------------------------------
 #define EXE_HDR_LEN 512
@@ -104,6 +105,7 @@ AllocAll() {
   relocData = AllocMem(RELOC_PER * RELOC_COUNT, 2);
   pathOutput = 0;
   pathDebug = 0;
+  pathLibInput = 0;
   fdDebug = 0xffff;
 }
 
@@ -141,6 +143,7 @@ RdArgs(int argc, int *argv) {
   for (i = 1; i < argc; i++) {
     char* c;
     getarg(i, line, LINESIZE, argc, argv);
+    puts(line);
     c = line;
     if (*c == '-') {
       // option -x=xxx
@@ -148,11 +151,14 @@ RdArgs(int argc, int *argv) {
         fatalf("Missing '=' in option %s", c);
       }
       switch (*(c+1)) {
-        case 'e':
+        case 'e': // e=output file
           RdArgExe(c+3);
           break;
-        case 'd':
+        case 'd': // d=debug file
           RdArgDebug(c+3);
+          break;
+        case 'l': // l=library file with input file list of object files
+          RdArgLibrary(c+3);
           break;
         default:
           fatalf("Could not parse option %s", c);
@@ -181,7 +187,7 @@ RdArgs(int argc, int *argv) {
 RdArgObj(char *start, char *end) {
   char *path;
   if (fileCount == FILE_MAX) {
-    fatalf("Error: max of %u input files.", FILE_MAX);
+    fatalf("max of %u input files.", FILE_MAX);
   }
   filePaths[fileCount] = AllocMem(end - start + 1, 1);
   path = filePaths[fileCount];
@@ -200,6 +206,11 @@ RdArgExe(char *str) {
 RdArgDebug(char *str) {
   pathDebug = AllocMem(strlen(str) + 1, 1);
   strcpy(pathDebug, str);
+}
+
+RdArgLibrary(char *str) {
+  pathLibInput = AllocMem(strlen(str) + 1, 1);
+  strcpy(pathLibInput, str);
 }
 
 // ============================================================================

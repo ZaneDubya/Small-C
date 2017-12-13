@@ -70,4 +70,3 @@ SET OBJ=OBJ
 %BIN%\asm %OBJ%\UNLINK.ASM /p
 %BIN%\asm %OBJ%\UTOI.ASM /p
 %BIN%\asm %OBJ%\XTOI.ASM /p
-%BIN%\asm %OBJ%\
