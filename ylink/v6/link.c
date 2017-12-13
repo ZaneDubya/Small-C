@@ -66,10 +66,13 @@ int segIndex; // index of next segdef that will be defined
 #define PBDF_PER 3
 int *pbdfData;
 int pbdfCount;
-// --- ExtDef buffer ----------------------------------------------------------
-#define EXTBUF_LEN 1536
-char *extBuffer;
-int extCount, extNext;
+// --- ExtDef buffers ---------------------------------------------------------
+#define EXTBUF_LEN 1536 // these variables serve two different purposes.
+char *extBuffer; // In Pass2, list of all unresolved extdefs; 
+int extCount, extNext; // In Pass4, list of extdefs in this module.
+#define NOT_INCLUDED -2 // this extdef is defined but not included
+#define NOT_DEFINED -1 // this extdef is not defined
+
 
 main(int argc, int *argv) {
   int i;
@@ -80,6 +83,7 @@ main(int argc, int *argv) {
   Pass1();
   Pass2();
   Pass3();
+  Pass4();
   fprintf(fdDebug, "Mods: %u, Pubs: %u\nCode: %u b, Data: %u b, Stack: %u b\n",
     modCount, pbdfCount, segLengths[SEG_CODE], segLengths[SEG_DATA],
     segLengths[SEG_STACK]);
@@ -422,7 +426,7 @@ P1_PUBDEF(uint length, uint fd) {  byte typeindex;
   }
   basesegment = read_u8(fd);
   if (basesegment == 0) {
-    fatal("PUBDEF: BaseSegment must be nonzero.");
+    fatal("P1_PUBDEF: BaseSegment must be nonzero.");
   }
   length -= 2;
   while (length > 1) {
@@ -431,8 +435,8 @@ P1_PUBDEF(uint length, uint fd) {  byte typeindex;
     if (pbdfCount >= PBDF_CNT) {
       fatalf2("Could not add %s to pubdefs, max of %u.", line, PBDF_CNT);
     }
-    alreadyDefined = FindPubDef(line);
-    if (alreadyDefined != -1) {
+    alreadyDefined = FindPubDef(line, 0);
+    if (alreadyDefined != NOT_DEFINED) { // works for included and not included
       int otherMod;
       otherMod = pbdfData[alreadyDefined * PBDF_PER + PBDF_WHERE] >> 8;
       printf("Duplicate pubdef of '%s' in modules %s and %s.",
@@ -570,27 +574,41 @@ IncSegLengthsToNextParagraph() {
 // in an available LIBRARY file. If we can't, then error out. We will do this
 // recursively until all EXTDEFs are resolved.
 Pass2() {
-  uint i, fd;
+  uint i, fd, unresolved, extLast;
   uint offset[2];
   fprintf(fdDebug, "Pass 2:\n");
-  for (i = 0; i < modCount; i++) {
-    // Foreach mod: open the file containing the mod, and move to the mod data.
-    int mdatBase, mdatFile;
-    mdatBase = i * MDAT_PER;
-    if ((modData[mdatBase + MDAT_FLG] & FlgInclude) == FlgInclude) {
-      mdatFile = modData[mdatBase + MDAT_FLG] >> 12;
-      fprintf(fdDebug, "  Resolving %s... ", filePaths[mdatFile]);
-      if (!(fd = fopen(filePaths[mdatFile], "r"))) {
-        fatal("Could not open file.");
+  unresolved = 1;
+  while (unresolved == 1) {
+    // reset extdef buffer
+    extNext = 0;
+    extCount = 0;
+    // foreach mod: if included, open file containing mod, forward to mod data.
+    // collect all unresolved extdefs in that module.
+    for (i = 0; i < modCount; i++) {
+      int mdatBase, mdatFile;
+      mdatBase = i * MDAT_PER;
+      if ((modData[mdatBase + MDAT_FLG] & FlgInclude) == FlgInclude) {
+        mdatFile = (modData[mdatBase + MDAT_FLG] & 0xf000) >> 12;
+        fprintf(fdDebug, "  Collecting %s... ", modData[mdatBase + MDAT_NAME]);
+        if (!(fd = fopen(filePaths[mdatFile], "r"))) {
+          fatal("Could not open file.");
+        }
+        offset[0] = modData[mdatBase + MDAT_THD];
+        offset[1] = 0;
+        if (bseek(fd, offset, 0) == EOF) {
+          fatalf("Could not seek to position %u, file too short.", offset[0]);
+        }
+        P2_DoMod(fd);
+        cleanupfd(fd);
+        fprintf(fdDebug, "Done.\n");
       }
-      offset[0] = modData[mdatBase + MDAT_THD];
-      offset[1] = 0;
-      if (bseek(fd, offset, 0) == EOF) {
-        fatalf("Could not seek to position %u, file too short.", offset[0]);
-      }
-      P2_DoMod(fd);
-      cleanupfd(fd);
-      fprintf(fdDebug, "Done.\n");
+    }
+    fprintf(fdDebug, "  Unresolved count == %u.\n", extCount);
+    if (extCount == 0) {
+      unresolved = 0;
+    }
+    else {
+      P2_Resolve();
     }
   }
 }
@@ -605,16 +623,14 @@ P2_DoMod(uint fd) {
     }
     length = read_u16(fd);
     if (recType == EXTDEF) {
-      // If we are missing any references here, this is where we could go back
-      // to the unloaded library files and add them.
       P2_EXTDEF(length, fd);
     }
     else if (recType == MODEND) {
       break;
     }
     else {
-      // LIBEND requires special handling (must close instead of forward),
-      // but we will always hit MODEND before LIBEND.
+      // Although LIBEND requires special handling (close instead of forward),
+      // in a good lib file, we will always hit MODEND before LIBEND.
       forward(fd, length);
     }
   }
@@ -632,24 +648,56 @@ P2_EXTDEF(uint length, uint fd) {
     strlength = read_strpre(line, fd);
     deftype = read_u8(fd);
     length -= (strlength + 1);
-    pbdfIdx = FindPubDef(line);
-    if (pbdfIdx == -1) {
-      fatalf("\n  Error: unmatched extdef %s.", line);
-    }
     if (deftype != 0) {
-      fatalf("EXTDEF: Type of %u, must by type 0. ", deftype);
+      fatalf2("EXTDEF: Type of %x is %u, must by type 0. ", line, deftype);
     }
-    fprintf(fdDebug, "%s, ", pbdfData[pbdfIdx * PBDF_PER]);
+    pbdfIdx = FindPubDef(line, 0);
+    if (pbdfIdx == NOT_DEFINED) {
+      fatalf("P2_EXTDEF: No pubdef matches %s.", line);
+    }
+    else if (pbdfIdx == NOT_INCLUDED) {
+      AddName(line, extBuffer, &extNext, EXTBUF_LEN);
+      fprintf(fdDebug, "%s, ", line);
+      extCount += 1;
+    }
   }
   read_u8(fd); // checksum. assume correct.
+}
+
+P2_Resolve() {
+  int i, extName, pbdfIdx, modIndex;
+  // for each unincluded extdef, find the matching module and include it!
+  fprintf(fdDebug, "  Resolved: ");
+  for (i = 0; i < extCount; i++) {
+    extName = GetName(i, extBuffer, EXTBUF_LEN);
+    pbdfIdx = FindPubDef(extName, 1);
+    if (pbdfIdx >= 0) {
+      modIndex = pbdfData[pbdfIdx * PBDF_PER + PBDF_WHERE] / 256;
+      modData[modIndex * MDAT_PER + MDAT_FLG] |= FlgInclude;
+      fprintf(fdDebug, "%s (%s), ", extName, 
+        modData[modIndex * MDAT_PER + MDAT_NAME]);
+    }
+    else {
+      fatalf("P2_Resolve: Could not resolve pubdef for %s.", extName);
+    }
+  }
+  fprintf(fdDebug, "Done.\n");
 }
 
 // ============================================================================
 // === Pass3 ==================================================================
 // ============================================================================
-// In Pass3, we are copying in the DATA from the modules, and handling all
-// FIXUPP records.
+// Get segment lengths and code/data origins for each included module.
 Pass3() {
+  
+}
+
+// ============================================================================
+// === Pass4 ==================================================================
+// ============================================================================
+// In Pass4, we are copying in the DATA from the modules, and handling all
+// FIXUPP records.
+Pass4() {
   uint i, fd, outfd;
   uint modOffset[2]; // offset to object module that we are currently reading
   uint codeBase[2]; // offset to code segment in output file.
@@ -679,11 +727,11 @@ Pass3() {
       codeBase[1] = 0;
       dataBase[0] = EXE_HDR_LEN + segLengths[SEG_CODE] + modData[mdatBase + MDAT_DSO];
       dataBase[1] = 0;
-      // reset extdefs
+      // reset extdef buffer
       extNext = 0;
       extCount = 0;
       // do the mod!
-      P3_DoMod(fd, outfd, codeBase, dataBase);
+      P4_DoMod(fd, outfd, codeBase, dataBase);
       cleanupfd(fd);
     }
   }
@@ -729,7 +777,7 @@ WriteExeHeader(uint fd) {
   puts("Done.");
 }
 
-P3_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
+P4_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
   uint length, segOffset;
   byte recType, segType;
   ResetSegments();
@@ -737,7 +785,7 @@ P3_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
   while (1) {
     recType = read_u8(fd);
     if (feof(fd) || ferror(fd)) {
-        fatal("P3_DoMod: Unexpected file termination.\n");
+        fatal("P4_DoMod: Unexpected file termination.\n");
     }
     length = read_u16(fd);
     switch (recType) {
@@ -751,16 +799,16 @@ P3_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
         break;
       case EXTDEF:
         // read into buffer
-        P3_EXTDEF(length, fd);
+        P4_EXTDEF(length, fd);
         break;
       case LEDATA:
-        P3_LEDATA(length, fd, outfd, codeBase, dataBase, &segType, &segOffset);
+        P4_LEDATA(length, fd, outfd, codeBase, dataBase, &segType, &segOffset);
         break;
       case LIDATA:
-        P3_LIDATA(length, fd, outfd, codeBase, dataBase, &segType, &segOffset);
+        P4_LIDATA(length, fd, outfd, codeBase, dataBase, &segType, &segOffset);
         break;
       case FIXUPP:
-        P3_FIXUPP(length, fd, outfd, codeBase, dataBase, segType, segOffset);
+        P4_FIXUPP(length, fd, outfd, codeBase, dataBase, segType, segOffset);
         segType = SEG_NOTPRESENT; // only one fixupp per data record allowed
         break;
       case MODEND:  
@@ -772,7 +820,7 @@ P3_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
         forward(fd, length);
         break;
       default:
-        fatal("P3_DoMod: Unknown record of type %u.\n", recType);
+        fatal("P4_DoMod: Unknown record of type %u.\n", recType);
         break;
     }
   }
@@ -780,7 +828,7 @@ P3_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
 
 // Read all the extdefs for this module into a buffer.
 // extdef names are null-terminated.
-P3_EXTDEF(uint length, uint fd) {
+P4_EXTDEF(uint length, uint fd) {
   byte deftype;
   uint strlength;
   fprintf(fdDebug, "  EXTDEF ");
@@ -796,7 +844,7 @@ P3_EXTDEF(uint length, uint fd) {
   read_u8(fd); // checksum. assume correct.
 }
 
-P3_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
+P4_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   byte *segType, int *segOffset) {
   uint segBase[2];
   uint i;
@@ -805,10 +853,10 @@ P3_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   *segOffset = read_u16(fd);
   fprintf(fdDebug, "  LEDATA SegIdx=%x Offs=%x Len=%x\n", *segType, *segOffset, length);
   if (*segType == 0 || *segType > SEGS_CNT) {
-    fatalf("P3_LEDATA: segType of %u, must be between 1 and 3.", *segType);
+    fatalf("P4_LEDATA: segType of %u, must be between 1 and 3.", *segType);
   }
   *segType = locSegs[*segType - 1]; // transform to local segment index.
-  P3_SetBase(*segType, codeBase, dataBase, segBase);
+  P4_SetBase(*segType, codeBase, dataBase, segBase);
   segBase[0] += *segOffset;
   bseek(outfd, segBase, 0);
   for (i = 0; i < length; i++) {
@@ -823,7 +871,7 @@ P3_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
 // as a repeating pattern (iterated), rather than by explicit enumeration.
 // The data in an LIDATA record can be modified by the linker if the LIDATA
 // record is followed by a FIXUPP record, although this is not recommended.
-P3_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
+P4_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   byte *segType, int *segOffset) {
   uint segBase[2];
   uint i, j, repeat, count;
@@ -832,10 +880,10 @@ P3_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   *segOffset = read_u16(fd);
   fprintf(fdDebug, "  LIDATA SegIdx=%x Offs=%x Len=%x\n", *segType, *segOffset, length);
   if (*segType == 0 || *segType > SEGS_CNT) {
-    fatalf("P3_LIDATA: segType of %u, must be between 1 and 3.", *segType);
+    fatalf("P4_LIDATA: segType of %u, must be between 1 and 3.", *segType);
   }
   *segType = locSegs[*segType - 1]; // transform to local segment index.
-  P3_SetBase(*segType, codeBase, dataBase, segBase);
+  P4_SetBase(*segType, codeBase, dataBase, segBase);
   segBase[0] += *segOffset;
   bseek(outfd, segBase, 0);
   while (length > 1) {
@@ -848,14 +896,14 @@ P3_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
     //    more Data Block fields. The value in the Block Count field specifies
     //    the number of Data Block fields (recursive definition).
     if (count != 0) {
-      fatalf("P3_LIDATA: Block Count of %u, must be 0. ", count);
+      fatalf("P4_LIDATA: Block Count of %u, must be 0. ", count);
     }
     else {
       count = read_u8(fd);
       length -= 5 + count;
       if (count > LINESIZE) {
         // we COULD handle block size of 256 if necessary...
-        fatalf("P3_LIDATA: Block Size of %u, must be 128 or less. ", count);
+        fatalf("P4_LIDATA: Block Size of %u, must be 128 or less. ", count);
       }
       for (i = 0; i < count; i++) {
         line[i] = read_u8(fd);
@@ -889,7 +937,7 @@ P3_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
 // target or frame. Because the same THREAD subrecord can be referenced in
 // several subsequent FIXUP subrecords, a FIXUPP object record that uses THREAD
 // subrecords may be smaller than one in which THREAD subrecords are not used.
-P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
+P4_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   byte segType, int segOffset) {
   byte lLocat;    // 0x80 set: this is a fixup (unset: a thread, not handled)
                   // 0x40 unset: Self-relative, set: segment-relative
@@ -907,7 +955,7 @@ P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
     // --- fixupp reference data ----------------------------------------------
     fprintf(fdDebug, "    ");
     if ((lLocat & 0x80) == 0) {
-      fatalf("P3_FIXUPP: must be fixup, not thread (locat=%x).", lLocat);
+      fatalf("P4_FIXUPP: must be fixup, not thread (locat=%x).", lLocat);
     }
     if ((lLocat & 0x40) == 0) {
       fprintf(fdDebug, "Rel=IP, "); // relative to location of fixed up address.
@@ -922,54 +970,58 @@ P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
       fprintf(fdDebug, "Off=Seg+0x%x, ", lOffset); // Only seen in call.obj?
     }
     else {
-      fatalf("P3_FIXUPP: unhandled reference type %x.", lRefType);
+      fatalf("P4_FIXUPP: unhandled reference type %x.", lRefType);
     }
     if (tFrame != tTarget) {
       fprintf(fdDebug, "Unmatched frame target: %x != %x", tFrame, tTarget);
-      fatal("P3_FIXUPP: Segment frame and target must match.");
+      fatal("P4_FIXUPP: Segment frame and target must match.");
     }
     // --- target of fixupp ---------------------------------------------------
     if ((tFixdata & 0xf0) == 0x00) { // frame given by a segment index
-      P3_FixSeg(outfd, lLocat, lRefType, lOffset, tFrame, tOffset,
+      P4_FixSeg(outfd, lLocat, lRefType, lOffset, tFrame, tOffset,
         codeBase, dataBase, segType, segOffset);
     }
     else if ((tFixdata & 0xf0) == 0x20) { // frame given by an external index
       if ((tFixdata & 0x0f) != 6) {
-        fatalf("P3_FIXUPP: Unhandled frame type %u in ext.", (tFixdata & 0x0f));
+        fatalf("P4_FIXUPP: Unhandled frame type %u in ext.", (tFixdata & 0x0f));
       }
       // target given by an external index alone
-      P3_FixExt(outfd, lLocat, lRefType, lOffset, tFrame, tOffset,
+      P4_FixExt(outfd, lLocat, lRefType, lOffset, tFrame, tOffset,
         codeBase, dataBase, segType, segOffset);
     }
     else {
-      fatalf("P3_FIXUPP: unhandled Fixdata frame of %x.", tFixdata & 0xf0);
+      fatalf("P4_FIXUPP: unhandled Fixdata frame of %x.", tFixdata & 0xf0);
     }
   }
   read_u8(fd); // checksum. assume correct.
 }
 
-P3_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
+P4_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
   uint fixOffset, uint codeBase[], uint dataBase[], byte segType,
   int segOffset) {
   int extName, pbdfIndex, modOrigin;
   byte segOfExt, modOfExt;
   if (lRefType != 1) {
-    fatalf("P3_FixExt: Unhandled ref type &u.", lRefType);
+    fatalf("P4_FixExt: Unhandled ref type &u.", lRefType);
   }
   if (segType != SEG_CODE) {
-    fatal("P3_FixExt: Segment type must be CODE");
+    fatal("P4_FixExt: Segment type must be CODE");
   }
   if (fixExt > extCount) {
-    fatalf2("P3_FixExt: Ext index of %u is greater than ext count of %u.", 
+    fatalf2("P4_FixExt: Ext index of %u is greater than ext count of %u.", 
       fixExt, extCount);
   }
   extName = GetName(fixExt - 1, extBuffer, EXTBUF_LEN);
-  if (extName == 0xffff) {
-    fatalf("P3_FixExt: Could not find ext index %u.", fixExt);
+  if (extName == NOT_DEFINED) {
+    fatalf("P4_FixExt: Could not find ext index %u.", fixExt);
   }
-  pbdfIndex = FindPubDef(extName);
-  if (pbdfIndex == 0xffff) {
-    fatalf("P3_FixExt: Could not find pubdef matching extdef %s.", extName);
+  pbdfIndex = FindPubDef(extName, 0);
+  if (pbdfIndex == NOT_DEFINED) {
+    fatalf("P4_FixExt: No pubdef defined matching extdef %s.", extName);
+  }
+  else if (pbdfIndex == NOT_INCLUDED) {
+    // this can probably be removed - would error out in P2.
+    fatalf("P4_FixExt: Unincluded pubdef matches %s.", extName);
   }
   pbdfIndex = pbdfIndex * PBDF_PER;
   segOfExt = pbdfData[pbdfIndex + PBDF_WHERE] & 0x00ff;
@@ -983,7 +1035,7 @@ P3_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
       modOrigin = modData[modOrigin + MDAT_DSO];
       break;
     default:
-      fatalf("P3_FixExt: Ext is in unhandled seg of index %x", segOfExt);
+      fatalf("P4_FixExt: Ext is in unhandled seg of index %x", segOfExt);
       break;
   }
   fprintf(fdDebug, "Tgt=Ext%x (%s; Seg=0x%x Mod=%s+0x%x)\n", 
@@ -991,39 +1043,39 @@ P3_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
     pbdfData[pbdfIndex + PBDF_ADDR]);
   if ((lLocat & 0x40) == 0) {
     // IP-relative.
-    P3_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR], 1, 
+    P4_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR], 1, 
       codeBase[0], lOffset + segOffset);
   }
   else {
     // relative to beginning of segment.
-    P3_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR], 0, 
+    P4_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR], 0, 
       codeBase[0], lOffset + segOffset);
   }
 }
 
-P3_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
+P4_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
   uint fixOffset, uint codeBase[], uint dataBase[], byte segType,
   int segOffset) {
   uint segBase[2];
   fprintf(fdDebug, "Tgt=Seg%u+0x%x\n", fixSeg, fixOffset);
   fixSeg -= 1;
-  P3_SetBase(fixSeg, codeBase, dataBase, segBase);
+  P4_SetBase(fixSeg, codeBase, dataBase, segBase);
   if ((lLocat & 0x40) == 0) {
     // IP-relative.
     if (fixSeg != segType) {
       // Make sure we're in the same segment (this SHOULD be the case, because
       // we're fixing up code, and code is always in the same segment in the 
       // NEAR model that SmallC uses.
-      fatalf2("P3_FixSeg: IP-rel, seg %u must equal seg %u.\n", fixSeg, segType);
+      fatalf2("P4_FixSeg: IP-rel, seg %u must equal seg %u.\n", fixSeg, segType);
     }
     if (lRefType == 1) {
       // 16-bit offset
-      P3_DoFixupp(outfd, fixOffset - segOffset - lOffset - 2, 0, 0,
+      P4_DoFixupp(outfd, fixOffset - segOffset - lOffset - 2, 0, 0,
         codeBase[0], lOffset + segOffset);
     }
     else {
       // 16-bit logical segment base
-      fatal("P3_FixSeg: Unhandled segment base ref in IP-relative fixupp.");
+      fatal("P4_FixSeg: Unhandled segment base ref in IP-relative fixupp.");
     }
   }
   else {
@@ -1039,9 +1091,9 @@ P3_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
           whereBase = dataBase[0] - EXE_HDR_LEN - segLengths[SEG_CODE];
           break;
         default:
-          fatalf("P3_FixSeg: Unhandled relative seg base index %u.", fixSeg);
+          fatalf("P4_FixSeg: Unhandled relative seg base index %u.", fixSeg);
       }
-      P3_DoFixupp(outfd, whereBase, fixOffset, 0,
+      P4_DoFixupp(outfd, whereBase, fixOffset, 0,
         codeBase[0], lOffset + segOffset);
     }
     else if (lRefType == 2) {
@@ -1058,16 +1110,16 @@ P3_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
           logBase = (segLengths[0] + segLengths[1]) / 16;
           break;
         default:
-          fatalf2("P3_FixSeg: Unhandled logical segment base index %u, %u",
+          fatalf2("P4_FixSeg: Unhandled logical segment base index %u, %u",
             fixSeg, locSegs[fixSeg]);
       }
-      P3_DoFixupp(outfd, logBase, 0, 0, codeBase[0], lOffset + segOffset);
+      P4_DoFixupp(outfd, logBase, 0, 0, codeBase[0], lOffset + segOffset);
       relocData[relocCount++] = codeBase[0] + lOffset + segOffset - EXE_HDR_LEN;
     }
   }
 }
 
-P3_DoFixupp(uint fd, uint what, uint whatOff, uint whatRelative, 
+P4_DoFixupp(uint fd, uint what, uint whatOff, uint whatRelative, 
   uint where, uint whereOff) {
   uint outAddr[2];
   uint nowAddr[2];
@@ -1091,7 +1143,7 @@ P3_DoFixupp(uint fd, uint what, uint whatOff, uint whatRelative,
   }
 }
 
-P3_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
+P4_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
   if (segType == SEG_CODE) {
     segBase[0] = codeBase[0];
     segBase[1] = codeBase[1];
@@ -1108,7 +1160,7 @@ P3_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
   }
   else {
     printf(" Segs=%x %x %x ", locSegs[0], locSegs[1], locSegs[2]);
-    fatalf("P3_XXDATA: Local SegType of %u, must be 0 or 1. ", segType);
+    fatalf("P4_XXDATA: Local SegType of %u, must be 0 or 1. ", segType);
   }
 }
 
@@ -1116,15 +1168,27 @@ P3_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
 // === Common Routines ========================================================
 // ============================================================================
 
-// Returns index of pubdef with this name, or -1 (0xffff) if it is not present
-FindPubDef(char* name) {
-  int i, j, length;
+// Returns index of pubdef with this name, error code for not defined/present.
+// if retAllDefined == 1, return the index regardless of whether it is 
+// included or not included
+FindPubDef(char* name, int retAllDefined) {
+  int i, j, length, modIndex;
   char* matching;
   length = strlen(name);
   for (i = 0; i < pbdfCount; i++) {
+    // look for matching pubdef name
     matching = pbdfData[i * PBDF_PER + PBDF_NAME];
     for (j = 0; j <= length; j++) {
       if (name[j] == 0 && matching[j] == 0) {
+        modIndex = pbdfData[i * PBDF_PER + PBDF_WHERE] / 256;
+        if ((modData[modIndex * MDAT_PER + MDAT_FLG] & FlgInclude) == 0) {
+          if (retAllDefined) {
+            return i;
+          }
+          else {
+            return NOT_INCLUDED;
+          }
+        }
         return i;
       }
       if (toupper(name[j]) != toupper(matching[j])) {
@@ -1132,7 +1196,7 @@ FindPubDef(char* name) {
       }
     }
   }
-  return -1;
+  return NOT_DEFINED;
 }
 
 // rd_fix_target: Reads the target location of a fixupp.
@@ -1425,25 +1489,5 @@ GetName(int index, char *names, uint max) {
     }
     i++;
   }
-  return 0xffff;
-}
-
-MatchName(char* name, char *names, uint max) {
-  uint i, j, index;
-  i = index = 0;
-  while (i < max) {
-    j = 0;
-    while (name[j] == names[i]) {
-      if (name[j] == 0) {
-        return index;
-      }
-      i++;
-      j++;
-    }
-    while (names[i] != 0) {
-      i++;
-    }
-    index = i;
-  }
-  return -1;
+  return NOT_DEFINED;
 }
