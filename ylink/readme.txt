@@ -21,6 +21,7 @@ Expected milestones are:
     0.8     Same as 0.7, but now it is an exact copy of CC.EXE as linked
             by Microsoft Overlay Linker (link.exe).
             Verify new copy with checksum of new and old CC.EXE. DONE in v6.
+            Also can redirect debug with -d flag. DONE in v6.
     0.9     Able to create new library file CLIB.LIB - an exact copy of CLIB.LIB
             that is packaged with SmallC22 (or as close as possible) from
             included archived clib file.
