@@ -22,7 +22,7 @@ int exeStartAddress;
 #define LINESIZE 128
 char *line;
 // --- File paths - these are the files that are read in by the linker --------
-#define FILE_MAX 8
+#define FILE_MAX 96
 int *filePaths; // ptrs to input file paths, including library files.
 int fileCount; // equal to the number of input files.
 // --- ModData - information about the modules loaded for linking -------------
