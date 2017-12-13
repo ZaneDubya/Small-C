@@ -78,9 +78,6 @@ main(int argc, int *argv) {
   RdArgs(argc, argv);
   Initialize();
   Pass1();
-  for (i = 0; i < pbdfCount; i++) {
-    fprintf(fdDebug, "\n  PUB %x=%s", i, pbdfData[i * PBDF_PER]);
-  }
   Pass2();
   Pass3();
   fprintf(fdDebug, "Mods: %u, Pubs: %u\nCode: %u b, Data: %u b, Stack: %u b\n",
@@ -216,6 +213,10 @@ Pass1() {
     cleanupfd(fd);
     fprintf(fdDebug, "Done.\n");
   }
+  // list all pub defs:
+  /*for (i = 0; i < pbdfCount; i++) {
+    fprintf(fdDebug, "\n  PUB %x=%s", i, pbdfData[i * PBDF_PER]);
+  }*/
 }
 
 P1_RdFile(uint fileIndex, uint fd) {
@@ -350,14 +351,11 @@ P1_MODEND(uint length, uint fd) {
     length -= rd_fix_target(length, fd, &offset, &fixdata, &frame, &target);
     modData[modCount * MDAT_PER + MDAT_FLG] |= FlgStart;
     exeStartAddress = modData[modCount * MDAT_PER + MDAT_CSO] + offset;
-    // fprintf(fdDebug, " START: %x %x %x %x", offset, fixdata, frame, target);
   }
-  // <<<< I was going to use this to not include unneeded library files
+  // auto include all .obj files (leave all lib mods out for now).
   if ((modData[modCount * MDAT_PER + MDAT_FLG] & FlgInLib) == 0) {
     modData[modCount * MDAT_PER + MDAT_FLG] |= FlgInclude;
   }
-  // >>>>
-  modData[modCount * MDAT_PER + MDAT_FLG] |= FlgInclude;
   read_u8(fd); // checksum. assume correct.
   ClearPara(fd);
   modCount += 1;
@@ -569,20 +567,19 @@ IncSegLengthsToNextParagraph() {
 // ============================================================================
 // In Pass2, we are only making sure that all required EXTDEFs are matched by
 // an existing PUBDEF. If not, then we will attempt to find a matching PUBDEF
-// in an available LIBRARY file. If we can't, then error out.
+// in an available LIBRARY file. If we can't, then error out. We will do this
+// recursively until all EXTDEFs are resolved.
 Pass2() {
-  // For each mod: open the mod's file, then read the file to that mod.
   uint i, fd;
   uint offset[2];
   fprintf(fdDebug, "Pass 2:\n");
   for (i = 0; i < modCount; i++) {
+    // Foreach mod: open the file containing the mod, and move to the mod data.
     int mdatBase, mdatFile;
     mdatBase = i * MDAT_PER;
     if ((modData[mdatBase + MDAT_FLG] & FlgInclude) == FlgInclude) {
       mdatFile = modData[mdatBase + MDAT_FLG] >> 12;
-      fprintf(fdDebug, "  Resolving %s (%s)... ", 
-        modData[mdatBase + MDAT_NAM], 
-        filePaths[mdatFile]);
+      fprintf(fdDebug, "  Resolving %s... ", filePaths[mdatFile]);
       if (!(fd = fopen(filePaths[mdatFile], "r"))) {
         fatal("Could not open file.");
       }
@@ -630,17 +627,19 @@ P2_DoMod(uint fd) {
 // with symbols declared in PUBDEF records.
 P2_EXTDEF(uint length, uint fd) {
   byte deftype, strlength;
-  int i;
+  int i, pbdfIdx;
   while (length > 1) {
     strlength = read_strpre(line, fd);
     deftype = read_u8(fd);
     length -= (strlength + 1);
-    if (FindPubDef(line) == -1) {
+    pbdfIdx = FindPubDef(line);
+    if (pbdfIdx == -1) {
       fatalf("\n  Error: unmatched extdef %s.", line);
     }
     if (deftype != 0) {
       fatalf("EXTDEF: Type of %u, must by type 0. ", deftype);
     }
+    fprintf(fdDebug, "%s, ", pbdfData[pbdfIdx * PBDF_PER]);
   }
   read_u8(fd); // checksum. assume correct.
 }
@@ -784,10 +783,10 @@ P3_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
 P3_EXTDEF(uint length, uint fd) {
   byte deftype;
   uint strlength;
-  fprintf(fdDebug, "  EXTDEF\n    ");
+  fprintf(fdDebug, "  EXTDEF ");
   while (length > 1) {
     strlength = read_strpre(line, fd);
-    fprintf(fdDebug, "%x=%s, ", extCount, line);
+    // fprintf(fdDebug, "%x=%s, ", extCount, line);
     deftype = read_u8(fd);
     length -= (strlength + 1);
     AddName(line, extBuffer, &extNext, EXTBUF_LEN);
@@ -926,9 +925,7 @@ P3_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
       fatalf("P3_FIXUPP: unhandled reference type %x.", lRefType);
     }
     if (tFrame != tTarget) {
-      fprintf(fdDebug, "Unmatched frame and target.");
-      fprintf(fdDebug, "\n      %x %x %x", lOffset, lLocat, lRefType);
-      fprintf(fdDebug, "\n      %x %x %x %x ", tOffset, tFixdata, tFrame, tTarget);
+      fprintf(fdDebug, "Unmatched frame target: %x != %x", tFrame, tTarget);
       fatal("P3_FIXUPP: Segment frame and target must match.");
     }
     // --- target of fixupp ---------------------------------------------------

@@ -11,13 +11,13 @@ Expected milestones are:
     0.4     Dry run of linking: Calculate all necessary offsets, etc required to
             link and output HELLO.EXE from HELLO.OBJ and CLIBC.LIB.
             Write up process to be followed by ylink.
-    0.5     Able to link and output HELLO.EXE, which works.
+    0.5     Able to link and output HELLO.EXE, which works. DONE.
     0.6     Same as 0.5, but now it is (as close as I can manage) an exact copy
             of HELLO.EXE as linked by Microsoft Overlay Linker (link.exe).
             This means that I will only include library modules when they are
             necessary to resolve a missing extdef.
             Verify new copy with checksum of new and old HELLO.EXE.
-    0.7     Able to link and output CC.EXE, which works.
+    0.7     Able to link and output CC.EXE, which works. DONE in v5.
     0.8     Same as 0.7, but now it is an exact copy of CC.EXE as linked
             by Microsoft Overlay Linker (link.exe).
             Verify new copy with checksum of new and old CC.EXE.
