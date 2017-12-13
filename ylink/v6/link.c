@@ -73,7 +73,6 @@ int extCount, extNext; // In Pass4, list of extdefs in this module.
 #define NOT_INCLUDED -2 // this extdef is defined but not included
 #define NOT_DEFINED -1 // this extdef is not defined
 
-
 main(int argc, int *argv) {
   int i;
   puts(VERSION);
@@ -720,7 +719,7 @@ Pass3() {
 // In Pass4, we are copying in the DATA from the modules, and handling all
 // FIXUPP records.
 Pass4() {
-  uint i, fd, outfd;
+  uint i, fd, outfd, checksum;
   uint modOffset[2]; // offset to object module that we are currently reading
   uint codeBase[2]; // offset to code segment in output file.
   uint dataBase[2]; // offset to data segment in output file.
@@ -757,13 +756,34 @@ Pass4() {
       cleanupfd(fd);
     }
   }
-  WriteExeHeader(outfd);
   cleanupfd(outfd);
+  WriteExeHeader(0);
+  checksum = CalcChecksum();
+  WriteExeHeader(checksum);
 }
 
-WriteExeHeader(uint fd) {
+CalcChecksum() {
+  uint i, j, fd;
+  i = 0;
+  fd = fopen(pathOutput, "r");
+  while(1) {
+    j = read_u16(fd);
+    if (feof(fd)) {
+      break;
+    }
+    i += j;
+  }
+  cleanupfd(fd);
+  i = 0 - i - 1;
+  fprintf(fdDebug, "Checksum=%x\n", i, j);
+  return i;
+}
+
+WriteExeHeader(uint checksum) {
+  uint fd;
   uint beginning[2];
   uint blockcount, lastblock, rvSS, i;
+  fd = fopen(pathOutput, "r+");
   fprintf(fdDebug, "Writing Header... ");
   if (exeStartAddress == 0xffff) {
     fatal("No start address specified.");
@@ -786,7 +806,7 @@ WriteExeHeader(uint fd) {
   write_f16(fd, 0xffff); // 0C: paras mem wanted
   write_f16(fd, rvSS); // 0E: Relative value of the stack segment.
   write_f16(fd, segLengths[SEG_STACK]); // 10: Initial value of the SP register.
-  write_f16(fd, 0x0000); // 12: Word checksum. Does not need to be filled in.
+  write_f16(fd, checksum); // 12: Word checksum. Does not need to be filled in.
   write_f16(fd, exeStartAddress); // 14: Initial value of the IP register.
   write_f16(fd, 0x0000); // 16: Initial value of the CS register.
   write_f16(fd, 0x001E); // 18: Offset of the first relocation item in the file.
@@ -796,7 +816,8 @@ WriteExeHeader(uint fd) {
     write_f16(fd, relocData[i]);
     write_f16(fd, 0x0000);
   }
-  fprintf(fdDebug, "Done.");
+  cleanupfd(fd);
+  fprintf(fdDebug, "Done.\n");
 }
 
 P4_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
@@ -812,7 +833,6 @@ P4_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
     length = read_u16(fd);
     switch (recType) {
       case LNAMES:
-        
         P1_LNAMES(length, fd); // restore names of the segments in this module
         break;
       case SEGDEF:
@@ -1364,16 +1384,16 @@ write_f16(uint fd, uint value) {
 
 // === Binary Reading Routines ================================================
 read_u8(uint fd) {
-    byte ch;
-    ch = _read(fd);
-    return ch;
+  byte ch;
+  ch = _read(fd);
+  return ch;
 }
 
 read_u16(uint fd) {
-    uint i;
-    i = (_read(fd) & 0x00ff);
-    i += (_read(fd) & 0x00ff) << 8;
-    return i;
+  uint i;
+  i = (_read(fd) & 0x00ff);
+  i += (_read(fd) & 0x00ff) << 8;
+  return i;
 }
 
 // read string that is prefixed by length.

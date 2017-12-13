@@ -16,11 +16,11 @@ Expected milestones are:
             of HELLO.EXE as linked by Microsoft Overlay Linker (link.exe).
             This means that I will only include library modules when they are
             necessary to resolve a missing extdef.
-            Verify new copy with checksum of new and old HELLO.EXE.
+            Verify new copy with checksum of new and old HELLO.EXE. DONE.
     0.7     Able to link and output CC.EXE, which works. DONE in v5.
     0.8     Same as 0.7, but now it is an exact copy of CC.EXE as linked
             by Microsoft Overlay Linker (link.exe).
-            Verify new copy with checksum of new and old CC.EXE.
+            Verify new copy with checksum of new and old CC.EXE. DONE in v6.
     0.9     Able to create new library file CLIB.LIB - an exact copy of CLIB.LIB
             that is packaged with SmallC22 (or as close as possible) from
             included archived clib file.
