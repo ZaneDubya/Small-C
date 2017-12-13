@@ -26,8 +26,8 @@ int fileCount; // equal to the number of input files.
 // --- ModData - information about the modules loaded for linking -------------
 #define MOD_MAX 128
 #define MDAT_NAM 0
-#define MDAT_CSO 1 // code segment origin
-#define MDAT_DSO 2 // data segment origin
+#define MDAT_CSO 1 // Before P3: code seg length, After P3: code seg origin
+#define MDAT_DSO 2 // Before P3: data seg length, After P3: data seg origin
 #define MDAT_THD 3 // offset to THEADR in file
 #define MDAT_FLG 4 // flags
 #define MDAT_PER 5
@@ -226,7 +226,6 @@ Pass1() {
 P1_RdFile(uint fileIndex, uint fd) {
   uint length;
   byte recType;
-  libInLib = libIdxModule = 0; // reset library vars.
   while (1) {
     recType = read_u8(fd);
     if (feof(fd) || ferror(fd)) {
@@ -238,7 +237,6 @@ P1_RdFile(uint fileIndex, uint fd) {
 }
 
 P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
-  int i;
   switch (recType) {
     case THEADR:
       P1_THEADR(fileIndex, length, fd);
@@ -246,7 +244,6 @@ P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
       break;
     case MODEND:
       P1_MODEND(length, fd);
-      IncSegLengthsToNextParagraph();
       break;
     case LNAMES:
       P1_LNAMES(length, fd);
@@ -354,9 +351,10 @@ P1_MODEND(uint length, uint fd) {
     byte fixdata, frame, target;
     length -= rd_fix_target(length, fd, &offset, &fixdata, &frame, &target);
     modData[modCount * MDAT_PER + MDAT_FLG] |= FlgStart;
-    exeStartAddress = modData[modCount * MDAT_PER + MDAT_CSO] + offset;
+    exeStartAddress = offset;
   }
-  // auto include all .obj files (leave all lib mods out for now).
+  // include all .obj files, excluding all lib mods for now.
+  // lib mods will be included where necessary to resolve extdefs.
   if ((modData[modCount * MDAT_PER + MDAT_FLG] & FlgInLib) == 0) {
     modData[modCount * MDAT_PER + MDAT_FLG] |= FlgInclude;
   }
@@ -458,7 +456,7 @@ P1_PUBDEF(uint length, uint fd) {  byte typeindex;
     *pdbfname = 0;
     // set the module data.
     pbdfData[pbdfCount * PBDF_PER + PBDF_WHERE] = locSegs[basesegment - 1];
-    pbdfData[pbdfCount * PBDF_PER + PBDF_WHERE] |= modCount << 8;
+    pbdfData[pbdfCount * PBDF_PER + PBDF_WHERE] |= (modCount << 8);
     pbdfData[pbdfCount * PBDF_PER + PBDF_ADDR] = puboffset;
     length -= namelen + 3;
     pbdfCount += 1;
@@ -506,15 +504,13 @@ P1_SEGDEF(uint length, uint fd, uint pass1) {
   }
   if (segname == LNAME_CODE) {
     if (pass1 == 1) {
-      modData[modCount * MDAT_PER + MDAT_CSO] = segLengths[SEG_CODE];
-      segLengths[SEG_CODE] += seglen;
+      modData[modCount * MDAT_PER + MDAT_CSO] = seglen;
     }
     locSegs[segIndex] = SEG_CODE;
   }
   else if (segname == LNAME_DATA) {
     if (pass1 == 1) {
-      modData[modCount * MDAT_PER + MDAT_DSO] = segLengths[SEG_DATA];
-      segLengths[SEG_DATA] += seglen;
+      modData[modCount * MDAT_PER + MDAT_DSO] = seglen;
     }
     locSegs[segIndex] = SEG_DATA;
   }
@@ -651,6 +647,10 @@ P2_EXTDEF(uint length, uint fd) {
     if (deftype != 0) {
       fatalf2("EXTDEF: Type of %x is %u, must by type 0. ", line, deftype);
     }
+    pbdfIdx = MatchName(line, extBuffer, EXTBUF_LEN);
+    if (pbdfIdx != NOT_DEFINED) {
+      continue;
+    }
     pbdfIdx = FindPubDef(line, 0);
     if (pbdfIdx == NOT_DEFINED) {
       fatalf("P2_EXTDEF: No pubdef matches %s.", line);
@@ -688,8 +688,30 @@ P2_Resolve() {
 // === Pass3 ==================================================================
 // ============================================================================
 // Get segment lengths and code/data origins for each included module.
+// Then set exeStartAddress
 Pass3() {
-  
+  // set code segment origins as in v5.P1_SEGDEF
+  uint i, seglen;
+  fprintf(fdDebug, "Pass 3: Setting segment origins ...");
+  for (i = 0; i < modCount; i++) {
+    int mdatBase, mdatFile;
+    mdatBase = i * MDAT_PER;
+    if ((modData[mdatBase + MDAT_FLG] & FlgInclude) == FlgInclude) {
+      // set code origin for this segment in this module
+      seglen = modData[mdatBase + MDAT_CSO];
+      modData[mdatBase + MDAT_CSO] = segLengths[SEG_CODE];
+      segLengths[SEG_CODE] += seglen;
+      // set data origin for this segment in this module
+      seglen = modData[mdatBase + MDAT_DSO];
+      modData[mdatBase + MDAT_DSO] = segLengths[SEG_DATA];
+      segLengths[SEG_DATA] += seglen;
+      if ((modData[mdatBase + MDAT_FLG] & FlgStart) == FlgStart) {
+        exeStartAddress += modData[mdatBase + MDAT_CSO];
+      }
+    }
+    IncSegLengthsToNextParagraph();
+  }
+  fprintf(fdDebug, "Done.\n");
 }
 
 // ============================================================================
@@ -704,7 +726,7 @@ Pass4() {
   uint dataBase[2]; // offset to data segment in output file.
   relocCount = 0;
   outfd = fopen(pathOutput, "a");
-  fprintf(fdDebug, "Pass 3:\n");
+  fprintf(fdDebug, "Pass 4:\n");
   for (i = 0; i < modCount; i++) {
     int mdatBase, mdatFile;
     mdatBase = i * MDAT_PER;
@@ -742,7 +764,7 @@ Pass4() {
 WriteExeHeader(uint fd) {
   uint beginning[2];
   uint blockcount, lastblock, rvSS, i;
-  printf("Writing Header... ");
+  fprintf(fdDebug, "Writing Header... ");
   if (exeStartAddress == 0xffff) {
     fatal("No start address specified.");
   }
@@ -774,7 +796,7 @@ WriteExeHeader(uint fd) {
     write_f16(fd, relocData[i]);
     write_f16(fd, 0x0000);
   }
-  puts("Done.");
+  fprintf(fdDebug, "Done.");
 }
 
 P4_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
@@ -790,8 +812,8 @@ P4_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
     length = read_u16(fd);
     switch (recType) {
       case LNAMES:
-        // restore locNames so we know the names of the segments in this module
-        P1_LNAMES(length, fd);
+        
+        P1_LNAMES(length, fd); // restore names of the segments in this module
         break;
       case SEGDEF:
         // restore locSegs so we know the names of segments in this module
@@ -1488,6 +1510,23 @@ GetName(int index, char *names, uint max) {
       count += 1;
     }
     i++;
+  }
+  return NOT_DEFINED;
+}
+
+MatchName(char* name, char *names, uint max) {
+  uint i, j;
+  for (i = 0; i < max; i++) {
+    if (names[i] != 0) {
+      j = 0;
+      while (toupper(names[i]) == toupper(name[j])) {
+        if (names[i] == 0 && name[j] == 0) {
+          return 1;
+        }
+        i++;
+        j++;
+      }
+    }
   }
   return NOT_DEFINED;
 }
