@@ -397,6 +397,7 @@ P1_MODEND(uint length, uint fd) {
     modData[modCount * MDAT_PER + MDAT_FLG] |= FlgInclude;
   }
   read_u8(fd); // checksum. assume correct.
+  // MODEND ends with a buffer to the end of the paragraph.
   ClearPara(fd);
   modCount += 1;
 }
@@ -1281,23 +1282,88 @@ P4_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
 // ============================================================================
 // If we are reading in a library file, then we just concat the library file!
 Pass2Lib() {
-  uint outfd, i;
+  uint fd, fdmod, i;
+  uint modOffset[2]; // offset to object module that we are currently reading
   if (fdDebug != 0) {
     fprintf(fdDebug, "Pass 2: Build library file.\n");
   }
   puts("  Pass 2 (Library file)");
-  outfd = safefopen(pathOutput, "a");
-  write_f8(outfd, 0xf0); // LIBHDR
-  write_f16(outfd, 0x000d); // length of record
-  write_f16(outfd, 0xAAAA); // low offset to lib dict
-  write_f16(outfd, 0xBBBB); // hi offset to lib dict
-  write_f16(outfd, 0x0000); // count blocks in lib dict.
-  write_f8(outfd, 0x00); // flags.
-  for (i = 0; i < 5; i++) {
-    write_f8(outfd, 0x00); // fill rest of record with zeros.
+  fd = safefopen(pathOutput, "a");
+  P2L_LIBHDR(fd);
+  for (i = 0; i < modCount; i++) {
+    int mdatBase, mdatFile;
+    mdatBase = i * MDAT_PER;
+    if ((modData[mdatBase + MDAT_FLG] & FlgInclude) == FlgInclude) {
+      mdatFile = modData[mdatBase + MDAT_FLG] & 0x00ff;
+      if (fdDebug != 0xffff) {
+        fprintf(fdDebug, "Adding %s (%s) to library... \n", 
+          modData[mdatBase + MDAT_NAM], filePaths[mdatFile]);
+      }
+      fdmod = safefopen(filePaths[mdatFile], "r");
+      // seek to module in input object file:
+      modOffset[0] = modData[mdatBase + MDAT_THD];
+      modOffset[1] = 0;
+      if (bseek(fdmod, modOffset, 0) == EOF) {
+        fatalf("Could not seek to position %u, file too short.", modOffset[0]);
+      }
+      P2L_ADD(fd, fdmod);
+      safefclose(fdmod);
+    }
   }
-  write_f8(outfd, 0x00); // checksum
-  safefclose(outfd);
+  P2L_LIBEND(fd);
+  safefclose(fd);
+}
+
+P2L_LIBHDR(uint fd) {
+  int i;
+  write_f8(fd, LIBHDR);
+  write_f16(fd, 0x000d); // length of record
+  write_f16(fd, 0x0000); // low offset to lib dict
+  write_f16(fd, 0x0000); // hi offset to lib dict
+  write_f16(fd, 0x0000); // count blocks in lib dict.
+  write_f8(fd, 0x00); // flags.
+  for (i = 0; i < 5; i++) {
+    write_f8(fd, 0x00); // fill rest of record with zeros.
+  }
+  write_f8(fd, 0x00); // checksum
+}
+
+P2L_LIBEND(uint fd) {
+  int i;
+  write_f8(fd, LIBEND);
+  write_f16(fd, 0x000d); // length of record
+  for (i = 0; i < 12; i++) {
+    write_f8(fd, 0x00); // fill rest of record with zeros.
+  }
+  write_f8(fd, 0x00); // checksum
+}
+
+P2L_ADD(uint fdout, uint fdmod) {
+  uint length, i;
+  byte recType, c;
+  while (1) {
+    recType = read_u8(fdmod);
+    if (feof(fdmod) || ferror(fdmod)) {
+      fatal("Unexpected EOF in file.");
+    }
+    length = read_u16(fdmod);
+    write_f8(fdout, recType);
+    write_f16(fdout, length);
+    for (i = 0; i < length; i++) {
+      c = read_u8(fdmod);
+      write_f8(fdout, c);
+    }
+    if (recType == MODEND) {
+      int remaining;
+      remaining = 16 - (ctellc(fdout) % 16);
+      if (remaining != 16) {
+        for (i = 0; i < remaining; i++) {
+          write_f8(fdout, 0x00);
+        }
+      }
+      break;
+    }
+  }
 }
 
 // ============================================================================
@@ -1567,7 +1633,6 @@ forward(uint fd, uint offset) {
 }
 
 ClearPara(uint fd) {
-  // MODEND can be followed with up to a paragraph of unknown data.
   if (!feof(fd)) {
     int remaining;
     remaining = 16 - (ctellc(fd) % 16);

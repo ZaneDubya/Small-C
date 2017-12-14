@@ -36,7 +36,7 @@ if errorlevel 1 goto exit
 REM LINK
 ECHO === Linking SmallC Compiler ===
 ..\bin\link cc1 cc2 cc3 cc4,cc,cc,..\smalllib\clib.lib
-..\bin\ylink cc1.obj,cc2.obj,cc3.obj,cc4.obj,..\smalllib\clib.lib -e=ycc.exe
+..\bin\ylink cc1.obj,cc2.obj,cc3.obj,cc4.obj,..\smalllib\yclib.lib -e=ycc.exe
 if errorlevel 1 goto exit
 
 REM CLEANUP
