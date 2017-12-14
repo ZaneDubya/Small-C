@@ -31,7 +31,7 @@ int fileCount; // equal to the number of input files.
 #define MDAT_CSO 1 // Before P3: code seg length, After P3: code seg origin
 #define MDAT_DSO 2 // Before P3: data seg length, After P3: data seg origin
 #define MDAT_THD 3 // offset to THEADR in file
-#define MDAT_FLG 4 // flags
+#define MDAT_FLG 4 // flags / file offset
 #define MDAT_PER 5
 #define FlgInLib 0x0100
 #define FlgStart 0x0200
@@ -39,9 +39,8 @@ int fileCount; // equal to the number of input files.
 #define FlgInclude 0x800
 int *modData; // each obj has name ptr, 2 fields for seg
               // origin, theadr offset in file, and flag.
-              // flag is: 0xf000 file index (max 16 files),
-              // 0x00ff file_mod_idx (max 256 mods per file), and 0x0f00 flags:
-              //    0x0100 in_lib, 0x0200 has start, 0x0400 has stack
+              // flag is: 0x00ff file index (max 256 files), and 
+              // 0x0f00 flags: 0x0100 in_lib, 0x0200 start, 0x0400 stack
 int modCount; // incremented by 1 for each obj and library module in exe.
 // --- ListNames - temporary LNAMES data (reloaded for each module) -----------
 #define LNAMES_CNT 4
@@ -82,12 +81,17 @@ main(int argc, int *argv) {
   RdArgs(argc, argv);
   Initialize();
   Pass1();
-  Pass2();
-  Pass3();
-  Pass4();
-  if (fdDebug != 0xffff) {
-    fprintf(fdDebug, "Code: %u b Data: %u b, Stack: %u b\n",
-      segLengths[SEG_CODE], segLengths[SEG_DATA], segLengths[SEG_STACK]);
+  if (IsLibrary()) {
+    Pass2Lib();
+  }
+  else {
+    Pass2();
+    Pass3();
+    Pass4();
+    if (fdDebug != 0xffff) {
+      fprintf(fdDebug, "Code: %u b Data: %u b, Stack: %u b\n",
+        segLengths[SEG_CODE], segLengths[SEG_DATA], segLengths[SEG_STACK]);
+    }
   }
   DeAllocAll();
   return 0;
@@ -106,6 +110,7 @@ AllocAll() {
   pathOutput = 0;
   pathDebug = 0;
   pathLibInput = 0;
+  fileCount = 0;
   fdDebug = 0xffff;
 }
 
@@ -117,7 +122,8 @@ DeAllocAll() {
 }
 
 Initialize() {
-  int i;
+  int i, fd, length;
+  char c;
   if (pathOutput == 0) {
     printf("  No -e parameter. Output file will be out.exe.\n");
     pathOutput = AllocMem(8, 1);
@@ -132,6 +138,20 @@ Initialize() {
     unlink(pathDebug);
     fdDebug = safefopen(pathDebug, "a");
   }
+  // copy in library files
+  if (pathLibInput != 0) {
+    fd = safefopen(pathLibInput, "r");
+    while(1) {
+      if (feof(fd)) {
+        break;
+      }
+      readstr(line, LINEMAX, fd);
+      length = strlen(line);
+      filePaths[fileCount] = AllocMem(length + 1, 1);
+      strcpy(filePaths[fileCount], line);
+      fileCount += 1;
+    }
+  }
   exeStartAddress = 0xffff;
 }
 
@@ -143,7 +163,6 @@ RdArgs(int argc, int *argv) {
   for (i = 1; i < argc; i++) {
     char* c;
     getarg(i, line, LINESIZE, argc, argv);
-    puts(line);
     c = line;
     if (*c == '-') {
       // option -x=xxx
@@ -220,8 +239,7 @@ RdArgLibrary(char *str) {
 // 1. get object file description and save in objdefs,
 // 2. for each segment, get name, create seg def (if necessary), set origins,
 // 3. for each pubdef, add to pubdefs.
-byte libInLib; // if 1, we are in a library obj.
-byte libIdxModule;
+byte libInLib; // if 1, we are reading a library obj.
 
 Pass1() {
   uint i, fd;
@@ -325,7 +343,7 @@ AddModule(uint fileIndex, uint fd) {
   // rewind offset 3 bytes to beginning of header file.
   offset[0] -= 3;
   // copy the module name and set up data.
-  length = read_strpre(line, fd);
+  length = readstrpre(line, fd);
   c = line;
   path = modData[modCount * MDAT_PER + MDAT_NAM] = AllocMem(length, 1);
   for (i = 0; i < length; i++) {
@@ -336,10 +354,12 @@ AddModule(uint fileIndex, uint fd) {
   modData[modCount * MDAT_PER + MDAT_CSO] = 0;
   modData[modCount * MDAT_PER + MDAT_DSO] = 0;
   modData[modCount * MDAT_PER + MDAT_THD] = offset[0];
-  modData[modCount * MDAT_PER + MDAT_FLG] = (fileIndex << 12);
+  modData[modCount * MDAT_PER + MDAT_FLG] = fileIndex & 0x00ff;
+  if (fileIndex > 0xff) { // sanity
+    fatal("AddModule: MDAT_FLG cannot store file index greater than 255.");
+  }
   if (libInLib) {
-    modData[modCount * MDAT_PER + MDAT_FLG] |= libIdxModule | FlgInLib;
-    libIdxModule += 1;
+    modData[modCount * MDAT_PER + MDAT_FLG] |= FlgInLib;
   }
 }
 
@@ -395,7 +415,7 @@ P1_LNAMES(uint length, uint fd) {
     if (nameIndex == LNAMES_CNT) {
       fatalf("Error: P1_LNAMES max of %u local names.", LNAMES_CNT);
     }
-    length -= read_strpre(line, fd); // line = local name at index nameIndex.
+    length -= readstrpre(line, fd); // line = local name at index nameIndex.
     if (strcmp(line, "") == 0) {
       locNames[nameIndex] = LNAME_NULL;
     }
@@ -447,7 +467,7 @@ P1_PUBDEF(uint length, uint fd) {  byte typeindex;
   length -= 2;
   while (length > 1) {
     int namelen;
-    namelen = read_strpre(line, fd);
+    namelen = readstrpre(line, fd);
     if (pbdfCount >= PBDF_CNT) {
       fatalf2("Could not add %s to pubdefs, max of %u.", line, PBDF_CNT);
     }
@@ -545,9 +565,13 @@ P1_SEGDEF(uint length, uint fd, uint pass1) {
   segIndex += 1;
 }
 
-// Note: I've removed code to load the library dictionary and dependancies.
-// This should be parsed, not loaded in memory and kept there. In the v4 
-// codebase, this is everything between btell and bseek.
+// Note: I've removed code to load library dictionary and dependancy records.
+// The library dictionary contains a reference to every pubdef in every object
+// in the library. The library depndancy lists the internal dependancies
+// between object modules in the library. These would be incredibly useful
+// if we were working with multiple libraries. For small programs, I am 
+// ignoring them. Code to load these is in the v4 codebase between btell and
+// bseek.
 P1_LIBHDR(uint length, uint fd) {
   byte flags, nextRecord;
   uint dictOffset[2], blockCount;
@@ -560,7 +584,12 @@ P1_LIBHDR(uint length, uint fd) {
   libInLib = 1;
 }
 
-// F1H End Library
+// Note: Following the LIBEND is the library dictionary and dependancy records.
+// I don't use this information, and while it can be calculated on the fly, 
+// it would be tremendously useful if we we loading multiple libraries and/or
+// did not have the memory to hold all the dependancy information.
+// In any case, library files generated by YLINK, for now, will end after the
+// LIBEND record, and will not contain dictionary or dependancy records.
 P1_LIBEND(uint length, uint fd) {
   if (!libInLib) {
     fatal("LIBEND: not a library!", 0);
@@ -587,11 +616,12 @@ IncSegLengthsToNextParagraph() {
 // an existing PUBDEF. If not, then we will attempt to find a matching PUBDEF
 // in an available LIBRARY file. If we can't, then error out. We will do this
 // recursively until all EXTDEFs are resolved.
+// If we are building a .lib file, then we can skip this step.
 Pass2() {
   uint i, fd, unresolved, extLast;
   uint offset[2];
   if (fdDebug != 0xffff) {
-    fprintf(fdDebug, "Pass 2:\n");
+    fprintf(fdDebug, "Pass 2: Match all extdefs to pubdefs.\n");
   }
   puts("  Pass 2");
   unresolved = 1;
@@ -608,7 +638,7 @@ Pass2() {
       int mdatBase, mdatFile;
       mdatBase = i * MDAT_PER;
       if ((modData[mdatBase + MDAT_FLG] & FlgInclude) == FlgInclude) {
-        mdatFile = (modData[mdatBase + MDAT_FLG] & 0xf000) >> 12;
+        mdatFile = modData[mdatBase + MDAT_FLG] & 0x00ff;
         if (fdDebug != 0xffff) {
           fprintf(fdDebug, "%s, ", modData[mdatBase + MDAT_NAME]);
         }
@@ -666,7 +696,7 @@ P2_EXTDEF(uint length, uint fd) {
   byte deftype, strlength;
   int i, pbdfIdx;
   while (length > 1) {
-    strlength = read_strpre(line, fd);
+    strlength = readstrpre(line, fd);
     deftype = read_u8(fd);
     length -= (strlength + 1);
     if (deftype != 0) {
@@ -756,7 +786,7 @@ Pass4() {
     int mdatBase, mdatFile;
     mdatBase = i * MDAT_PER;
     if ((modData[mdatBase + MDAT_FLG] & FlgInclude) == FlgInclude) {
-      mdatFile = modData[mdatBase + MDAT_FLG] >> 12;
+      mdatFile = modData[mdatBase + MDAT_FLG] & 0x00ff;
       if (fdDebug != 0xffff) {
         fprintf(fdDebug, "Linking %s (%s) CODE=0x%x DATA=0x%x \n", 
           modData[mdatBase + MDAT_NAM], filePaths[mdatFile],
@@ -903,7 +933,7 @@ P4_EXTDEF(uint length, uint fd) {
     fprintf(fdDebug, "  EXTDEF\n");
   }
   while (length > 1) {
-    strlength = read_strpre(line, fd);
+    strlength = readstrpre(line, fd);
     deftype = read_u8(fd);
     length -= (strlength + 1);
     AddName(line, extBuffer, &extNext, EXTBUF_LEN);
@@ -1247,6 +1277,30 @@ P4_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
 }
 
 // ============================================================================
+// === Pass2 (Library files) ==================================================
+// ============================================================================
+// If we are reading in a library file, then we just concat the library file!
+Pass2Lib() {
+  uint outfd, i;
+  if (fdDebug != 0) {
+    fprintf(fdDebug, "Pass 2: Build library file.\n");
+  }
+  puts("  Pass 2 (Library file)");
+  outfd = safefopen(pathOutput, "a");
+  write_f8(outfd, 0xf0); // LIBHDR
+  write_f16(outfd, 0x000d); // length of record
+  write_f16(outfd, 0xAAAA); // low offset to lib dict
+  write_f16(outfd, 0xBBBB); // hi offset to lib dict
+  write_f16(outfd, 0x0000); // count blocks in lib dict.
+  write_f8(outfd, 0x00); // flags.
+  for (i = 0; i < 5; i++) {
+    write_f8(outfd, 0x00); // fill rest of record with zeros.
+  }
+  write_f8(outfd, 0x00); // checksum
+  safefclose(outfd);
+}
+
+// ============================================================================
 // === Common Routines ========================================================
 // ============================================================================
 
@@ -1381,6 +1435,15 @@ rd_fix_locat(uint length, uint fd, uint *offset, byte *locat, byte *lRefType) {
   return length;
 }
 
+// === Program State ==========================================================
+// returns 1 if we are building a library file, 0 otherwise.
+IsLibrary() {
+  if (pathLibInput != 0) {
+    return 1;
+  }
+  return 0;
+}
+
 // === Write Hexidecimal numbers ==============================================
 
 write_x16(uint fd, uint value) {
@@ -1437,7 +1500,7 @@ read_u16(uint fd) {
 }
 
 // read string that is prefixed by length.
-read_strpre(char* str, uint fd) {
+readstrpre(char* str, uint fd) {
   byte length, retval;
   char* next;
   next = str;
@@ -1448,6 +1511,31 @@ read_strpre(char* str, uint fd) {
   }
   *next++ = NULL;
   return retval + 1;
+}
+
+// reimplementation of fgets. reads until eof, \n, or \r.
+readstr(char* str, uint size, uint fd) {
+  int backup; char *next;
+  next = str;
+  while(--size > 0) {
+    switch (*next = fgetc(fd)) {
+      case  EOF: 
+        *next = NULL;
+        if(next == str) {
+          return NULL;
+        }
+        return str;
+      case '\r':
+      case '\n':
+        *next = NULL;
+        return str;
+      default:
+        ++next;
+        break;
+    }
+  }
+  *next = NULL;
+  return str;
 }
 
 // === File Management ========================================================
