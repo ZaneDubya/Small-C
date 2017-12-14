@@ -5,6 +5,9 @@ REM The -A switch causes the alarm to sound whenever an error is reported.
 REM The -P switch causes the compiler to pause after reporting each error.
 REM     An ENTER (carriage return) keystroke resumes execution.
 
+SET BIN=..\..\bin
+SET LIB=..\..\smalllib
+
 ECHO === Compiling hello.c ===
 ..\bin\cc  hello -a -p
 if errorlevel 1 goto exit
@@ -13,7 +16,8 @@ if errorlevel 1 goto exit
 
 REM LINK
 ECHO === Linking ===
-..\bin\link hello,hello,hello,..\smalllib\clib.lib
+REM ..\bin\link hello,hello,hello,..\smalllib\clib.lib
+%BIN%\ylink hello.obj,%LIB%\clib.lib -e=hello.exe
 if errorlevel 1 goto exit
 
 :exit
