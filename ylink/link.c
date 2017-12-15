@@ -59,7 +59,7 @@ uint *segLengths; // length of segdefs, index is seg_xxx
 byte *locSegs; // seg_xxxs in this module, in order they were defined
 int segIndex; // index of next segdef that will be defined
 // --- Public Definitions -----------------------------------------------------
-#define PBDF_CNT 512
+#define PBDF_CNT 640
 #define PBDF_NAME 0   // ptr to name of pubdef
 #define PBDF_WHERE 1  // hi: index of module where it is located
                       // low: index of segment where it is located
@@ -386,8 +386,8 @@ P1_MODEND(uint length, uint fd) {
     // field starting with the End Data byte is present and specifies the start
     // address.
     uint offset;
-    byte fixdata, frame, target;
-    length -= rd_fix_target(length, fd, &offset, &fixdata, &frame, &target);
+    byte frmType, tgtType, frame, target;
+    length -= rd_fix_target(length, fd, &offset, &frmType, &tgtType, &frame, &target);
     modData[modCount * MDAT_PER + MDAT_FLG] |= FlgStart;
     exeStartAddress = offset;
   }
@@ -959,7 +959,7 @@ P4_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   }
   *segType = locSegs[*segType - 1]; // transform to local segment index.
   P4_SetBase(*segType, codeBase, dataBase, segBase);
-  segBase[0] += *segOffset;
+  Add1632(*segOffset, segBase); // segBase[0] += *segOffset;
   bseek(outfd, segBase, 0);
   for (i = 0; i < length; i++) {
     write_f8(outfd, read_u8(fd));
@@ -976,7 +976,7 @@ P4_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
 P4_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   byte *segType, int *segOffset) {
   uint segBase[2];
-  uint i, j, repeat, count;
+  uint repeat, count;
   length -= 4; // length includes segment type, offset, and checksum
   *segType = read_u8(fd);
   *segOffset = read_u16(fd);
@@ -989,38 +989,69 @@ P4_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   }
   *segType = locSegs[*segType - 1]; // transform to local segment index.
   P4_SetBase(*segType, codeBase, dataBase, segBase);
-  segBase[0] += *segOffset;
+  Add1632(*segOffset, segBase); // segBase[0] += *segOffset;
   bseek(outfd, segBase, 0);
   while (length > 1) {
     repeat = read_u16(fd); // number of times the Content field will repeat. 
     count = read_u16(fd); // determines interpretation of the Content field:
+    length -= 4;
     // 0  Indicates that the Content field that follows is a 1-byte count value  
     //    followed by count data bytes. Data bytes will be mapped to memory, 
     //    repeated as many times as are specified in the Repeat Count field.
     // !0 Indicates that the Content field that follows is composed of one or
     //    more Data Block fields. The value in the Block Count field specifies
     //    the number of Data Block fields (recursive definition).
-    if (count != 0) {
-      fatalf("P4_LIDATA: Block Count of %u, must be 0. ", count);
+    if (fdDebug != 0xffff) {
+      fprintf(fdDebug, "    Repeat=%x Blocks=%x\n", repeat, count);
+    }
+    if (count == 0) {
+      P4_LIINNER(fd, outfd, repeat, &length);
+    }
+    else if (count == 1) {
+      // count is times to repeat inner blocks.
+      // I am just going to fudge this so it can handle asm.lib. It needs a 
+      // rewrite to handle this recursively
+      repeat = read_u16(fd);
+      count = read_u16(fd);
+      length -= 4;
+      if (count == 0x0000) {
+        P4_LIINNER(fd, outfd, repeat, &length);
+      }
     }
     else {
-      count = read_u8(fd);
-      length -= 5 + count;
-      if (count > LINESIZE) {
-        // we COULD handle block size of 256 if necessary...
-        fatalf("P4_LIDATA: Block Size of %u, must be 128 or less. ", count);
-      }
-      for (i = 0; i < count; i++) {
-        line[i] = read_u8(fd);
-      }
-      for (i = 0; i < repeat; i++) {
-        for (j = 0; j < count; j++) {
-          write_f8(outfd, line[j]);
+      int i;
+      if (fdDebug != 0xffff) {
+        byte xxx;
+        write_x16(fdDebug, repeat);
+        write_x16(fdDebug, count);
+        for (i = 0; i < length; i++) {
+          xxx = read_u8(fd);
+          write_x8(fdDebug, xxx);
         }
       }
+      fatalf("P4_LIDATA: Block Count of %u, must be 0. ", count);
     }
   }
   read_u8(fd); // checksum. assume correct.
+}
+
+P4_LIINNER(uint fd, uint outfd, uint repeat, uint *length) {
+  int i, j;
+  uint count;
+  count = read_u8(fd);
+  *length -= 1 + count;
+  if (count > LINESIZE) {
+    // we COULD handle block size of 256 if necessary...
+    fatalf("P4_LIINNER: Block Size of %u, must be 128 or less. ", count);
+  }
+  for (i = 0; i < count; i++) {
+    line[i] = read_u8(fd);
+  }
+  for (i = 0; i < repeat; i++) {
+    for (j = 0; j < count; j++) {
+      write_f8(outfd, line[j]);
+    }
+  }
 }
 
 // 9CH FIXUPP Fixup Record
@@ -1048,60 +1079,89 @@ P4_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
                   // 0x40 unset: Self-relative, set: segment-relative
   byte lRefType;  // type of reference
   uint lOffset;   // location offset
-  byte tFixdata;  // ffff.... 0x00: seg frame, 0x20: ext frame
-                  // ....tttt 0x00: seg+offs, 0x02: ext+offs, 0x06: ext only
+  byte tFType, tTType, tFrame, tTarget;
   byte tFrame;    // frame index
   byte tTarget;   // target index
-  uint tOffset;   // target offset (when indicated by fixdata)
+  uint tOffset;   // target offset (when indicated by target type, 0 otherwise)
   if (fdDebug != 0xffff) {
     fprintf(fdDebug, "  FIXUPP\n");
   }
   while (length > 1) {
     length = rd_fix_locat(length, fd, &lOffset, &lLocat, &lRefType);
-    length = rd_fix_target(length, fd, &tOffset, &tFixdata, &tFrame, &tTarget);
-    // --- fixupp reference data ----------------------------------------------
+    // --- fixupp reference ---------------------------------------------------
     if ((lLocat & 0x80) == 0) {
       fatalf("P4_FIXUPP: must be fixup, not thread (locat=%x).", lLocat);
     }
     if (fdDebug != 0xffff) {
       if ((lLocat & 0x40) == 0) {
-        fprintf(fdDebug, "    Rel=IP "); // relative to location of fixed up address.
+        // fixup is rel to where fixup occurs
+        fprintf(fdDebug, "    Rel=IP ");
       }
       else {
-        fprintf(fdDebug, "    Rel=Sgmt "); // relative to beginning of segment.
+        // fixup is rel to segment beginning
+        fprintf(fdDebug, "    Rel=Sgmt "); 
       }
       if (lRefType == 1) {
-        fprintf(fdDebug, "Off=0x%x ", lOffset); // Offset from Relative
+        // make fixup at offset from beginning of data in preceding record
+        fprintf(fdDebug, "Off=0x%x ", lOffset); 
       }
       else if (lRefType == 2) {
-        fprintf(fdDebug, "Off=Seg+0x%x ", lOffset); // Only seen in call.obj?
+        // make fixup at offset from beginning of segment 
+        fprintf(fdDebug, "Off=Seg+0x%x ", lOffset);
       }
     }
     if (lRefType != 1 && lRefType != 2) {
       fatalf("P4_FIXUPP: unhandled reference type %x.", lRefType);
     }
-    if (tFrame != tTarget) {
-      fatalf2("P4_FIXUPP: Segment frame %x and target %x must match.",
-        tFrame, tTarget);
-    }
-    // --- target of fixupp ---------------------------------------------------
-    if ((tFixdata & 0xf0) == 0x00) { // frame given by a segment index
-      P4_FixSeg(outfd, lLocat, lRefType, lOffset, tFrame, tOffset,
-        codeBase, dataBase, segType, segOffset);
-    }
-    else if ((tFixdata & 0xf0) == 0x20) { // frame given by an external index
-      if ((tFixdata & 0x0f) != 6) {
-        fatalf("P4_FIXUPP: Unhandled frame type %u in ext.", (tFixdata & 0x0f));
+    // --- frame/target -------------------------------------------------------
+    // tFixdata is two 4-bit fields, frame and target.
+    // ffff.... is FRAME: 0x00: segment index, 0x20: external index
+    //    A FRAME INDEX sets the index of the specified type.
+    // ....tttt is TARGET: 0x00: seg+offs, 0x02: ext+offs, 0x06: ext only
+    //    A TARGET INDEX sets the index of the specified type.
+    //    A TARGET OFFSET specifies the offset from the location of the target
+    //    for 0x00 or 0x02. For 0x06, an offset of zero is implied.
+    length = rd_fix_target(length, fd, &tOffset, &tFType, &tTType, &tFrame, &tTarget);
+    // --- do the fix up! -----------------------------------------------------
+    if (tFType == 0x00) {
+      // frame given by a segment index
+      if (tTType == 0x00) {
+        P4_FixCheckMatch(tFrame, tTarget);
+        P4_FixSeg(outfd, lLocat, lRefType, lOffset, tFrame, tOffset,
+          codeBase, dataBase, segType, segOffset);
       }
-      // target given by an external index alone
+      else if (tTType == 0x02 || tTType == 0x06) {
+        // Mixed! Frame is segment, but the target is an external reference.
+        if (fdDebug != 0xffff) {
+          fprintf(fdDebug, " <Mixed Frm=%x/%x Tgt=%x/%x>", 
+            tFType, tFrame, tTType, tTarget);
+        }
+        P4_FixMix(outfd, lLocat, lRefType, lOffset, tFrame, tTarget, tOffset,
+          codeBase, dataBase, segType, segOffset);
+      }
+    }
+    else if (tFType == 0x02) {
+      // frame given by an external index
+      P4_FixCheckMatch(tFrame, tTarget);
+      if ((tTType != 6) && (tTType != 2)) {
+        // This is an ext: target MUST be 2 (ext only) or 6 (ext + offset).
+        fatalf("P4_FIXUPP: Unhandled target type %u in ext.", tTType);
+      }
       P4_FixExt(outfd, lLocat, lRefType, lOffset, tFrame, tOffset,
         codeBase, dataBase, segType, segOffset);
     }
     else {
-      fatalf("P4_FIXUPP: unhandled Fixdata frame of %x.", tFixdata & 0xf0);
+      fatalf("P4_FIXUPP: unhandled frame type of %x.", tFType);
     }
   }
   read_u8(fd); // checksum. assume correct.
+}
+
+P4_FixCheckMatch(byte tFrame, byte tTarget) {
+  if (tFrame != tTarget) {
+    fatalf2("P4_FIXUPP: Segment frame %x and target %x must match.",
+      tFrame, tTarget);
+  }
 }
 
 P4_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
@@ -1231,6 +1291,14 @@ P4_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
   }
 }
 
+P4_FixMix(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte frmSeg,
+  byte frmExt, uint fixOffset, uint codeBase[], uint dataBase[], byte segType,
+  int segOffset) {
+  // adjust the fixOffset here.
+  P4_FixExt(outfd, lLocat, lRefType, lOffset, frmExt, fixOffset,
+        codeBase, dataBase, segType, segOffset);
+}
+
 P4_DoFixupp(uint fd, uint what, uint whatOff, uint whatRelative, 
   uint where, uint whereOff) {
   uint outAddr[2];
@@ -1275,6 +1343,13 @@ P4_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
   else {
     fatalf("P4_XXDATA: Local SegType of %u, must be 0 or 1. ", segType);
   }
+}
+
+Add1632(uint a, uint b[]) {
+  if ((a > 0) && (a > 0xffff - b[0])) { /* `a + x` would overflow */
+    b[1] += 1;
+  }
+  b[0] += a;
 }
 
 // ============================================================================
@@ -1403,20 +1478,23 @@ FindPubDef(char* name, int retAllDefined) {
 
 // rd_fix_target: Reads the target location of a fixupp.
 //    Returns the count of bytes remaining in the record.
-rd_fix_target(uint length, uint fd, 
-              uint *offset, byte *fixdata, byte *frame, byte *target) {
+rd_fix_target(uint length, uint fd, uint *offset, byte *frmType, byte *tgtType,
+  byte *frame, byte *target) {
   // -----------------------------------------------------------------
   //  FRAME/TARGET METHODS is a byte which encodes the methods by which 
   //  the fixup "frame" and "target" are to be determined, as follows.
   //  In the first three cases  FRAME  INDEX  is  present  in  the
   //  record  and  contains an index of the specified type. In the
   //  last two cases there is no FRAME INDEX field.
-  *fixdata = read_u8(fd); // Format is fffftttt
+  byte methods;
+  methods = read_u8(fd); // Format is fffftttt
+  *frmType = methods >> 4;
+  *tgtType = methods & 0x0f;
   length -= 1;
   // I have omitted frame/target methods that SmallC22/SmallA do not emit.
-  switch (*fixdata & 0xf0) {
+  switch (*frmType) {
     case 0x00:     // frame given by a segment index
-    case 0x20:     // frame given by an external index
+    case 0x02:     // frame given by an external index
       *frame = read_u8(fd);
       length -= 1;
       if (*frame >= 0x80) {
@@ -1430,8 +1508,8 @@ rd_fix_target(uint length, uint fd,
       }
       break;
     default:
-      fatalf2("rd_fix_target: unhandled frame method 0x%x fixdata=0x%x", 
-      *fixdata >> 4, *fixdata);
+      fatalf2("rd_fix_target: unhandled frame method 0x%x (0x%x)", 
+      *frmType, methods);
       break;
   }
   // -----------------------------------------------------------------
@@ -1454,7 +1532,7 @@ rd_fix_target(uint length, uint fd,
     }
   }
   // As with frame methods, I have omitted targets SmallC22/SmallA do not emit.
-  switch (*fixdata & 0x0f) {
+  switch (*tgtType) {
     case 0x00 :  // target given by a segment index + displacement
     case 0x02 :  // target given by an external index + displacement
       *offset = read_u16(fd);
@@ -1464,7 +1542,7 @@ rd_fix_target(uint length, uint fd,
       *offset = 0;
       break;
     default:
-      printf("d_fix_target: unhandled target method %x.", *fixdata & 0x0f);
+      printf("d_fix_target: unhandled target method %x.", *tgtType);
       break;
   }
   return length;

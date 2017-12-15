@@ -8,29 +8,29 @@ SET IN=asm1
 if errorlevel 1 goto exit
 %BIN%\asm %IN%
 if errorlevel 1 goto exit
-del %IN%.asm
+REM del %IN%.asm
 
 SET IN=asm2
 %BIN%\cc  %IN%.c -m -a -p
 if errorlevel 1 goto exit
 %BIN%\asm %IN%
 if errorlevel 1 goto exit
-del %IN%.asm
+REM del %IN%.asm
 
 SET IN=asm3
 %BIN%\cc  %IN%.c -m -a -p
 if errorlevel 1 goto exit
 %BIN%\asm %IN%
 if errorlevel 1 goto exit
-del %IN%.asm
+REM del %IN%.asm
 
 SET IN=asm4
 %BIN%\cc  %IN%.c -m -a -p
 if errorlevel 1 goto exit
 %BIN%\asm %IN%
 if errorlevel 1 goto exit
-del %IN%.asm
+REM del %IN%.asm
 
-%BIN%\ylink asm1.obj,asm2.obj,asm3.obj,asm4.obj,80x86.obj,%LIB%\clib.lib,asm.lib
+%BIN%\ylink asm1.obj,asm2.obj,asm3.obj,asm4.obj,80x86.obj,%LIB%\clib.lib,%LIB%\asm.lib -d=debug.txt
 :exit
 

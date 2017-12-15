@@ -15,7 +15,7 @@ if errorlevel 1 goto exit
 if errorlevel 1 goto exit
 
 ECHO === Linking ===
-%BIN%\ylink link.obj,%LIB%\clib.lib -e=ylink.exe
+%BIN%\ylink link.obj,%LIB%\clib.lib -e=ylink.exe -d=link.txt
 if errorlevel 1 goto exit
 
 :exit
