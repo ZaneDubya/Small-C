@@ -1,7 +1,7 @@
 SET BIN=..\bin
 SET LIB=..\smalllib
 
-%BIN%\cmit 80x86.mit -o
+%BIN%\cmit 80x86.mit -3 -o
 
 SET IN=asm1
 %BIN%\cc  %IN%.c -m -a -p

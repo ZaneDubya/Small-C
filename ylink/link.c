@@ -765,6 +765,11 @@ Pass3() {
     }
     IncSegLengthsToNextParagraph();
   }
+  if (fdDebug != 0xffff) {
+    fprintf(fdDebug, "  CODE=%x\n  DATA=%x\n", 
+      segLengths[SEG_CODE],
+      segLengths[SEG_DATA]);
+  }
 }
 
 // ============================================================================
@@ -800,11 +805,12 @@ Pass4() {
       if (bseek(fd, modOffset, 0) == EOF) {
         fatalf("Could not seek to position %u, file too short.", modOffset[0]);
       }
-      // place base code and data offsets in the output file:
+      // get base code and base data offsets for the output file:
       codeBase[0] = EXE_HDR_LEN + modData[mdatBase + MDAT_CSO];
       codeBase[1] = 0;
-      dataBase[0] = EXE_HDR_LEN + segLengths[SEG_CODE] + modData[mdatBase + MDAT_DSO];
+      dataBase[0] = EXE_HDR_LEN + segLengths[SEG_CODE];
       dataBase[1] = 0;
+      Add1632(modData[mdatBase + MDAT_DSO], dataBase);
       // reset extdef buffer
       extNext = 0;
       extCount = 0;
@@ -840,20 +846,23 @@ CalcChecksum() {
 
 WriteExeHeader(uint checksum) {
   uint fd;
-  uint beginning[2];
+  uint beginning[2], totalsize[2];
   uint blockcount, lastblock, rvSS, i;
   fd = safefopen(pathOutput, "r+");
   if (exeStartAddress == 0xffff) {
     fatal("No start address specified.");
   }
   beginning[0] = beginning[1] = 0;
-  blockcount = segLengths[0] + segLengths[1] + segLengths[2];
-  lastblock = blockcount % 512;
-  blockcount = blockcount / 512 + 1;
+  totalsize[0] = totalsize[1] = 0;
+  Add1632(segLengths[0], totalsize);
+  Add1632(segLengths[1], totalsize);
+  Add1632(segLengths[2], totalsize);
+  lastblock = totalsize[0] % 512;
+  blockcount = totalsize[1] * 128 + totalsize[0] / 512 + 1;
   if (lastblock != 0) {
     blockcount += 1;
   }
-  rvSS = (segLengths[SEG_CODE] + segLengths[SEG_DATA]) / 16;
+  rvSS = (segLengths[SEG_CODE] / 16 + segLengths[SEG_DATA] / 16);
   bseek(fd, beginning, 0);
   fputs("MZ", fd); // 00: "MZ"
   write_f16(fd, lastblock); // 02: count of bytes in last 512b block
@@ -1130,7 +1139,7 @@ P4_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
         P4_FixSeg(outfd, lLocat, lRefType, lOffset, tFrame, tOffset,
           codeBase, dataBase, segType, segOffset);
       }
-      else if (tTType == 0x02 || tTType == 0x06) {
+      /*else if (tTType == 0x02 || tTType == 0x06) {
         // Mixed! Frame is segment, but the target is an external reference.
         if (fdDebug != 0xffff) {
           fprintf(fdDebug, " <Mixed Frm=%x/%x Tgt=%x/%x>", 
@@ -1138,6 +1147,9 @@ P4_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
         }
         P4_FixMix(outfd, lLocat, lRefType, lOffset, tFrame, tTarget, tOffset,
           codeBase, dataBase, segType, segOffset);
+      }*/
+      else {
+        abort(1);
       }
     }
     else if (tFType == 0x02) {
@@ -1337,12 +1349,24 @@ P4_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
   }
   else if (segType == SEG_STACK) {
     // this is why we can only have one stack segment.
-    segBase[0] = segLengths[SEG_CODE] + segLengths[SEG_DATA] + EXE_HDR_LEN;
+    segBase[0] = EXE_HDR_LEN + segLengths[SEG_CODE];
     segBase[1] = 0;
+    Add1632(segLengths[SEG_DATA], segBase);
   }
   else {
     fatalf("P4_XXDATA: Local SegType of %u, must be 0 or 1. ", segType);
   }
+}
+
+TestAdd() {
+  uint a, b[2];
+  a = 8000;
+  b[0] = 60000;
+  b[1] = 1;
+  printf("Add: %u + [%u %u]\n", a, b[0], b[1]);
+  Add1632(a, b);
+  printf("Add: %u + [%u %u]\n", a, b[0], b[1]);
+  abort(1);
 }
 
 Add1632(uint a, uint b[]) {
