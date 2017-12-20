@@ -1134,11 +1134,13 @@ P4_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
     // --- do the fix up! -----------------------------------------------------
     if (tFType == 0x00) {
       // frame given by a segment index
-      if (tTType == 0x00) {
-        P4_FixCheckMatch(tFrame, tTarget);
-        P4_FixSeg(outfd, lLocat, lRefType, lOffset, tFrame, tOffset,
-          codeBase, dataBase, segType, segOffset);
+      if ((tTType != 4) && (tTType != 0)) {
+        // This is an ext: target MUST be 2 (ext only) or 6 (ext + offset).
+        fatalf("P4_FIXUPP: Unhandled target type %u in seg.", tTType);
       }
+      P4_FixCheckMatch(tFrame, tTarget);
+      P4_FixSeg(outfd, lLocat, lRefType, lOffset, tFrame, tOffset,
+        codeBase, dataBase, segType, segOffset);
       /*else if (tTType == 0x02 || tTType == 0x06) {
         // Mixed! Frame is segment, but the target is an external reference.
         if (fdDebug != 0xffff) {
@@ -1148,9 +1150,6 @@ P4_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
         P4_FixMix(outfd, lLocat, lRefType, lOffset, tFrame, tTarget, tOffset,
           codeBase, dataBase, segType, segOffset);
       }*/
-      else {
-        abort(1);
-      }
     }
     else if (tFType == 0x02) {
       // frame given by an external index
@@ -1562,6 +1561,7 @@ rd_fix_target(uint length, uint fd, uint *offset, byte *frmType, byte *tgtType,
       *offset = read_u16(fd);
       length -= 2;
       break;
+    case 0x04 :  // target given by a segment index alone, no displacement.
     case 0x06 :  // target given by an external index alone
       *offset = 0;
       break;
