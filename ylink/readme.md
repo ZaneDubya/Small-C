@@ -1,17 +1,24 @@
-YLINK
-Copyright 2017 Zane Wagner
-All rights reserved.
+# YLINK
+A Linker for MS-DOS
+Copyright 2017 Zane Wagner. All rights reserved.
 
-YLINK will link together object files created by the Small Assembler, as well
-as the Small-C Library file, and generate executable files that run in DOS. It 
-only supports the 16-bit "small" memory model, where the Data and Stack 
-segments share memory space, and the Code and Data/Stack segments must fit 
-within 64kb.
+YLINK will link together object files created by the Small Assembler, and
+library files containing many of these object files. The resulting output is
+executable files that run in MS-DOS. YLINK only supports the 16-bit "small"
+memory model, where the Data and Stack  segments share memory space, and the
+Code and Data/Stack segments must fit within their respective 64kb segments.
+The Small Assembler barely fits within these limits.
+
+The command line for YLINK is as follows:
+
+  ylink objs [-d=debug.txt] [-e=output.exe/-l=output.lib]
 
 YLINK expects that the first parameter will be a list of object and library
-files, separated by the comma ',' character.
+files, separated by the comma ',' character. Any number of input objects may be
+passed by listing them as parameters, limited only by the size of the input
+buffer (128 characters in DOS/Small-C).
 
-You may also use optional switches d, e, and l as follows:
+The switches d, e, and l may be optionally used as follows:
 
   -d=xxx will output debug information to the file xxx. If this option is not
          used, no debug information will be created.
@@ -32,5 +39,3 @@ Examples of invoking YLINK follow:
   YLINK -l=lib.txt -e=clib.lib              concatenates all the object files
                                             listed in lib.txt, outputs library
                                             file clib.lib
-
-Any number of input objects can be passed by listing them as parameters.
