@@ -9,6 +9,8 @@
 
 #define MASM_OPS        /* accept masm operators */
 
+extern pass;
+
 extern unsigned
   asa,  badsym,  debug,  dsrpx,  gotcolon,  gotcomma,  gotnam,
   isrpx,  osa,  seed,  segndx,  upper,  x86,  zero[];
@@ -632,8 +634,10 @@ getsym(cp, up, ref) char *cp; int up, ref; {
   if(!isdigit(*cp)) {
     while(YES) {
       switch(toupper(*cp)) {
-         default: if(ref)  break;
-                  badsym = YES;
+        default: 
+          if(ref)  
+            break;
+          badsym = YES;
         case 'A':  case 'B':  case 'C':  case 'D':  case 'E':  case 'F':
         case 'G':  case 'H':  case 'I':  case 'J':  case 'K':  case 'L':
         case 'M':  case 'N':  case 'O':  case 'P':  case 'Q':  case 'R':
@@ -642,26 +646,46 @@ getsym(cp, up, ref) char *cp; int up, ref; {
         case '4':  case '5':  case '6':  case '7':  case '8':  case '9':
         case '_':  case '$':  case '?':  case '@':
           if(j < MAXNAM) {
-            if(up) stsym[j++] = toupper(*cp);
-            else   stsym[j++] = *cp;
+            if(up) {
+              stsym[j++] = toupper(*cp);
             }
+            else {
+              stsym[j++] = *cp;
+            }
+          }
           ++cp;
           continue;
-        case ':': if(!ref) {gotcolon = YES; ++cp;} break;
-        case ',': if(!ref) {gotcomma = YES; ++cp;} break;
-                  synerr();
-        case ' ':  case '\t':  case '\n':  case '\'':
-        case COMMENT:  case NULL:
-        }
-      while(isspace(*cp)) ++cp;
-      break;
+        case ':': 
+          if(!ref) {
+            gotcolon = YES; ++cp;
+          } 
+          break;
+        case ',': 
+          if(!ref) {
+            gotcomma = YES; ++cp;
+          } 
+          break;
+          synerr();
+        case ' ':
+        case '\t':
+        case '\n':
+        case '\'':
+        case COMMENT:  
+        case NULL:
       }
+      while(isspace(*cp)) { 
+        ++cp;
+      }
+      break;
     }
-  stsym[j] = NULL;
-  if(j && !gotcolon)  gotnam = YES;
-  else                gotnam = NO;
-  return (cp);
   }
+  stsym[j] = NULL;
+  if(j && !gotcolon)
+    gotnam = YES;
+  else   
+    gotnam = NO;
+  return cp;
+}
 
 /*
 ** encode type of constant

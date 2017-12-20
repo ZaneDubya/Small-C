@@ -906,16 +906,16 @@ doendp() {
 **        NOTHING
 */
 doassume() {
-  int *sp, reg, i;
+  int reg, i;
   while(!atend(*lp)) {
     lp = getsym(lp, YES, NO);       /* register, skips the colon */
     if(same(stsym, "NOTHING")) {
-      printf("\nMatch Assume Nothing.");
       nosegs();                     /* clear all assumed seg regs */
-      if(!atend(*lp)) synerr();
+      if(!atend(*lp)) {
+        synerr();
+      }
       return;
     }
-      printf("\nMatch Assume, not nothing...");
     ep = stsym;                     /* set-up for register() */
     if(gotcolon && (reg = register()) && (reg = sr2srpx(reg))) {
       /* map to srpx */
@@ -939,11 +939,17 @@ doassume() {
             }
             assume[i] = reg;        /* plug srpx into slot */
           }
-          else segerr();
+          else {
+            segerr();
+          }
         }
-        else underr();
+        else {
+          underr();
+        }
       }
-      else hdwerr();
+      else {
+        hdwerr();
+      }
     }
     else {
       synerr();
