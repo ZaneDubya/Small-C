@@ -1,3 +1,3 @@
 SET BIN=..\..\bin
 
-%BIN%\ylink -l=asmmake.lst -e=asmlib.lib -d=debug.txt
+%BIN%\ylink -l=asmmake.lst -e=asm.lib -d=debug.txt
