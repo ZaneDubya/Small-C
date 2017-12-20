@@ -910,38 +910,46 @@ doassume() {
   while(!atend(*lp)) {
     lp = getsym(lp, YES, NO);       /* register, skips the colon */
     if(same(stsym, "NOTHING")) {
+      printf("\nMatch Assume Nothing.");
       nosegs();                     /* clear all assumed seg regs */
       if(!atend(*lp)) synerr();
       return;
-      }
+    }
+      printf("\nMatch Assume, not nothing...");
     ep = stsym;                     /* set-up for register() */
-    if(gotcolon
-    && (reg = register())
-    && (reg = sr2srpx(reg))) {      /* map to srpx */
+    if(gotcolon && (reg = register()) && (reg = sr2srpx(reg))) {
+      /* map to srpx */
       if(srpref[reg]) {             /* sr is known to this CPU */
         i = 7;                      /* clear this assumed seg reg */
-        while(++i < ((MAXSEG+1)<<3))
+        while(++i < ((MAXSEG+1)<<3)) {
           if(assume[i] == reg) {
             while(assume[i] = assume[i+1]) ++i;  /* close the gap */
             break;                  /* will hit null for this seg */
-            }
+          }
+        }
         lp = getsym(lp, upper, NO); /* segname, skips the comma */
-        if(same(stsym, "NOTHING")) continue;
+        if(same(stsym, "NOTHING")) {
+          continue;
+        }
         else if(stfind()) {
           if(flags(stptr) & FSEG) { /* have a segment name */
             i = stptr[STNDX] << 3;  /* look for blank slot */
-            while(assume[i]) ++i;   /* cannot overflow 6 slots */
-            assume[i] = reg;        /* plug srpx into slot */
+            while(assume[i]) {
+              ++i;   /* cannot overflow 6 slots */
             }
-          else segerr();
+            assume[i] = reg;        /* plug srpx into slot */
           }
-        else underr();
+          else segerr();
         }
-      else hdwerr();
+        else underr();
       }
-    else synerr();
+      else hdwerr();
+    }
+    else {
+      synerr();
     }
   }
+}
 
 /*
 ** PUBLIC name,,,
