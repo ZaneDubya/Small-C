@@ -1225,12 +1225,12 @@ P4_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
   }
   if ((lLocat & 0x40) == 0) {
     // IP-relative.
-    P4_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR], 1, 
+    P4_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR] + fixOffset, 1, 
       codeBase[0], lOffset + segOffset);
   }
   else {
     // relative to beginning of segment.
-    P4_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR], 0, 
+    P4_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR] + fixOffset, 0, 
       codeBase[0], lOffset + segOffset);
   }
 }
