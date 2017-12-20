@@ -10,8 +10,10 @@
 atend(ch) int ch; {
   switch(ch) {
     case COMMENT:
-    case    NULL:
-    case    '\n': return (YES);
+    case NULL:
+    case '\n':
+    case '\r':
+      return (YES);
     }
   return (NO);
   }
