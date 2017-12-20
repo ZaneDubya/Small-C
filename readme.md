@@ -11,12 +11,17 @@ Enhancements by Zane Wagner:
 * C99 style comments are allowed (//)
 * C89/C90 argument list types.
 
-## Small Assembler
+## Small-Assembler
 Version 1.2, Revision Level 14
 Copyright 1984 J. E. Hendrix, L. E. Payne
 
-## Small-C Library
+## Small-C and Small-Assembler Libraries
 Copyright 1988 J. E. Hendrix
 
 ## Ypsilon Linker
 Copyright 2017 Zane Wagner
+
+## Notice of Public Domain Status
+The source code for the Small-C Compiler and runtime libraries (CP/M & DOS), Small-Mac Assembler (CP/M), Small-Assembler (DOS), Small-Tools programs and Small-Windows library to which I hold copyrights are hereby available for royalty free use in private or commerical endeavors. The only obligation being that the users retain the original copyright notices and credit all prior authors (Ron Cain, James Hendrix, etc.) in derivative versions.
+
+James E. Hendrix Jr.
