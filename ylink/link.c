@@ -5,6 +5,9 @@
 #include "notice.h"
 #include "link.h"
 
+// --- Options ----------------------------------------------------------------
+#define SEG_ALIGNMENT 2  // Align code/data segs to x-byte boundaries.
+
 // --- Output variables -------------------------------------------------------
 char *pathOutput; // path to the file used for writing output exe/lib file.
 char *pathDebug; // path to file used for debug output.
@@ -600,12 +603,12 @@ P1_LIBEND(uint length, uint fd) {
   libInLib = 0;
 }
 
-IncSegLengthsToNextParagraph() {
+AlignSegments(int amount) {
   int i, next;
   for (i = 0; i < SEGS_CNT; i++) {
-    next = segLengths[i] % 16;
+    next = segLengths[i] % amount;
     if (next != 0) {
-      segLengths[i] += (16 - next);
+      segLengths[i] += (amount - next);
     }
   }
 }
@@ -763,8 +766,9 @@ Pass3() {
         exeStartAddress += modData[mdatBase + MDAT_CSO];
       }
     }
-    IncSegLengthsToNextParagraph();
+    AlignSegments(SEG_ALIGNMENT);
   }
+  AlignSegments(16);
   if (fdDebug != 0xffff) {
     fprintf(fdDebug, "  CODE=%x\n  DATA=%x\n", 
       segLengths[SEG_CODE],
@@ -1453,8 +1457,8 @@ P2L_ADD(uint fdout, uint fdmod) {
     }
     if (recType == MODEND) {
       int remaining;
-      remaining = 16 - (ctellc(fdout) % 16);
-      if (remaining != 16) {
+      remaining = SEG_ALIGNMENT - (ctellc(fdout) % SEG_ALIGNMENT);
+      if (remaining != SEG_ALIGNMENT) {
         for (i = 0; i < remaining; i++) {
           write_f8(fdout, 0x00);
         }
