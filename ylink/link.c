@@ -1228,6 +1228,11 @@ P4_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
   }
   if ((lLocat & 0x40) == 0) {
     // IP-relative.
+    if (segOfExt != SEG_CODE) {
+      // require IP-relative fixupps to resolve to references in CODE segment.
+      fatalf("P4_FixExt: IP-Rel fixupps must resolve to CODE segment (%s)",
+        extName);
+    }
     P4_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR] + fixOffset, 1, 
       codeBase[0], lOffset + segOffset);
   }

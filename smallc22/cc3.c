@@ -437,7 +437,13 @@ primary(int *is) {
                 return 1;
             }
         }
-        else is[ST] = addsym(sname, FUNCTION, INT, 0, 0, &glbptr, AUTOEXT);
+        else {
+            // If both searches fail, the symbol is added to the global table
+            // as a function. Then, if it never is formally declared, it will
+            // be identified to the assembler as an external reference before
+            // the compiler quits.
+            is[ST] = addsym(sname, FUNCTION, INT, 0, 0, &glbptr, AUTOEXT);
+        }
         return 0;
     }
     if (constant(is) == 0) experr();

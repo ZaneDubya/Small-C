@@ -14,10 +14,16 @@ if errorlevel 1 goto exit
 %BIN%\asm hello /p
 if errorlevel 1 goto exit
 
+ECHO === Compiling hello2.c ===
+%BIN%\cc  hello2 -a -p
+if errorlevel 1 goto exit
+%BIN%\asm hello2 /p
+if errorlevel 1 goto exit
+
 REM LINK
 ECHO === Linking ===
 REM ..\bin\link hello,hello,hello,..\smalllib\clib.lib
-%BIN%\ylink hello.obj,%LIB%\clib.lib -e=hello.exe
+%BIN%\ylink hello.obj,hello2.obj,%LIB%\clib.lib -e=hello.exe -d=debug.txt
 if errorlevel 1 goto exit
 
 :exit

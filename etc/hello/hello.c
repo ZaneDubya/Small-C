@@ -3,7 +3,7 @@
 int global = 0;
 
 main() {
-  if (undefined == 1) {
-    puts("Should not happen");
-  }
+  printf("%x %x\n", code, code());
+  printf("%x %x\n", data, data());
+  return 0;
 }
