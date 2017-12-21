@@ -22,8 +22,8 @@ int
     *swend,    /* address of last entry */
     *stage,    /* staging buffer address */
     *wq,       /* while queue */
-    argcs,    /* static argc */
-    *argvs,    /* static argv */
+    argcs,     /* local copy of argc */
+    *argvs,    /* local copy of argv */
     *wqptr,    /* ptr to next entry */
     litptr,   /* ptr to next entry */
     macptr,   /* macro buffer index */
@@ -74,7 +74,7 @@ char
     *cptr2,
     *cptr3,
     msname[NAMESIZE],   /* macro symbol name */
-    ssname[NAMESIZE];   /* static symbol name */
+    ssname[NAMESIZE];   /* global symbol name */
 
 int op[16] = {   /* p-codes of signed binary operators */
     OR12,                        /* level5 */
@@ -136,7 +136,7 @@ main(int argc, int *argv) {
 /*
 ** process all input text
 **
-** At this level, only static declarations,
+** At this level, only global declarations,
 **      defines, includes and function
 **      definitions are legal...
 */
@@ -144,7 +144,7 @@ parse() {
     while (eof == 0) {
         if (amatch("extern", 6))
             dodeclare(EXTERNAL);
-        else if (dodeclare(STATIC))
+        else if (dodeclare(GLOBAL))
             ;
         else if (match("#asm"))
             doasm();
@@ -197,7 +197,7 @@ dotype() {
 }
 
 /*
-** declare a static variable
+** declare a global variable
 */
 declglb(int type, int class) {
     int id, dim;
@@ -391,15 +391,18 @@ dofunction() {
         kill();                     /* invalidate line */
         return;
     }
-    /* already in symbol table? */
+    // If this name is already in the symbol table and is an autoext function,
+    // define it instead as a global function
     if (pGlobal = findglb(ssname)) {
         if (pGlobal[CLASS] == AUTOEXT)
-            pGlobal[CLASS] = STATIC;
-        else
+            pGlobal[CLASS] = GLOBAL;
+        else {
+            // error: can't define something twice.
             multidef(ssname);
+        }
     }
     else {
-        addsym(ssname, FUNCTION, INT, 0, 0, &glbptr, STATIC);
+        addsym(ssname, FUNCTION, INT, 0, 0, &glbptr, GLOBAL);
     }
     public(FUNCTION);
     if (match("(") == 0)

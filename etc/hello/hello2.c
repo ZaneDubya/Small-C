@@ -1,4 +1,4 @@
-int data = 0;
+static int data = 0;
 
 code() {
   return 1;

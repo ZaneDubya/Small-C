@@ -62,13 +62,13 @@
 #define UNSIGNED             1
 
 /*
-** values for "CLASS"
+** values for "CLASS" integer
 */
 /*      LABEL     0 */
-#define AUTOMATIC 1
-#define STATIC    2
-#define EXTERNAL  3
-#define AUTOEXT   4
+#define AUTOMATIC 1   // defined locally
+#define GLOBAL    2   // defined globally in this object file
+#define EXTERNAL  3   // defined globally in another object file
+#define AUTOEXT   4   // function that is not declared but is referenced
 
 /*
 ** segment types

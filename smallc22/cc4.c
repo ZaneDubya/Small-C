@@ -373,7 +373,7 @@ trailer() {
             external(cptr + NAME, 0, FUNCTION);
         cptr += SYMMAX;
     }
-    if ((cp = findglb("main")) && cp[CLASS] == STATIC)
+    if ((cp = findglb("main")) && cp[CLASS] == GLOBAL)
         external("_main", 0, FUNCTION);
     toseg(NULL);
     outline("END");
