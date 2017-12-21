@@ -9,9 +9,9 @@ SET BIN=..\..\bin
 SET LIB=..\..\smalllib
 
 ECHO === Compiling hello.c ===
-..\bin\cc  hello -a -p
+%BIN%\cc  hello -a -p
 if errorlevel 1 goto exit
-..\bin\asm hello /p
+%BIN%\asm hello /p
 if errorlevel 1 goto exit
 
 REM LINK
