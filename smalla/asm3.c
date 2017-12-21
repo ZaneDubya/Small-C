@@ -452,10 +452,6 @@ token(want) int want; {
 */
 register() {
   char *op;
-  pass = 1;
-  if (pass == 1) {
-    puts(ep);
-  }
   op = ep;
   ep = getsym(ep, YES, YES);         /* xlate to upper case */
   if(strlen(stsym) == 2) {
