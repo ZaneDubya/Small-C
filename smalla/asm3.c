@@ -9,8 +9,6 @@
 
 #define MASM_OPS        /* accept masm operators */
 
-extern pass;
-
 extern unsigned
   asa,  badsym,  debug,  dsrpx,  gotcolon,  gotcomma,  gotnam,
   isrpx,  osa,  seed,  segndx,  upper,  x86,  zero[];
@@ -454,6 +452,10 @@ token(want) int want; {
 */
 register() {
   char *op;
+  pass = 1;
+  if (pass == 1) {
+    puts(ep);
+  }
   op = ep;
   ep = getsym(ep, YES, YES);         /* xlate to upper case */
   if(strlen(stsym) == 2) {
