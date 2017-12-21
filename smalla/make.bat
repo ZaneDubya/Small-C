@@ -31,6 +31,6 @@ if errorlevel 1 goto exit
 if errorlevel 1 goto exit
 REM del %IN%.asm
 
-%BIN%\ylink asm1.obj,asm2.obj,asm3.obj,asm4.obj,80x86.obj,%LIB%\asm.lib,%LIB%\clib.lib -d=debug.txt -e=asm.exe
+%BIN%\ylink asm1.obj,asm2.obj,asm3.obj,asm4.obj,80x86.obj,%LIB%\asm.lib,%LIB%\clib.lib -e=asm.exe
 :exit
 
