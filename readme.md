@@ -10,6 +10,8 @@ Enhancements by Zane Wagner:
 * Consolidated Type recognition in dodeclare(), dofunction(), and statement().
 * C99 style comments are allowed (//)
 * C89/C90 argument list types.
+* Support for 'static' access modifier for functions and globals.
+* Supports longer variable names.
 
 ## Small-Assembler
 Version 1.2, Revision Level 14
