@@ -7,6 +7,7 @@
 
 // --- Options ----------------------------------------------------------------
 #define SEG_ALIGNMENT 2  // Align code/data segs to x-byte boundaries.
+#define LIB_MODEND_ALIGN 16
 
 // --- Output variables -------------------------------------------------------
 char *pathOutput; // path to the file used for writing output exe/lib file.
@@ -276,6 +277,7 @@ P1_RdFile(uint fileIndex, uint fd) {
 }
 
 P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
+  int i;
   switch (recType) {
     case THEADR:
       P1_THEADR(fileIndex, length, fd);
@@ -309,7 +311,11 @@ P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
       forward(fd, length);
       break;
     default:
-      fatalf("DoRec: Unknown record of type %x. Exiting.", recType);
+      for (i = 0; i < 32; i++) {
+        write_x8(0, read_u8(fd));
+      }
+      fatalf2("P1_DoRecord: Unknown record type %x in %s. Exiting.", 
+        recType, filePaths[fileIndex]);
       break;
   }
 }
@@ -644,7 +650,7 @@ Pass2() {
       if ((modData[mdatBase + MDAT_FLG] & FlgInclude) == FlgInclude) {
         mdatFile = modData[mdatBase + MDAT_FLG] & 0x00ff;
         if (fdDebug != 0xffff) {
-          fprintf(fdDebug, "%s, ", modData[mdatBase + MDAT_NAME]);
+          fprintf(fdDebug, "%s, ", modData[mdatBase + MDAT_NAM]);
         }
         fd = safefopen(filePaths[mdatFile], "r");
         offset[0] = modData[mdatBase + MDAT_THD];
@@ -1462,8 +1468,8 @@ P2L_ADD(uint fdout, uint fdmod) {
     }
     if (recType == MODEND) {
       int remaining;
-      remaining = SEG_ALIGNMENT - (ctellc(fdout) % SEG_ALIGNMENT);
-      if (remaining != SEG_ALIGNMENT) {
+      remaining = LIB_MODEND_ALIGN - (ctellc(fdout) % LIB_MODEND_ALIGN);
+      if (remaining != LIB_MODEND_ALIGN) {
         for (i = 0; i < remaining; i++) {
           write_f8(fdout, 0x00);
         }

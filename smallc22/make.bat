@@ -47,7 +47,7 @@ REM del *.asm
 REM del *.obj
 REM del *.map
 
-copy CC.EXE %BIN%\CC.EXE
+REM copy CC.EXE %BIN%\CC.EXE
 
 :exit
 @ECHO ON

@@ -358,7 +358,7 @@ header() {
     outline("extrn __lneg: near");
     outline("extrn __switch: near");
     // outline("dw 0"); /* force non-zero code pointers, word alignment */
-    // toseg(DATASEG);
+    toseg(DATASEG);
     // outline("dw 0"); /* force non-zero data pointers, word alignment */
 }
 

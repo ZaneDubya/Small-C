@@ -6,28 +6,28 @@ SET LIB=..\smalllib
 SET IN=asm1
 %BIN%\cc  %IN%.c -a -p
 if errorlevel 1 goto exit
-%BIN%\asm %IN%
+%BIN%\asm %IN% /p
 if errorlevel 1 goto exit
 REM del %IN%.asm
 
 SET IN=asm2
 %BIN%\cc  %IN%.c -a -p
 if errorlevel 1 goto exit
-%BIN%\asm %IN%
+%BIN%\asm %IN% /p
 if errorlevel 1 goto exit
 REM del %IN%.asm
 
 SET IN=asm3
 %BIN%\cc  %IN%.c -a -p
 if errorlevel 1 goto exit
-%BIN%\asm %IN%
+%BIN%\asm %IN% /p
 if errorlevel 1 goto exit
 REM del %IN%.asm
 
 SET IN=asm4
 %BIN%\cc  %IN%.c -a -p
 if errorlevel 1 goto exit
-%BIN%\asm %IN%
+%BIN%\asm %IN% /p
 if errorlevel 1 goto exit
 REM del %IN%.asm
 

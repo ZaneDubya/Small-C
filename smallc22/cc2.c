@@ -99,12 +99,22 @@ preprocess() {
             msname[k] = NULL;
             if (search(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0)) {
                 k = getint(cptr + NAMESIZE, 2);
-                while (c = macq[k++]) keepch(c);
-                while (an(ch)) gch();
+                while (c = macq[k++]) {
+                  keepch(c);
+                }
+                while (an(ch)) {
+                  gch();
+                }
             }
             else {
                 k = 0;
-                while (c = msname[k++]) keepch(c);
+                while (c = msname[k++]) {
+                  keepch(c);
+                }
+                while (an(ch)) {
+                  keepch(ch);
+                  gch();
+                }
             }
         }
         else keepch(gch());
@@ -116,7 +126,9 @@ preprocess() {
 }
 
 keepch(char c) {
-    if (pptr < LINEMAX) pline[++pptr] = c;
+    if (pptr < LINEMAX) {
+      pline[++pptr] = c;
+    }
 }
 
 ifline() {
@@ -125,7 +137,8 @@ ifline() {
         if (eof) return;
         if (match("#ifdef")) {
             ++iflevel;
-            if (skiplevel) continue;
+            if (skiplevel) 
+                continue;
             symname(msname);
             if (search(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0) == 0)
                 skiplevel = iflevel;
@@ -348,7 +361,9 @@ endst() {
 
 addsym(char *sname, char id, char type, int size, int offset, int *lgpp, int class) {
     if (lgpp == &glbptr) {
-        if (cptr2 = findglb(sname)) return cptr2;
+        if (cptr2 = findglb(sname)) {
+            return cptr2;
+        }
         if (cptr == 0) {
             error("global symbol table overflow");
             return 0;
@@ -380,7 +395,10 @@ addsym(char *sname, char id, char type, int size, int offset, int *lgpp, int cla
 ** on return cptr points to slot found or empty slot
 */
 search(char *sname, char *buf, int len, char *end, int max, int off) {
-    cptr = cptr2 = buf + ((hash(sname) % (max - 1))*len);
+    unsigned int ihash, imax;
+    imax = (max - 1);
+    ihash = hash(sname) % imax;
+    cptr = cptr2 = buf + ihash * len;
     while (*cptr != NULL) {
         if (astreq(sname, cptr + off, NAMEMAX)) 
             return 1;
@@ -393,9 +411,10 @@ search(char *sname, char *buf, int len, char *end, int max, int off) {
 }
 
 hash(char *sname) {
-    int i, c;
+    unsigned int i, c;
     i = 0;
-    while (c = *sname++) i = (i << 1) + c;
+    while (c = *sname++)
+        i = (i << 1) + c;
     return i;
 }
 
