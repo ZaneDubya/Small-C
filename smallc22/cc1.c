@@ -144,6 +144,8 @@ parse() {
     while (eof == 0) {
         if (amatch("extern", 6))
             dodeclare(EXTERNAL);
+        else if (amatch("static", 6))
+            dostatic();
         else if (dodeclare(GLOBAL))
             ;
         else if (match("#asm"))
@@ -153,9 +155,22 @@ parse() {
         else if (match("#define"))
             dodefine();
         else
-            dofunction();
+            dofunction(GLOBAL);
         blanks();                 /* force eof if pending */
     }
+}
+
+/*
+** do a static variable or function
+*/
+dostatic() {
+  blanks();
+  if (dodeclare(STATIC)) {
+    ;
+  }
+  else {
+    dofunction(STATIC);
+  }
 }
 
 /*
@@ -229,7 +244,7 @@ declglb(int type, int class) {
         if (class == EXTERNAL) 
             external(ssname, type >> 2, id);
         else if (id != FUNCTION) 
-            initials(type >> 2, id, dim);
+            initials(type >> 2, id, dim, class);
         if (id == POINTER)
             addsym(ssname, id, type, BPW, 0, &glbptr, class);
         else 
@@ -242,12 +257,12 @@ declglb(int type, int class) {
 /*
 ** initialize global objects
 */
-initials(int size, int ident, int dim) {
+initials(int size, int ident, int dim, int class) {
     int savedim;
     litptr = 0;
     if (dim == 0) dim = -1;         /* *... or ...[] */
     savedim = dim;
-    public(ident);
+    public(ident, class == GLOBAL); // don't do public if class == STATIC
     if (match("=")) {
         if (match("{")) {
             while (dim) {
@@ -368,7 +383,7 @@ putmac(char c) {
 ** called from "parse" and tries to make a function
 ** out of the following text
 */
-dofunction() {
+dofunction(int class) {
     int firstType;
     char *pGlobal;
     /*int typedargs; */           /* declared arguments have formal types */
@@ -395,16 +410,16 @@ dofunction() {
     // define it instead as a global function
     if (pGlobal = findglb(ssname)) {
         if (pGlobal[CLASS] == AUTOEXT)
-            pGlobal[CLASS] = GLOBAL;
+            pGlobal[CLASS] = class;
         else {
             // error: can't define something twice.
             multidef(ssname);
         }
     }
     else {
-        addsym(ssname, FUNCTION, INT, 0, 0, &glbptr, GLOBAL);
+        addsym(ssname, FUNCTION, INT, 0, 0, &glbptr, class);
     }
-    public(FUNCTION);
+    public(FUNCTION, class == GLOBAL); // don't do public if class == STATIC
     if (match("(") == 0)
         error("no open paren");
     if ((firstType = dotype()) != 0) {
