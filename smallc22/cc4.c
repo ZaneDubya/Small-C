@@ -502,16 +502,18 @@ toseg(int newseg) {
 }
 
 /*
-** declare entry point
+** declare variable, allowing global scope
 */
-public(int ident) {
+public(int ident, int isGlobal) {
     if (ident == FUNCTION)
         toseg(CODESEG);
     else
         toseg(DATASEG);
-    outstr("PUBLIC ");
-    outname(ssname);
-    newline();
+    if (isGlobal) {
+        outstr("PUBLIC ");
+        outname(ssname);
+        newline();
+    }
     outname(ssname);
     if (ident == FUNCTION) {
         colon();
