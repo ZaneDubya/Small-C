@@ -69,6 +69,7 @@
 #define GLOBAL    2   // defined globally in this object file
 #define EXTERNAL  3   // defined globally in another object file
 #define AUTOEXT   4   // function that is not declared but is referenced
+#define STATIC    5   // only visible throughout this file ("internal linkage")
 
 /*
 ** segment types
