@@ -1,6 +1,0 @@
-# Notice of Public Domain Status
-
-The source code for the Small-C Compiler and runtime libraries (CP/M & DOS), Small-Mac Assembler (CP/M), Small-Assembler (DOS), Small-Tools programs and Small-Windows library to which I hold copyrights are hereby available for royalty free use in private or commerical endeavors. The only obligation being that the users retain the original copyright notices and credit all prior authors (Ron Cain, James Hendrix, etc.) in derivative versions.
-
-James E. Hendrix Jr.
-Zane Wagner
