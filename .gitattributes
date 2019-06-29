@@ -1,6 +1,6 @@
 * text eol=crlf
-*.c text
-*.h text
-*.asm text
-*.bat text
-*.lst text
+*.c text eol=crlf
+*.h text eol=crlf
+*.asm text eol=crlf
+*.bat text eol=crlf
+*.lst text eol=crlf
