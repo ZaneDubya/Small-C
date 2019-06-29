@@ -4,3 +4,6 @@
 *.asm text eol=crlf
 *.bat text eol=crlf
 *.lst text eol=crlf
+*.exe binary
+*.obj binary
+*.lib binary
