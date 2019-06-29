@@ -1,1 +1,6 @@
 * text eol=crlf
+*.c text
+*.h text
+*.asm text
+*.bat text
+*.lst text
