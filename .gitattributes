@@ -16,4 +16,4 @@
 /emu/dosbox.app/**/* binary
 
 # Fix run-mac bash script
-run-mac text eol=lf
+/run-mac text eol=lf
