@@ -1,12 +1,7 @@
-* text eol=crlf
-*.c text eol=crlf
-*.h text eol=crlf
-*.asm text eol=crlf
-*.bat text eol=crlf
-*.lst text eol=crlf
 
-/emu/dosbox.app/**/* binary
-*.dll binary
-*.exe binary
-*.obj binary
-*.lib binary
+/code/**/* text eol=crlf
+/code/**/*.dll binary
+/code/**/*.exe binary
+/code/**/*.lib binary
+/code/**/*.obj binary
+
