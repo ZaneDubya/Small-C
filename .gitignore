@@ -5,6 +5,3 @@
 *.ASM
 *.OBJ
 *.EXE
-
-# Allow
-!/code/bin/*.EXE
