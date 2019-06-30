@@ -1,12 +1,19 @@
+# Need to fix this
+
+# Code directory must be crlf except for binaries:
 * text eol=crlf
 *.c text eol=crlf
 *.h text eol=crlf
 *.asm text eol=crlf
 *.bat text eol=crlf
 *.lst text eol=crlf
-
-/emu/dosbox.app/**/* binary
 *.dll binary
 *.exe binary
 *.obj binary
 *.lib binary
+
+# Fix this messing up DOSBox.app
+/emu/dosbox.app/**/* binary
+
+# Fix run-mac bash script
+run-mac text eol=lf
