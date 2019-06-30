@@ -1,0 +1,4 @@
+#!/bin/bash
+cd "${0%/*}"
+cd ./emu
+./DOSBox.app/Contents/MacOS/DOSBox ./../code -noconsole -conf smallc.conf

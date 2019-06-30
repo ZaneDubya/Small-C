@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleDisplayName</key>
+	<string>DOSBox</string>
+	<key>CFBundleExecutable</key>
+	<string>DOSBox</string>
+	<key>CFBundleGetInfoString</key>
+	<string>0.74-3, Copyright 2002-2019 The DOSBox Team</string>
+	<key>CFBundleIconFile</key>
+	<string>dosbox.icns</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>DOSBox</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.74-3</string>
+	<key>CFBundleVersion</key>
+	<string>0.74-3</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright 2002-2019 The DOSBox Team</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>CGDisableCoalescedUpdates</key>
+	<true/>
+	<key>LSMinimumSystemVersionByArchitecture</key>
+	<dict>
+	<key>x86_64</key>
+	<string>10.10.0</string>
+	</dict>
+</dict>
+</plist>
