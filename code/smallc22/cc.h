@@ -5,23 +5,24 @@
 /*
 ** machine dependent parameters
 */
-#define BPW     2   /* bytes per word */
-#define LBPW    1   /* log2(BPW) */
-#define SBPC    1   /* stack bytes per character */
-#define ERRCODE 7   /* op sys return code */
+#define BPW       2   /* bytes per word */
+#define LBPW      1   /* log2(BPW) */
+#define SBPC      1   /* stack bytes per character */
+#define ERRCODE   7   /* op sys return code */
 
 /*
 ** symbol table format
 */
-#define IDENT    0
-#define TYPE     1
-#define CLASS    2
-#define SIZE     3
-#define OFFSET   5
-#define NAME     7
+#define IDENT     0
+#define TYPE      1
+#define CLASS     2    // unused byte at index 3
+#define CLASSPTR  4    // e.g. ptr to struct data in structdat
+#define SIZE      6
+#define OFFSET    8
+#define NAME      10
 
-#define SYMAVG  16
-#define SYMMAX  20
+#define SYMAVG    20 // avg name = 10 chars
+#define SYMMAX    24 // max name = (14-1) chars 
 
 /*
 ** symbol table parameters
@@ -32,44 +33,44 @@
 #define NUMGLBS   400
 #define STARTGLB  ENDLOC
 #define ENDGLB    (ENDLOC+(NUMGLBS-1)*SYMMAX)
-#define SYMTBSZ   9600  /* (NUMLOCS*SYMAVG + NUMGLBS*SYMMAX) */
+// Symbol table size == 9600  /* (NUMLOCS*SYMAVG + NUMGLBS*SYMMAX) */
 
 /*
 ** system wide name size (for symbols)
 */
-#define NAMESIZE 13
-#define NAMEMAX  12
+#define NAMESIZE 12
+#define NAMEMAX  11
 
 /*
 ** values for "IDENT"
 */
-#define LABEL    0
-#define VARIABLE 1
-#define ARRAY    2
-#define POINTER  3
-#define FUNCTION 4
+#define IDENT_LABEL    0
+#define IDENT_VARIABLE 1
+#define IDENT_ARRAY    2
+#define IDENT_POINTER  3
+#define IDENT_FUNCTION 4
 
 /*
 ** values for "TYPE"
-**    high order 14 bits give length of object
+**    high order 6 bits give length of object
 **    low order 2 bits make type unique within length
 */
-/*      LABEL   0 */
-#define CHR     (  1 << 2)
-#define INT     (BPW << 2)
-#define UCHR   ((  1 << 2) + 1)
-#define UINT   ((BPW << 2) + 1)
-#define UNSIGNED             1
+#define TYPE_LABEL    0
+#define IS_UNSIGNED   1
+#define TYPE_CHR      (   1 << 2)         // 1, 0     == 0x04
+#define TYPE_INT      ( BPW << 2)         // BPW, 0   == 0x08
+#define TYPE_UCHR     ((  1 << 2) + 1)    // 1, 1     == 0x05
+#define TYPE_UINT     ((BPW << 2) + 1)    // BPW, 1   == 0x09
+#define TYPE_STRUCT   ((BPW << 2) + 2)    // BPW, 2   == 0x0A
 
 /*
 ** values for "CLASS" integer
 */
-/*      LABEL     0 */
 #define AUTOMATIC 1   // defined locally
 #define GLOBAL    2   // defined globally in this object file
 #define EXTERNAL  3   // defined globally in another object file
 #define AUTOEXT   4   // function that is not declared but is referenced
-#define STATIC    5   // only visible throughout this file ("internal linkage")
+#define STATIC    5   // only visible in this file ("internal linkage")
 
 /*
 ** segment types

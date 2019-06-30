@@ -1,8 +1,18 @@
-/*
-** Small-C Compiler -- Part 4 -- Back End.
-** Copyright 1982, 1983, 1985, 1988 J. E. Hendrix
-** All rights reserved.
-*/
+// ============================================================================
+// Small-C Compiler -- Part 4 -- Back End.
+// Copyright 1982, 1983, 1985, 1988 J. E. Hendrix.
+// All rights reserved.
+// ----------------------------------------------------------------------------
+// Notice of Public Domain Status
+// The source code for the Small-C Compiler and runtime libraries (CP/M & DOS),
+// Small-Mac Assembler (CP/M), Small-Assembler (DOS), Small-Tools programs and
+// Small-Windows library to which I hold copyrights are hereby available for
+// royalty free use in private or commerical endeavors. The only obligation
+// being that the users retain the original copyright notices and credit all
+// prior authors (Ron Cain, James Hendrix, etc.) in derivative versions.
+// James E. Hendrix Jr.
+// ============================================================================
+
 #include <stdio.h>
 #include "cc.h"
 
@@ -369,12 +379,12 @@ trailer() {
     char *cp;
     cptr = STARTGLB;
     while (cptr < ENDGLB) {
-        if (cptr[IDENT] == FUNCTION && cptr[CLASS] == AUTOEXT)
-            external(cptr + NAME, 0, FUNCTION);
+        if (cptr[IDENT] == IDENT_FUNCTION && cptr[CLASS] == AUTOEXT)
+            external(cptr + NAME, 0, IDENT_FUNCTION);
         cptr += SYMMAX;
     }
     if ((cp = findglb("main")) && cp[CLASS] == GLOBAL)
-        external("_main", 0, FUNCTION);
+        external("_main", 0, IDENT_FUNCTION);
     toseg(NULL);
     outline("END");
 #ifdef DISOPT
@@ -442,12 +452,15 @@ gen(int pcode, int value) {
     snext += 2;
 }
 
-/*
-** dump the contents of the queue.
-** If start = 0, throw away contents.
-** If before != 0, don't dump queue yet.
-*/
-clearstage(int *before, int *start) {
+// ClearStage() either writes the contents of the buffer to the output file and
+// resets snext to zero or merely backs up snext to an earlier point in the
+// buffer, thereby discarding the most recently generated code. ClearStage()
+// calls dumpstage which calls outcode() to translate the p-codes to ASCII
+// strings and write them to the output file. Outcode() in turn calls peep()
+// to optimize the p-codes before it translates and writes them.
+// If start == 0, throw away contents.
+// If before != 0, don't dump queue yet.
+ClearStage(int *before, int *start) {
     if (before) {
         snext = before;
         return;
@@ -505,7 +518,7 @@ toseg(int newseg) {
 ** declare variable, allowing global scope
 */
 public(int ident, int isGlobal) {
-    if (ident == FUNCTION)
+    if (ident == IDENT_FUNCTION)
         toseg(CODESEG);
     else
         toseg(DATASEG);
@@ -515,7 +528,7 @@ public(int ident, int isGlobal) {
         newline();
     }
     outname(ssname);
-    if (ident == FUNCTION) {
+    if (ident == IDENT_FUNCTION) {
         colon();
         newline();
     }
@@ -525,7 +538,7 @@ public(int ident, int isGlobal) {
 ** declare external reference
 */
 external(char *name, int size, int ident) {
-    if (ident == FUNCTION)
+    if (ident == IDENT_FUNCTION)
         toseg(CODESEG);
     else
         toseg(DATASEG);
@@ -540,11 +553,9 @@ external(char *name, int size, int ident) {
 ** output the size of the object pointed to.
 */
 outsize(int size, int ident) {
-    if (size == 1
-        && ident != POINTER
-        && ident != FUNCTION)
+    if (size == 1 && ident != IDENT_POINTER && ident != IDENT_FUNCTION)
         outstr("BYTE");
-    else if (ident != FUNCTION)
+    else if (ident != IDENT_FUNCTION)
         outstr("WORD");
     else
         outstr("NEAR");
