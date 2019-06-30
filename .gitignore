@@ -1,6 +1,10 @@
+# Ignore
+._.DS_Store
 .DS_Store
 *.MAP
 *.ASM
 *.OBJ
-hello/*.EXE
-ylink/*.EXE
+*.EXE
+
+# Allow
+!/code/bin/*.EXE
