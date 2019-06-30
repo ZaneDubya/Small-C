@@ -1,10 +1,12 @@
+# Ignore
+._.DS_Store
 .DS_Store
 *.MAP
 *.ASM
 *.OBJ
-hello/*.EXE
-ylink/*.EXE
-ylink/v3/LINK.EXE
-ylink/v4/LINK.EXE
-ylink/v3/LINK.TXT
-ylink/v4/LINK.TXT
+*.EXE
+
+# Allow
+!/code/bin/*.EXE
+emu/stdout.txt
+emu/stderr.txt

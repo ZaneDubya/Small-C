@@ -1,0 +1,728 @@
+;----------- OP-CODE DIRECTIVES ------------------------------------------
+;  _/0#        generate a ModR/M byte with the #th
+;              register/memory operand encoded as (mm000///)
+;
+;  _/1#        generate a ModR/M byte with the #th
+;              register/memory operand encoded as (mm001///)
+;
+;  _/2#        generate a ModR/M byte with the #th
+;              register/memory operand encoded as (mm010///)
+;
+;  _/3#        generate a ModR/M byte with the #th
+;              register/memory operand encoded as (mm011///)
+;
+;  _/4#        generate a ModR/M byte with the #th
+;              register/memory operand encoded as (mm100///)
+;
+;  _/5#        generate a ModR/M byte with the #th
+;              register/memory operand encoded as (mm101///)
+;
+;  _/6#        generate a ModR/M byte with the #th
+;              register/memory operand encoded as (mm110///)
+;
+;  _/7#        generate a ModR/M byte with the #th
+;              register/memory operand encoded as (mm111///)
+;
+;  _/i#&       generate a ModR/M byte and displacement with
+;              the 3 low-order bits of the 6-bit #th operand
+;              in (..iii...) and the &th operand (a register
+;              or memory reference) in (mm...///)
+;
+;  _/r#        generate a ModR/M byte with the #th operand
+;              (a register) in both parts of (mmrrr///)
+;
+;  _/r#&       generate a ModR/M byte and displacement with
+;              the #th operand (a register) in (..rrr...)
+;              and the &th operand (a register or memory
+;              reference) in (mm...///)
+;
+;  _/s#&       generate a ModR/M byte and displacement with
+;              the #th operand (a segment register) in
+;              (..sss...) and the &th operand (a register or
+;              memory reference) in (mm...///)
+;
+;  +f          add 8 to the prior byte if within far procedure
+;
+;  +i#         add high-order 3 bits of the 6-bit #th operand to
+;              the prior byte (must follow a hexadecimal byte)
+;
+;  +r#         add the register code of operand # to the prior
+;              byte (must follow a hexadecimal byte)
+;
+;  _i#         generate an immediate value from the #th operand
+;              (a constant)
+;
+;  _o#         generate an offset (16 or 32 bit) to the #th
+;              operand (a memory reference)
+;
+;  _p#         generate a far pointer (16:16 or 16:32 bit) to
+;              the #th operand (a memory reference)
+;
+;  _w6         generate a WAIT instruction (9B) if assembling
+;              for the 8086
+;
+;  _$#         generate a self-relative displacement to the #th
+;              operand (a memory reference)
+;
+;----------- OPERAND TYPES ------------------------------------------------
+;    1         literal '1'
+;    3         literal '3'
+;    i6         6 bit immediate operand
+;    i8         8 bit immediate operand
+;    i16       16 bit immediate operand
+;    i32       32 bit immediate operand
+;    i1632     16 or 32 bit immediate operand
+;    /8         8 bit register/memory operand
+;    /16       16 bit register/memory operand
+;    /32       32 bit register/memory operand
+;    /1632     16 or 32 bit register/memory operand
+;    /m        any size register/memory operand
+;    $8         8 bit self-relative address
+;    $1632     16 or 32 bit self-relative address
+;    m         any size memory operand
+;    m8         8 bit memory operand
+;    m16       16 bit memory operand
+;    m32       32 bit memory operand
+;    m1632     16 or 32 bit memory operand
+;    m48       48 bit memory operand
+;    m3248     32 or 48 bit memory operand
+;    m64       64 bit memory operand
+;    m3264     32 or 64 bit memory operand
+;    m80       80 bit memory operand
+;    n8        named  8 bit memory operand
+;    n16       named 16 bit memory operand
+;    n32       named 32 bit memory operand
+;    n1632     named 16 or 32 bit memory operand
+;    p32       32 bit pointer to far procedure
+;    p48       48 bit pointer to far procedure
+;    p3248     32 or 48 bit pointer to far procedure
+;    r8         8 bit register
+;    r16       16 bit register
+;    r32       32 bit register
+;    r1632     16 or 32 bit register
+;    AL        AL register
+;    AX        AX register
+;    EAX       EAX register
+;    eAX       AX or EAX register
+;    CL        CL register
+;    DX        DX register
+;    xS        any segment register
+;    CS        CS segment register
+;    DS        DS segment register
+;    ES        ES segment register
+;    FS        FS segment register
+;    GS        GS segment register
+;    SS        SS segment register
+;    CRx       CR0, CR2, or CR3
+;    DRx       DR0, DR1, DR2, DR3, DR6, or DR7
+;    TRx       TR6 or TR7
+;    ST        80x87 stack register ST(0)
+;    STx       80x87 stack register ST(x)
+;
+;----------- MACHINE INSTRUCTIONS ------------------------------------------
+;first 80x87
+;|
+;|first 80x86
+;||
+;|| op-codes     mnemonics
+;|| |            |      operands        descriptions
+;|| |            |      |               |
+;----- prefixes
+ 00 F0          +LOCK                   ; Assert LOCK# signal
+ 00 F3          +REP                    ; Repeat until CX=0 or ZF!=0 (note 2)
+ 00 F3          +REPE                   ; Repeat until CX=0 or ZF!=0 (note 2)
+ 00 F3          +REPZ                   ; Repeat until CX=0 or ZF!=0 (note 2)
+ 00 F2          +REPNE                  ; Repeat until CX=0 or ZF=0 (note 2)
+ 00 F2          +REPNZ                  ; Repeat until CX=0 or ZF=0 (note 2)
+ 00 2E          +CS:                    ; code segment override
+ 00 36          +SS:                    ; stack segment override
+ 00 3E          +DS:                    ; data segment override
+ 00 26          +ES:                    ; E data segment override
+ 03 64          +FS:                    ; F data segment override
+ 03 65          +GS:                    ; G data segment override
+ 03 67          +ASO                    ; Address size override (note 1)
+ 03 66          +OSO                    ; Opnd size override (note 1)
+;----- CPU instructions
+ 00 37           AAA                    ; ASCII adjust AL after addition
+ 00 D5_0A        AAD                    ; ASCII adjust AX before division
+ 00 D4_0A        AAM                    ; ASCII adjust AX after multiply
+ 00 3F           AAS                    ; ASCII adjust AL after subtraction
+ 00 14_i2        ADC    AL,i8           ; Add with CF i b to AL
+ 00 15_i2        ADC    eAX,i1632       ; Add with CF i w|d to eAX
+ 00 80_/21_i2    ADC    /8,i8           ; Add with CF i b to r/m b
+ 00 83_/21_i2    ADC    /1632,i8        ; Add with CF s-ext i b to r/m w|d
+ 00 81_/21_i2    ADC    /1632,i1632     ; Add with CF i w|dw to r/m w
+ 00 10_/r21      ADC    /8,r8           ; Add with CF r b to r/m b
+ 00 11_/r21      ADC    /1632,r1632     ; Add with CF r w|d to r/m w|d
+ 00 12_/r12      ADC    r8,/8           ; Add with CF r/m b to r b
+ 00 13_/r12      ADC    r1632,/1632     ; Add with CF r/m w|d to r w|d
+ 00 04_i2        ADD    AL,i8           ; Add i b to AL
+ 00 05_i2        ADD    eAX,i1632       ; Add i w|d to eAX
+ 00 80_/01_i2    ADD    /8,i8           ; Add i b to r/m b
+ 00 83_/01_i2    ADD    /1632,i8        ; Add s-ext i b to r/m w|d
+ 00 81_/01_i2    ADD    /1632,i1632     ; Add i w|d to r/m w|d
+ 00 00_/r21      ADD    /8,r8           ; Add r b to r/m b
+ 00 01_/r21      ADD    /1632,r1632     ; Add r w|d to r/m w|d
+ 00 02_/r12      ADD    r8,/8           ; Add r/m b to r b
+ 00 03_/r12      ADD    r1632,/1632     ; Add r/m w|d to r w|d
+ 00 24_i2        AND    AL,i8           ; AND i b to AL
+ 00 25_i2        AND    eAX,i1632       ; AND i w|d to eAX
+ 00 80_/41_i2    AND    /8,i8           ; AND i b to r/m b
+ 00 83_/41_i2    AND    /1632,i8        ; AND s-ext i b to r/m w|d
+ 00 81_/41_i2    AND    /1632,i1632     ; AND i w|d to r/m w|d
+ 00 20_/r21      AND    /8,r8           ; AND r b to r/m b
+ 00 21_/r21      AND    /1632,r1632     ; AND r w|d to r/m w|d
+ 00 22_/r12      AND    r8,/8           ; AND r/m b to r b
+ 00 23_/r12      AND    r1632,/1632     ; AND r/m w|d to r w|d
+ 02 63_/r21      ARPL   /16,r16         ; Adjust RPL of r/m16 to >= r16
+ 01 62_/r12      BOUND  r1632,m3264     ; INT 5 if r1632 not in bounds
+ 03 0F_BC_/r12   BSF    r1632,/1632     ; Bit Scan Forward on r/m w|d
+ 03 0F_BD_/r12   BSR    r1632,/1632     ; Bit Scan Reverse on r/m w|d
+ 03 0F_A3_/r21   BT     /1632,r1632     ; Bit Test (CF <- bit)
+ 03 0F_BA_/41_i2 BT     /1632,i8        ; Bit Test (CF <- bit)
+ 03 0F_BB_/r21   BTC    /1632,r1632     ; Bit Test (CF <- bit) and complement
+ 03 0F_BA_/71_i2 BTC    /1632,i8        ; Bit Test (CF <- bit) and complement
+ 03 0F_B3_/r21   BTR    /1632,r1632     ; Bit Test (CF <- bit) and reset
+ 03 0F_BA_/61_i2 BTR    /1632,i8        ; Bit Test (CF <- bit) and reset
+ 03 0F_AB_/r21   BTS    /1632,r1632     ; Bit Test (CF <- bit) and set
+ 03 0F_BA_/51_i2 BTS    /1632,i8        ; Bit Test (CF <- bit) and set
+ 00 E8_$1        CALL   $1632           ; Call near, self-relative
+ 00 FF_/21       CALL   /1632           ; Call near, r/m indirect
+ 00 9A_p1        CALL   p3248           ; Call far, direct by procedure name
+ 00 FF_/31       CALL   m3248           ; Call far, indirect by data name
+ 00 98           CBW                    ; eAX <- s-ext AL|AX
+ 03 98           CWDE                   ; eAX <- s-ext AL|AX
+ 00 F8           CLC                    ; Clear Carry Flag
+ 00 FC           CLD                    ; Clear Direction Flag
+ 00 FA           CLI                    ; Clear Interrupt Flag
+ 02 0F_06        CLTS                   ; Clear Task-Switch Flag
+ 00 F5           CMC                    ; Complement Carry Flag
+ 00 3C_i2        CMP    AL,i8           ; Compare i b to AL
+ 00 3D_i2        CMP    eAX,i1632       ; Compare i w|d to eAX
+ 00 80_/71_i2    CMP    /8,i8           ; Compare i b to r/m b
+ 00 83_/71_i2    CMP    /1632,i8        ; Compare s-ext i b to r/m w|d
+ 00 81_/71_i2    CMP    /1632,i1632     ; Compare i w|d to r/m w|d
+ 00 38_/r21      CMP    /8,r8           ; Compare r b to r/m b
+ 00 39_/r21      CMP    /1632,r1632     ; Compare r w|d to r/m w|d
+ 00 3A_/r12      CMP    r8,/8           ; Compare r/m b to r b
+ 00 3B_/r12      CMP    r1632,/1632     ; Compare r/m w|d to r w|d
+ 03 A6           CMPS   n8,n8           ; Compare bytes  ES:eDI with DS:eSI
+ 01 A6           CMPSB                  ; Compare bytes  ES:eDI with DS:eSI
+ 03 A7           CMPS   n1632,n1632     ; Compare words  ES:eDI with DS:eSI
+ 01 A7           CMPSW                  ; Compare words  ES:eDI with DS:eSI
+ 03 A7           CMPSD                  ; Compare dwords ES:eDI with DS:eSI
+ 00 99           CWD                    ; eDX:eAX <- s-ext eAX
+ 03 99           CDQ                    ; eDX:eAX <- s-ext eAX
+ 00 27           DAA                    ; Decimal adjust AL after addition
+ 00 2F           DAS                    ; Decimal adjust AL after subtraction
+ 00 FE_/11       DEC    /8              ; Decrement r/m b by 1
+ 00 FF_/11       DEC    /1632           ; Decrement r/m w|d by 1
+ 00 48+r1        DEC    r1632           ; Decrement r w|d by 1
+ 00 F6_/61       DIV    /8              ; Div uns AX by r/m b
+ 00 F7_/61       DIV    /1632           ; Div uns eDX:eAX by r/m w|d
+ 01 C8_i1_i2     ENTER  i16,i8          ; make proc parameter stack frame
+ 00 D8_+i1_/i12  ESC    i6,/8           ; Escape to other processor with x6
+ 00 F4           HLT                    ; Halt
+ 00 F6_/71       IDIV   /8              ; Div sgn AX by r/m b to AL (AH=rem)
+ 00 F7_/71       IDIV   /1632           ; Div sgn eDX:eAX by r/m w|d
+ 00 F6_/51       IMUL   /8              ; Mult sgn AL by r/m b to AX
+ 00 F7_/51       IMUL   /1632           ; Mult sgn eAX by r/m w|d
+ 03 0F_AF_/r12   IMUL   r1632,/1632     ; Mult sgn r w|d by r/m w|d to r w|d
+ 01 6B_/r12_i3   IMUL   r1632,/1632,i8  ; Mult sgn r/m w|d by s-ext i b to r w|d
+ 01 6B_/r1_i2    IMUL   r1632,i8        ; Mult sgn r w|d by s-ext i b to r w|d
+ 01 69_/r12_i3   IMUL   r1632,/1632,i1632 ; Mult sgn r/m w|d by i w|d to r w|d
+ 01 69_/r1_i2    IMUL   r1632,i1632     ; Mult sgn r w|d by i w|d to r w|d
+ 00 E4_i2        IN     AL,i8           ; Input b from i port to AL
+ 00 E5_i2        IN     eAX,i8          ; Input w|d from i port to eAX
+ 00 EC           IN     AL,DX           ; Input b from port DX to AL
+ 00 ED           IN     eAX,DX          ; Input w|d from port DX to eAX
+ 00 FE_/01       INC    /8              ; Increment r/m b by 1
+ 00 FF_/01       INC    /16             ; Increment r/m w by 1
+ 03 FF_/01       INC    /32             ; Increment r/m d by 1
+ 00 40+r1        INC    r1632           ; Increment r w|d by 1
+ 01 6C           INS    /8,DX           ; Input b from port DX into ES:DI
+ 01 6C           INSB                   ; Input b from port DX into ES:DI
+ 01 6D           INS    /1632,DX        ; Input w|d from port DX into ES:DI
+ 01 6D           INSW                   ; Input w from port DX into ES:DI
+ 03 6D           INSD                   ; Input d from port DX into ES:EDI
+ 00 CC           INT    3               ; Interrupt 3, trap to debugger
+ 00 CD_i1        INT    i8              ; Interrupt numbered by i b
+ 00 CE           INTO                   ; Interrupt 4, overflow flag set
+ 00 CF           IRET                   ; Interrupt return (far & pops flags)
+ 03 CF           IRETD                  ; Interrupt return (far & pops flags)
+ 00 77_$1        JA     $8              ; Jump short if uns > 
+ 00 73_$1        JAE    $8              ; Jump short if uns >= 
+ 00 72_$1        JB     $8              ; Jump short if uns < 
+ 00 76_$1        JBE    $8              ; Jump short if uns <= 
+ 00 72_$1        JC     $8              ; Jump short if carry 
+ 00 E3_$1        JCXZ   $8              ; Jump short if CX is 0
+ 03 E3_$1        JECXZ  $8              ; Jump short if ECX is 0
+ 00 74_$1        JE     $8              ; Jump short if     = 
+ 00 7F_$1        JG     $8              ; Jump short if sgn > 
+ 00 7D_$1        JGE    $8              ; Jump short if sgn >= 
+ 00 7C_$1        JL     $8              ; Jump short if sgn < 
+ 00 7E_$1        JLE    $8              ; Jump short if sgn <= 
+ 00 76_$1        JNA    $8              ; Jump short if uns <= 
+ 00 72_$1        JNAE   $8              ; Jump short if uns < 
+ 00 73_$1        JNB    $8              ; Jump short if uns >= 
+ 00 77_$1        JNBE   $8              ; Jump short if uns > 
+ 00 73_$1        JNC    $8              ; Jump short if not carry 
+ 00 75_$1        JNE    $8              ; Jump short if     != 
+ 00 7E_$1        JNG    $8              ; Jump short if sgn <= 
+ 00 7C_$1        JNGE   $8              ; Jump short if sgn <
+ 00 7D_$1        JNL    $8              ; Jump short if sgn >=
+ 00 7F_$1        JNLE   $8              ; Jump short if sgn >
+ 00 71_$1        JNO    $8              ; Jump short if not overflow
+ 00 7B_$1        JNP    $8              ; Jump short if not parity even
+ 00 79_$1        JNS    $8              ; Jump short if not sign
+ 00 75_$1        JNZ    $8              ; Jump short if not zero
+ 00 70_$1        JO     $8              ; Jump short if overflow
+ 00 7A_$1        JP     $8              ; Jump short if parity even
+ 00 7A_$1        JPE    $8              ; Jump short if parity even
+ 00 7B_$1        JPO    $8              ; Jump short if parity odd
+ 00 78_$1        JS     $8              ; Jump short if sign
+ 00 74_$1        JZ     $8              ; Jump short if zero
+
+ 03 0F_87_$1     JA     $1632           ; Jump near if uns > 
+ 03 0F_83_$1     JAE    $1632           ; Jump near if uns >= 
+ 03 0F_82_$1     JB     $1632           ; Jump near if uns < 
+ 03 0F_86_$1     JBE    $1632           ; Jump near if uns <= 
+ 03 0F_82_$1     JC     $1632           ; Jump near if carry 
+ 03 0F_84_$1     JE     $1632           ; Jump near if     = 
+ 03 0F_8F_$1     JG     $1632           ; Jump near if sgn > 
+ 03 0F_8D_$1     JGE    $1632           ; Jump near if sgn >= 
+ 03 0F_8C_$1     JL     $1632           ; Jump near if sgn < 
+ 03 0F_8E_$1     JLE    $1632           ; Jump near if sgn <= 
+ 03 0F_86_$1     JNA    $1632           ; Jump near if uns <= 
+ 03 0F_82_$1     JNAE   $1632           ; Jump near if uns < 
+ 03 0F_83_$1     JNB    $1632           ; Jump near if uns >= 
+ 03 0F_87_$1     JNBE   $1632           ; Jump near if uns > 
+ 03 0F_83_$1     JNC    $1632           ; Jump near if not carry 
+ 03 0F_85_$1     JNE    $1632           ; Jump near if     != 
+ 03 0F_8E_$1     JNG    $1632           ; Jump near if sgn <= 
+ 03 0F_8C_$1     JNGE   $1632           ; Jump near if sgn <
+ 03 0F_8D_$1     JNL    $1632           ; Jump near if sgn >=
+ 03 0F_8F_$1     JNLE   $1632           ; Jump near if sgn >
+ 03 0F_81_$1     JNO    $1632           ; Jump near if not overflow
+ 03 0F_8B_$1     JNP    $1632           ; Jump near if not parity even
+ 03 0F_89_$1     JNS    $1632           ; Jump near if not sign
+ 03 0F_85_$1     JNZ    $1632           ; Jump near if not zero
+ 03 0F_80_$1     JO     $1632           ; Jump near if overflow
+ 03 0F_8A_$1     JP     $1632           ; Jump near if parity even
+ 03 0F_8A_$1     JPE    $1632           ; Jump near if parity even
+ 03 0F_8B_$1     JPO    $1632           ; Jump near if parity odd
+ 03 0F_88_$1     JS     $1632           ; Jump near if sign
+ 03 0F_84_$1     JZ     $1632           ; Jump near if zero
+
+ 00 EB_$1        JMP    $8              ; Jump near short, self-rel
+ 00 E9_$1        JMP    $1632           ; Jump near, self-relative
+ 00 FF_/41       JMP    /1632           ; Jump near, r/m indirect
+ 00 EA_p1        JMP    p3248           ; Jump far, direct by procedure name
+ 00 FF_/51       JMP    m3248           ; Jump far, indirect data name
+ 00 9F           LAHF                   ; Load FLAGS to AH
+ 02 0F_02_/r12   LAR    r1632,/1632     ; Load access rights
+ 00 8D_/r12      LEA    r1632,m         ; Load eff addr of m to r
+ 01 C9           LEAVE                  ; Leave procedure
+ 02 0F_01_/21    LGDT   m48             ; Load m48 into GDTR
+ 02 0F_01_/31    LIDT   m48             ; Load m48 into IDTR
+ 00 C5_/r12      LDS    r1632,m3248     ; Load DS:r1632 with m pointer
+ 03 0F_B2_/r12   LSS    r1632,m3248     ; Load SS:r1632 with m pointer
+ 00 C4_/r12      LES    r1632,m3248     ; Load ES:r1632 with m pointer
+ 03 0F_B4_/r12   LFS    r1632,m3248     ; Load FS:r1632 with m pointer
+ 03 0F_B5_/r12   LGS    r1632,m3248     ; Load GS:r1632 with m pointer
+ 02 0F_00_/21    LLDT   /16             ; Load r/m w to LDTR
+ 02 0F_01_/61    LMSW   /16             ; Load r/m w to machine status word
+ 00 AC           LODS   n8              ; Load DS:eSI b into AL
+ 00 AC           LODSB                  ; Load DS:eSI b into AL
+ 00 AD           LODS   n1632           ; Load DS:eSI w|d into eAX
+ 00 AD           LODSW                  ; Load DS:eSI w|d into eAX
+ 03 AD           LODSD                  ; Load DS:eSI w|d into eAX
+ 00 E2_$1        LOOP   $8              ; decr eCX, jump if != 0
+ 00 E1_$1        LOOPE  $8              ; decr eCX, jump if != 0 and ZF = 1
+ 00 E1_$1        LOOPZ  $8              ; decr eCX, jump if != 0 and ZF = 1
+ 00 E0_$1        LOOPNE $8              ; decr eCX, jump if != 0 and ZF = 0
+ 00 E0_$1        LOOPNZ $8              ; decr eCX, jump if != 0 and ZF = 0
+ 02 0F_03_/r12   LSL    r1632,/1632     ; Load Segment Limit to r16
+ 02 0F_00_/31    LTR    /16             ; Load r/m w to Task Register
+ 00 88_/r21      MOV    /8,r8           ; Move r b to r/m b
+ 00 89_/r21      MOV    /1632,r1632     ; Move r w|d to r/m w|d
+ 00 8A_/r12      MOV    r8,/8           ; Move r/m b to r b
+ 00 8B_/r12      MOV    r1632,/1632     ; Move r/m w|d to r w|d
+ 00 8C_/s21      MOV    /16,xS          ; Move xS to r/m w
+ 00 8E_/s12      MOV    xS,/16          ; Move r/m w to xS
+ 00 A0_o2        MOV    AL,n8           ; Move o b to AL
+ 00 A1_o2        MOV    eAX,n1632       ; Move o w|d to eAX
+ 00 A2_o1        MOV    n8,AL           ; Move AL to o b
+ 00 A3_o1        MOV    n1632,eAX       ; Move eAX to o w|d
+ 00 B0+r1_i2     MOV    r8,i8           ; Move i b to r b
+ 00 B8+r1_i2     MOV    r1632,i1632     ; Move i w|d to r w|d
+ 00 C6_/01_i2    MOV    /8,i8           ; Move i b to r/m b
+ 00 C7_/01_i2    MOV    /1632,i1632     ; Move i w|d to r/m w|d
+ 03 0F_20_/r21   MOV    r32,CRx         ; Move CRx to r32
+ 03 0F_22_/r12   MOV    CRx,r32         ; Move r32 to CRx
+ 03 0F_21_/r21   MOV    r32,DRx         ; Move DRx to r32
+ 03 0F_23_/r12   MOV    DRx,r32         ; Move r32 to DRx
+ 03 0F_24_/r21   MOV    r32,TRx         ; Move TRx to r32
+ 03 0F_26_/r12   MOV    TRx,r32         ; Move r32 to TRx
+ 00 A4           MOVS   n8,n8           ; Move b DS:eSI to ES:eDI
+ 00 A4           MOVSB                  ; Move b DS:eSI to ES:eDI
+ 00 A5           MOVS   n1632,n1632     ; Move w|d DS:eSI to ES:eDI
+ 00 A5           MOVSW                  ; Move w|d DS:eSI to ES:eDI
+ 03 A5           MOVSD                  ; Move w|d DS:eSI to ES:eDI
+ 03 0F_BE_/r12   MOVSX  r1632,/8        ; Move r/m b s-ext to r w|d
+ 03 0F_BF_/r12   MOVSX  r32,/16         ; Move r/m w s-ext to r d
+ 03 0F_B6_/r12   MOVZX  r1632,/8        ; Move r/m b z-ext to r w|d
+ 03 0F_B7_/r12   MOVZX  r32,/16         ; Move r/m w z-ext to r d
+ 00 F6_/41       MUL    /8              ; Mult uns AL by r/m b
+ 00 F7_/41       MUL    /1632           ; Mult uns eAX by r/m w|d
+ 00 F6_/31       NEG    /8              ; 2's complement r/m b
+ 00 F7_/31       NEG    /1632           ; 2's complement r/m w|d
+ 00 90           NOP                    ; No Operation
+ 00 F6_/21       NOT    /8              ; 1's complement r/m b
+ 00 F7_/21       NOT    /1632           ; 1's complement r/m w|d
+ 00 0C_i2        OR     AL,i8           ; OR i b to AL
+ 00 0D_i2        OR     eAX,i1632       ; OR i w|d to eAX
+ 00 80_/11_i2    OR     /8,i8           ; OR i b to r/m b
+ 00 83_/11_i2    OR     /1632,i8        ; OR i b s-ext to r/m w|d
+ 00 81_/11_i2    OR     /1632,i1632     ; OR i w|d to r/m w|d
+ 00 08_/r21      OR     /8,r8           ; OR r b to r/m b
+ 00 09_/r21      OR     /1632,r1632     ; OR r w|d to r/m w|d
+ 00 0A_/r12      OR     r8,/8           ; OR r/m b to r b
+ 00 0B_/r12      OR     r1632,/1632     ; OR r/m w|d to r w|d
+ 00 E6_i1        OUT    i8,AL           ; Output AL to port i b
+ 00 E7_i1        OUT    i8,eAX          ; Output eAX to port i b
+ 00 EE           OUT    DX,AL           ; Output AL to port DX
+ 00 EF           OUT    DX,eAX          ; Output eAX to port DX
+ 01 6E           OUTS   DX,/8           ; Output DS:eSI b to port DX
+ 01 6E           OUTSB                  ; Output DS:eSI b to port DX
+ 01 6F           OUTS   DX,/1632        ; Output DS:eSI w|d to port DX
+ 01 6F           OUTSW                  ; Output DS:eSI w|d to port DX
+ 03 6F           OUTSD                  ; Output DS:eSI w|d to port DX
+ 00 58+r1        POP    r1632           ; Pop top of stack to r w|d
+ 00 8F_/01       POP    m               ; Pop top of stack to m w|d
+ 00 1F           POP    DS              ; Pop top of stack to DS
+ 00 07           POP    ES              ; Pop top of stack to ES
+ 00 17           POP    SS              ; Pop top of stack to SS
+ 03 0F_A1        POP    FS              ; Pop top of stack to FS
+ 03 0F_A9        POP    GS              ; Pop top of stack to GS
+ 01 61           POPA                   ; Pop eDI,eSI,eBP,eSP,eBX,eDX,eCX,eAX
+ 03 61           POPAD                  ; Pop eDI,eSI,eBP,eSP,eBX,eDX,eCX,eAX
+ 00 9D           POPF                   ; Pop top of stack to FLAGS
+ 03 9D           POPFD                  ; Pop top of stack to EFLAGS
+ 00 50+r1        PUSH   r1632           ; Push r w|d
+ 00 FF_/61       PUSH   m               ; Push m w|d
+ 01 6A_i1        PUSH   i8              ; Push i b
+ 01 68_i1        PUSH   i1632           ; Push i w|d
+ 00 0E           PUSH   CS              ; Push CS
+ 00 16           PUSH   SS              ; Push SS
+ 00 1E           PUSH   DS              ; Push DS
+ 00 06           PUSH   ES              ; Push ES
+ 03 0F_A0        PUSH   FS              ; Push FS
+ 03 0F_A8        PUSH   GS              ; Push GS
+ 00 60           PUSHA                  ; Push eAX,eCX,eDX,eBX,eSP,eBP,eSI,eDI
+ 03 60           PUSHAD                 ; Push eAX,eCX,eDX,eBX,eSP,eBP,eSI,eDI
+ 00 9C           PUSHF                  ; Push FLAGS
+ 03 9C           PUSHFD                 ; Push EFLAGS
+ 00 D0_/21       RCL    /8,1            ; Rotate r/m 9 bits left once
+ 00 D2_/21       RCL    /8,CL           ; Rotate r/m 9 bits left CL times
+ 01 C0_/21_i2    RCL    /8,i8           ; Rotate r/m 9 bits left i b times
+ 00 D1_/21       RCL    /1632,1         ; Rotate r/m 17|33 bits left once
+ 00 D3_/21       RCL    /1632,CL        ; Rotate r/m 17|33 bits left CL times
+ 01 C1_/21_i2    RCL    /1632,i8        ; Rotate r/m 17|33 bits left i b times
+ 00 D0_/31       RCR    /8,1            ; Rotate r/m 9 bits right once
+ 00 D2_/31       RCR    /8,CL           ; Rotate r/m 9 bits right CL times
+ 01 C0_/31_i2    RCR    /8,i8           ; Rotate r/m 9 bits right i b times
+ 00 D1_/31       RCR    /1632,1         ; Rotate r/m 17|33 bits right once
+ 00 D3_/31       RCR    /1632,CL        ; Rotate r/m 17|33 bits right CL times
+ 01 C1_/31_i2    RCR    /1632,i8        ; Rotate r/m 17|33 bits right i b times
+ 00 D0_/01       ROL    /8,1            ; Rotate r/m 8 bits left once
+ 00 D2_/01       ROL    /8,CL           ; Rotate r/m 8 bits left CL times
+ 01 C0_/01_i2    ROL    /8,i8           ; Rotate r/m 8 bits left i b times
+ 00 D1_/01       ROL    /1632,1         ; Rotate r/m 16|32 bits left once
+ 00 D3_/01       ROL    /1632,CL        ; Rotate r/m 16|32 bits left CL times
+ 01 C1_/01_i2    ROL    /1632,i8        ; Rotate r/m 16|32 bits left i b times
+ 00 D0_/11       ROR    /8,1            ; Rotate r/m 8 bits right once
+ 00 D2_/11       ROR    /8,CL           ; Rotate r/m 8 bits right CL times
+ 01 C0_/11_i2    ROR    /8,i8           ; Rotate r/m 8 bits right i b times
+ 00 D1_/11       ROR    /1632,1         ; Rotate r/m 16|32 bits right once
+ 00 D3_/11       ROR    /1632,CL        ; Rotate r/m 16|32 bits right CL times
+ 01 C1_/11_i2    ROR    /1632,i8        ; Rotate r/m 16|32 bits right i b times
+ 00 C3+f         RET                    ; Return near or far
+ 00 C3           RETN                   ; Return near
+ 00 CB           RETF                   ; Return far
+ 00 C2+f_i1      RET    i16             ; Pop i bytes and Return near or far
+ 00 C2_i1        RETN   i16             ; Pop i bytes and Return near
+ 00 CA_i1        RETF   i16             ; Pop i bytes and Return far
+ 00 9E           SAHF                   ; Store AH to FLAGS
+ 00 D0_/41       SAL    /8,1            ; Shift arith r/m b left once
+ 00 D2_/41       SAL    /8,CL           ; Shift arith r/m b left CL times
+ 01 C0_/41_i2    SAL    /8,i8           ; Shift arith r/m b left i b times
+ 00 D1_/41       SAL    /1632,1         ; Shift arith r/m w|d left once
+ 00 D3_/41       SAL    /1632,CL        ; Shift arith r/m w|d left CL times
+ 01 C1_/41_i2    SAL    /1632,i8        ; Shift arith r/m w|d left i b times
+ 00 D0_/71       SAR    /8,1            ; Shift arith r/m b right once
+ 00 D2_/71       SAR    /8,CL           ; Shift arith r/m b right CL times
+ 01 C0_/71_i2    SAR    /8,i8           ; Shift arith r/m b right i b times
+ 00 D1_/71       SAR    /1632,1         ; Shift arith r/m w|d right once
+ 00 D3_/71       SAR    /1632,CL        ; Shift arith r/m w|d right CL times
+ 01 C1_/71_i2    SAR    /1632,i8        ; Shift arith r/m w|d right i b times
+ 00 D0_/41       SHL    /8,1            ; Shift arith r/m b left once
+ 00 D2_/41       SHL    /8,CL           ; Shift arith r/m b left CL times
+ 01 C0_/41_i2    SHL    /8,i8           ; Shift arith r/m b left i b times
+ 00 D1_/41       SHL    /1632,1         ; Shift arith r/m w|d left once
+ 00 D3_/41       SHL    /1632,CL        ; Shift arith r/m w|d left CL times
+ 01 C1_/41_i2    SHL    /1632,i8        ; Shift arith r/m w|d left i b times
+ 00 D0_/51       SHR    /8,1            ; Shift arith r/m b right once
+ 00 D2_/51       SHR    /8,CL           ; Shift arith r/m b right CL times
+ 01 C0_/51_i2    SHR    /8,i8           ; Shift arith r/m b right i b times
+ 00 D1_/51       SHR    /1632,1         ; Shift arith r/m w|d right once
+ 00 D3_/51       SHR    /1632,CL        ; Shift arith r/m w|d right CL times
+ 01 C1_/51_i2    SHR    /1632,i8        ; Shift arith r/m w|d right i b times
+ 00 1C_i2        SBB    AL,i8           ; Sub with CF i b from AL
+ 00 1D_i2        SBB    eAX,i1632       ; Sub with CF i w|d from eAX
+ 00 80_/31_i2    SBB    /8,i8           ; Sub with CF i b from r/m b
+ 00 83_/31_i2    SBB    /1632,i8        ; Sub with CF s-ext i b from r/m w|d
+ 00 81_/31_i2    SBB    /1632,i1632     ; Sub with CF i w|d from r/m w|d
+ 00 18_/r21      SBB    /8,r8           ; Sub with CF r b from r/m b
+ 00 19_/r21      SBB    /1632,r1632     ; Sub with CF r w|d from r/m w|d
+ 00 1A_/r12      SBB    r8,/8           ; Sub with CF r/m b from r b
+ 00 1B_/r12      SBB    r1632,/1632     ; Sub with CF r/m w|d from r w|d
+ 00 AE           SCAS   n8              ; Compare AL-ES:eDI, inc|dec eDI
+ 00 AE           SCASB                  ; Compare AL-ES:eDI, inc|dec eDI
+ 00 AF           SCAS   n1632           ; Compare eAX-ES:eDI, inc|dec eDI
+ 00 AF           SCASW                  ; Compare eAX-ES:eDI, inc|dec eDI
+ 03 AF           SCASD                  ; Compare eAX-ES:eDI, inc|dec eDI
+ 03 0F_97_/01    SETA   /8              ; r/m b <- 1 if uns > , else 0
+ 03 0F_93_/01    SETAE  /8              ; r/m b <- 1 if uns >=, else 0
+ 03 0F_92_/01    SETB   /8              ; r/m b <- 1 if uns < , else 0
+ 03 0F_96_/01    SETBE  /8              ; r/m b <- 1 if uns <=, else 0
+ 03 0F_92_/01    SETC   /8              ; r/m b <- 1 if carry, else 0
+ 03 0F_94_/01    SETE   /8              ; r/m b <- 1 if     = , else 0
+ 03 0F_9F_/01    SETG   /8              ; r/m b <- 1 if sgn > , else 0
+ 03 0F_9D_/01    SETGE  /8              ; r/m b <- 1 if sgn >=, else 0
+ 03 0F_9C_/01    SETL   /8              ; r/m b <- 1 if sgn < , else 0
+ 03 0F_9E_/01    SETLE  /8              ; r/m b <- 1 if sgn <=, else 0
+ 03 0F_96_/01    SETNA  /8              ; r/m b <- 1 if uns <=, else 0
+ 03 0F_92_/01    SETNAE /8              ; r/m b <- 1 if uns < , else 0
+ 03 0F_93_/01    SETNB  /8              ; r/m b <- 1 if uns >=, else 0
+ 03 0F_97_/01    SETNBE /8              ; r/m b <- 1 if uns > , else 0
+ 03 0F_93_/01    SETNC  /8              ; r/m b <- 1 if not carry, else 0
+ 03 0F_95_/01    SETNE  /8              ; r/m b <- 1 if     !=, else 0
+ 03 0F_9E_/01    SETNG  /8              ; r/m b <- 1 if sgn <=, else 0
+ 03 0F_9C_/01    SETNGE /8              ; r/m b <- 1 if sgn < , else 0
+ 03 0F_9D_/01    SETNL  /8              ; r/m b <- 1 if sgn >=, else 0
+ 03 0F_9F_/01    SETNLE /8              ; r/m b <- 1 if sgn > , else 0
+ 03 0F_91_/01    SETNO  /8              ; r/m b <- 1 if not overflow, else 0
+ 03 0F_9B_/01    SETNP  /8              ; r/m b <- 1 if not parity even, else 0
+ 03 0F_99_/01    SETNS  /8              ; r/m b <- 1 if not sign, else 0
+ 03 0F_95_/01    SETNZ  /8              ; r/m b <- 1 if not zero, else 0
+ 03 0F_90_/01    SETO   /8              ; r/m b <- 1 if overflow, else 0
+ 03 0F_9A_/01    SETP   /8              ; r/m b <- 1 if parity even, else 0
+ 03 0F_9A_/01    SETPE  /8              ; r/m b <- 1 if parity even, else 0
+ 03 0F_9B_/01    SETPO  /8              ; r/m b <- 1 if parity odd, else 0
+ 03 0F_98_/01    SETS   /8              ; r/m b <- 1 if sign, else 0
+ 03 0F_94_/01    SETZ   /8              ; r/m b <- 1 if zero, else 0
+ 02 0F_01_/01    SGDT   m               ; Store GDTR to m
+ 02 0F_01_/11    SIDT   m               ; Store IDTR to m
+ 03 0F_A4_/r21_i3 SHLD  /1632,r1632,i8  ; << arith r/m:r i b times into r/m
+ 03 0F_A5_/r21   SHLD   /1632,r1632,CL  ; << arith r/m:r CL times into r/m
+ 03 0F_AC_/r21_i3 SHRD  /1632,r1632,i8  ; >> arith r:r/m i b times into r/m
+ 03 0F_AD_/r21   SHRD   /1632,r1632,CL  ; >> arith r:r/m CL times into r/m
+ 02 0F_00_/01    SLDT   /16             ; Store LDTR to r/m w
+ 02 0F_01_/41    SMSW   /16             ; Store MSW to r/m w
+ 00 F9           STC                    ; Set CF
+ 00 FD           STD                    ; Set DF
+ 00 FB           STI                    ; Set IF
+ 00 AA           STOS   n8              ; Store AL in ES:eDI b, inc|dec eDI
+ 00 AA           STOSB                  ; Store AL in ES:eDI b, inc|dec eDI
+ 00 AB           STOS   n1632           ; Store eAX in ES:eDI w|d, inc|dec eDI
+ 00 AB           STOSW                  ; Store eAX in ES:eDI w|d, inc|dec eDI
+ 03 AB           STOSD                  ; Store eAX in ES:eDI w|d, inc|dec eDI
+ 02 0F_00_/11    STR    /16             ; Store task register to r/m w
+ 00 2C_i2        SUB    AL,i8           ; Subtract i b from AL
+ 00 2D_i2        SUB    eAX,i1632       ; Subtract i w|d from eAX
+ 00 80_/51_i2    SUB    /8,i8           ; Subtract i b from r/m b
+ 00 83_/51_i2    SUB    /1632,i8        ; Subtract s-ext i b from r/m w|d
+ 00 81_/51_i2    SUB    /1632,i1632     ; Subtract i w|d from r/m w|d
+ 00 28_/r21      SUB    /8,r8           ; Subtract r b from r/m b
+ 00 29_/r21      SUB    /1632,r1632     ; Subtract r w|d from r/m w|d
+ 00 2A_/r12      SUB    r8,/8           ; Subtract r/m b from r b
+ 00 2B_/r12      SUB    r1632,/1632     ; Subtract r/m w|d from r w|d
+ 00 A8_i2        TEST   AL,i8           ; Test AND i b with AL
+ 00 A9_i2        TEST   eAX,i1632       ; Test AND i w|d with eAX
+ 00 F6_/01_i2    TEST   /8,i8           ; Test AND i b with r/m b
+ 00 F7_/01_i2    TEST   /1632,i1632     ; Test AND i w|d with r/m w|d
+ 00 84_/r21      TEST   /8,r8           ; Test AND r b with r/m b
+ 00 85_/r21      TEST   /1632,r1632     ; Test AND r w|d with r/m w|d
+ 02 0F_00_/41    VERR   /16             ; ZF=1 if r/m segment selector readable
+ 02 0F_00_/51    VERW   /16             ; ZF=1 if r/m segment selector writable
+ 00 9B           WAIT                   ; Wait until BUSY pin inactive (high)
+ 00 90+r2        XCHG   eAX,r1632       ; Exchange r w|d with eAX
+ 00 90+r1        XCHG   r1632,eAX       ; Exchange r w|d with eAX
+ 00 86_/r21      XCHG   /8,r8           ; Exchange r b with r/m b
+ 00 86_/r12      XCHG   r8,/8           ; Exchange r b with r/m b
+ 00 87_/r21      XCHG   /1632,r1632     ; Exchange r w|d with r/m w|d
+ 00 87_/r12      XCHG   r1632,/1632     ; Exchange r w|d with r/m w|d
+ 00 D7           XLAT   n8              ; Set AL to b at DS:eBX + uns AL
+ 00 D7           XLATB                  ; Set AL to b at DS:eBX + uns AL
+ 00 34_i2        XOR    AL,i8           ; Exclusive OR i b to AL
+ 00 35_i2        XOR    eAX,i1632       ; Exclusive OR i w|d to eAX
+ 00 80_/61_i2    XOR    /8,i8           ; Exclusive OR i b to r/m b
+ 00 83_/61_i2    XOR    /1632,i8        ; Exclusive OR i b s-ext to r/m w|d
+ 00 81_/61_i2    XOR    /1632,i1632     ; Exclusive OR i w|d to r/m w|d
+ 00 30_/r21      XOR    /8,r8           ; Exclusive OR r b to r/m b
+ 00 31_/r21      XOR    /1632,r1632     ; Exclusive OR r w|d to r/m w|d
+ 00 32_/r12      XOR    r8,/8           ; Exclusive OR r/m b to r b
+ 00 33_/r12      XOR    r1632,/1632     ; Exclusive OR r/m w|d to r w|d
+;----- NPX instructions
+ 00 w6_D9_F0     F2XM1                  ; calculate 2**x
+ 00 w6_D9_E1     FABS                   ; absolute value of ST(0)
+ 00 w6_DE_C1     FADD                   ; add real
+ 00 w6_D8_/01    FADD    m32            ; add short real from memory
+ 00 w6_DC_/01    FADD    m64            ; add long real from memory
+ 00 w6_D8_C0+r2  FADD    ST,STx         ; Add real from stack
+ 00 w6_DC_C0+r1  FADD    STx,ST         ; Add real to stack
+ 00 w6_DE_C0+r1  FADDP   STx,ST         ; Add real and pop stack
+ 00 w6_DF_/41    FBLD    m80            ; load packed to stack
+ 00 w6_DF_/61    FBSTP   m80            ; store packed and pop
+ 00 w6_D9_E0     FCHS                   ; change sign of ST(0)
+ 00 9B_DB_E2     FCLEX                  ; clear exceptions after WAIT
+ 00 w6_D8_D1     FCOM                   ; compare real
+ 00 w6_D8_/21    FCOM    m32            ; compare short real
+ 00 w6_DC_/21    FCOM    m64            ; compare long real
+ 00 w6_D8_D0     FCOM    ST             ; compare real with ST(0)
+ 00 w6_D8_D0+r1  FCOM    STx            ; compare real with stack
+ 00 w6_D8_D9     FCOMP                  ; compare real and pop
+ 00 w6_D8_/31    FCOMP   m32            ; compare short real and pop
+ 00 w6_DC_/31    FCOMP   m64            ; compare long real and pop
+ 00 w6_D8_D8     FCOMP   ST             ; compare real with ST(0) and pop
+ 00 w6_D8_D8+r1  FCOMP   STx            ; compare real with stack and pop
+ 00 w6_DE_D9     FCOMPP                 ; compare real and pop twice
+ 30 w6_D9_FF     FCOS                   ; cosine
+ 00 9B_D9_F6     FDECSTP                ; decrement stack pointer
+ 00 w6_DB_E1     FDISI                  ; disable interrupts after WAIT
+ 00 w6_DE_F9     FDIV                   ; divide real
+ 00 w6_D8_/61    FDIV    m32            ; divide short real memory
+ 00 w6_DC_/61    FDIV    m64            ; divide long real memory
+ 00 w6_D8_F0+r2  FDIV    ST,STx         ; divide real from stack
+ 00 w6_DC_F8+r1  FDIV    STx,ST         ; divide real to stack
+ 00 w6_DE_F8+r1  FDIVP   STx,ST         ; divide real and pop to stack
+ 00 w6_DE_F1     FDIVR                  ; divide real reversed
+ 00 w6_D8_/71    FDIVR   m32            ; divide short real reversed from m
+ 00 w6_DC_/71    FDIVR   m64            ; divide long real reversed from m
+ 00 w6_D8_F8+r2  FDIVR   ST,STx         ; divide real reversed from stack
+ 00 w6_DC_F0+r1  FDIVR   STx,ST         ; divide real reversed to stack
+ 00 w6_DE_F0+r1  FDIVRP  STx,ST         ; divide real reversed and pop
+ 00 w6_DB_E0     FENI                   ; enable interrupts after WAIT
+ 00 9B_DD_C0     FFREE   ST             ; free ST(0) element
+ 00 9B_DD_C0+r1  FFREE   STx            ; free x-th stack element
+ 00 w6_DE_/01    FIADD   m16            ; add word integer
+ 00 w6_DA_/01    FIADD   m32            ; add short integer
+ 00 w6_DE_/21    FICOM   m16            ; compare word integer
+ 00 w6_DA_/21    FICOM   m32            ; compare short integer
+ 00 w6_DE_/31    FICOMP  m16            ; compare word integer and pop
+ 00 w6_DA_/31    FICOMP  m32            ; compare short integer and pop
+ 00 w6_DE_/61    FIDIV   m16            ; divide word integer
+ 00 w6_DA_/61    FIDIV   m32            ; divide short integer
+ 00 w6_DE_/71    FIDIVR  m16            ; divide word integer reversed
+ 00 w6_DA_/71    FIDIVR  m32            ; divide short integer reversed
+ 00 w6_DF_/01    FILD    m16            ; load word integer
+ 00 w6_DB_/01    FILD    m32            ; load short integer
+ 00 w6_DF_/51    FILD    m64            ; load long integer
+ 00 w6_DE_/11    FIMUL   m16            ; multiply word integer
+ 00 w6_DA_/11    FIMUL   m32            ; multiply short integer
+ 00 9B_D9_F7     FINCSTP                ; increment stack pointer
+ 00 9B_DB_E3     FINIT                  ; initialize processor after WAIT
+ 00 w6_DF_/21    FIST    m16            ; store word integer
+ 00 w6_DB_/21    FIST    m32            ; store short integer
+ 00 w6_DF_/31    FISTP   m16            ; store word integer and pop
+ 00 w6_DB_/31    FISTP   m32            ; store short integer and pop
+ 00 w6_DF_/71    FISTP   m64            ; store long integer and pop
+ 00 w6_DE_/41    FISUB   m16            ; subtract word integer
+ 00 w6_DA_/41    FISUB   m32            ; subtract short integer
+ 00 w6_DE_/51    FISUBR  m16            ; subtract word integer reversed
+ 00 w6_DA_/51    FISUBR  m32            ; subtract short integer reversed
+ 00 w6_D9_/01    FLD     m32            ; load short real to ST(0)
+ 00 w6_DD_/01    FLD     m64            ; load long real to ST(0)
+ 00 w6_DB_/51    FLD     m80            ; load temp real to ST(0)
+ 00 w6_D9_C0+r1  FLD     STx            ; load long real to ST(0)
+ 00 w6_D9_E8     FLD1                   ; loac +1.0 to ST(0)
+ 00 9B_D9_/51    FLDCW   m              ; load control word
+ 00 9B_D9_/41    FLDENV  m              ; load 80x87 environment
+ 00 w6_D9_EA     FLDL2E                 ; load log_base_2(e) to ST(0)
+ 00 w6_D9_E9     FLDL2T                 ; load log_base_2(10) to ST(0)
+ 00 w6_D9_EC     FLDLG2                 ; load log_base_10(2) to ST(0)
+ 00 w6_D9_ED     FLDLN2                 ; load log_base_e(2) to ST(0)
+ 00 w6_D9_EB     FLDPI                  ; load pi to ST(0)
+ 00 w6_D9_EE     FLDZ                   ; load +0.0 to ST(0)
+ 00 w6_DE_C9     FMUL                   ; multiply real
+ 00 w6_D8_/11    FMUL   m32             ; multiply short real from m
+ 00 w6_DC_/11    FMUL   m64             ; multiply long real from m
+ 00 w6_D8_C8+r2  FMUL   ST,STx          ; multiply real from stack
+ 00 w6_DC_C8+r1  FMUL   STx,ST          ; multiply real to stack
+ 00 w6_DE_C8+r1  FMULP  STx,ST          ; multiply real and pop to stack
+ 00 DB_E2        FNCLEX                 ; clear exceptions with no WAIT
+ 00 DB_E1        FNDISI                 ; disable interrupts with no WAIT
+ 00 DB_E0        FNENI                  ; enable interupts with no WAIT
+ 00 DB_E3        FNINIT                 ; initialize 80x87 with no WAIT
+ 00 9B_D9_D0     FNOP                   ; no operation
+ 00 DD_/61       FNSAVE  m              ; save 80x87 state with no WAIT
+ 00 D9_/71       FNSTCW  m              ; store control word with no WAIT
+ 00 D9_/61       FNSTENV m              ; store 80x87 environment with no WAIT
+ 00 DD_/71       FNSTSW  m              ; store 80x87 status word with no WAIT
+ 20 DF_E0        FNSTSW  AX             ; store status word in AX with no WAIT
+ 00 w6_D9_F3     FPATAN                 ; partial arctangent
+ 00 w6_D9_F8     FPREM                  ; partial remainder
+ 30 w6_D9_F5     FPREM1                 ; partial remainder
+ 00 w6_D9_F2     FPTAN                  ; partial tangent
+ 00 w6_D9_FC     FRNDINT                ; round to integer
+ 00 9B_DD_/41    FRSTOR  m              ; restore 80x87 state
+ 00 9B_DD_/61    FSAVE   m              ; save 80x87 state after WAIT
+ 00 w6_D9_FD     FSCALE                 ; scale
+ 20 9B_DB_E4     FSETPM                 ; set protected mode (.278 only)
+ 30 w6_D9_FE     FSIN                   ; sine
+ 30 w6_D9_FB     FSINCOS                ; sine and cosine
+ 00 w6_D9_FA     FSQRT                  ; square root
+ 00 w6_D9_/21    FST     m32            ; store short real
+ 00 w6_DD_/21    FST     m64            ; store long real
+ 00 w6_DD_D0     FST     ST             ; store real from ST(0) to ST(0)
+ 00 w6_DD_D0+r1  FST     STx            ; store real in stack
+ 00 9B_D9_/71    FSTCW   m              ; store control word with WAIT
+ 00 9B_D9_/61    FSTENV  m              ; store 80x87 environment after WAIT
+ 00 w6_D9_/31    FSTP    m32            ; store short real with WAIT
+ 00 w6_DD_/31    FSTP    m64            ; store long real with WAIT
+ 00 w6_DB_/71    FSTP    m80            ; store temp real with WAIT
+ 00 w6_DD_D8+r1  FSTP    STx            ; store real in stack
+ 00 9B_DD_/71    FSTSW   m              ; store 80x87 status word after WAIT
+ 00 w6_DE_E9     FSUB                   ; subtract real
+ 00 w6_D8_/41    FSUB    m32            ; subtract short real from memory
+ 00 w6_DC_/41    FSUB    m64            ; subtract long real from memory
+ 00 w6_D8_E0+r2  FSUB    ST,STx         ; subtract real from stack
+ 00 w6_DC_E8+r1  FSUB    STx,ST         ; subtract real to stack
+ 00 w6_DE_E8+r1  FSUBP   STx,ST         ; subtract real and pop to stack
+ 00 w6_DE_E1     FSUBR                  ; subtract real reversed
+ 00 w6_D8_/51    FSUBR   m32            ; subtract short real reversed from m
+ 00 w6_DC_/51    FSUBR   m64            ; subtract long real reversed from m
+ 00 w6_D8_E8+r2  FSUBR   ST,STx         ; subtract real reversed from stack
+ 00 w6_DC_E0+r1  FSUBR   STx,ST         ; subtract real reversed to stack
+ 00 w6_DE_E0+r1  FSUBRP  STx,ST         ; subtract real reversed and pop
+ 20 9B_DF_E0     FSTSW   AX             ; store status word in AX with WAIT
+ 00 w6_D9_E4     FTST                   ; test ST(0)
+ 30 w6_DD_E0+r1  FUCOM   STx            ; compare unordered
+ 30 w6_DD_E8+r1  FUCOMP  STx            ; compare unordered and pop
+ 30 w6_DA_E9     FUCOMPP                ; compare unordered and pop twice
+ 00 9B           FWAIT                  ; wait for last 80x87 oper to finish
+ 00 w6_D9_E5     FXAM                   ; examine ST(0)
+ 00 w6_D9_C9     FXCH                   ; exchange ST(0) with ST(1)
+ 00 w6_D9_C8     FXCH    ST             ; exchange ST(0) with ST(0)
+ 00 w6_D9_C8+r1  FXCH    STx            ; echannge ST(0) and x-th element
+ 00 w6_D9_F4     FXTRACT                ; extract exponent and significand
+ 00 w6_D9_F1     FYL2X                  ; calculate Y*log_base_2(x)
+ 00 w6_D9_F9     FYL2XP1                ; calculate Y*log_base_2(x+1)
+;--------------------------------------------------------------------------
+;
+; note 1: The mnemonic value of these prefixes is tentative.
+;
+; note 2: This prefix should be applied only to the string instructions.
+;         The ZF condition applies only to the SCAS and CMPS instructions;
+;         the CPU ignores the zero flag otherwise.

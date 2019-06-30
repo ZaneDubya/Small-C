@@ -1,1 +1,0 @@
-#define VERSION "Ypsilon Link, Version 1.0.1, Copyright 2017 Zane Wagner"

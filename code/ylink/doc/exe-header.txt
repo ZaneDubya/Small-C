@@ -1,0 +1,34 @@
+Offset Size	 Description
+	00   word  "MZ" - Link file .EXE signature (Mark Zbikowski?)
+	02   word  length of image mod 512
+	04   word  size of file in 512 byte pages
+	06   word  number of relocation items following header
+	08   word  size of header in 16 byte paragraphs, used to locate
+             the beginning of the load module
+	0A   word  min # of paragraphs needed to run program
+	0C   word  max # of paragraphs the program would like
+	0E   word  offset in load module of stack segment (in paras)
+	10   word  initial SP value to be loaded
+	12   word  negative checksum of pgm used while by EXEC loads pgm
+	14   word  program entry point, (initial IP value)
+	16   word  offset in load module of the code segment (in paras)
+	18   word  offset in .EXE file of first relocation item
+	1A   word  overlay number (0 for root program)
+
+	- relocation table and the program load module follow the header
+	- relocation entries are 32 bit values representing the offset
+	  into the load module needing patched
+	- once the relocatable item is found, the CS register is added to
+	  the value found at the calculated offset
+
+	Registers at load time of the EXE file are as follows:
+
+	AX:	contains number of characters in command tail, or 0
+	BX:CX	32 bit value indicating the load module memory size
+	DX	zero
+	SS:SP	set to stack segment if defined else,  SS = CS and
+		SP=FFFFh or top of memory.
+	DS	set to segment address of EXE header
+	ES	set to segment address of EXE header
+	CS:IP	far address of program entry point, (label on "END"
+		statement of program)
