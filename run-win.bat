@@ -1,2 +1,2 @@
 cd .\emu
-DOSBox.exe -conf smallc.conf
+DOSBox.exe -noconsole -conf smallc.conf

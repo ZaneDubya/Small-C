@@ -8,3 +8,5 @@
 
 # Allow
 !/code/bin/*.EXE
+emu/stdout.txt
+emu/stderr.txt
