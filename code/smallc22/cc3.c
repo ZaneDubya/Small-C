@@ -15,6 +15,7 @@
 
 #include <stdio.h>
 #include "cc.h"
+#include "ccstruct.h"
 
 // Starting with level1(), this code places information about the expression
 // under analysis into the is[] and is2[] arrays. These are local arrays of
@@ -541,17 +542,17 @@ level14(int *is) {
             // Add the member information to the local symbol table (temporary, 
             // will be removed at the end of ParseExpression().
             // Update is[] with information of the member
-            is[SYMTAB_ADR] = AddSymbol("tmpStrMem", // name
+            is[SYMTAB_ADR] = AddSymbol("tmpStrMem", // "temp struct member"
                 member[STRMEM_IDENT], // ident
                 member[STRMEM_TYPE],  // type
                 getint(member + STRMEM_SIZE, 2), // size 
                 getint(member + STRMEM_OFFSET, 2), // offset
                 &locptr, AUTOMATIC);
             is[TYP_OBJ] = member[STRMEM_TYPE];
-            is[TYP_ADR]
+            is[TYP_ADR] = 0;
                         // is[TYP_ADR] contains the data type of an address
                         // (pointer, array, &variable); otherwise, zero.
-            !!!
+            // !!!
             is[TYP_CNST] = is[VAL_CNST] = is[LAST_OP] = is[STG_ADR] = 0;
             // note: can we handle nested structs?
             // ----

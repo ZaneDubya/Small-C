@@ -7,21 +7,26 @@ struct teststruct {
 };
 
 // Define a type point as a struct with integer members x, y
-/*struct point {
+struct point {
    int    x, y;
-};*/
+};
 
 /*int ga[3] = { 1, 2, 3 };
 point gx;*/
 
 main() {
     // Define a variable q of type point. Members are uninitialized.
-    point q, p;
+    point p0, p1, p2;
     // Define a variable p of type point, and initialize all its members inline!
-    // point p = { 1, 3 };
+    p0.x = 1;
+    p0.y = 2;
+    //p1.x = 3;
+    // p1.y = 4;
+	// p.y = 8;
+	// p = { 1, 3 };
 
     // Assign the value of p to q, copies the member values from p into q.
-    //  q = p;
+    // q = p;
 
     // Change the member x of q to have the value of 3
     // q.x = 3;
@@ -35,5 +40,5 @@ main() {
     // Assign values using compound literal (ISO C99/supported by GCC > 2.95)
     //  r = (point) { 1, 2 };
 
-    return 1;
+    return 0;
 }
