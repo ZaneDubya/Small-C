@@ -1,0 +1,1 @@
+..\bin\cc test -a -p

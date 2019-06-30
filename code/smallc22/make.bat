@@ -36,17 +36,23 @@ if errorlevel 1 goto exit
 %BIN%\asm cc4 /p
 if errorlevel 1 goto exit
 
+REM CCSTRUCTS
+ECHO === Compiling ccstruct.c ===
+%BIN%\cc  ccstruct -a -p
+if errorlevel 1 goto exit
+%BIN%\asm ccstruct /p
+if errorlevel 1 goto exit
+
 REM LINK
 ECHO === Linking SmallC Compiler ===
 REM %BIN%\link cc1 cc2 cc3 cc4,cc,cc,..\smalllib\clib.lib
-%BIN%\ylink cc1.obj,cc2.obj,cc3.obj,cc4.obj,%LIB%\clib.lib -e=cc.exe
+%BIN%\ylink cc1.obj,cc2.obj,cc3.obj,cc4.obj,ccstructs.obj,%LIB%\clib.lib -e=cc.exe
 if errorlevel 1 goto exit
 
 REM CLEANUP
 REM del *.asm
 REM del *.obj
 REM del *.map
-
 REM copy CC.EXE %BIN%\CC.EXE
 
 :exit

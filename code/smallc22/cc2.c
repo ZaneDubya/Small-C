@@ -1,8 +1,17 @@
-/*
-** Small-C Compiler -- Part 2 -- Front End and Miscellaneous.
-** Copyright 1982, 1983, 1985, 1988 J. E. Hendrix
-** All rights reserved.
-*/
+// ============================================================================
+// Small-C Compiler -- Part 2 -- Front End and Miscellaneous.
+// Copyright 1982, 1983, 1985, 1988 J. E. Hendrix.
+// All rights reserved.
+// ----------------------------------------------------------------------------
+// Notice of Public Domain Status
+// The source code for the Small-C Compiler and runtime libraries (CP/M & DOS),
+// Small-Mac Assembler (CP/M), Small-Assembler (DOS), Small-Tools programs and
+// Small-Windows library to which I hold copyrights are hereby available for
+// royalty free use in private or commerical endeavors. The only obligation
+// being that the users retain the original copyright notices and credit all
+// prior authors (Ron Cain, James Hendrix, etc.) in derivative versions.
+// James E. Hendrix Jr.
+// ============================================================================
 
 #include <stdio.h>
 #include "cc.h"
@@ -97,7 +106,7 @@ preprocess() {
                 gch();
             }
             msname[k] = NULL;
-            if (search(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0)) {
+            if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0)) {
                 k = getint(cptr + NAMESIZE, 2);
                 while (c = macq[k++]) {
                   keepch(c);
@@ -135,24 +144,24 @@ ifline() {
     while (1) {
         inline();
         if (eof) return;
-        if (match("#ifdef")) {
+        if (IsMatch("#ifdef")) {
             ++iflevel;
             if (skiplevel) 
                 continue;
             symname(msname);
-            if (search(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0) == 0)
+            if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0) == 0)
                 skiplevel = iflevel;
             continue;
         }
-        if (match("#ifndef")) {
+        if (IsMatch("#ifndef")) {
             ++iflevel;
             if (skiplevel) continue;
             symname(msname);
-            if (search(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0))
+            if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0))
                 skiplevel = iflevel;
             continue;
         }
-        if (match("#else")) {
+        if (IsMatch("#else")) {
             if (iflevel) {
                 if (skiplevel == iflevel) skiplevel = 0;
                 else if (skiplevel == 0)  skiplevel = iflevel;
@@ -160,7 +169,7 @@ ifline() {
             else noiferr();
             continue;
         }
-        if (match("#endif")) {
+        if (IsMatch("#endif")) {
             if (iflevel) {
                 if (skiplevel == iflevel) skiplevel = 0;
                 --iflevel;
@@ -213,32 +222,38 @@ inbyte() {
 ** test if next input string is legal symbol name
 */
 symname(char *sname) {
-    int k; char c;
+    int k;
     blanks();
-    if (alpha(ch) == 0) 
+    if (alpha(ch) == 0) {
         return (*sname = 0);
+    }
     k = 0;
     while (an(ch)) {
         sname[k] = gch();
-        if (k < NAMEMAX) 
+        if (k < NAMEMAX) {
             ++k;
+        }
     }
     sname[k] = 0;
     return 1;
 }
 
-need(char *str)  {
-    if (match(str) == 0) error("missing token");
+Require(char *str)  {
+    if (IsMatch(str) == 0) {
+        error("missing token");
+    }
 }
 
-ns() {
-    if (match(";") == 0) 
+ReqSemicolon() {
+    if (IsMatch(";") == 0) {
         error("no semicolon");
-    else 
+    }
+    else {
         errflag = 0;
+    }
 }
 
-match(char *lit) {
+IsMatch(char *lit) {
     int k;
     blanks();
     if (k = streq(lptr, lit)) {
@@ -252,8 +267,9 @@ streq(char str1[], char str2[]) {
     int k;
     k = 0;
     while (str2[k]) {
-        if (str1[k] != str2[k]) 
+        if (str1[k] != str2[k]) {
             return 0;
+        }
         ++k;
     }
     return k;
@@ -359,7 +375,7 @@ endst() {
 
 /*********** symbol table management functions ***********/
 
-addsym(char *sname, char id, char type, int size, int offset, int *lgpp, int class) {
+AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class) {
     if (lgpp == &glbptr) {
         if (cptr2 = findglb(sname)) {
             return cptr2;
@@ -382,7 +398,9 @@ addsym(char *sname, char id, char type, int size, int offset, int *lgpp, int cla
     putint(size, cptr + SIZE, 2);
     putint(offset, cptr + OFFSET, 2);
     cptr3 = cptr2 = cptr + NAME;
-    while (an(*sname)) *cptr2++ = *sname++;
+    while (an(*sname)) {
+      *cptr2++ = *sname++;
+    }
     if (lgpp == &locptr) {
         *cptr2 = cptr2 - cptr3;         /* set length */
         *lgpp = ++cptr2;
@@ -391,10 +409,16 @@ addsym(char *sname, char id, char type, int size, int offset, int *lgpp, int cla
 }
 
 /*
-** search for symbol match
-** on return cptr points to slot found or empty slot
+** search for symbol match.
+** on return, cptr points to slot found or empty slot
+** sname: string we are trying to match
+** buf: table of strings to match against
+** len: max length to check for each symbol
+** end: end of table of strings
+** max: max count of strings in table
+** off: ???
 */
-search(char *sname, char *buf, int len, char *end, int max, int off) {
+FindSymbol(char *sname, char *buf, int len, char *end, int max, int off) {
     unsigned int ihash, imax;
     imax = (max - 1);
     ihash = hash(sname) % imax;
@@ -419,13 +443,13 @@ hash(char *sname) {
 }
 
 findglb(char *sname) {
-    if (search(sname, STARTGLB, SYMMAX, ENDGLB, NUMGLBS, NAME))
+    if (FindSymbol(sname, STARTGLB, SYMMAX, ENDGLB, NUMGLBS, NAME))
         return cptr;
     return 0;
 }
 
 findloc(char *sname)  {
-    cptr = locptr - 1;  /* search backward for block locals */
+    cptr = locptr - 1;  /* FindSymbol backward for block locals */
     while (cptr > STARTLOC) {
         cptr = cptr - *cptr;
         if (astreq(sname, cptr, NAMEMAX)) return (cptr - NAME);
@@ -538,8 +562,12 @@ noiferr() {
 }
 
 error(char msg[]) {
-    if (errflag) return;
-    else errflag = 1;
+    if (errflag) {
+        return;
+    }
+    else {
+        errflag = 1;
+    }
     lout(line, stderr);
     errout(msg, stderr);
     if (alarm) fputc(7, stderr);
@@ -550,8 +578,11 @@ error(char msg[]) {
 errout(char msg[], int fp) {
     int k;
     k = line + 2;
-    while (k++ <= lptr) fputc(' ', fp);
+    while (k++ <= lptr) {
+        fputc(' ', fp);
+    }
     lout("/\\", fp);
-    fputs("**** ", fp); lout(msg, fp);
+    fputs("Error: ", fp); 
+    lout(msg, fp);
 }
 

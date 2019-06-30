@@ -1,8 +1,17 @@
-/*
-** Small-C Compiler -- Part 1 --  Top End.
-** Copyright 1982, 1983, 1985, 1988 J. E. Hendrix
-** All rights reserved.
-*/
+// ============================================================================
+// Small-C Compiler -- Part 1 --  Top End.
+// Copyright 1982, 1983, 1985, 1988 J. E. Hendrix.
+// All rights reserved.
+// ----------------------------------------------------------------------------
+// Notice of Public Domain Status
+// The source code for the Small-C Compiler and runtime libraries (CP/M & DOS),
+// Small-Mac Assembler (CP/M), Small-Assembler (DOS), Small-Tools programs and
+// Small-Windows library to which I hold copyrights are hereby available for
+// royalty free use in private or commerical endeavors. The only obligation
+// being that the users retain the original copyright notices and credit all
+// prior authors (Ron Cain, James Hendrix, etc.) in derivative versions.
+// James E. Hendrix Jr.
+// ============================================================================
 
 #include "stdio.h"
 #include "notice.h"
@@ -120,8 +129,8 @@ main(int argc, int *argv) {
     symtab = calloc((NUMLOCS*SYMAVG + NUMGLBS*SYMMAX), 1);
     locptr = STARTLOC;
     glbptr = STARTGLB;
-
-    ask();          /* get user options */
+    initStructs();
+    getRunArgs();   /* get run options from command line arguments */
     openfile();     /* and initial input file */
     preprocess();   /* fetch first line */
     header();       /* intro code */
@@ -129,30 +138,32 @@ main(int argc, int *argv) {
     parse();        /* process ALL input */
     trailer();      /* follow-up code */
     fclose(output); /* explicitly close output */
+    printallstructs();
 }
 
-/******************** high level parsing *******************/
+// ****************************************************************************
+// High level Parsing
+// ****************************************************************************
 
 /*
-** process all input text
-**
-** At this level, only global declarations,
-**      defines, includes and function
-**      definitions are legal...
+** Process all input text. At this level, only global declarations, defines,
+** includes, structs, and function definitions are legal.
 */
 parse() {
     while (eof == 0) {
         if (amatch("extern", 6))
             dodeclare(EXTERNAL);
-        else if (amatch("static", 6))
+        else if (amatch("static", 6)) // global static = "file scope"
             dostatic();
+        else if (amatch("struct", 6))
+            dostruct();
         else if (dodeclare(GLOBAL))
             ;
-        else if (match("#asm"))
+        else if (IsMatch("#asm"))
             doasm();
-        else if (match("#include"))
+        else if (IsMatch("#include"))
             doinclude();
-        else if (match("#define"))
+        else if (IsMatch("#define"))
             dodefine();
         else
             dofunction(GLOBAL);
@@ -164,49 +175,55 @@ parse() {
 ** do a static variable or function
 */
 dostatic() {
-  blanks();
-  if (dodeclare(STATIC)) {
-    ;
-  }
-  else {
-    dofunction(STATIC);
-  }
+    if (dodeclare(STATIC)) {
+        ;
+    }
+    else {
+        dofunction(STATIC);
+    }
 }
 
 /*
 ** test for global declarations
 */
 dodeclare(int class) {
-    int type;
-    type = dotype();
+    int type, typeSubPtr;
+    type = dotype(&typeSubPtr);
     if (type != 0) {
-        declglb(type, class);
+        declglb(type, class, typeSubPtr);
     }
     else if (class == EXTERNAL) {
-        declglb(INT, class);
+        declglb(TYPE_INT, class, typeSubPtr);
     }
     else {
         return 0;
     }
-    ns();
+    ReqSemicolon();
     return 1;
 }
 
-dotype() {
+/**
+ * get type of declaration
+ * @return type value of declaration, otherwise 0 if not a valid declaration.
+ */
+dotype(int *typeSubPtr) {
     if (amatch("char", 4)) {
-        return CHR;
+        return TYPE_CHR;
     }
     else if (amatch("unsigned", 8)) {
         if (amatch("char", 4)) {
-            return UCHR;
+            return TYPE_UCHR;
         }
         else {
             amatch("int", 3);
-            return UINT;
+            return TYPE_UINT;
         }
     }
     else if (amatch("int", 3)) {
-        return INT;
+        return TYPE_INT;
+    }
+    else if ((*typeSubPtr = getStructPtr()) != -1) {
+        return TYPE_STRUCT;
     }
     return 0;
 }
@@ -214,42 +231,50 @@ dotype() {
 /*
 ** declare a global variable
 */
-declglb(int type, int class) {
+declglb(int type, int class, int typeSubPtr) {
     int id, dim;
     while (1) {
         if (endst()) 
             return;  /* do line */
-        if (match("*")) { 
-            id = POINTER; 
+        if (IsMatch("*")) { 
+            id = IDENT_POINTER; 
             dim = 0;
         }
         else { 
-            id = VARIABLE; 
+            id = IDENT_VARIABLE; 
             dim = 1; 
         }
         if (symname(ssname) == 0) 
             illname();
         if (findglb(ssname)) 
             multidef(ssname);
-        if (id == VARIABLE) {
-            if (match("(")) { 
-                id = FUNCTION; 
-                need(")"); 
+        if (id == IDENT_VARIABLE) {
+            if (IsMatch("(")) { 
+                id = IDENT_FUNCTION; 
+                Require(")"); 
             }
-            else if (match("[")) { 
-                id = ARRAY; 
-                dim = needsub(); 
+            else if (IsMatch("[")) { 
+                id = IDENT_ARRAY; 
+                dim = getArraySz(); 
             }
         }
         if (class == EXTERNAL) 
             external(ssname, type >> 2, id);
-        else if (id != FUNCTION) 
-            initials(type >> 2, id, dim, class);
-        if (id == POINTER)
-            addsym(ssname, id, type, BPW, 0, &glbptr, class);
-        else 
-            addsym(ssname, id, type, dim * (type >> 2), 0, &glbptr, class);
-        if (match(",") == 0) 
+        else if (id != IDENT_FUNCTION) 
+            InitSize(type >> 2, id, dim, class);
+        if (id == IDENT_POINTER) {
+            AddSymbol(ssname, id, type, BPW, 0, &glbptr, class);
+        }
+        else if (type == TYPE_STRUCT) {
+            int structsize;
+            structsize = getStructSize(typeSubPtr);
+            AddSymbol(ssname, id, type, dim * structsize, 0, &glbptr, class);
+            putint(typeSubPtr, cptr + CLASSPTR, 2);
+        }
+        else { // (type == TYPE_ARRAY)
+            AddSymbol(ssname, id, type, dim * (type >> 2), 0, &glbptr, class);
+        }
+        if (IsMatch(",") == 0) 
             return;
     }
 }
@@ -257,25 +282,30 @@ declglb(int type, int class) {
 /*
 ** initialize global objects
 */
-initials(int size, int ident, int dim, int class) {
+InitSize(int size, int ident, int dim, int class) {
     int savedim;
     litptr = 0;
-    if (dim == 0) dim = -1;         /* *... or ...[] */
+    if (dim == 0) {
+        dim = -1;         /* *... or ...[] */
+    }
     savedim = dim;
     public(ident, class == GLOBAL); // don't do public if class == STATIC
-    if (match("=")) {
-        if (match("{")) {
+    if (IsMatch("=")) {
+        if (IsMatch("{")) {
             while (dim) {
-                init(size, ident, &dim);
-                if (match(",") == 0) break;
+                EvalInitValue(size, ident, &dim);
+                if (IsMatch(",") == 0) {
+                    break;
+                }
             }
-            need("}");
+            Require("}");
         }
-        else init(size, ident, &dim);
+        else EvalInitValue(size, ident, &dim);
     }
     if (savedim == -1 && dim == -1) {
-        if (ident == ARRAY)
+        if (ident == IDENT_ARRAY) {
             error("need array size");
+        }
         stowlit(0, size = BPW);
     }
     dumplits(size);
@@ -285,16 +315,21 @@ initials(int size, int ident, int dim, int class) {
 /*
 ** evaluate one initializer
 */
-init(int size, int ident, int *dim) {
+EvalInitValue(int size, int ident, int *dim) {
     int value;
     if (string(&value)) {
-        if (ident == VARIABLE || size != 1)
+        if (ident == IDENT_VARIABLE || size != 1) {
             error("must assign to char pointer or char array");
+        }
         *dim -= (litptr - value);
-        if (ident == POINTER) point();
+        if (ident == IDENT_POINTER) {
+            point();
+        }
     }
-    else if (constexpr(&value)) {
-        if (ident == POINTER) error("cannot assign to pointer");
+    else if (IsConstExpr(&value)) {
+        if (ident == IDENT_POINTER) {
+            error("cannot assign to pointer");
+        }
         stowlit(value, size);
         *dim -= 1;
     }
@@ -303,17 +338,17 @@ init(int size, int ident, int *dim) {
 /*
 ** get required array size
 */
-needsub() {
+getArraySz() {
     int val;
-    if (match("]")) 
+    if (IsMatch("]")) 
         return 0; /* null size */
-    if (constexpr(&val) == 0) 
+    if (IsConstExpr(&val) == 0) 
         val = 1;
     if (val < 0) {
         error("negative size illegal");
         val = -val;
     }
-    need("]");               /* force single dimension */
+    Require("]");               /* force single dimension */
     return val;              /* and return size */
 }
 
@@ -350,7 +385,7 @@ dodefine() {
         return;
     }
     k = 0;
-    if (search(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0) == 0) {
+    if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0) == 0) {
         if (cptr2 = cptr)
             while (*cptr2++ = msname[k++]);
         else {
@@ -384,7 +419,7 @@ putmac(char c) {
 ** out of the following text
 */
 dofunction(int class) {
-    int firstType;
+    int firstType, typeSubPtr;
     char *pGlobal;
     /*int typedargs; */           /* declared arguments have formal types */
     nogo = 0;                     /* enable goto statements */
@@ -394,7 +429,7 @@ dofunction(int class) {
     litlab = getlabel();          /* label next lit pool */
     locptr = STARTLOC;            /* clear local variables */
     /* skip "void" & locate header */
-    if (match("void")) {
+    if (IsMatch("void")) {
         blanks();
     }
     if (monitor) {
@@ -417,12 +452,12 @@ dofunction(int class) {
         }
     }
     else {
-        addsym(ssname, FUNCTION, INT, 0, 0, &glbptr, class);
+        AddSymbol(ssname, IDENT_FUNCTION, TYPE_INT, 0, 0, &glbptr, class);
     }
-    public(FUNCTION, class == GLOBAL); // don't do public if class == STATIC
-    if (match("(") == 0)
+    public(IDENT_FUNCTION, class == GLOBAL); // don't do public if class == STATIC
+    if (IsMatch("(") == 0)
         error("no open paren");
-    if ((firstType = dotype()) != 0) {
+    if ((firstType = dotype(&typeSubPtr)) != 0) {
         doArgsTyped(firstType);
     }
     else {
@@ -444,7 +479,7 @@ dofunction(int class) {
 ** in type: the type of the first variable in the argument list.
 */
 doArgsTyped(int type) {
-    int id, sz, namelen, paren;
+    int id, sz, namelen, paren, typeSubPtr;
     char *ptr;
     // get a list of all arguments. Set the name, id (Variable or Pointer),
     // type (unsigned/signed int/char), size, and 'argstk' for each. argstk is
@@ -452,19 +487,19 @@ doArgsTyped(int type) {
     // these values and offset them to account for the pushed BP value, which
     // will also be on the stack.
     argstk = 0;
-    while (match(")") == 0) {
+    while (IsMatch(")") == 0) {
         // match opening parent for function ptr: (*arg)()
-        if (match("("))
+        if (IsMatch("("))
             paren = 1;
         else
             paren = 0;
         // match * for pointer, else variable
-        if (match("*")) {
-            id = POINTER;
+        if (IsMatch("*")) {
+            id = IDENT_POINTER;
             sz = BPW;
         }
         else {
-            id = VARIABLE;
+            id = IDENT_VARIABLE;
             sz = type >> 2;
         }
         if (symname(ssname)) {
@@ -472,20 +507,20 @@ doArgsTyped(int type) {
                 multidef(ssname);
             }
             else {
-                if (paren && match(")")) {
+                if (paren && IsMatch(")")) {
                     // unmatch paren for function ptr.
                 }
-                if (match("(")) {
-                    if (!paren || id != POINTER) {
+                if (IsMatch("(")) {
+                    if (!paren || id != IDENT_POINTER) {
                         error("not a valid function ptr, try (*...)()");
                     }
-                    need(")");
+                    Require(")");
                 }
-                else if (id == VARIABLE && match("[]")) {
-                    id = POINTER;
+                else if (id == IDENT_VARIABLE && IsMatch("[]")) {
+                    id = IDENT_POINTER;
                     sz = BPW;      /* size of pointer argument */
                 }
-                addsym(ssname, id, type, sz, argstk, &locptr, AUTOMATIC);
+                AddSymbol(ssname, id, type, sz, argstk, &locptr, AUTOMATIC);
                 argstk += BPW;
             }
         }
@@ -494,8 +529,8 @@ doArgsTyped(int type) {
             break;
         }
         /* advance to next arg or closing paren */
-        if (match(",")) {
-            if ((type = dotype()) == 0) {
+        if (IsMatch(",")) {
+            if ((type = dotype(&typeSubPtr)) == 0) {
                 error("untyped argument declaration");
                 break;
             }
@@ -525,14 +560,14 @@ doArgsTyped(int type) {
 ** interpret a function argument list without declared types
 */
 doArgsNonTyped() {
-    /* count args */
+    // count args
     argstk = 0;
-    while (match(")") == 0) {
+    while (IsMatch(")") == 0) {
         if (symname(ssname)) {
             if (findloc(ssname))
                 multidef(ssname);
             else {
-                addsym(ssname, 0, 0, 0, argstk, &locptr, AUTOMATIC);
+                AddSymbol(ssname, 0, 0, 0, argstk, &locptr, AUTOMATIC);
                 argstk += BPW;
             }
         }
@@ -541,7 +576,7 @@ doArgsNonTyped() {
             skip();
         }
         blanks();
-        if (streq(lptr, ")") == 0 && match(",") == 0)
+        if (streq(lptr, ")") == 0 && IsMatch(",") == 0)
             error("no comma");
         if (endst())
             break;
@@ -549,11 +584,11 @@ doArgsNonTyped() {
     csp = 0;                       /* preset stack ptr */
     argtop = argstk + BPW;         /* account for the pushed BP */
     while (argstk) {
-        int type;
-        type = dotype();
+        int type, typeSubPtr;
+        type = dotype(&typeSubPtr);
         if (type != 0) {
-            doArgTypes(type);
-            ns();
+            doArgTypes(type, typeSubPtr);
+            ReqSemicolon();
         }
         else {
             error("wrong number of arguments");
@@ -566,14 +601,14 @@ doArgsNonTyped() {
 /*
 ** declare argument types
 */
-doArgTypes(int type) {
+doArgTypes(int type, int typeSubPtr) {
     int id, sz;
     char *ptr;
     int t;
     while (1) {
         if (argstk == 0)
             return;           /* no arguments */
-        if (decl(type, POINTER, &id, &sz)) {
+        if (parseLocalDeclare(type, typeSubPtr, IDENT_POINTER, &id, &sz)) {
             if (ptr = findloc(ssname)) {
                 ptr[IDENT] = id;
                 ptr[TYPE] = type;
@@ -587,62 +622,79 @@ doArgTypes(int type) {
         argstk = argstk - BPW;            /* cnt down */
         if (endst())
             return;
-        if (match(",") == 0)
+        if (IsMatch(",") == 0)
             error("no comma or terminating semicolon");
     }
 }
 
-/*
-** parse next local or argument declaration
-*/
-decl(int type, int arrayid, int *id, int *sz) {
-    int n, p;
-    if (match("("))
-        p = 1;
-    else
-        p = 0;
-    if (match("*")) {
-        *id = POINTER;
+/**
+ * parse next local or argument declaration
+ * @param type value of type of variable, see cc.h
+ * @param defArrTyp only comes into play if this is an array declare:
+                           if IDENT_ARRAY, then must have array size;
+ *                         if IDENT_POINTER, then must be a pointer.
+ * @return 1 is name is valid, 0 + error if invalid.
+ */
+parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
+    int nameIsValid, hasOpenParen;
+    hasOpenParen = IsMatch("(") ? 1 : 0;
+    if (IsMatch("*")) {
+        *id = IDENT_POINTER;
         *sz = BPW;
     }
     else {
-        *id = VARIABLE;
-        *sz = type >> 2;
+        *id = IDENT_VARIABLE;
+        if (type == TYPE_STRUCT) {
+            *sz = getStructSize(typeSubPtr);
+        }
+        else {
+            *sz = type >> 2;
+        }
     }
-    if ((n = symname(ssname)) == 0)
+    if ((nameIsValid = symname(ssname)) == 0) {
         illname();
-    if (p && match(")")) {
+    }
+    if (hasOpenParen && IsMatch(")")) {
         // unmatch paren
     }
-    if (match("(")) {
-        if (!p || *id != POINTER) {
-            error("try (*...)()");
+    if (IsMatch("(")) {
+        if (!hasOpenParen || *id != IDENT_POINTER) {
+            error("Is this a function pointer? Try (*...)()");
         }
-        need(")");
+        Require(")");
     }
-    else if (*id == VARIABLE && match("[")) {
-        *id = arrayid;
-        if ((*sz *= needsub()) == 0) {
-            if (arrayid == ARRAY) {
+    else if (*id == IDENT_VARIABLE && IsMatch("[")) {
+        *id = defArrTyp;
+        if ((*sz *= getArraySz()) == 0) {
+            if (defArrTyp == IDENT_ARRAY) {
                 error("need array size");
             }
             *sz = BPW;      /* size of pointer argument */
         }
     }
-    return n;
+    return nameIsValid;
 }
 
-/******************** start 2nd level parsing *******************/
+// ****************************************************************************
+// 2nd level parsing
+// ****************************************************************************
 
-/*
-** statement parser
-*/
+// Each call to statement() parses a single statement. Sequences of statements
+// only occur within a compound statement; the loop that recognizes statement
+// sequences is only found in compound().
+// First, statement() looks for a data declaration, introduced by char, int,
+// unsigned, unsigned char, or unsigned int. Finding one of these, it declares
+// a local, passing the data type (CHR, INT, UCHR, or UINT). It then enforces
+// the presence of a semicolon.
+// If that fails, it looks for one of the tokens that introduces an executable
+// statement. If successful, the corresponding parsing function is called, and
+// the global lastst is set to a value indicating which statement was parsed.
 statement() {
-    int type;
+    int type, typeSubPtr;
     if (ch == 0 && eof) return;
-    else if ((type = dotype()) != 0) {
-        declloc(type);
-        ns();
+    else if ((type = dotype(&typeSubPtr)) != 0) {
+        declareLocals(type, typeSubPtr);
+        ReqSemicolon();
     }
     else {
         if (declared >= 0) {
@@ -652,7 +704,7 @@ statement() {
             gen(ADDSP, csp - declared);
             declared = -1;
         }
-        if (match("{")) {
+        if (IsMatch("{")) {
             compound();
         }
         else if (amatch("if", 2)) {
@@ -692,29 +744,29 @@ statement() {
         }
         else if (amatch("return", 6)) {
             doreturn();
-            ns();
+            ReqSemicolon();
             lastst = STRETURN;
         }
         else if (amatch("break", 5)) {
             dobreak();
-            ns();
+            ReqSemicolon();
             lastst = STBREAK;
         }
         else if (amatch("continue", 8)) {
             docont();
-            ns();
+            ReqSemicolon();
             lastst = STCONT;
         }
-        else if (match(";"))   {
+        else if (IsMatch(";"))   {
             errflag = 0;
         }
-        else if (match("#asm")) {
+        else if (IsMatch("#asm")) {
             doasm();
             lastst = STASM;
         }
         else {
             doexpr(NO);
-            ns();
+            ReqSemicolon();
             lastst = STEXPR;
         }
     }
@@ -724,50 +776,64 @@ statement() {
 /*
 ** declare local variables
 */
-declloc(int type) {
+declareLocals(int type, int typeSubPtr) {
     int id, sz;
-    if (swactive)
+    if (swactive) {
         error("not allowed in switch");
-    if (noloc)
+    }
+    if (noloc) {
         error("not allowed with goto");
-    if (declared < 0)
+    }
+    if (declared < 0) {
         error("must declare first in block");
+    }
     while (1) {
-        if (endst())
+        if (endst()) {
             return;
-        decl(type, ARRAY, &id, &sz);
+        }
+        parseLocalDeclare(type, typeSubPtr, IDENT_ARRAY, &id, &sz);
         declared += sz;
-        addsym(ssname, id, type, sz, csp - declared, &locptr, AUTOMATIC);
-        if (match(",") == 0)
+        // printf(" decloc %s sz=%u\n", ssname, sz);
+        AddSymbol(ssname, id, type, sz, csp - declared, &locptr, AUTOMATIC);
+        if (type == TYPE_STRUCT) {
+            putint(typeSubPtr, cptr + CLASSPTR, 2);
+        }
+        if (IsMatch(",") == 0)
             return;
     }
 }
 
 compound() {
-    int savcsp;
+    int savcsp; 
     char *savloc;
     savcsp = csp;
     savloc = locptr;
     declared = 0;           /* may now declare local variables */
     ++ncmp;                 /* new level open */
-    while (match("}") == 0)
+    while (IsMatch("}") == 0)
         if (eof) {
             error("no final }");
             break;
         }
-        else statement();     /* do one */
-        if (--ncmp               /* close current level */
-            && lastst != STRETURN
-            && lastst != STGOTO)
+        else {
+            // do one statement:
+            statement();
+        }
+        // close current level
+        if (--ncmp && lastst != STRETURN && lastst != STGOTO) {
             gen(ADDSP, savcsp);   /* delete local variable space */
+        }
         cptr = savloc;          /* retain labels */
         while (cptr < locptr) {
             cptr2 = nextsym(cptr);
-            if (cptr[IDENT] == LABEL) {
-                while (cptr < cptr2) *savloc++ = *cptr++;
+            if (cptr[IDENT] == IDENT_LABEL) {
+                while (cptr < cptr2) {
+                    *savloc++ = *cptr++;
+                }
             }
-            else
+            else {
                 cptr = cptr2;
+            }
         }
         locptr = savloc;        /* delete local symbols */
         declared = -1;          /* may not declare variables */
@@ -775,7 +841,7 @@ compound() {
 
 doif() {
     int flab1, flab2;
-    test(flab1 = getlabel(), YES);  /* get expr, and branch false */
+    GenTestAndJmp(flab1 = getlabel(), YES);  /* get expr, and branch false */
     statement();                    /* if true, do a statement */
     if (amatch("else", 4) == 0) {    /* if...else ? */
       /* simple "if"...print false label */
@@ -794,7 +860,7 @@ dowhile() {
     int wq[4];              /* allocate local queue */
     addwhile(wq);           /* add entry to queue for "break" */
     gen(LABm, wq[WQLOOP]);  /* loop label */
-    test(wq[WQEXIT], YES);  /* see if true */
+    GenTestAndJmp(wq[WQEXIT], YES);  /* see if true */
     statement();            /* if so, do a statement */
     gen(JMPm, wq[WQLOOP]);  /* loop to label */
     gen(LABm, wq[WQEXIT]);  /* exit label */
@@ -806,12 +872,12 @@ dodo() {
     addwhile(wq);
     gen(LABm, wq[WQLOOP]);
     statement();
-    need("while");
-    test(wq[WQEXIT], YES);
+    Require("while");
+    GenTestAndJmp(wq[WQEXIT], YES);
     gen(JMPm, wq[WQLOOP]);
     gen(LABm, wq[WQEXIT]);
     delwhile();
-    ns();
+    ReqSemicolon();
 }
 
 dofor() {
@@ -819,21 +885,21 @@ dofor() {
     addwhile(wq);
     lab1 = getlabel();
     lab2 = getlabel();
-    need("(");
-    if (match(";") == 0) {
+    Require("(");
+    if (IsMatch(";") == 0) {
         doexpr(NO);           /* expr 1 */
-        ns();
+        ReqSemicolon();
     }
     gen(LABm, lab1);
-    if (match(";") == 0) {
-        test(wq[WQEXIT], NO); /* expr 2 */
-        ns();
+    if (IsMatch(";") == 0) {
+        GenTestAndJmp(wq[WQEXIT], NO); /* expr 2 */
+        ReqSemicolon();
     }
     gen(JMPm, lab2);
     gen(LABm, wq[WQLOOP]);
-    if (match(")") == 0) {
+    if (IsMatch(")") == 0) {
         doexpr(NO);           /* expr 3 */
-        need(")");
+        Require(")");
     }
     gen(JMPm, lab1);
     gen(LABm, lab2);
@@ -850,9 +916,9 @@ doswitch() {
     swnex = swptr = swnext;
     addwhile(wq);
     *(wqptr + WQLOOP - WQSIZ) = 0;
-    need("(");
+    Require("(");
     doexpr(YES);                /* evaluate switch expression */
-    need(")");
+    Require(")");
     swdefault = 0;
     swactive = 1;
     gen(JMPm, endlab = getlabel());
@@ -881,8 +947,8 @@ docase() {
         return;
     }
     gen(LABm, *swnext++ = getlabel());
-    constexpr(swnext++);
-    need(":");
+    IsConstExpr(swnext++);
+    Require(":");
 }
 
 dodefault() {
@@ -892,7 +958,7 @@ dodefault() {
     }
     else
         error("not in switch");
-    need(":");
+    Require(":");
     gen(LABm, swdefault = getlabel());
 }
 
@@ -904,7 +970,7 @@ dogoto() {
         gen(JMPm, addlabel(NO));
     else
         error("bad label");
-    ns();
+    ReqSemicolon();
 }
 
 dolabel() {
@@ -921,11 +987,10 @@ dolabel() {
     return 0;
 }
 
-addlabel(def) int def;
-{
+addlabel(int def) {
     if (cptr = findloc(ssname)) {
-        if (cptr[IDENT] != LABEL)
-            error("not a label");
+        if (cptr[IDENT] != IDENT_LABEL)
+            error("not a label"); // same name used for variable
         else if (def) {
             if (cptr[TYPE])
                 error("duplicate label");
@@ -933,8 +998,9 @@ addlabel(def) int def;
                 cptr[TYPE] = YES;
         }
     }
-    else
-        cptr = addsym(ssname, LABEL, def, 0, getlabel(), &locptr, LABEL);
+    else {
+        cptr = AddSymbol(ssname, IDENT_LABEL, def, 0, getlabel(), &locptr, TYPE_LABEL);
+    }
     return (getint(cptr + OFFSET, 2));
 }
 
@@ -972,7 +1038,7 @@ doasm() {
     ccode = 0;           /* mark mode as "asm" */
     while (1) {
         inline();
-        if (match("#endasm"))
+        if (IsMatch("#endasm"))
             break;
         if (eof)
             break;
@@ -988,8 +1054,8 @@ doexpr(int use) {
     usexpr = use;        /* tell isfree() whether expr value is used */
     while (1) {
         setstage(&before, &start);
-        expression(&const, &val);
-        clearstage(before, start);
+        ParseExpression(&const, &val);
+        ClearStage(before, start);
         if (ch != ',')
             break;
         bump(1);
@@ -997,12 +1063,14 @@ doexpr(int use) {
     usexpr = YES;        /* return to normal value */
 }
 
-/******************** miscellaneous functions *******************/
+// ****************************************************************************
+// miscellaneous functions
+// ****************************************************************************
 
 /*
 ** get run options
 */
-ask() {
+getRunArgs() {
     int i;
     i = listfp = nxtlab = 0;
     output = stdout;
