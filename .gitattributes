@@ -5,6 +5,7 @@
 *.bat text eol=crlf
 *.lst text eol=crlf
 
+/emu/dosbox.app/**/* binary
 *.dll binary
 *.exe binary
 *.obj binary
