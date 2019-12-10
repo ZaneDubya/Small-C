@@ -537,6 +537,7 @@ level14(int *is) {
                 error("Not a valid member of this struct");
                 return 0;
             }
+            printf("Struct:\n");
             printIsDebug(is);
             printSymTabDebug(ptr);
             // Add the member information to the local symbol table (temporary, 
@@ -554,6 +555,9 @@ level14(int *is) {
                         // (pointer, array, &variable); otherwise, zero.
             // !!!
             is[TYP_CNST] = is[VAL_CNST] = is[LAST_OP] = is[STG_ADR] = 0;
+            printf("Member:\n");
+            printIsDebug(is);
+            printSymTabDebug(ptr);
             // note: can we handle nested structs?
             // ----
             // Handle offset to member

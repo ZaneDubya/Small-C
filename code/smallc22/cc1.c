@@ -138,7 +138,7 @@ main(int argc, int *argv) {
     parse();        /* process ALL input */
     trailer();      /* follow-up code */
     fclose(output); /* explicitly close output */
-    printallstructs();
+    // printallstructs();
 }
 
 // ****************************************************************************
