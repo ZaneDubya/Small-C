@@ -1,10 +1,16 @@
-# Small-C
+# Small-C and YLink
 This is a full development environment with source code for 16-bit MS-DOS.
+The repository includes source code and compiled executables for the
+Small-C compiler, Small-Assembler, Small-C and Small-Assembler standard
+libraries, and YLink, which links assembled object files into MS-DOS
+executables.
 
 The Small-C Compiler, Assembler, and Libraries were written by Jim Hendrix,
 building on on initial draft of the compiler by Ron Cain. These works were
 initially published in Dr. Dobbs Journal in the early 1980s. Jim Hendrix's
 website is [deturbulator.org](http://www.deturbulator.org/Jim.asp).
+
+YLink was written by Zane Wagner in 2017.
 
 ## Small-C Compiler
 Version 2.2, Revision Level 117
@@ -25,7 +31,7 @@ Copyright 1984 J. E. Hendrix, L. E. Payne
 ## Small-C and Small-Assembler Libraries
 Copyright 1988 J. E. Hendrix
 
-## Ypsilon Linker
+## YLink
 Copyright 2017 Zane Wagner
 
 ## Notice of Public Domain Status
@@ -37,4 +43,9 @@ that the users retain the original copyright notices and credit all prior
 authors (Ron Cain, James Hendrix, etc.) in derivative versions.
 
 - James E. Hendrix Jr.
+
+The source code for the YLink object file linker is hereby available for
+royalty free use in private or commerical endeavors. The only obligation being
+that the users retain the original copyright notices and credit all prior
+authors in derivative versions.
 - Zane Wagner
