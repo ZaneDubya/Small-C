@@ -5,8 +5,9 @@
 *.ASM
 *.OBJ
 *.EXE
+emu/stdout.txt
+emu/stderr.txt
 
 # Allow
 !/code/bin/*.EXE
-emu/stdout.txt
-emu/stderr.txt
+!/code/smalllib/clib/CALL.ASM
