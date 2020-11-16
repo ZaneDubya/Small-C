@@ -9,5 +9,5 @@ emu/stdout.txt
 emu/stderr.txt
 
 # Allow
-!/code/bin/*.EXE
-!/code/smalllib/clib/CALL.ASM
+code/bin/*.EXE
+code/smalllib/clib/CALL.ASM
