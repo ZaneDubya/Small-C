@@ -504,7 +504,7 @@ toseg(int newseg) {
 /*
 ** declare variable, allowing global scope
 */
-public(int ident, int isGlobal) {
+publik(int ident, int isGlobal) { /* 119 FJS* publik was keyword public */
     if (ident == FUNCTION)
         toseg(CODESEG);
     else
@@ -601,7 +601,7 @@ dumpzero(int size, int count) {
 */
 peep(int *seq) {
     int *next, *count, *pop, n, skip, tmp, reply;
-    char c;
+    char c, *cp;                /* 118 FJS* added *cp */
     next = snext;
     count = seq++;
     while (*seq) {
@@ -619,7 +619,8 @@ peep(int *seq) {
                 break;
             return (NO);
         case comm: 
-            if (*next & COMMUTES)
+            /* if (*next & COMMUTES) */ /* 118 FJS*- wrong (incomplete) */
+            if (*(cp = code[*next]) & COMMUTES) /* 118 FJS*+ corrected */
                 break;
             return (NO);
         case _pop:
