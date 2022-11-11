@@ -29,7 +29,7 @@ preprocess() {
         if (eof) return;
     }
     else {
-        inline();
+        linein();               /* 119 FJS* linein was inline */
         return;
     }
     pptr = -1;
@@ -133,7 +133,7 @@ keepch(char c) {
 
 ifline() {
     while (1) {
-        inline();
+        linein();               /* 119 FJS* linein was inline */
         if (eof) return;
         if (match("#ifdef")) {
             ++iflevel;
@@ -174,7 +174,8 @@ ifline() {
     }
 }
 
-inline() {           /* numerous revisions */
+/* 119 FJS* linein was inline - */
+linein() {           /* numerous revisions */
     int k, unit;
     poll(1);           /* allow operator interruption */
     if (input == EOF)
