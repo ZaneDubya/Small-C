@@ -106,17 +106,17 @@ main(int argc, int *argv) {
     fputs(CRIGHT1, stderr);
     argcs = argc;
     argvs = argv;
-    swnext = calloc(SWTABSZ, 1);
+    swnext = calloc(SWTABSZ, HSTBPW);   /* 118 FJS* pointer arith: HSTBPW was 1 */
     swend = swnext + (SWTABSZ - SWSIZ);
-    stage = calloc(STAGESIZE, 2 * BPW);
+    stage = calloc(STAGESIZE, 2 * HSTBPW); /* 118 FJS* pointer arith: HSTBPW was  BPW */
     wqptr =
-        wq = calloc(WQTABSZ, BPW);
+        wq = calloc(WQTABSZ, HSTBPW);   /* 118 FJS* pointer arith: HSTBPW was  BPW */
     litq = calloc(LITABSZ, 1);
     macn = calloc(MACNSIZE, 1);
     macq = calloc(MACQSIZE, 1);
     pline = calloc(LINESIZE, 1);
     mline = calloc(LINESIZE, 1);
-    slast = stage + (STAGESIZE * 2 * BPW);
+    slast = stage + (STAGESIZE * 2);    /* 118 FJS* pointer arith: 2 was 2 * BPW */
     symtab = calloc((NUMLOCS*SYMAVG + NUMGLBS*SYMMAX), 1);
     locptr = STARTLOC;
     glbptr = STARTGLB;
@@ -262,7 +262,8 @@ initials(int size, int ident, int dim, int class) {
     litptr = 0;
     if (dim == 0) dim = -1;         /* *... or ...[] */
     savedim = dim;
-    public(ident, class == GLOBAL); // don't do public if class == STATIC
+    /* 119 FJS* publik was public - */
+    publik(ident, class == GLOBAL); // don't do public if class == STATIC
     if (match("=")) {
         if (match("{")) {
             while (dim) {
@@ -419,7 +420,8 @@ dofunction(int class) {
     else {
         addsym(ssname, FUNCTION, INT, 0, 0, &glbptr, class);
     }
-    public(FUNCTION, class == GLOBAL); // don't do public if class == STATIC
+    /* 119 FJS* publik was public - */
+    publik(FUNCTION, class == GLOBAL); // don't do public if class == STATIC
     if (match("(") == 0)
         error("no open paren");
     if ((firstType = dotype()) != 0) {
@@ -744,8 +746,9 @@ declloc(int type) {
 }
 
 compound() {
-    int savcsp;
-    char *savloc;
+int savcsp;
+char *savloc;
+    
     savcsp = csp;
     savloc = locptr;
     declared = 0;           /* may now declare local variables */
@@ -755,22 +758,25 @@ compound() {
             error("no final }");
             break;
         }
-        else statement();     /* do one */
-        if (--ncmp               /* close current level */
+        else
+            statement();     /* do one */
+    
+    if (--ncmp               /* close current level */
             && lastst != STRETURN
             && lastst != STGOTO)
-            gen(ADDSP, savcsp);   /* delete local variable space */
-        cptr = savloc;          /* retain labels */
-        while (cptr < locptr) {
-            cptr2 = nextsym(cptr);
-            if (cptr[IDENT] == LABEL) {
-                while (cptr < cptr2) *savloc++ = *cptr++;
-            }
-            else
-                cptr = cptr2;
+        gen(ADDSP, savcsp);   /* delete local variable space */
+    
+    cptr = savloc;          /* retain labels */
+    while (cptr < locptr) {
+        cptr2 = nextsym(cptr);
+        if (cptr[IDENT] == LABEL) {
+            while (cptr < cptr2) *savloc++ = *cptr++;
         }
-        locptr = savloc;        /* delete local symbols */
-        declared = -1;          /* may not declare variables */
+        else
+            cptr = cptr2;
+    }
+    locptr = savloc;        /* delete local symbols */
+    declared = -1;          /* may not declare variables */
 }
 
 doif() {
@@ -802,13 +808,15 @@ dowhile() {
 }
 
 dodo() {
-    int wq[4];
+int wq[4], top;                 /* 118 FJS* added top (to correct 'continue's) */
+    
     addwhile(wq);
-    gen(LABm, wq[WQLOOP]);
+   gen(LABm, top = getlabel()); /* 118 FJS* 'top = getlabel()' was 'wq[WQLOOP]' */
     statement();
     need("while");
+    gen(LABm, wq[WQLOOP]);      /* 118 FJS+ WQLOOP for 'continue's before test()! */
     test(wq[WQEXIT], YES);
-    gen(JMPm, wq[WQLOOP]);
+    gen(JMPm, top);             /* 118 FJS* 'top'  was 'wq[WQLOOP]' */
     gen(LABm, wq[WQEXIT]);
     delwhile();
     ns();
@@ -971,7 +979,7 @@ docont() {
 doasm() {
     ccode = 0;           /* mark mode as "asm" */
     while (1) {
-        inline();
+        linein();               /* 119 FJS* linein was keyword inline */
         if (match("#endasm"))
             break;
         if (eof)
@@ -983,12 +991,12 @@ doasm() {
 }
 
 doexpr(int use) {
-    int const, val;
+    int konst, val;             /* 119 FJS* konst was keyword const */
     int *before, *start;
     usexpr = use;        /* tell isfree() whether expr value is used */
     while (1) {
         setstage(&before, &start);
-        expression(&const, &val);
+        expression(&konst, &val); /* 119 FJS* konst was const */
         clearstage(before, start);
         if (ch != ',')
             break;

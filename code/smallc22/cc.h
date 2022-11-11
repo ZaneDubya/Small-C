@@ -2,26 +2,39 @@
 ** CC.H -- Symbol Definitions for Small-C compiler.
 */
 
+#ifndef HSTBPW
+#define HSTBPW sizeof(int)	/* 118 FJS+ host bytes per word */
+#endif
+
 /*
 ** machine dependent parameters
 */
+#ifndef BPW
+#ifndef TGT32
 #define BPW     2   /* bytes per word */
 #define LBPW    1   /* log2(BPW) */
-#define SBPC    1   /* stack bytes per character */
+#else
+#define BPW     4   /* bytes per word (32 bit target ints) */ /* 120 FJS+ */
+#define LBPW    2   /* log2(BPW) */
+#endif
+#endif
+#define SBPC    1   /* stack bytes per character (1 or BPW?) */
 #define ERRCODE 7   /* op sys return code */
 
 /*
 ** symbol table format
 */
+#define SMLL     2	/* 2-byte packed 'small' integer value 118 FJS+ */
+
 #define IDENT    0
 #define TYPE     1
 #define CLASS    2
-#define SIZE     3
-#define OFFSET   5
+#define SIZE     3	/* 2-byte 'small' int value */
+#define OFFSET   5	/* 2-byte 'small' int value */
 #define NAME     7
 
-#define SYMAVG  16
-#define SYMMAX  20
+#define SYMAVG  16	/* = SYMMAX - 4 */
+#define SYMMAX  20	/* = NAME + NAMEMAX */
 
 /*
 ** symbol table parameters
@@ -80,7 +93,7 @@
 /*
 ** "switch" table
 */
-#define SWSIZ   (2*BPW)
+#define SWSIZ   2		/* 118 FJS* pointer arith: 2 was (2*BPW) */
 #define SWTABSZ (90*SWSIZ)
 
 /*
@@ -148,6 +161,7 @@
 **  1 = primary register (pr in comments)
 **  2 = secondary register (sr in comments)
 **  b = byte
+**  h = half word (short)			120 FJS+
 **  f = jump on false condition
 **  l = current literal pool label number
 **  m = memory reference by label
@@ -270,5 +284,32 @@
 #define SUBbpn  105   /* sub n from mem byte thru sr ptr */
 #define SUBwpn  106   /* sub n from mem word thru sr ptr */
 
+#ifndef DOSHRT
 #define PCODES  107   /* size of code[] */
+#else
+/* TBD - 120 FJS+ for 16-bit shorts - */
+#define SHRT_   107   /* define shorts (part 1) */	/* prefix */
 
+#define SHRTn   108   /* define short of value n */
+#define SHRTr0  109   /* define r shorts of value 0 */
+#define GETh1m  110   /* get short into pr from mem thru label */
+#define GETh1mu 111   /* get unsigned short into pr from mem thru label */
+#define GETh1p  112   /* get short into pr from mem thru sr ptr */
+#define GETh1pu 113   /* get unsigned short into pr from mem thru sr ptr */
+#define PUThm1  114   /* put pr short in mem thru label */
+#define PUThp1  115   /* put pr short in mem thru sr ptr */
+
+#ifndef OPTSHRT
+#define PCODES  116   /* size of code[] */
+#else
+		/* optimizer-generated - */
+#define ADDhpn  116   /* add n to mem short thru sr ptr */
+#define DEChp   117   /* dec mem short thru sr ptr */
+#define GETh1s  118   /* get short into pr from stack */
+#define GETh1su 119   /* get unsigned short into pr from stack */
+#define INChp   120   /* inc short in mem thru sr ptr */
+#define SUBhpn  121   /* sub n from mem short thru sr ptr */
+
+#define PCODES  122   /* size of code[] */
+#endif
+#endif
