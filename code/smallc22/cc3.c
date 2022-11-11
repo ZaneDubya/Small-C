@@ -24,14 +24,14 @@ opindex, opsize, *snext;
 /***************** lead-in functions *******************/
 
 constexpr(int *val) {
-    int const;
+    int konst;                  /* 119 FJS* konst was const */
     int *before, *start;
     setstage(&before, &start);
-    expression(&const, val);
+    expression(&konst, val);    /* 119 FJS* konst was const */
     clearstage(before, 0);     /* scratch generated code */
-    if (const == 0) 
+    if (konst == 0)             /* 119 FJS* konst was const */ 
         error("must be constant expression");
-    return const;
+    return konst;               /* 119 FJS* konst was const */
 }
 
 expression(int *con, int *val) {
@@ -337,7 +337,7 @@ level13(int is[]) {
 }
 
 level14(int *is) {
-    int k, const, val;
+    int k, konst, val;          /* 119 FJS* konst was const */
     char *ptr, *before, *start;
     k = primary(is);
     ptr = is[ST];
@@ -457,18 +457,18 @@ experr() {
 }
 
 callfunc(char *ptr) {      /* symbol table entry or 0 */
-    int nargs, const, val;
+    int nargs, konst, val;      /* 119 FJS* konst was const */
     nargs = 0;
     blanks();                      /* already saw open paren */
     while (streq(lptr, ")") == 0) {
         if (endst()) break;
         if (ptr) {
-            expression(&const, &val);
+            expression(&konst, &val); /* 119 FJS* konst was const */
             gen(PUSH1, 0);
         }
         else {
             gen(PUSH1, 0);
-            expression(&const, &val);
+            expression(&konst, &val); /* 119 FJS* konst was const */
             gen(SWAP1s, 0);            /* don't push addr */
         }
         nargs = nargs + BPW;         /* count args*BPW */
@@ -484,7 +484,7 @@ callfunc(char *ptr) {      /* symbol table entry or 0 */
 /*
 ** true if is2's operand should be doubled
 */
-double(int oper, int is1[], int is2[]) {
+dubble(int oper, int is1[], int is2[]) {    /* 119 FJS* dubble was keyword double */
     if ((oper != ADD12 && oper != SUB12)
         || (is1[TA] >> 2 != BPW)
         || (is2[TA])) return 0;
@@ -597,12 +597,14 @@ string(int *offset) {
     if (match("\"") == 0)
         return 0;
     *offset = litptr;
-    while (ch != '"') {
-        if (ch == 0)
-            break;
-        stowlit(litchar(), 1);
-    }
-    gch();
+    do {                        /* 120 FJS+ catenate adjacent strings */
+        while (ch != '"') {
+            if (ch == 0)
+                break;
+            stowlit(litchar(), 1);
+        }
+        gch();
+    } while (match("\""));      /* 120 FJS+ catenate adjacent strings */
     litq[litptr++] = 0;
     return 1;
 }
@@ -735,7 +737,7 @@ down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
             fetch(is2);
         if (is[CV] == 0)
             is[SA] = snext;
-        gen(GETw2n, is[CV] << double(oper, is2, is));
+        gen(GETw2n, is[CV] << dubble(oper, is2, is));   /* 119 FJS* dubble was keyword double */
     }
     else {                                  /* variable op unknown */
         gen(PUSH1, 0);                      /* at start in the buffer */
@@ -745,17 +747,17 @@ down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
             csp += BPW;                     /* adjust stack and */
             clearstage(before, 0);          /* discard the PUSH */
             if (oper == ADD12) {            /* commutative */
-                gen(GETw2n, is2[CV] << double(oper, is, is2));
+                gen(GETw2n, is2[CV] << dubble(oper, is, is2));
             }
             else {                          /* non-commutative */
                 gen(MOVE21, 0);
-                gen(GETw1n, is2[CV] << double(oper, is, is2));
+                    gen(GETw1n, is2[CV] << double(oper, is, is2));  /* 119 FJS* dubble was keyword double */
             }
         }
         else {                              /* variable op variable */
             gen(POP2, 0);
-            if (double(oper, is, is2)) gen(DBL1, 0);
-            if (double(oper, is2, is)) gen(DBL2, 0);
+            if (dubble(oper, is, is2)) gen(DBL1, 0);  /* 119 FJS* dubble was keyword double */
+            if (dubble(oper, is2, is)) gen(DBL2, 0);  /* 119 FJS* dubble was keyword double */
         }
     }
     if (oper) {
@@ -805,6 +807,14 @@ nosign(int is[]) {
 /*
 ** calcualte signed constant result
 */
+/* int */ ckzero(int n) {       /* 118 FJS+ catch zero divides - */
+  if (n /* != 0 */) return n;
+
+  error("division or mod by constant zero");
+
+  return 1;
+}
+
 calc(int left, int oper, int right) {
     switch (oper) {
         case ADD12:
@@ -814,9 +824,9 @@ calc(int left, int oper, int right) {
         case MUL12:
             return (left  *  right);
         case DIV12:
-            return (left / right);
+            return (left  / ckzero(right));     /* 118 FJS* catch zero divides */
         case MOD12:
-            return (left  %  right);
+            return (left  % ckzero(right));     /* 118 FJS* catch zero divides */
         case EQ12:
             return (left == right);
         case NE12:
@@ -851,9 +861,9 @@ calc2(unsigned left, int oper, unsigned right) {
         case MUL12u:
             return (left  *  right);
         case DIV12u:
-            return (left / right);
+            return (left  / ckzero(right));     /* 118 FJS* catch zero divides */
         case MOD12u:
-            return (left  %  right);
+            return (left  % ckzero(right));     /* 118 FJS* catch zero divides */
         case LE12u:
             return (left <= right);
         case GE12u:
