@@ -8,5 +8,6 @@
 
 # Allow
 !/code/bin/*.EXE
+!/code/smalllib/clib/*.ASM
 emu/stdout.txt
 emu/stderr.txt
