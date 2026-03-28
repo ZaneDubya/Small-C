@@ -78,6 +78,71 @@
 #define LITABSZ 2000
 #define LITMAX  (LITABSZ-1)
 
+// is[] array -- expression state (7 ints)
+// Starting with level1(), this code places information about the expression
+// under analysis into the is[] and is2[] arrays. These are local arrays of
+// seven integers each. The term 'is' in these array names is not an acronym,
+// but the word. These arrays tell the analyzer what the entire expression or
+// any part of it is. In other words, they carry the properties of whatever has
+// been parsed at every point in the process.
+// This first instance of the array is for the left leg of the descent through
+// all of the levels. Another (is2[]) is declared--for use with the right
+// operand--at each level where a binary operator is recognized. Before control
+// rises to a higher level, the left array is adjusted to reflect the result of
+// the operation, and the right, being local and having served its purpose, is
+// discarded. At lower levels, the right array appears as a left array, and
+// other right arrays are declared as other binary operators are encountered.
+
+#define SYMTAB_ADR 0    // is[SYMTAB_ADR] contains the address of the symbol
+                        // table entry that describes the operand. Information
+                        // from the symbol table is used when generating code
+                        // that access the operand. Constants are not included
+                        // in the symbol table, and thus this is zero. Only the
+                        // primary operand has an address in the symbol table,
+                        // thus when the primary operand combines into a larger
+                        // entity, this value is reset to zero.
+
+#define TYP_OBJ 1       // is[TYP_OBJ] contains the data type of an indirectly
+                        // referenced object; these are referenced by way of an
+                        // address in a register. This includes (1) function
+                        // arguments, (2) local objects, and (3) globally
+                        // declared arrays. In the first two cases, the address
+                        // is calculated relative to BP, the stack frame ptr.
+                        // In the third case an array element's address is
+                        // calculated relative to the label which identifies
+                        // the array. Static objects other than arrays have a
+                        // zero in this element because they are directly
+                        // reference by their label. In some cases (array names
+                        // without subscripts or leading ampersand), we only
+                        // need the address, so this element does not matter.
+
+#define TYP_ADR 2       // is[TYP_ADR] contains the data type of an address
+                        // (pointer, array, &variable); otherwise, zero.
+
+#define TYP_CNST 3      // is[TYP_CNST] contains the data type (INT or UINT) if
+                        // the (sub)expression is a constant value; otherwise,
+                        // zero. The unsigned designation applies only to
+                        // values over 32767 that are written without a sign.
+
+#define VAL_CNST 4      // is[VAL_CNST] contains the value produced by a
+                        // constant (sub)expression. It is used for other
+                        // purposes when the (sub)expression is not constant.
+
+#define LAST_OP 5       // is[LAST_OP] contains the p-code that generates the
+                        // highest binary operator in an expression. Example:
+                        // for the expression "left oper zero" (where left is
+                        // the left subexpression, oper is a binary operator,
+                        // and zero is a subexpression which evaluates to zero)
+                        // which form of optimized code to generate. This
+                        // element is used by test().
+
+#define STG_ADR 6       // is[STG_ADR] contains the staging buffer address
+                        // where code that evaluates the oper zero part of an
+                        // expression of the form "left oper zero" is stored.
+                        // If not zero, it tells test() that better code can be
+                        // generated and how much of the end of the staging
+                        // buffer to replace.
+
 // input line
 #define LINEMAX  127
 #define LINESIZE 128
