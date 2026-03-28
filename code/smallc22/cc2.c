@@ -17,17 +17,17 @@
 #include "cc.h"
 
 extern char
-*symtab, *macn, *macq, *pline, *mline, optimize,
-alarm, *glbptr, *line, *lptr, *cptr, *cptr2, *cptr3,
-*locptr, msname[NAMESIZE], pause;
+    *symtab, *macn, *macq, *pline, *mline, optimize,
+    alarm, *glbptr, *line, *lptr, *cptr, *cptr2, *cptr3,
+    *locptr, msname[NAMESIZE], pause;
 
 extern int
-*wq, ccode, ch, csp, eof, errflag, iflevel,
-input, input2, listfp, macptr, nch,
-nxtlab, op[16], opindex, opsize, output, pptr,
-skiplevel, *wqptr;
+    *wq, ccode, ch, csp, eof, errflag, iflevel,
+    input, input2, listfp, macptr, nch,
+    nxtlab, op[16], opindex, opsize, output, pptr,
+    skiplevel, *wqptr;
 
-/********************** input functions **********************/
+// === input functions ========================================================
 
 preprocess() {
     int k;
@@ -84,7 +84,7 @@ preprocess() {
             }
             bump(2);
         }
-        /* ignore C99-style comments */
+        // ignore C99-style comments
         else if (ch == '/' && nch == '/') {
             bump(2);
             while ((ch == LF || ch == CR) == 0) {
@@ -185,7 +185,7 @@ ifline() {
 
 inline() {           /* numerous revisions */
     int k, unit;
-    poll(1);           /* allow operator interruption */
+    poll(1);           // allow operator interruption
     if (input == EOF)
         openfile();
     if (eof)
@@ -216,11 +216,9 @@ inbyte() {
     return gch();
 }
 
-/********************* scanning functions ********************/
+// === scanning functions =====================================================
 
-/*
-** test if next input string is legal symbol name
-*/
+// test if next input string is legal symbol name
 symname(char *sname) {
     int k;
     blanks();
@@ -290,10 +288,8 @@ astreq(char str1[], char str2[], int len) {
     k = 0;
     while (k < len) {
         if (str1[k] != str2[k]) break;
-        /*
-        ** must detect end of symbol table names terminated by
-        ** symbol length in binary
-        */
+        // must detect end of symbol table names terminated by
+        // symbol length in binary
         if (str2[k] < ' ') 
             break;
         if (str1[k] < ' ') 
@@ -337,7 +333,7 @@ blanks() {
 }
 
 white() {
-    avail(YES);  /* abort on stack/symbol table overflow */
+    avail(YES);  // abort on stack/symbol table overflow
     return (*lptr <= ' ' && *lptr);
 }
 
@@ -373,7 +369,7 @@ endst() {
     return (streq(lptr, ";") || ch == 0);
 }
 
-/*********** symbol table management functions ***********/
+// === symbol table management functions ======================================
 
 AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class) {
     if (lgpp == &glbptr) {
@@ -402,22 +398,20 @@ AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int 
       *cptr2++ = *sname++;
     }
     if (lgpp == &locptr) {
-        *cptr2 = cptr2 - cptr3;         /* set length */
+        *cptr2 = cptr2 - cptr3;         // set length
         *lgpp = ++cptr2;
     }
     return cptr;
 }
 
-/*
-** search for symbol match.
-** on return, cptr points to slot found or empty slot
-** sname: string we are trying to match
-** buf: table of strings to match against
-** len: max length to check for each symbol
-** end: end of table of strings
-** max: max count of strings in table
-** off: ???
-*/
+// search for symbol match.
+// on return, cptr points to slot found or empty slot
+// sname: string we are trying to match
+// buf: table of strings to match against
+// len: max length to check for each symbol
+// end: end of table of strings
+// max: max count of strings in table
+// off: ???
 FindSymbol(char *sname, char *buf, int len, char *end, int max, int off) {
     unsigned int ihash, imax;
     imax = (max - 1);
@@ -449,7 +443,7 @@ findglb(char *sname) {
 }
 
 findloc(char *sname)  {
-    cptr = locptr - 1;  /* FindSymbol backward for block locals */
+    cptr = locptr - 1;  // FindSymbol backward for block locals
     while (cptr > STARTLOC) {
         cptr = cptr - *cptr;
         if (astreq(sname, cptr, NAMEMAX)) return (cptr - NAME);
@@ -460,17 +454,17 @@ findloc(char *sname)  {
 
 nextsym(char *entry) {
     entry = entry + NAME;
-    while (*entry++ >= ' ');    /* find length byte */
+    while (*entry++ >= ' ');    // find length byte
     return entry;
 }
 
-/******** while queue management functions *********/
+// === while queue management functions =======================================
 
 addwhile(int ptr[]) {
     int k;
-    ptr[WQSP] = csp;         /* and stk ptr */
-    ptr[WQLOOP] = getlabel();  /* and looping label */
-    ptr[WQEXIT] = getlabel();  /* and exit label */
+    ptr[WQSP] = csp;         // and stk ptr
+    ptr[WQLOOP] = getlabel();  // and looping label
+    ptr[WQEXIT] = getlabel();  // and exit label
     if (wqptr == WQMAX) {
         error("control statement nesting limit");
         abort(ERRCODE);
@@ -491,44 +485,34 @@ delwhile() {
     if (wqptr > wq) wqptr -= WQSIZ;
 }
 
-/****************** utility functions ********************/
+// === utility functions ======================================================
 
-/*
-** test if c is alphabetic
-*/
+// test if c is alphabetic
 alpha(char c) {
     return (isalpha(c) || c == '_');
 }
 
-/*
-** test if given character is alphanumeric
-*/
+// test if given character is alphanumeric
 an(char c) {
     return (alpha(c) || isdigit(c));
 }
 
-/*
-** return next avail internal label number
-*/
+// return next avail internal label number
 getlabel() {
     return(++nxtlab);
 }
 
-/*
-** get integer of length len from address addr
-** (byte sequence set by "putint")
-*/
+// get integer of length len from address addr
+// (byte sequence set by "putint")
 getint(char *addr, int len) {
     int i;
-    i = *(addr + --len);  /* high order byte sign extended */
+    i = *(addr + --len);  // high order byte sign extended
     while (len--) i = (i << 8) | *(addr + len) & 255;
     return i;
 }
 
-/*
-** put integer i of length len into address addr
-** (low byte first)
-*/
+// put integer i of length len into address addr
+// (low byte first)
 putint(int i, char *addr, int len) {
     while (len--) {
         *addr++ = i;
@@ -541,7 +525,7 @@ lout(char *line, int fd) {
     fputc(NEWLINE, fd);
 }
 
-/******************* error functions *********************/
+// === error functions ========================================================
 
 illname() {
     error("illegal symbol");
