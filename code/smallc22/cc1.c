@@ -17,99 +17,97 @@
 #include "notice.h"
 #include "cc.h"
 
-/*
-** miscellaneous storage
-*/
+// miscellaneous storage
 int
-    nogo,     /* disable goto statements? */
-    noloc,    /* disable block locals? */
-    opindex,  /* index to matched operator */
-    opsize,   /* size of operator in characters */
-    swactive, /* inside a switch? */
-    swdefault,/* default label #, else 0 */
-    *swnext,   /* address of next entry */
-    *swend,    /* address of last entry */
-    *stage,    /* staging buffer address */
-    *wq,       /* while queue */
-    argcs,     /* local copy of argc */
-    *argvs,    /* local copy of argv */
-    *wqptr,    /* ptr to next entry */
-    litptr,   /* ptr to next entry */
-    macptr,   /* macro buffer index */
-    pptr,     /* ptr to parsing buffer */
-    ch,       /* current character of input line */
-    nch,      /* next character of input line */
-    declared, /* # of local bytes to declare, -1 when declared */
-    iflevel,  /* #if... nest level */
-    skiplevel,/* level at which #if... skipping started */
-    nxtlab,   /* next avail label # */
-    litlab,   /* label # assigned to literal pool */
-    csp,      /* compiler relative stk ptr */
-    argstk,   /* function arg sp */
-    argtop,   /* highest formal argument offset */
-    ncmp,     /* # open compound statements */
-    errflag,  /* true after 1st error in statement */
-    eof,      /* true on final input eof */
-    output,   /* fd for output file */
-    files,    /* true if file list specified on cmd line */
-    filearg,  /* cur file arg index */
-    input = EOF, /* fd for input file */
-    input2 = EOF, /* fd for "#include" file */
-    usexpr = YES, /* true if value of expression is used */
-    ccode = YES, /* true while parsing C code */
-    *snext,    /* next addr in stage */
-    *stail,    /* last addr of data in stage */
-    *slast,    /* last addr in stage */
-    listfp,   /* file pointer to list device */
-    lastst,   /* last parsed statement type */
-    oldseg;   /* current segment (0, DATASEG, CODESEG) */
+    nogo,     // disable goto statements?
+    noloc,    // disable block locals?
+    opindex,  // index to matched operator
+    opsize,   // size of operator in characters
+    swactive, // inside a switch?
+    swdefault,// default label #, else 0
+    *swnext,   // address of next entry
+    *swend,    // address of last entry
+    *stage,    // staging buffer address
+    *wq,       // while queue
+    argcs,     // local copy of argc
+    *argvs,    // local copy of argv
+    *wqptr,    // ptr to next entry
+    litptr,   // ptr to next entry
+    macptr,   // macro buffer index
+    pptr,     // ptr to parsing buffer
+    ch,       // current character of input line
+    nch,      // next character of input line
+    declared, // # of local bytes to declare, -1 when declared
+    iflevel,  // #if... nest level
+    skiplevel,// level at which #if... skipping started
+    nxtlab,   // next avail label #
+    litlab,   // label # assigned to literal pool
+    csp,      // compiler relative stk ptr
+    argstk,   // function arg sp
+    argtop,   // highest formal argument offset
+    rettype,  // return type of current function (TYPE_INT default)
+    rettypeSubPtr, // struct def ptr if rettype == TYPE_STRUCT
+    ncmp,     // # open compound statements
+    errflag,  // true after 1st error in statement
+    eof,      // true on final input eof
+    output,   // fd for output file
+    files,    // true if file list specified on cmd line
+    filearg,  // cur file arg index
+    input = EOF, // fd for input file
+    input2 = EOF, // fd for "#include" file
+    usexpr = YES, // true if value of expression is used
+    ccode = YES, // true while parsing C code
+    *snext,    // next addr in stage
+    *stail,    // last addr of data in stage
+    *slast,    // last addr in stage
+    listfp,   // file pointer to list device
+    lastst,   // last parsed statement type
+    oldseg;   // current segment (0, DATASEG, CODESEG)
 
 char
-    optimize, /* optimize output of staging buffer? */
-    alarm,    /* audible alarm on errors? */
-    monitor,  /* monitor function headers? */
-    pause,    /* pause for operator on errors? */
-    *symtab,   /* symbol table */
-    *litq,     /* literal pool */
-    *macn,     /* macro name buffer */
-    *macq,     /* macro string buffer */
-    *pline,    /* parsing buffer */
-    *mline,    /* macro buffer */
-    *line,     /* ptr to pline or mline */
-    *lptr,     /* ptr to current character in "line" */
-    *glbptr,   /* global symbol table */
-    *locptr,   /* next local symbol table entry */
-    *cptr,     /* work ptrs to any char buffer */
+    optimize, // optimize output of staging buffer?
+    alarm,    // audible alarm on errors?
+    monitor,  // monitor function headers?
+    pause,    // pause for operator on errors?
+    *symtab,   // symbol table
+    *litq,     // literal pool
+    *macn,     // macro name buffer
+    *macq,     // macro string buffer
+    *pline,    // parsing buffer
+    *mline,    // macro buffer
+    *line,     // ptr to pline or mline
+    *lptr,     // ptr to current character in "line"
+    *glbptr,   // global symbol table
+    *locptr,   // next local symbol table entry
+    *cptr,     // work ptrs to any char buffer
     *cptr2,
     *cptr3,
-    msname[NAMESIZE],   /* macro symbol name */
-    ssname[NAMESIZE];   /* global symbol name */
+    msname[NAMESIZE],   // macro symbol name
+    ssname[NAMESIZE];   // global symbol name
 
-int op[16] = {   /* p-codes of signed binary operators */
-    OR12,                        /* level5 */
-    XOR12,                       /* level6 */
-    AND12,                       /* level7 */
-    EQ12,   NE12,                /* level8 */
-    LE12,   GE12,  LT12,  GT12,  /* level9 */
-    ASR12,  ASL12,               /* level10 */
-    ADD12,  SUB12,               /* level11 */
-    MUL12, DIV12, MOD12          /* level12 */
+int op[16] = {   // p-codes of signed binary operators
+    OR12,                        // level5
+    XOR12,                       // level6
+    AND12,                       // level7
+    EQ12,   NE12,                // level8
+    LE12,   GE12,  LT12,  GT12,  // level9
+    ASR12,  ASL12,               // level10
+    ADD12,  SUB12,               // level11
+    MUL12, DIV12, MOD12          // level12
 };
 
-int op2[16] = {  /* p-codes of unsigned binary operators */
-    OR12,                        /* level5 */
-    XOR12,                       /* level6 */
-    AND12,                       /* level7 */
-    EQ12,   NE12,                /* level8 */
-    LE12u,  GE12u, LT12u, GT12u, /* level9 */
-    ASR12,  ASL12,               /* level10 */
-    ADD12,  SUB12,               /* level11 */
-    MUL12u, DIV12u, MOD12u       /* level12 */
+int op2[16] = {  // p-codes of unsigned binary operators
+    OR12,                        // level5
+    XOR12,                       // level6
+    AND12,                       // level7
+    EQ12,   NE12,                // level8
+    LE12u,  GE12u, LT12u, GT12u, // level9
+    ASR12,  ASL12,               // level10
+    ADD12,  SUB12,               // level11
+    MUL12u, DIV12u, MOD12u       // level12
 };
 
-/*
-** execution begins here
-*/
+// execution begins here
 main(int argc, int *argv) {
     fputs(VERSION, stderr);
     fputs(CRIGHT1, stderr);
@@ -130,14 +128,14 @@ main(int argc, int *argv) {
     locptr = STARTLOC;
     glbptr = STARTGLB;
     initStructs();
-    getRunArgs();   /* get run options from command line arguments */
-    openfile();     /* and initial input file */
-    preprocess();   /* fetch first line */
-    header();       /* intro code */
-    setcodes();     /* initialize code pointer array */
-    parse();        /* process ALL input */
-    trailer();      /* follow-up code */
-    fclose(output); /* explicitly close output */
+    getRunArgs();   // get run options from command line arguments
+    openfile();     // and initial input file
+    preprocess();   // fetch first line
+    header();       // intro code
+    setcodes();     // initialize code pointer array
+    parse();        // process ALL input
+    trailer();      // follow-up code
+    fclose(output); // explicitly close output
     // printallstructs();
 }
 
@@ -145,10 +143,8 @@ main(int argc, int *argv) {
 // High level Parsing
 // ****************************************************************************
 
-/*
-** Process all input text. At this level, only global declarations, defines,
-** includes, structs, and function definitions are legal.
-*/
+// Process all input text. At this level, only global declarations, defines,
+// includes, structs, and function definitions are legal.
 parse() {
     while (eof == 0) {
         if (amatch("extern", 6))
@@ -167,13 +163,11 @@ parse() {
             dodefine();
         else
             dofunction(GLOBAL);
-        blanks();                 /* force eof if pending */
+        blanks();                 // force eof if pending
     }
 }
 
-/*
-** do a static variable or function
-*/
+// do a static variable or function
 dostatic() {
     if (dodeclare(STATIC)) {
         ;
@@ -183,9 +177,7 @@ dostatic() {
     }
 }
 
-/*
-** test for global declarations
-*/
+// test for global declarations
 dodeclare(int class) {
     int type, typeSubPtr;
     type = dotype(&typeSubPtr);
@@ -202,10 +194,8 @@ dodeclare(int class) {
     return 1;
 }
 
-/**
- * get type of declaration
- * @return type value of declaration, otherwise 0 if not a valid declaration.
- */
+// get type of declaration
+// @return type value of declaration, otherwise 0 if not a valid declaration.
 dotype(int *typeSubPtr) {
     if (amatch("char", 4)) {
         return TYPE_CHR;
@@ -228,9 +218,7 @@ dotype(int *typeSubPtr) {
     return 0;
 }
 
-/*
-** declare a global variable
-*/
+// declare a global variable
 declglb(int type, int class, int typeSubPtr) {
     int id, dim;
     while (1) {
@@ -279,9 +267,7 @@ declglb(int type, int class, int typeSubPtr) {
     }
 }
 
-/*
-** initialize global objects
-*/
+// initialize global objects
 InitSize(int size, int ident, int dim, int class) {
     int savedim;
     litptr = 0;
@@ -312,9 +298,7 @@ InitSize(int size, int ident, int dim, int class) {
     dumpzero(size, dim);           /* only if dim > 0 */
 }
 
-/*
-** evaluate one initializer
-*/
+// evaluate one initializer
 EvalInitValue(int size, int ident, int *dim) {
     int value;
     if (string(&value)) {
@@ -335,29 +319,25 @@ EvalInitValue(int size, int ident, int *dim) {
     }
 }
 
-/*
-** get required array size
-*/
+// initialize a global struct variable with optional { ... } brace syntax
 getArraySz() {
     int val;
     if (IsMatch("]")) 
-        return 0; /* null size */
+        return 0; // null size
     if (IsConstExpr(&val) == 0) 
         val = 1;
     if (val < 0) {
         error("negative size illegal");
         val = -val;
     }
-    Require("]");               /* force single dimension */
-    return val;              /* and return size */
+    Require("]");               // force single dimension
+    return val;              // and return size
 }
 
-/*
-** open an include file
-*/
+// open an include file
 doinclude() {
     int i; char str[30];
-    blanks();       /* skip over to name */
+    blanks();       // skip over to name
     if (*lptr == '"' || *lptr == '<')  {
         ++lptr;
     }
@@ -371,12 +351,10 @@ doinclude() {
         input2 = EOF;
         error("open failure on include file");
     }
-    kill();   /* make next read come from new file (if open) */
+    kill();   // make next read come from new file (if open)
 }
 
-/*
-** define a macro symbol
-*/
+// define a macro symbol
 dodefine() {
     int k;
     if (symname(msname) == 0) {
@@ -412,23 +390,21 @@ putmac(char c) {
     return c;
 }
 
-/*
-** begin a function
-**
-** called from "parse" and tries to make a function
-** out of the following text
-*/
+// begin a function
+//
+// called from "parse" and tries to make a function
+// out of the following text
 dofunction(int class) {
     int firstType, typeSubPtr;
     char *pGlobal;
-    /*int typedargs; */           /* declared arguments have formal types */
-    nogo = 0;                     /* enable goto statements */
-    noloc = 0;                    /* enable block-local declarations */
-    lastst = 0;                   /* no statement yet */
-    litptr = 0;                   /* clear lit pool */
-    litlab = getlabel();          /* label next lit pool */
-    locptr = STARTLOC;            /* clear local variables */
-    /* skip "void" & locate header */
+    /*int typedargs; */           // declared arguments have formal types
+    nogo = 0;                     // enable goto statements
+    noloc = 0;                    // enable block-local declarations
+    lastst = 0;                   // no statement yet
+    litptr = 0;                   // clear lit pool
+    litlab = getlabel();          // label next lit pool
+    locptr = STARTLOC;            // clear local variables
+    // skip "void" & locate header
     if (IsMatch("void")) {
         blanks();
     }
@@ -438,7 +414,7 @@ dofunction(int class) {
     if (symname(ssname) == 0) {
         error("illegal function or declaration");
         errflag = 0;
-        kill();                     /* invalidate line */
+        kill();                     // invalidate line
         return;
     }
     // If this name is already in the symbol table and is an autoext function,
@@ -470,16 +446,14 @@ dofunction(int class) {
     if (litptr) {
         toseg(DATASEG);
         gen(REFm, litlab);
-        dumplits(1);               /* dump literals */
+        dumplits(1);               // dump literals
     }
 }
 
-/*
-** doArgsTyped: interpret a function argument list with declared types.
-** in type: the type of the first variable in the argument list.
-*/
 doArgsTyped(int type) {
     int id, sz, namelen, paren, typeSubPtr;
+// doArgsTyped: interpret a function argument list with declared types.
+// in type: the type of the first variable in the argument list.
     char *ptr;
     // get a list of all arguments. Set the name, id (Variable or Pointer),
     // type (unsigned/signed int/char), size, and 'argstk' for each. argstk is
@@ -528,7 +502,7 @@ doArgsTyped(int type) {
             error("illegal argument name");
             break;
         }
-        /* advance to next arg or closing paren */
+        // advance to next arg or closing paren
         if (IsMatch(",")) {
             if ((type = dotype(&typeSubPtr)) == 0) {
                 error("untyped argument declaration");
@@ -536,7 +510,7 @@ doArgsTyped(int type) {
             }
         }
     }
-    csp = 0;                       /* preset stack ptr */
+    csp = 0;                       // preset stack ptr
     // incremenet argtop by one word (space for pushed BP), and reverse the
     // placement of the arguments (per the SmallC specification, see Chapter 8
     // and Fig 8-1.
@@ -544,7 +518,7 @@ doArgsTyped(int type) {
     ptr = STARTLOC;
     while (argstk) {
         putint(argtop - getint(ptr + OFFSET, 2), ptr + OFFSET, 2);
-        argstk -= BPW;            /* count down */
+        argstk -= BPW;            // count down
         ptr += NAME;
         namelen = 0;
         while (*ptr != namelen) {
@@ -556,9 +530,7 @@ doArgsTyped(int type) {
     return;
 }
 
-/*
-** interpret a function argument list without declared types
-*/
+// interpret a function argument list without declared types
 doArgsNonTyped() {
     // count args
     argstk = 0;
@@ -598,16 +570,14 @@ doArgsNonTyped() {
     return;
 }
 
-/*
-** declare argument types
-*/
+// declare argument types
 doArgTypes(int type, int typeSubPtr) {
     int id, sz;
     char *ptr;
     int t;
     while (1) {
         if (argstk == 0)
-            return;           /* no arguments */
+            return;           // no arguments
         if (parseLocalDeclare(type, typeSubPtr, IDENT_POINTER, &id, &sz)) {
             if (ptr = findloc(ssname)) {
                 ptr[IDENT] = id;
@@ -619,7 +589,7 @@ doArgTypes(int type, int typeSubPtr) {
                 error("not an argument");
             }
         }
-        argstk = argstk - BPW;            /* cnt down */
+        argstk = argstk - BPW;            // cnt down
         if (endst())
             return;
         if (IsMatch(",") == 0)
@@ -627,14 +597,12 @@ doArgTypes(int type, int typeSubPtr) {
     }
 }
 
-/**
- * parse next local or argument declaration
- * @param type value of type of variable, see cc.h
- * @param defArrTyp only comes into play if this is an array declare:
-                           if IDENT_ARRAY, then must have array size;
- *                         if IDENT_POINTER, then must be a pointer.
- * @return 1 is name is valid, 0 + error if invalid.
- */
+// parse next local or argument declaration
+// @param type value of type of variable, see cc.h
+// @param defArrTyp only comes into play if this is an array declare:
+//                        if IDENT_ARRAY, then must have array size;
+//                        if IDENT_POINTER, then must be a pointer.
+// @return 1 is name is valid, 0 + error if invalid.
 parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
     int nameIsValid, hasOpenParen;
     hasOpenParen = IsMatch("(") ? 1 : 0;
@@ -669,7 +637,7 @@ parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
             if (defArrTyp == IDENT_ARRAY) {
                 error("need array size");
             }
-            *sz = BPW;      /* size of pointer argument */
+            *sz = BPW;      // size of pointer argument
         }
     }
     return nameIsValid;
@@ -699,7 +667,7 @@ statement() {
     else {
         if (declared >= 0) {
             if (ncmp > 1) {
-                nogo = declared;   /* disable goto */
+                nogo = declared;   // disable goto
             }
             gen(ADDSP, csp - declared);
             declared = -1;
@@ -773,9 +741,7 @@ statement() {
     return lastst;
 }
 
-/*
-** declare local variables
-*/
+// declare local variables
 declareLocals(int type, int typeSubPtr) {
     int id, sz;
     if (swactive) {
@@ -808,8 +774,8 @@ compound() {
     char *savloc;
     savcsp = csp;
     savloc = locptr;
-    declared = 0;           /* may now declare local variables */
-    ++ncmp;                 /* new level open */
+    declared = 0;           // may now declare local variables
+    ++ncmp;                 // new level open
     while (IsMatch("}") == 0)
         if (eof) {
             error("no final }");
@@ -821,9 +787,9 @@ compound() {
         }
         // close current level
         if (--ncmp && lastst != STRETURN && lastst != STGOTO) {
-            gen(ADDSP, savcsp);   /* delete local variable space */
+            gen(ADDSP, savcsp);   // delete local variable space
         }
-        cptr = savloc;          /* retain labels */
+        cptr = savloc;          // retain labels
         while (cptr < locptr) {
             cptr2 = nextsym(cptr);
             if (cptr[IDENT] == IDENT_LABEL) {
@@ -835,36 +801,36 @@ compound() {
                 cptr = cptr2;
             }
         }
-        locptr = savloc;        /* delete local symbols */
-        declared = -1;          /* may not declare variables */
+        locptr = savloc;        // delete local symbols
+        declared = -1;          // may not declare variables
 }
 
 doif() {
     int flab1, flab2;
-    GenTestAndJmp(flab1 = getlabel(), YES);  /* get expr, and branch false */
-    statement();                    /* if true, do a statement */
-    if (amatch("else", 4) == 0) {    /* if...else ? */
-      /* simple "if"...print false label */
+    GenTestAndJmp(flab1 = getlabel(), YES);  // get expr, and branch false
+    statement();                    // if true, do a statement
+    if (amatch("else", 4) == 0) {    // if...else?
+        // simple "if"...print false label
         gen(LABm, flab1);
-        return;                       /* and exit */
+        return;                       // and exit
     }
     flab2 = getlabel();
     if (lastst != STRETURN && lastst != STGOTO)
         gen(JMPm, flab2);
-    gen(LABm, flab1);    /* print false label */
-    statement();         /* and do "else" clause */
-    gen(LABm, flab2);    /* print true label */
+    gen(LABm, flab1);    // print false label
+    statement();         // and do "else" clause
+    gen(LABm, flab2);    // print true label
 }
 
 dowhile() {
-    int wq[4];              /* allocate local queue */
-    addwhile(wq);           /* add entry to queue for "break" */
-    gen(LABm, wq[WQLOOP]);  /* loop label */
-    GenTestAndJmp(wq[WQEXIT], YES);  /* see if true */
-    statement();            /* if so, do a statement */
-    gen(JMPm, wq[WQLOOP]);  /* loop to label */
-    gen(LABm, wq[WQEXIT]);  /* exit label */
-    delwhile();             /* delete queue entry */
+    int wq[4];              // allocate local queue
+    addwhile(wq);           // add entry to queue for "break"
+    gen(LABm, wq[WQLOOP]);  // loop label
+    GenTestAndJmp(wq[WQEXIT], YES);  // see if true
+    statement();            // if so, do a statement
+    gen(JMPm, wq[WQLOOP]);  // loop to label
+    gen(LABm, wq[WQEXIT]);  // exit label
+    delwhile();             // delete queue entry
 }
 
 dodo() {
@@ -887,18 +853,18 @@ dofor() {
     lab2 = getlabel();
     Require("(");
     if (IsMatch(";") == 0) {
-        doexpr(NO);           /* expr 1 */
+        doexpr(NO);           // expr 1
         ReqSemicolon();
     }
     gen(LABm, lab1);
     if (IsMatch(";") == 0) {
-        GenTestAndJmp(wq[WQEXIT], NO); /* expr 2 */
+        GenTestAndJmp(wq[WQEXIT], NO); // expr 2
         ReqSemicolon();
     }
     gen(JMPm, lab2);
     gen(LABm, wq[WQLOOP]);
     if (IsMatch(")") == 0) {
-        doexpr(NO);           /* expr 3 */
+        doexpr(NO);           // expr 3
         Require(")");
     }
     gen(JMPm, lab1);
@@ -917,18 +883,18 @@ doswitch() {
     addwhile(wq);
     *(wqptr + WQLOOP - WQSIZ) = 0;
     Require("(");
-    doexpr(YES);                /* evaluate switch expression */
+    doexpr(YES);                // evaluate switch expression
     Require(")");
     swdefault = 0;
     swactive = 1;
     gen(JMPm, endlab = getlabel());
-    statement();                /* cases, etc. */
+    statement();                // cases, etc.
     gen(JMPm, wq[WQEXIT]);
     gen(LABm, endlab);
-    gen(SWITCH, 0);             /* match cases */
+    gen(SWITCH, 0);             // match cases
     while (swptr < swnext) {
         gen(NEARm, *swptr++);
-        gen(WORDn, *swptr++);    /* case value */
+        gen(WORDn, *swptr++);    // case value
     }
     gen(WORDn, 0);
     if (swdefault)
@@ -1035,7 +1001,7 @@ docont() {
 }
 
 doasm() {
-    ccode = 0;           /* mark mode as "asm" */
+    ccode = 0;           // mark mode as "asm"
     while (1) {
         inline();
         if (IsMatch("#endasm"))
@@ -1051,7 +1017,7 @@ doasm() {
 doexpr(int use) {
     int const, val;
     int *before, *start;
-    usexpr = use;        /* tell isfree() whether expr value is used */
+    usexpr = use;        // tell isfree() whether expr value is used
     while (1) {
         setstage(&before, &start);
         ParseExpression(&const, &val);
@@ -1060,16 +1026,14 @@ doexpr(int use) {
             break;
         bump(1);
     }
-    usexpr = YES;        /* return to normal value */
+    usexpr = YES;        // return to normal value
 }
 
 // ****************************************************************************
 // miscellaneous functions
 // ****************************************************************************
 
-/*
-** get run options
-*/
+// get run options
 getRunArgs() {
     int i;
     i = listfp = nxtlab = 0;
@@ -1108,10 +1072,8 @@ getRunArgs() {
     }
 }
 
-/*
-** input and output file opens
-*/
-openfile() {        /* entire function revised */
+// input and output file opens
+openfile() {        // entire function revised
     char outfn[15];
     int i, j, ext;
     input = EOF;
@@ -1144,9 +1106,7 @@ openfile() {        /* entire function revised */
     kill();
 }
 
-/*
-** open a file with error checking
-*/
+// open a file with error checking
 mustopen(char *fn, char *mode) {
     int fd;
     if (fd = fopen(fn, mode))
