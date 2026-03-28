@@ -13,7 +13,7 @@
 // James E. Hendrix Jr.
 // ============================================================================
 
-#include <stdio.h>
+#include "stdio.h"
 #include "cc.h"
 
 /* #define DISOPT */       /* display optimizations values */
@@ -67,8 +67,8 @@ extern int
 // === optimizer command lists ================================================
 
 int
-           go | p1,ADD21,0 },
     seq00[] = { 0,ADD12,MOVE21,0,                       // ADD21
+                go | p1,ADD21,0 },
 
     seq01[] = { 0,ADD1n,0,                              // rINC1 or rDEC1 ?
                ifl | m2,0,ifl | 0,rDEC1,neg,0,ifl | p3,rINC1,0,0 },

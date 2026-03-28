@@ -13,7 +13,7 @@
 // James E. Hendrix Jr.
 // ============================================================================
 
-#include <stdio.h>
+#include "stdio.h"
 #include "cc.h"
 
 extern char
@@ -38,7 +38,7 @@ preprocess() {
         if (eof) return;
     }
     else {
-        inline();
+        doInline();
         return;
     }
     pptr = -1;
@@ -142,7 +142,7 @@ keepch(char c) {
 
 ifline() {
     while (1) {
-        inline();
+        doInline();
         if (eof) return;
         if (IsMatch("#ifdef")) {
             ++iflevel;
@@ -183,7 +183,7 @@ ifline() {
     }
 }
 
-inline() {           /* numerous revisions */
+doInline() {
     int k, unit;
     poll(1);           // allow operator interruption
     if (input == EOF)

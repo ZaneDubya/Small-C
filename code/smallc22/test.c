@@ -12,11 +12,11 @@ struct point {
 };
 
 /*int ga[3] = { 1, 2, 3 };
-point gx;*/
+struct point gx;*/
 
 main() {
     // Define a variable q of type point. Members are uninitialized.
-    point p0, p1, p2;
+    struct point p0, p1, p2;
     // Define a variable p of type point, and initialize all its members inline!
     p0.x = 1;
     p0.y = 2;

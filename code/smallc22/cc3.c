@@ -13,7 +13,7 @@
 // James E. Hendrix Jr.
 // ============================================================================
 
-#include <stdio.h>
+#include "stdio.h"
 #include "cc.h"
 #include "ccstruct.h"
 
@@ -34,22 +34,22 @@
 
 extern char *litq, *glbptr, *locptr, *lptr, ssname[NAMESIZE];
 extern int ch, csp, litlab, litptr, nch, op[16], op2[16], 
-    opindex, opsize, *snext;
+    opindex, opsize, *snext, argtop, rettype, rettypeSubPtr;
     
 // ****************************************************************************
 // lead-in functions
 // ****************************************************************************
 
 IsConstExpr(int *val) {
-    int const;
+    int isConst;
     int *before, *start;
     setstage(&before, &start);
-    ParseExpression(&const, val);
-    if (const == 0) {
+    ParseExpression(&isConst, val);
     ClearStage(before, 0);     // scratch generated code
+    if (isConst == 0) {
         error("must be constant expression");
     }
-    return const;
+    return isConst;
 }
 
 ParseExpression(int *con, int *val) {
@@ -208,12 +208,55 @@ level1(int is[]) {
     }
     is3[SYMTAB_ADR] = is[SYMTAB_ADR];
     is3[TYP_OBJ] = is[TYP_OBJ];
-    if (is[TYP_OBJ]) {                          /* indirect target */
-        if (oper) {                             /* ?= */
-            gen(PUSH1, 0);                      /* save address */
-            fetch(is);                          /* fetch left side */
+    // Struct-to-struct deep copy (simple = only)
+    if (oper == 0) {
+        char *lhsPtr, *rhsPtr;
+        int isStructLhs;
+        lhsPtr = is[SYMTAB_ADR];
+        isStructLhs = 0;
+        if (is[TYP_OBJ] == TYPE_STRUCT)
+            isStructLhs = 1;
+        else if (is[TYP_OBJ] == 0 && lhsPtr && lhsPtr[TYPE] == TYPE_STRUCT
+                 && lhsPtr[IDENT] == IDENT_VARIABLE)
+            isStructLhs = 1;
+        if (isStructLhs) {
+            int savedcsp;
+            char *cpyfn;
+            savedcsp = csp;
+            if (is[TYP_OBJ] == 0)
+                gen(POINT1m, lhsPtr);
+            gen(PUSH1, 0);
+            k = level1(is2);
+            if (k && is2[TYP_OBJ] == TYPE_STRUCT) {
+                /* AX already holds src address */
+            } else if (k && is2[TYP_OBJ] == 0 && (rhsPtr = is2[SYMTAB_ADR])
+                       && rhsPtr[TYPE] == TYPE_STRUCT) {
+                gen(POINT1m, rhsPtr);
+            } else {
+                error("type mismatch in struct assignment");
+                gen(ADDSP, savedcsp);
+                return 0;
+            }
+            gen(PUSH1, 0);
+            gen(GETw1n, getStructSize(getint(lhsPtr + CLASSPTR, 2)));
+            gen(PUSH1, 0);
+            cpyfn = findglb("structcpy");
+            if (cpyfn == 0) {
+                cpyfn = AddSymbol("structcpy", IDENT_FUNCTION, TYPE_INT,
+                    0, 0, &glbptr, AUTOEXT);
+            }
+            gen(ARGCNTn, 3);
+            gen(CALLm, cpyfn);
+            gen(ADDSP, savedcsp);
+            return 0;
         }
-        down2(oper, oper2, level1, is, is2);    /* parse right side */
+    }
+    if (is[TYP_OBJ]) {                          // indirect target
+        if (oper) {                             // ?=
+            gen(PUSH1, 0);                      // save address
+            fetch(is);                          // fetch left side
+        }
+        down2(oper, oper2, level1, is, is2);    // parse right side
         if (oper)
             gen(POP2, 0);                       // retrieve address
     }
@@ -403,6 +446,12 @@ level13(int is[]) {
                 sz = BPW; 
             }
         }
+        else if (amatch("struct", 6)) {
+            char *sp;
+            sp = getStructPtr();
+            if (sp == -1) error("unknown struct name");
+            else sz = getStructSize(sp);
+        }
         else if (symname(sname) &&  
             ((ptr = findloc(sname)) || (ptr = findglb(sname))) &&
             ptr[IDENT] != IDENT_FUNCTION && ptr[IDENT] != IDENT_LABEL) {
@@ -462,133 +511,122 @@ level13(int is[]) {
 // handles the case where a function's address is invoked by naming the
 // function without a left parenthesis following.
 level14(int *is) {
-    int k, const, val;
+    int k, val;
     char *ptr, *before, *start;
+    int is2[7];
     k = primary(is);
     ptr = is[SYMTAB_ADR];
     blanks();
-    if (IsMatch(".")) {
-        // Recognize the struct dot operator:
-        // structs are proving very difficult to implement. I'm leaving it
-        // here for now. I already recognize the dot operator and get the
-        // information of the referenced member. What's left to do is update
-        // is[] with the information of the member, and (possibly) create a
-        // new symbol table reference for the member. The issue is that this
-        // symbol table entry should be temporary; it should be removed as
-        // soon as this line is complete.
-        if (is[TYP_OBJ] == TYPE_STRUCT) {
-            // Get the information of the referenced member:
-            char memName[NAMESIZE], *member;
-            if (!symname(memName)) {
-                error("No valid name following struct member operator");
+    while (1) {
+        if (IsMatch(".")) {
+            // struct member access via dot operator
+            if (ptr == 0 || ptr[TYPE] != TYPE_STRUCT) {
+                error("dot requires struct");
                 return 0;
             }
-            member = getStructMember(getint(ptr + CLASSPTR, 2), memName);
-            if (member == 0) {
-                error("Not a valid member of this struct");
+            // Auto-dereference struct pointers (hidden pointer params, etc.)
+            if (ptr[IDENT] == IDENT_POINTER && is[TYP_OBJ] != TYPE_STRUCT) {
+                if (k) fetch(is);
+            }
+            // Get struct base address into AX.
+            // Locals: POINT1s was already emitted by primary(); AX = &struct.
+            // Globals: primary() deferred; must emit now.
+            else if (is[TYP_OBJ] == 0) {
+                gen(POINT1m, ptr);
+            }
+            k = structmember(ptr, is);
+        }
+        else if (IsMatch("->")) {
+            // struct member access via arrow operator
+            if (ptr == 0 || ptr[TYPE] != TYPE_STRUCT) {
+                error("-> requires pointer to struct");
                 return 0;
             }
-            printf("Struct:\n");
-            printIsDebug(is);
-            printSymTabDebug(ptr);
-            // Add the member information to the local symbol table (temporary, 
-            // will be removed at the end of ParseExpression().
-            // Update is[] with information of the member
-            is[SYMTAB_ADR] = AddSymbol("tmpStrMem", // "temp struct member"
-                member[STRMEM_IDENT], // ident
-                member[STRMEM_TYPE],  // type
-                getint(member + STRMEM_SIZE, 2), // size 
-                getint(member + STRMEM_OFFSET, 2), // offset
-                &locptr, AUTOMATIC);
-            is[TYP_OBJ] = member[STRMEM_TYPE];
-            is[TYP_ADR] = 0;
-                        // is[TYP_ADR] contains the data type of an address
-                        // (pointer, array, &variable); otherwise, zero.
-            // !!!
-            is[TYP_CNST] = is[VAL_CNST] = is[LAST_OP] = is[STG_ADR] = 0;
-            printf("Member:\n");
-            printIsDebug(is);
-            printSymTabDebug(ptr);
-            // note: can we handle nested structs?
-            // ----
-            // Handle offset to member
-            // setstage(&before, &start);
-            // ClearStage(before, 0);
-            // gen(GETw2n, is2[VAL_CNST]);
-            // gen(ADD12, 0);
-            // ---
-            printf("  looks good!\n");
+            if (ptr[IDENT] == IDENT_VARIABLE) {
+                error("use . for struct variables");
+                return 0;
+            }
+            // Load pointer value to get struct address into AX.
+            if (k) fetch(is);
+            k = structmember(ptr, is);
         }
-        else {
-            // must account for arrays and ptrs
-            error("can't use struct member operator on non-struct variables");
-        }
-    }
-    else if (ch == '[' || ch == '(') {
-        int is2[7];                     /* allocate only if needed */
-        while (1) {
-            if (IsMatch("[")) {
-                // [subscript]
-                if (ptr == 0) {
-                    error("can't subscript");
-                    skip();
-                    Require("]");
-                    return 0;
-                }
-                if (is[TYP_ADR]) { 
-                    if (k) {
-                        fetch(is); 
-                    }
-                }
-                else { 
-                    error("can't subscript"); 
-                    k = 0; 
-                }
-                setstage(&before, &start);
-                is2[TYP_CNST] = 0;
-                down2(0, 0, level1, is2, is2);
+        else if (IsMatch("[")) {
+            // [subscript]
+            if (ptr == 0) {
+                error("can't subscript");
+                skip();
                 Require("]");
-                if (is2[TYP_CNST]) {
-                    ClearStage(before, 0);
-                    if (is2[VAL_CNST]) {             /* only add if non-zero */
-                        if (ptr[TYPE] >> 2 == BPW) {
-                            gen(GETw2n, is2[VAL_CNST] << LBPW);
-                        }
-                        else {
-                            gen(GETw2n, is2[VAL_CNST]);
-                        }
-                        gen(ADD12, 0);
-                    }
+                return 0;
+            }
+            if (is[TYP_ADR]) { 
+                if (k) {
+                    fetch(is); 
                 }
-                else {
+            }
+            else { 
+                error("can't subscript"); 
+                k = 0; 
+            }
+            setstage(&before, &start);
+            is2[TYP_CNST] = 0;
+            down2(0, 0, level1, is2, is2);
+            Require("]");
+            if (is2[TYP_CNST]) {
+                ClearStage(before, 0);
+                if (is2[VAL_CNST]) {             // only add if non-zero
                     if (ptr[TYPE] >> 2 == BPW) {
-                        gen(DBL1, 0);
+                        gen(GETw2n, is2[VAL_CNST] << LBPW);
+                    }
+                    else {
+                        gen(GETw2n, is2[VAL_CNST]);
                     }
                     gen(ADD12, 0);
                 }
-                is[TYP_ADR] = 0;
-                is[TYP_OBJ] = ptr[TYPE];
-                k = 1;
-            }
-            else if (IsMatch("(")) {         /* function(...) */
-                if (ptr == 0) {
-                    callfunc(0);
-                }
-                else if (ptr[IDENT] != IDENT_FUNCTION) {
-                    if (k && !is[VAL_CNST]) {
-                        fetch(is);
-                    }
-                    callfunc(0);
-                }
-                else {
-                    callfunc(ptr);
-                }
-                k = is[SYMTAB_ADR] = is[TYP_CNST] = is[VAL_CNST] = 0;
             }
             else {
-                return k;
+                if (ptr[TYPE] >> 2 == BPW) {
+                    gen(DBL1, 0);
+                }
+                gen(ADD12, 0);
+            }
+            is[TYP_ADR] = 0;
+            is[TYP_OBJ] = ptr[TYPE];
+            k = 1;
+        }
+        else if (IsMatch("(")) {         // function(...)
+            if (ptr == 0) {
+                callfunc(0);
+            }
+            else if (ptr[IDENT] != IDENT_FUNCTION) {
+                if (k && !is[VAL_CNST]) {
+                    fetch(is);
+                }
+                callfunc(0);
+            }
+            else {
+                callfunc(ptr);
+            }
+            if (ptr && ptr[IDENT] == IDENT_FUNCTION
+                    && ptr[TYPE] == TYPE_STRUCT) {
+                is[TYP_OBJ] = TYPE_STRUCT;
+                is[SYMTAB_ADR] = AddSymbol("tmpRetStr",
+                    IDENT_VARIABLE, TYPE_STRUCT,
+                    getStructSize(getint(ptr + CLASSPTR, 2)),
+                    0, &locptr, AUTOMATIC);
+                putint(getint(ptr + CLASSPTR, 2),
+                       is[SYMTAB_ADR] + CLASSPTR, 2);
+                is[TYP_ADR] = is[TYP_CNST] = is[VAL_CNST] = 0;
+                is[LAST_OP] = is[STG_ADR] = 0;
+                k = 1;
+            }
+            else {
+                k = is[SYMTAB_ADR] = is[TYP_CNST] = is[VAL_CNST] = 0;
             }
         }
+        else {
+            break;
+        }
+        ptr = is[SYMTAB_ADR];
     }
     if (ptr && ptr[IDENT] == IDENT_FUNCTION) {
         gen(POINT1m, ptr);
@@ -598,10 +636,56 @@ level14(int *is) {
     return k;
 }
 
+// Handle struct member lookup and address arithmetic for . and -> operators.
+// Assumes AX already contains the struct base address.
+// Returns 1 (result is an lvalue).
+structmember(char *ptr, int *is) {
+    char memName[NAMESIZE], *member;
+    int offset;
+    if (!symname(memName)) {
+        error("expected member name");
+        return 0;
+    }
+    member = getStructMember(getint(ptr + CLASSPTR, 2), memName);
+    if (member == 0) {
+        error("not a member of this struct");
+        return 0;
+    }
+    offset = getint(member + STRMEM_OFFSET, 2);
+    if (offset != 0) {
+        gen(GETw2n, offset);
+        gen(ADD12, 0);
+    }
+    is[SYMTAB_ADR] = AddSymbol("tmpStrMem",
+        member[STRMEM_IDENT], member[STRMEM_TYPE],
+        getint(member + STRMEM_SIZE, 2),
+        getint(member + STRMEM_OFFSET, 2),
+        &locptr, AUTOMATIC);
+    is[TYP_OBJ] = member[STRMEM_TYPE];
+    is[TYP_ADR] = 0;
+    is[TYP_CNST] = is[VAL_CNST] = is[LAST_OP] = is[STG_ADR] = 0;
+    // For nested structs, propagate struct definition pointer
+    if (member[STRMEM_TYPE] == TYPE_STRUCT) {
+        putint(getint(member + STRMEM_CLASSPTR, 2),
+               is[SYMTAB_ADR] + CLASSPTR, 2);
+    }
+    // For array members, set TYP_ADR so subscripting works
+    if (member[STRMEM_IDENT] == IDENT_ARRAY) {
+        is[TYP_ADR] = member[STRMEM_TYPE];
+        return 0;   // array name is not an lvalue
+    }
+    // For pointer members, set TYP_OBJ to address-sized, TYP_ADR to pointed-to type
+    if (member[STRMEM_IDENT] == IDENT_POINTER) {
+        is[TYP_OBJ] = TYPE_UINT;
+        is[TYP_ADR] = member[STRMEM_TYPE];
+    }
+    return 1;
+}
+
 primary(int *is) {
     char *ptr, sname[NAMESIZE];
     int k;
-    if (IsMatch("(")) {                  /* (subexpression) */
+    if (IsMatch("(")) {                  // (subexpression)
         do {
             k = level1(is); 
         } while (IsMatch(","));
@@ -664,22 +748,62 @@ experr() {
     skip();
 }
 
-    int nargs, const, val;
 callfunc(char *ptr) {      // symbol table entry or 0
+    int nargs, is[7];
+    int savedlocptr, retStructSize;
     nargs = 0;
+    retStructSize = 0;
     blanks();                      // already saw open paren
+    // For struct-returning functions, allocate return buffer
+    // and push hidden first arg before user args.
+    if (ptr && ptr[TYPE] == TYPE_STRUCT) {
+        retStructSize = getStructSize(getint(ptr + CLASSPTR, 2));
+        gen(ADDSP, csp - retStructSize);
+        gen(POINT1s, csp);
+        gen(PUSH1, 0);
+        nargs += BPW;
+    }
     while (streq(lptr, ")") == 0) {
         if (endst()) {
             break;
         }
+        savedlocptr = locptr;
         if (ptr) {
-            ParseExpression(&const, &val);
+            if (level1(is)) {
+                char *argptr;
+                if (is[TYP_OBJ] == TYPE_STRUCT) {
+                    // struct lvalue: pass address, not value
+                }
+                else if (is[TYP_OBJ] == 0 && (argptr = is[SYMTAB_ADR])
+                         && argptr[TYPE] == TYPE_STRUCT
+                         && argptr[IDENT] != IDENT_FUNCTION) {
+                    gen(POINT1m, argptr);
+                }
+                else {
+                    fetch(is);
+                }
+            }
+            locptr = savedlocptr;
             gen(PUSH1, 0);
         }
         else {
             gen(PUSH1, 0);
-            ParseExpression(&const, &val);
-            gen(SWAP1s, 0);            /* don't push addr */
+            if (level1(is)) {
+                char *argptr;
+                if (is[TYP_OBJ] == TYPE_STRUCT) {
+                    // struct lvalue: pass address
+                }
+                else if (is[TYP_OBJ] == 0 && (argptr = is[SYMTAB_ADR])
+                         && argptr[TYPE] == TYPE_STRUCT
+                         && argptr[IDENT] != IDENT_FUNCTION) {
+                    gen(POINT1m, argptr);
+                }
+                else {
+                    fetch(is);
+                }
+            }
+            locptr = savedlocptr;
+            gen(SWAP1s, 0);            // don't push addr
         }
         nargs = nargs + BPW;         // count args*BPW
         if (IsMatch(",") == 0) {
@@ -699,8 +823,8 @@ callfunc(char *ptr) {      // symbol table entry or 0
     gen(ADDSP, csp + nargs);
 }
 
-double(int oper, int is1[], int is2[]) {
 // true if is2's operand should be doubled
+isDouble(int oper, int is1[], int is2[]) {
     if ((oper != ADD12 && oper != SUB12) 
         || (is1[TYP_ADR] >> 2 != BPW) 
         || (is2[TYP_ADR])) {
@@ -955,14 +1079,13 @@ down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
             fetch(is2);
         if (is[VAL_CNST] == 0)
             is[STG_ADR] = snext;
-        gen(GETw2n, is[VAL_CNST] << double(oper, is2, is));
+        gen(GETw2n, is[VAL_CNST] << isDouble(oper, is2, is));
     }
     else {                                  // variable op unknown
         gen(PUSH1, 0);                      // at start in the buffer
         if (down1(level, is2)) fetch(is2);
         if (is2[TYP_CNST]) {                      // variable op constant
             if (is2[VAL_CNST] == 0) is[STG_ADR] = start;
-                gen(GETw2n, is2[VAL_CNST] << double(oper, is, is2));
             csp += BPW;                     // adjust stack and
             ClearStage(before, 0);          // discard the PUSH
             if (oper == ADD12) {            // commutative
@@ -970,13 +1093,13 @@ down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
             }
             else {                          // non-commutative
                 gen(MOVE21, 0);
-                gen(GETw1n, is2[VAL_CNST] << double(oper, is, is2));
+                gen(GETw1n, is2[VAL_CNST] << isDouble(oper, is, is2));
             }
         }
         else {                              // variable op variable
             gen(POP2, 0);
-            if (double(oper, is, is2)) gen(DBL1, 0);
-            if (double(oper, is2, is)) gen(DBL2, 0);
+            if (isDouble(oper, is, is2)) gen(DBL1, 0);
+            if (isDouble(oper, is2, is)) gen(DBL2, 0);
         }
     }
     if (oper) {

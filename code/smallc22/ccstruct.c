@@ -3,7 +3,7 @@
 //                     variables placed under one name in a block of memory,
 //                     allowing the variables to be accessed via one pointer,
 //                     or a declaration which returns the same address.
-// Copyright 2017, 2018 Zane Wagner
+// Copyright 2026 Zane Wagner.
 // All rights reserved.
 // ----------------------------------------------------------------------------
 // Notice of Public Domain Status
@@ -23,11 +23,12 @@
 //                        CLASS == STATIC/AUTOMATIC/EXTERNAL
 //                        CLASSIDX == index of structure definition.
 
-#include <stdio.h>
+#include "stdio.h"
 #include "cc.h"
 #include "ccstruct.h"
 
-extern char *symtab, *locptr, ssname[];
+extern char *symtab, *locptr, *lptr, ssname[];
+extern int ch, eof, rettype, rettypeSubPtr;
 char *structdata, *structdatnext, *structmemnext;
 
 initStructs() {
@@ -36,9 +37,38 @@ initStructs() {
   structmemnext = STRMEM_START;
 }
 
-/**
- * define a single struct. this will only be called from parse()
- */
+// Handle a struct keyword at global scope: either define a new struct,
+// declare variables of an existing struct type, or define a struct-returning
+// function.
+// Called from parse() after 'struct' has been matched.
+dostructblock() {
+  int sp;
+  char *p;
+  sp = doStruct();
+  if (sp != -1 && !endst()) {
+    // Check if this is a struct-returning function: name(
+    blanks();
+    p = lptr;
+    if (alpha(*p)) {
+      while (an(*p)) p++;
+      while (*p == ' ' || *p == '\t') p++;
+      if (*p == '(') {
+        rettype = TYPE_STRUCT;
+        rettypeSubPtr = sp;
+        dofunction(GLOBAL);
+        rettype = TYPE_INT;
+        rettypeSubPtr = 0;
+        return;
+      }
+    }
+    declglb(TYPE_STRUCT, GLOBAL, sp);
+  }
+  ReqSemicolon();
+}
+
+// Define a single struct if '{' follows the tag name.
+// If no '{', look up existing struct by tag name.
+// @return pointer to struct definition, or -1 on error.
 doStruct() {
   int i, totalsize, typeSubIdx;
   blanks();
@@ -47,11 +77,11 @@ doStruct() {
   }
   else {
     illname();
-    return;
+    return -1;
   }
   if (IsMatch("{") == 0) {
-    error("no open bracket");
-    abort(1);
+    // No open brace: look up existing struct by tag name already in ssname.
+    return findStructByName(ssname);
   }
   putint(structmemnext, structdatnext + STRDAT_MBEG, 2);
   // copy name
@@ -86,11 +116,14 @@ doStruct() {
         i = 0;
         while (an(ssname[i])) {
           structmemnext[STRMEM_NAME + i] = ssname[i++];
-          if (STRMEM_NAME + i == STRMEM_MAX) {
+          if (STRMEM_NAME + i == STRMEM_CLASSPTR) {
             break;
           }
         }
         structmemnext[STRMEM_NAME + i] = 0;
+        if (type == TYPE_STRUCT) {
+          putint(typeSubIdx, structmemnext + STRMEM_CLASSPTR, 2);
+        }
         structmemnext += STRMEM_MAX;
         if (IsMatch(",") == 0)
           break;
@@ -104,17 +137,31 @@ doStruct() {
       abort(1);
     }
   }
-  ReqSemicolon();
   putint(totalsize, structdatnext + STRDAT_SIZE, 2);
   putint(structmemnext, structdatnext + STRDAT_MEND, 2);
   structdatnext += STRDAT_MAX;
+  return structdatnext - STRDAT_MAX;
 }
 
-/**
- * determine if 'sname' is the tag name of a struct definition
- * @param sname
- * @return pointer to struct data if found, else -1
- */
+// Find a struct definition by name (direct string comparison).
+// @param sname the struct tag name to search for
+// @return pointer to struct data if found, else -1
+findStructByName(char *sname) {
+  char *current, *end;
+  current = STRDAT_START;
+  end = structdatnext;
+  while (current < end) {
+    if (strcmp(current + STRDAT_NAME, sname) == 0) {
+      return current;
+    }
+    current += STRDAT_MAX;
+  }
+  return -1;
+}
+
+// Determine if next token is the tag name of a struct definition.
+// Consumes the tag name from input if found.
+// @return pointer to struct data if found, else -1
 getStructPtr() {
   char *current, *end;
   int i, len;
@@ -151,9 +198,7 @@ getStructMember(char *basestruct, char *sname) {
   return 0;
 }
 
-/**
- * prints debug information about all struct definitions and all members
- */
+// prints debug information about all struct definitions and all members
 printallstructs() {
   char *istruct, *istructmem, *istructend;
   int ident, type, size, offset;

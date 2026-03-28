@@ -10,7 +10,8 @@
 #define STRMEM_TYPE     1   // members do not need class, all are auto.
 #define STRMEM_SIZE     2
 #define STRMEM_OFFSET   4
-#define STRMEM_NAME     6   // null-terminated
+#define STRMEM_NAME     6   // null-terminated, max 11 chars + null
+#define STRMEM_CLASSPTR 18  // ptr to struct def if member is TYPE_STRUCT
 #define STRMEM_MAX      20
 
 // struct data and member data definitions

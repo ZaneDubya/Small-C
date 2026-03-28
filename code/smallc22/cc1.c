@@ -16,6 +16,7 @@
 #include "stdio.h"
 #include "notice.h"
 #include "cc.h"
+#include "ccstruct.h"
 
 // miscellaneous storage
 int
@@ -128,6 +129,8 @@ main(int argc, int *argv) {
     locptr = STARTLOC;
     glbptr = STARTGLB;
     initStructs();
+    rettype = TYPE_INT;
+    rettypeSubPtr = 0;
     getRunArgs();   // get run options from command line arguments
     openfile();     // and initial input file
     preprocess();   // fetch first line
@@ -152,7 +155,7 @@ parse() {
         else if (amatch("static", 6)) // global static = "file scope"
             dostatic();
         else if (amatch("struct", 6))
-            dostruct();
+            dostructblock();
         else if (dodeclare(GLOBAL))
             ;
         else if (IsMatch("#asm"))
@@ -180,8 +183,25 @@ dostatic() {
 // test for global declarations
 dodeclare(int class) {
     int type, typeSubPtr;
+    char *p;
     type = dotype(&typeSubPtr);
     if (type != 0) {
+        if (type == TYPE_STRUCT) {
+            blanks();
+            p = lptr;
+            if (alpha(*p)) {
+                while (an(*p)) p++;
+                while (*p == ' ' || *p == '\t') p++;
+                if (*p == '(') {
+                    rettype = TYPE_STRUCT;
+                    rettypeSubPtr = typeSubPtr;
+                    dofunction(class);
+                    rettype = TYPE_INT;
+                    rettypeSubPtr = 0;
+                    return 1;
+                }
+            }
+        }
         declglb(type, class, typeSubPtr);
     }
     else if (class == EXTERNAL) {
@@ -212,7 +232,9 @@ dotype(int *typeSubPtr) {
     else if (amatch("int", 3)) {
         return TYPE_INT;
     }
-    else if ((*typeSubPtr = getStructPtr()) != -1) {
+    else if (amatch("struct", 6)) {
+        if ((*typeSubPtr = getStructPtr()) == -1)
+            error("unknown struct name");
         return TYPE_STRUCT;
     }
     return 0;
@@ -223,7 +245,7 @@ declglb(int type, int class, int typeSubPtr) {
     int id, dim;
     while (1) {
         if (endst()) 
-            return;  /* do line */
+            return;  // do line
         if (IsMatch("*")) { 
             id = IDENT_POINTER; 
             dim = 0;
@@ -248,8 +270,12 @@ declglb(int type, int class, int typeSubPtr) {
         }
         if (class == EXTERNAL) 
             external(ssname, type >> 2, id);
-        else if (id != IDENT_FUNCTION) 
-            InitSize(type >> 2, id, dim, class);
+        else if (id != IDENT_FUNCTION) {
+            if (type == TYPE_STRUCT && id == IDENT_VARIABLE)
+                InitStruct(typeSubPtr, class);
+            else
+                InitSize(type >> 2, id, dim, class);
+        }
         if (id == IDENT_POINTER) {
             AddSymbol(ssname, id, type, BPW, 0, &glbptr, class);
         }
@@ -272,7 +298,7 @@ InitSize(int size, int ident, int dim, int class) {
     int savedim;
     litptr = 0;
     if (dim == 0) {
-        dim = -1;         /* *... or ...[] */
+        dim = -1;         // *... or ...[]
     }
     savedim = dim;
     public(ident, class == GLOBAL); // don't do public if class == STATIC
@@ -295,7 +321,7 @@ InitSize(int size, int ident, int dim, int class) {
         stowlit(0, size = BPW);
     }
     dumplits(size);
-    dumpzero(size, dim);           /* only if dim > 0 */
+    dumpzero(size, dim);           // only if dim > 0
 }
 
 // evaluate one initializer
@@ -320,6 +346,43 @@ EvalInitValue(int size, int ident, int *dim) {
 }
 
 // initialize a global struct variable with optional { ... } brace syntax
+InitStruct(int typeSubPtr, int class) {
+    char *membercur, *memberend;
+    int memberSize, structSize, dim, memberTotal;
+    litptr = 0;
+    structSize = getStructSize(typeSubPtr);
+    public(IDENT_VARIABLE, class == GLOBAL);
+    if (IsMatch("=")) {
+        if (IsMatch("{")) {
+            membercur = getint(typeSubPtr + STRDAT_MBEG, 2);
+            memberend = getint(typeSubPtr + STRDAT_MEND, 2);
+            while (membercur < memberend) {
+                memberSize = membercur[STRMEM_TYPE] >> 2;
+                if (memberSize < 1) memberSize = 1;
+                memberTotal = getint(membercur + STRMEM_SIZE, 2);
+                dim = 1;
+                EvalInitValue(memberSize, IDENT_VARIABLE, &dim);
+                // Zero-fill remaining bytes for this member (e.g. array member)
+                while (litptr < getint(membercur + STRMEM_OFFSET, 2)
+                                + memberTotal) {
+                    stowlit(0, 1);
+                }
+                membercur += STRMEM_MAX;
+                if (membercur < memberend) {
+                    if (IsMatch(",") == 0) break;
+                }
+            }
+            Require("}");
+        }
+        else {
+            error("struct initializer requires { }");
+        }
+    }
+    dumplits(1);
+    dumpzero(1, structSize - litptr);
+}
+
+// get required array size
 getArraySz() {
     int val;
     if (IsMatch("]")) 
@@ -397,7 +460,7 @@ putmac(char c) {
 dofunction(int class) {
     int firstType, typeSubPtr;
     char *pGlobal;
-    /*int typedargs; */           // declared arguments have formal types
+    // declared arguments have formal types
     nogo = 0;                     // enable goto statements
     noloc = 0;                    // enable block-local declarations
     lastst = 0;                   // no statement yet
@@ -420,21 +483,28 @@ dofunction(int class) {
     // If this name is already in the symbol table and is an autoext function,
     // define it instead as a global function
     if (pGlobal = findglb(ssname)) {
-        if (pGlobal[CLASS] == AUTOEXT)
+        if (pGlobal[CLASS] == AUTOEXT) {
             pGlobal[CLASS] = class;
+            if (rettype == TYPE_STRUCT) {
+                pGlobal[TYPE] = TYPE_STRUCT;
+                putint(rettypeSubPtr, pGlobal + CLASSPTR, 2);
+            }
+        }
         else {
             // error: can't define something twice.
             multidef(ssname);
         }
     }
     else {
-        AddSymbol(ssname, IDENT_FUNCTION, TYPE_INT, 0, 0, &glbptr, class);
+        AddSymbol(ssname, IDENT_FUNCTION, rettype, 0, 0, &glbptr, class);
+        if (rettype == TYPE_STRUCT)
+            putint(rettypeSubPtr, cptr + CLASSPTR, 2);
     }
     public(IDENT_FUNCTION, class == GLOBAL); // don't do public if class == STATIC
     if (IsMatch("(") == 0)
         error("no open paren");
     if ((firstType = dotype(&typeSubPtr)) != 0) {
-        doArgsTyped(firstType);
+        doArgsTyped(firstType, typeSubPtr);
     }
     else {
         doArgsNonTyped();
@@ -450,10 +520,10 @@ dofunction(int class) {
     }
 }
 
-doArgsTyped(int type) {
-    int id, sz, namelen, paren, typeSubPtr;
 // doArgsTyped: interpret a function argument list with declared types.
 // in type: the type of the first variable in the argument list.
+doArgsTyped(int type, int typeSubPtr) {
+    int id, sz, namelen, paren;
     char *ptr;
     // get a list of all arguments. Set the name, id (Variable or Pointer),
     // type (unsigned/signed int/char), size, and 'argstk' for each. argstk is
@@ -492,9 +562,17 @@ doArgsTyped(int type) {
                 }
                 else if (id == IDENT_VARIABLE && IsMatch("[]")) {
                     id = IDENT_POINTER;
-                    sz = BPW;      /* size of pointer argument */
+                    sz = BPW;      // size of pointer argument
+                }
+                // Hidden pointer for struct params: caller pushes address
+                if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
+                    id = IDENT_POINTER;
+                    sz = BPW;
                 }
                 AddSymbol(ssname, id, type, sz, argstk, &locptr, AUTOMATIC);
+                if (type == TYPE_STRUCT) {
+                    putint(typeSubPtr, cptr + CLASSPTR, 2);
+                }
                 argstk += BPW;
             }
         }
@@ -553,8 +631,8 @@ doArgsNonTyped() {
         if (endst())
             break;
     }
-    csp = 0;                       /* preset stack ptr */
-    argtop = argstk + BPW;         /* account for the pushed BP */
+    csp = 0;                       // preset stack ptr
+    argtop = argstk + BPW;         // account for the pushed BP
     while (argstk) {
         int type, typeSubPtr;
         type = dotype(&typeSubPtr);
@@ -580,10 +658,18 @@ doArgTypes(int type, int typeSubPtr) {
             return;           // no arguments
         if (parseLocalDeclare(type, typeSubPtr, IDENT_POINTER, &id, &sz)) {
             if (ptr = findloc(ssname)) {
+                // Hidden pointer for struct params
+                if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
+                    id = IDENT_POINTER;
+                    sz = BPW;
+                }
                 ptr[IDENT] = id;
                 ptr[TYPE] = type;
                 putint(sz, ptr + SIZE, 2);
                 putint(argtop - getint(ptr + OFFSET, 2), ptr + OFFSET, 2);
+                if (type == TYPE_STRUCT) {
+                    putint(typeSubPtr, ptr + CLASSPTR, 2);
+                }
             }
             else {
                 error("not an argument");
@@ -972,8 +1058,48 @@ addlabel(int def) {
 
 doreturn() {
     int savcsp;
-    if (endst() == 0)
-        doexpr(YES);
+    if (endst() == 0) {
+        if (rettype == TYPE_STRUCT) {
+            // Return struct via hidden pointer (first caller-pushed arg).
+            // Parse return expression as lvalue to get source address.
+            int is[7], savedlocptr, savcsp2;
+            char *cpyfn, *retptr;
+            savedlocptr = locptr;
+            savcsp2 = csp;
+            if (level1(is)) {
+                if (is[TYP_OBJ] == TYPE_STRUCT) {
+                    // AX = source address (local, member, dereferenced)
+                }
+                else if (is[TYP_OBJ] == 0 && (retptr = is[SYMTAB_ADR])
+                         && retptr[TYPE] == TYPE_STRUCT) {
+                    gen(POINT1m, retptr);
+                }
+                else {
+                    error("must return a struct");
+                }
+            }
+            // Emit structcpy(dst, src, n) call.
+            // AX = src. Push src, load dst, swap so stack is [dst][src].
+            gen(PUSH1, 0);
+            gen(POINT1s, argtop + BPW);
+            gen(GETw1p, 0);
+            gen(SWAP1s, 0);
+            gen(PUSH1, 0);
+            gen(GETw1n, getStructSize(rettypeSubPtr));
+            gen(PUSH1, 0);
+            cpyfn = findglb("structcpy");
+            if (cpyfn == 0)
+                cpyfn = AddSymbol("structcpy", IDENT_FUNCTION, TYPE_INT,
+                    0, 0, &glbptr, AUTOEXT);
+            gen(ARGCNTn, 3);
+            gen(CALLm, cpyfn);
+            gen(ADDSP, savcsp2);
+            locptr = savedlocptr;
+        }
+        else {
+            doexpr(YES);
+        }
+    }
     savcsp = csp;
     gen(RETURN, 0);
     csp = savcsp;
@@ -1003,7 +1129,7 @@ docont() {
 doasm() {
     ccode = 0;           // mark mode as "asm"
     while (1) {
-        inline();
+        doInline();
         if (IsMatch("#endasm"))
             break;
         if (eof)
@@ -1015,12 +1141,12 @@ doasm() {
 }
 
 doexpr(int use) {
-    int const, val;
+    int isConst, val;
     int *before, *start;
     usexpr = use;        // tell isfree() whether expr value is used
     while (1) {
         setstage(&before, &start);
-        ParseExpression(&const, &val);
+        ParseExpression(&isConst, &val);
         ClearStage(before, start);
         if (ch != ',')
             break;
