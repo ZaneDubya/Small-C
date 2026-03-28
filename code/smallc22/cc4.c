@@ -18,7 +18,7 @@
 
 /* #define DISOPT */       /* display optimizations values */
 
-/*************************** externals ****************************/
+// === externals ==============================================================
 
 extern char
 *cptr, *macn, *litq, *symtab, optimize, ssname[NAMESIZE];
@@ -28,187 +28,187 @@ extern int
 *snext, *stail, *slast;
 
 
-/***************** optimizer command definitions ******************/
+// === optimizer command definitions ==========================================
 
-             /*     --      p-codes must not overlap these */
-#define any     0x00FF   /* matches any p-code */
-#define _pop    0x00FE   /* matches if corresponding POP2 exists */
-#define pfree   0x00FD   /* matches if pri register free */
-#define sfree   0x00FC   /* matches if sec register free */
-#define comm    0x00FB   /* matches if registers are commutative */
+//              --      p-codes must not overlap these
+#define any     0x00FF   // matches any p-code
+#define _pop    0x00FE   // matches if corresponding POP2 exists
+#define pfree   0x00FD   // matches if pri register free
+#define sfree   0x00FC   // matches if sec register free
+#define comm    0x00FB   // matches if registers are commutative
 
-             /*     --      these digits are reserved for n */
-#define go      0x0100   /* go n entries */
-#define gc      0x0200   /* get code from n entries away */
-#define gv      0x0300   /* get value from n entries away */
-#define sum     0x0400   /* add value from nth entry away */
-#define neg     0x0500   /* negate the value */
-#define ife     0x0600   /* if value == n do commands to next 0 */
-#define ifl     0x0700   /* if value <  n do commands to next 0 */
-#define swv     0x0800   /* swap value with value n entries away */
-#define topop   0x0900   /* moves |code and current value to POP2 */
+//              --      these digits are reserved for n
+#define go      0x0100   // go n entries
+#define gc      0x0200   // get code from n entries away
+#define gv      0x0300   // get value from n entries away
+#define sum     0x0400   // add value from nth entry away
+#define neg     0x0500   // negate the value
+#define ife     0x0600   // if value == n do commands to next 0
+#define ifl     0x0700   // if value <  n do commands to next 0
+#define swv     0x0800   // swap value with value n entries away
+#define topop   0x0900   // moves |code and current value to POP2
 
-#define p1      0x0001   /* plus 1 */
-#define p2      0x0002   /* plus 2 */
-#define p3      0x0003   /* plus 3 */
-#define p4      0x0004   /* plus 4 */
-#define m1      0x00FF   /* minus 1 */
-#define m2      0x00FE   /* minus 2 */
-#define m3      0x00FD   /* minus 3 */
-#define m4      0x00FC   /* minus 4 */
+#define p1      0x0001   // plus 1
+#define p2      0x0002   // plus 2
+#define p3      0x0003   // plus 3
+#define p4      0x0004   // plus 4
+#define m1      0x00FF   // minus 1
+#define m2      0x00FE   // minus 2
+#define m3      0x00FD   // minus 3
+#define m4      0x00FC   // minus 4
 
-#define PRI      0030    /* primary register bits */
-#define SEC      0003    /* secondary register bits */
-#define USES     0011    /* use register contents */
-#define ZAPS     0022    /* zap register contents */
-#define PUSHES   0100    /* pushes onto the stack */
-#define COMMUTES 0200    /* commutative p-code */
+#define PRI      0030    // primary register bits
+#define SEC      0003    // secondary register bits
+#define USES     0011    // use register contents
+#define ZAPS     0022    // zap register contents
+#define PUSHES   0100    // pushes onto the stack
+#define COMMUTES 0200    // commutative p-code
 
-/******************** optimizer command lists *********************/
+// === optimizer command lists ================================================
 
 int
-seq00[] = { 0,ADD12,MOVE21,0,                       /* ADD21 */
            go | p1,ADD21,0 },
+    seq00[] = { 0,ADD12,MOVE21,0,                       // ADD21
 
-    seq01[] = { 0,ADD1n,0,                              /* rINC1 or rDEC1 ? */
+    seq01[] = { 0,ADD1n,0,                              // rINC1 or rDEC1 ?
                ifl | m2,0,ifl | 0,rDEC1,neg,0,ifl | p3,rINC1,0,0 },
 
-    seq02[] = { 0,ADD2n,0,                              /* rINC2 or rDEC2 ? */
+    seq02[] = { 0,ADD2n,0,                              // rINC2 or rDEC2 ?
                ifl | m2,0,ifl | 0,rDEC2,neg,0,ifl | p3,rINC2,0,0 },
 
-    seq03[] = { 0,rDEC1,PUTbp1,rINC1,0,                 /* SUBbpn or DECbp */
+    seq03[] = { 0,rDEC1,PUTbp1,rINC1,0,                 // SUBbpn or DECbp
                go | p2,ife | p1,DECbp,0,SUBbpn,0 },
 
-    seq04[] = { 0,rDEC1,PUTwp1,rINC1,0,                 /* SUBwpn or DECwp */
+    seq04[] = { 0,rDEC1,PUTwp1,rINC1,0,                 // SUBwpn or DECwp
                go | p2,ife | p1,DECwp,0,SUBwpn,0 },
 
-    seq05[] = { 0,rDEC1,PUTbm1,rINC1,0,                 /* SUB_m_ COMMAn */
+    seq05[] = { 0,rDEC1,PUTbm1,rINC1,0,                 // SUB_m_ COMMAn
                go | p1,SUB_m_,go | p1,COMMAn,go | m1,0 },
 
-    seq06[] = { 0,rDEC1,PUTwm1,rINC1,0,                 /* SUB_m_ COMMAn */
+    seq06[] = { 0,rDEC1,PUTwm1,rINC1,0,                 // SUB_m_ COMMAn
                go | p1,SUB_m_,go | p1,COMMAn,go | m1,0 },
 
-    seq07[] = { 0,GETw1m,GETw2n,ADD12,MOVE21,GETb1p,0,  /* GETw2m GETb1p */
+    seq07[] = { 0,GETw1m,GETw2n,ADD12,MOVE21,GETb1p,0,  // GETw2m GETb1p
                go | p4,gv | m3,go | m1,GETw2m,gv | m3,0 },
 
-    seq08[] = { 0,GETw1m,GETw2n,ADD12,MOVE21,GETb1pu,0, /* GETw2m GETb1pu */
+    seq08[] = { 0,GETw1m,GETw2n,ADD12,MOVE21,GETb1pu,0, // GETw2m GETb1pu
                go | p4,gv | m3,go | m1,GETw2m,gv | m3,0 },
 
-    seq09[] = { 0,GETw1m,GETw2n,ADD12,MOVE21,GETw1p,0,  /* GETw2m GETw1p */
+    seq09[] = { 0,GETw1m,GETw2n,ADD12,MOVE21,GETw1p,0,  // GETw2m GETw1p
                go | p4,gv | m3,go | m1,GETw2m,gv | m3,0 },
 
-    seq10[] = { 0,GETw1m,GETw2m,SWAP12,0,               /* GETw2m GETw1m */
+    seq10[] = { 0,GETw1m,GETw2m,SWAP12,0,               // GETw2m GETw1m
                go | p2,GETw1m,gv | m1,go | m1,gv | m1,0 },
 
-    seq11[] = { 0,GETw1m,MOVE21,0,                      /* GETw2m */
+    seq11[] = { 0,GETw1m,MOVE21,0,                      // GETw2m
                go | p1,GETw2m,gv | m1,0 },
 
-    seq12[] = { 0,GETw1m,PUSH1,pfree,0,                 /* PUSHm */
+    seq12[] = { 0,GETw1m,PUSH1,pfree,0,                 // PUSHm
                go | p1,PUSHm,gv | m1,0 },
 
-    seq13[] = { 0,GETw1n,PUTbm1,pfree,0,                /* PUT_m_ COMMAn */
+    seq13[] = { 0,GETw1n,PUTbm1,pfree,0,                // PUT_m_ COMMAn
                PUT_m_,go | p1,COMMAn,go | m1,swv | p1,0 },
 
-    seq14[] = { 0,GETw1n,PUTwm1,pfree,0,                /* PUT_m_ COMMAn */
+    seq14[] = { 0,GETw1n,PUTwm1,pfree,0,                // PUT_m_ COMMAn
                PUT_m_,go | p1,COMMAn,go | m1,swv | p1,0 },
 
-    seq15[] = { 0,GETw1p,PUSH1,pfree,0,                 /* PUSHp */
+    seq15[] = { 0,GETw1p,PUSH1,pfree,0,                 // PUSHp
                go | p1,PUSHp,gv | m1,0 },
 
-    seq16[] = { 0,GETw1s,GETw2n,ADD12,MOVE21,0,         /* GETw2s ADD2n */
+    seq16[] = { 0,GETw1s,GETw2n,ADD12,MOVE21,0,         // GETw2s ADD2n
                go | p3,ADD2n,gv | m2,go | m1,GETw2s,gv | m2,0 },
 
-    seq17[] = { 0,GETw1s,GETw2s,SWAP12,0,               /* GETw2s GETw1s */
+    seq17[] = { 0,GETw1s,GETw2s,SWAP12,0,               // GETw2s GETw1s
                go | p2,GETw1s,gv | m1,go | m1,GETw2s,gv | m1,0 },
 
-    seq18[] = { 0,GETw1s,MOVE21,0,                      /* GETw2s */
+    seq18[] = { 0,GETw1s,MOVE21,0,                      // GETw2s
                go | p1,GETw2s,gv | m1,0 },
 
-    seq19[] = { 0,GETw2m,GETw1n,SWAP12,SUB12,0,         /* GETw1m SUB1n */
+    seq19[] = { 0,GETw2m,GETw1n,SWAP12,SUB12,0,         // GETw1m SUB1n
                go | p3,SUB1n,gv | m2,go | m1,GETw1m,gv | m2,0 },
 
-    seq20[] = { 0,GETw2n,ADD12,0,                       /* ADD1n */
+    seq20[] = { 0,GETw2n,ADD12,0,                       // ADD1n
                go | p1,ADD1n,gv | m1,0 },
 
-    seq21[] = { 0,GETw2s,GETw1n,SWAP12,SUB12,0,         /* GETw1s SUB1n */
+    seq21[] = { 0,GETw2s,GETw1n,SWAP12,SUB12,0,         // GETw1s SUB1n
                go | p3,SUB1n,gv | m2,go | m1,GETw1s,gv | m2,0 },
 
-    seq22[] = { 0,rINC1,PUTbm1,rDEC1,0,                 /* ADDm_ COMMAn */
+    seq22[] = { 0,rINC1,PUTbm1,rDEC1,0,                 // ADDm_ COMMAn
                go | p1,ADDm_,go | p1,COMMAn,go | m1,0 },
 
-    seq23[] = { 0,rINC1,PUTwm1,rDEC1,0,                 /* ADDm_ COMMAn */
+    seq23[] = { 0,rINC1,PUTwm1,rDEC1,0,                 // ADDm_ COMMAn
                go | p1,ADDm_,go | p1,COMMAn,go | m1,0 },
 
-    seq24[] = { 0,rINC1,PUTbp1,rDEC1,0,                 /* ADDbpn or INCbp */
+    seq24[] = { 0,rINC1,PUTbp1,rDEC1,0,                 // ADDbpn or INCbp
                go | p2,ife | p1,INCbp,0,ADDbpn,0 },
 
-    seq25[] = { 0,rINC1,PUTwp1,rDEC1,0,                 /* ADDwpn or INCwp */
+    seq25[] = { 0,rINC1,PUTwp1,rDEC1,0,                 // ADDwpn or INCwp
                go | p2,ife | p1,INCwp,0,ADDwpn,0 },
 
-    seq26[] = { 0,MOVE21,GETw1n,SWAP12,SUB12,0,         /* SUB1n */
+    seq26[] = { 0,MOVE21,GETw1n,SWAP12,SUB12,0,         // SUB1n
                go | p3,SUB1n,gv | m2,0 },
 
-    seq27[] = { 0,MOVE21,GETw1n,comm,0,                 /* GETw2n comm */
+    seq27[] = { 0,MOVE21,GETw1n,comm,0,                 // GETw2n comm
                go | p1,GETw2n,0 },
 
-    seq28[] = { 0,POINT1m,GETw2n,ADD12,MOVE21,0,        /* POINT2m_ PLUSn */
+    seq28[] = { 0,POINT1m,GETw2n,ADD12,MOVE21,0,        // POINT2m_ PLUSn
                go | p3,PLUSn,gv | m2,go | m1,POINT2m_,gv | m2,0 },
 
-    seq29[] = { 0,POINT1m,MOVE21,pfree,0,               /* POINT2m */
+    seq29[] = { 0,POINT1m,MOVE21,pfree,0,               // POINT2m
                go | p1,POINT2m,gv | m1,0 },
 
-    seq30[] = { 0,POINT1m,PUSH1,pfree,_pop,0,           /* ... POINT2m */
+    seq30[] = { 0,POINT1m,PUSH1,pfree,_pop,0,           // ... POINT2m
                topop | POINT2m,go | p2,0 },
 
-    seq31[] = { 0,POINT1s,GETw2n,ADD12,MOVE21,0,        /* POINT2s */
+    seq31[] = { 0,POINT1s,GETw2n,ADD12,MOVE21,0,        // POINT2s
                sum | p1,go | p3,POINT2s,gv | m3,0 },
 
-    seq32[] = { 0,POINT1s,PUSH1,MOVE21,0,               /* POINT2s PUSH2 */
+    seq32[] = { 0,POINT1s,PUSH1,MOVE21,0,               // POINT2s PUSH2
                go | p1,POINT2s,gv | m1,go | p1,PUSH2,go | m1,0 },
 
-    seq33[] = { 0,POINT1s,PUSH1,pfree,_pop,0,           /* ... POINT2s */
+    seq33[] = { 0,POINT1s,PUSH1,pfree,_pop,0,           // ... POINT2s
                topop | POINT2s,go | p2,0 },
 
-    seq34[] = { 0,POINT1s,MOVE21,0,                     /* POINT2s */
+    seq34[] = { 0,POINT1s,MOVE21,0,                     // POINT2s
                go | p1,POINT2s,gv | m1,0 },
 
-    seq35[] = { 0,POINT2m,GETb1p,sfree,0,               /* GETb1m */
+    seq35[] = { 0,POINT2m,GETb1p,sfree,0,               // GETb1m
                go | p1,GETb1m,gv | m1,0 },
 
-    seq36[] = { 0,POINT2m,GETb1pu,sfree,0,              /* GETb1mu */
+    seq36[] = { 0,POINT2m,GETb1pu,sfree,0,              // GETb1mu
                go | p1,GETb1mu,gv | m1,0 },
 
-    seq37[] = { 0,POINT2m,GETw1p,sfree,0,               /* GETw1m */
+    seq37[] = { 0,POINT2m,GETw1p,sfree,0,               // GETw1m
                go | p1,GETw1m,gv | m1,0 },
 
-    seq38[] = { 0,POINT2m_,PLUSn,GETw1p,sfree,0,        /* GETw1m_ PLUSn */
+    seq38[] = { 0,POINT2m_,PLUSn,GETw1p,sfree,0,        // GETw1m_ PLUSn
                go | p2,gc | m1,gv | m1,go | m1,GETw1m_,gv | m1,0 },
 
-    seq39[] = { 0,POINT2s,GETb1p,sfree,0,               /* GETb1s */
+    seq39[] = { 0,POINT2s,GETb1p,sfree,0,               // GETb1s
                sum | p1,go | p1,GETb1s,gv | m1,0 },
 
-    seq40[] = { 0,POINT2s,GETb1pu,sfree,0,              /* GETb1su */
+    seq40[] = { 0,POINT2s,GETb1pu,sfree,0,              // GETb1su
                sum | p1,go | p1,GETb1su,gv | m1,0 },
 
-    seq41[] = { 0,POINT2s,GETw1p,PUSH1,pfree,0,         /* PUSHs */
+    seq41[] = { 0,POINT2s,GETw1p,PUSH1,pfree,0,         // PUSHs
                sum | p1,go | p2,PUSHs,gv | m2,0 },
 
-    seq42[] = { 0,POINT2s,GETw1p,sfree,0,               /* GETw1s */
+    seq42[] = { 0,POINT2s,GETw1p,sfree,0,               // GETw1s
                sum | p1,go | p1,GETw1s,gv | m1,0 },
 
-    seq43[] = { 0,PUSH1,any,POP2,0,                     /* MOVE21 any */
+    seq43[] = { 0,PUSH1,any,POP2,0,                     // MOVE21 any
                go | p2,gc | m1,gv | m1,go | m1,MOVE21,0 },
 
-    seq44[] = { 0,PUSHm,_pop,0,                         /* ... GETw2m */
+    seq44[] = { 0,PUSHm,_pop,0,                         // ... GETw2m
                topop | GETw2m,go | p1,0 },
 
-    seq45[] = { 0,PUSHp,any,POP2,0,                     /* GETw2p ... */
+    seq45[] = { 0,PUSHp,any,POP2,0,                     // GETw2p ...
                go | p2,gc | m1,gv | m1,go | m1,GETw2p,gv | m1,0 },
 
-    seq46[] = { 0,PUSHs,_pop,0,                         /* ... GETw2s */
+    seq46[] = { 0,PUSHs,_pop,0,                         // ... GETw2s
                topop | GETw2s,go | p1,0 },
 
-    seq47[] = { 0,SUB1n,0,                              /* rDEC1 or rINC1 ? */
+    seq47[] = { 0,SUB1n,0,                              // rDEC1 or rINC1 ?
                ifl | m2,0,ifl | 0,rINC1,neg,0,ifl | p3,rDEC1,0,0 };
 
 #define HIGH_SEQ  47
@@ -228,15 +228,13 @@ setseq() {
     seq[44] = seq44;  seq[45] = seq45;  seq[46] = seq46;  seq[47] = seq47;
 }
 
-/***************** assembly-code strings ******************/
+// === assembly-code strings ==================================================
 
 int code[PCODES];
 
-/*
-** First byte contains flag bits indicating:
-**    the value in ax is needed (010) or zapped (020)
-**    the value in bx is needed (001) or zapped (002)
-*/
+// First byte contains flag bits indicating:
+//    the value in ax is needed (010) or zapped (020)
+//    the value in bx is needed (001) or zapped (002)
 setcodes() {
     setseq();
     code[ADD12] = "\211ADD AX,BX\n";
@@ -263,8 +261,8 @@ setcodes() {
     code[DBL2] = "\001SHL BX,1\n";
     code[DECbp] = "\001DEC BYTE PTR [BX]\n";
     code[DECwp] = "\001DEC WORD PTR [BX]\n";
-    code[DIV12] = "\011CWD\nIDIV BX\n";                 /* see gen() */
-    code[DIV12u] = "\011XOR DX,DX\nDIV BX\n";            /* see gen() */
+    code[DIV12] = "\011CWD\nIDIV BX\n";                 // see gen()
+    code[DIV12u] = "\011XOR DX,DX\nDIV BX\n";            // see gen()
     code[ENTER] = "\100PUSH BP\nMOV BP,SP\n";
     code[EQ10f] = "\010OR AX,AX\nJE $+5\nJMP _<n>\n";
     code[EQ12] = "\211CALL __eq\n";
@@ -273,14 +271,14 @@ setcodes() {
     code[GE12u] = "\011CALL __uge\n";
     code[GETb1m] = "\020MOV AL,<m>\nCBW\n";
     code[GETb1mu] = "\020MOV AL,<m>\nXOR AH,AH\n";
-    code[GETb1p] = "\021MOV AL,?<n>??[BX]\nCBW\n";       /* see gen() */
-    code[GETb1pu] = "\021MOV AL,?<n>??[BX]\nXOR AH,AH\n"; /* see gen() */
+    code[GETb1p] = "\021MOV AL,?<n>??[BX]\nCBW\n";       // see gen()
+    code[GETb1pu] = "\021MOV AL,?<n>??[BX]\nXOR AH,AH\n"; // see gen()
     code[GETb1s] = "\020MOV AL,<n>[BP]\nCBW\n";
     code[GETb1su] = "\020MOV AL,<n>[BP]\nXOR AH,AH\n";
     code[GETw1m] = "\020MOV AX,<m>\n";
     code[GETw1m_] = "\020MOV AX,<m>";
     code[GETw1n] = "\020?MOV AX,<n>?XOR AX,AX?\n";
-    code[GETw1p] = "\021MOV AX,?<n>??[BX]\n";            /* see gen() */
+    code[GETw1p] = "\021MOV AX,?<n>??[BX]\n";            // see gen()
     code[GETw1s] = "\020MOV AX,<n>[BP]\n";
     code[GETw2m] = "\002MOV BX,<m>\n";
     code[GETw2n] = "\002?MOV BX,<n>?XOR BX,BX?\n";
@@ -303,8 +301,8 @@ setcodes() {
     code[LT10f] = "\010OR AX,AX\nJL $+5\nJMP _<n>\n";
     code[LT12] = "\011CALL __lt\n";
     code[LT12u] = "\011CALL __ult\n";
-    code[MOD12] = "\011CWD\nIDIV BX\nMOV AX,DX\n";      /* see gen() */
-    code[MOD12u] = "\011XOR DX,DX\nDIV BX\nMOV AX,DX\n"; /* see gen() */
+    code[MOD12] = "\011CWD\nIDIV BX\nMOV AX,DX\n";      // see gen()
+    code[MOD12u] = "\011XOR DX,DX\nDIV BX\nMOV AX,DX\n"; // see gen()
     code[MOVE21] = "\012MOV BX,AX\n";
     code[MUL12] = "\211IMUL BX\n";
     code[MUL12u] = "\211MUL BX\n";
@@ -337,7 +335,7 @@ setcodes() {
     code[rINC1] = "\010#INC AX\n#";
     code[rINC2] = "\010#INC BX\n#";
     code[SUB_m_] = "\000SUB <m>";
-    code[SUB12] = "\011SUB AX,BX\n";                    /* see gen() */
+    code[SUB12] = "\011SUB AX,BX\n";                    // see gen()
     code[SUB1n] = "\010?SUB AX,<n>\n??";
     code[SUBbpn] = "\001SUB BYTE PTR [BX],<n>\n";
     code[SUBwpn] = "\001SUB WORD PTR [BX],<n>\n";
@@ -347,12 +345,10 @@ setcodes() {
     code[XOR12] = "\211XOR AX,BX\n";
 }
 
-/***************** code generation functions *****************/
+//  === code generation functions =============================================
 
-/*
-** print all assembler info before any code is generated
-** and ensure that the segments appear in the correct order.
-*/
+// print all assembler info before any code is generated
+// and ensure that the segments appear in the correct order.
 header() {
     toseg(CODESEG);
     outline("extrn __eq: near");
@@ -367,14 +363,12 @@ header() {
     outline("extrn __ugt: near");
     outline("extrn __lneg: near");
     outline("extrn __switch: near");
-    // outline("dw 0"); /* force non-zero code pointers, word alignment */
+    // outline("dw 0"); // force non-zero code pointers, word alignment
     toseg(DATASEG);
-    // outline("dw 0"); /* force non-zero data pointers, word alignment */
+    // outline("dw 0"); // force non-zero data pointers, word alignment
 }
 
-/*
-** print any assembler stuff needed at the end
-*/
+// print any assembler stuff needed at the end
 trailer() {
     char *cp;
     cptr = STARTGLB;
@@ -400,18 +394,14 @@ trailer() {
 #endif 
 }
 
-/*
-** remember where we are in the queue in case we have to back up.
-*/
+// remember where we are in the queue in case we have to back up.
 setstage(int *before, int *start) {
     if ((*before = snext) == 0)
         snext = stage;
     *start = snext;
 }
 
-/*
-** generate code in staging buffer.
-*/
+// generate code in staging buffer.
 gen(int pcode, int value) {
     int newcsp;
     switch (pcode) {
@@ -470,9 +460,7 @@ ClearStage(int *before, int *start) {
     snext = 0;
 }
 
-/*
-** dump the staging buffer
-*/
+// dump the staging buffer
 dumpstage() {
     int i;
     stail = snext;
@@ -494,10 +482,8 @@ dumpstage() {
     }
 }
 
-/*
-** change to a new segment
-** may be called with NULL, CODESEG, or DATASEG
-*/
+// change to a new segment
+// may be called with NULL, CODESEG, or DATASEG
 toseg(int newseg) {
     if (oldseg == newseg)
             return;
@@ -514,9 +500,7 @@ toseg(int newseg) {
     oldseg = newseg;
 }
 
-/*
-** declare variable, allowing global scope
-*/
+// declare variable, allowing global scope
 public(int ident, int isGlobal) {
     if (ident == IDENT_FUNCTION)
         toseg(CODESEG);
@@ -534,9 +518,7 @@ public(int ident, int isGlobal) {
     }
 }
 
-/*
-** declare external reference
-*/
+// declare external reference
 external(char *name, int size, int ident) {
     if (ident == IDENT_FUNCTION)
         toseg(CODESEG);
@@ -549,9 +531,7 @@ external(char *name, int size, int ident) {
     newline();
 }
 
-/*
-** output the size of the object pointed to.
-*/
+// output the size of the object pointed to.
 outsize(int size, int ident) {
     if (size == 1 && ident != IDENT_POINTER && ident != IDENT_FUNCTION)
         outstr("BYTE");
@@ -561,21 +541,17 @@ outsize(int size, int ident) {
         outstr("NEAR");
 }
 
-/*
-** point to following object(s)
-*/
+// point to following object(s)
 point() {
     outline(" DW $+2");
 }
 
-/*
-** dump the literal pool
-*/
+// dump the literal pool
 dumplits(int size) {
     int j, k;
     k = 0;
     while (k < litptr) {
-        poll(1);                     /* allow program interruption */
+        poll(1);                     // allow program interruption
         if (size == 1)
             gen(BYTE_, NULL);
         else
@@ -593,9 +569,7 @@ dumplits(int size) {
     }
 }
 
-/*
-** dump zeroes for default initial values
-*/
+// dump zeroes for default initial values
 dumpzero(int size, int count) {
     if (count > 0) {
         if (size == 1)
@@ -605,11 +579,9 @@ dumpzero(int size, int count) {
     }
 }
 
-/******************** optimizer functions ***********************/
+// === optimizer functions ====================================================
 
-/*
-** Try to optimize sequence at snext in the staging buffer.
-*/
+// Try to optimize sequence at snext in the staging buffer.
 peep(int *seq) {
     int *next, *count, *pop, n, skip, tmp, reply;
     char c;
@@ -644,7 +616,7 @@ peep(int *seq) {
         next += 2; ++seq;
     }
 
-    /****** have a match, now optimize it ******/
+    // === have a match, now optimize it ======================================
 
     *count += 1;
     reply = skip = NO;
@@ -655,8 +627,8 @@ peep(int *seq) {
             continue;
         }
         if (*seq >= PCODES) {
-            c = *seq & 0xFF;            /* get low byte of command */
-            n = c;                      /* and sign extend into n */
+            c = *seq & 0xFF;            // get low byte of command
+            n = c;                      // and sign extend into n
             switch (*seq & 0xFF00) {
             case ife:   if (snext[1] != n) skip = YES;  break;
             case ifl:   if (snext[1] >= n) skip = YES;  break;
@@ -673,18 +645,16 @@ peep(int *seq) {
                 break;
             }
         }
-        else snext[0] = *seq;         /* set p-code */
+        else snext[0] = *seq;         // set p-code
     }
     return (reply);
 }
 
-/*
-** Is the primary or secondary register free?
-** Is it zapped or unused by the p-code at pp
-** or a successor?  If the primary register is
-** unused by it still may not be free if the
-** context uses the value of the expression.
-*/
+// Is the primary or secondary register free?
+// Is it zapped or unused by the p-code at pp
+// or a successor?  If the primary register is
+// unused by it still may not be free if the
+// context uses the value of the expression.
 isfree(int reg, int *pp) {
     char *cp;
     while (pp < stail) {
@@ -693,37 +663,35 @@ isfree(int reg, int *pp) {
         if (*cp & ZAPS & reg) return (YES);
         pp += 2;
     }
-    if (usexpr) return (reg & 001);   /* PRI => NO, SEC => YES at end */
+    if (usexpr) return (reg & 001);   // PRI => NO, SEC => YES at end
     else       return (YES);
 }
 
-/*
-** Get place where the currently pushed value is popped?
-** NOTE: Function arguments are not popped, they are
-** wasted with an ADDSP.
-*/
+// Get place where the currently pushed value is popped?
+// NOTE: Function arguments are not popped, they are
+// wasted with an ADDSP.
 getpop(int *next) {
     char *cp;
     int level;  level = 0;
     while (YES) {
-        if (next >= stail)                     /* compiler error */
+        if (next >= stail)                     // compiler error
             return 0;
         if (*next == POP2)
             if (level) --level;
-            else return next;                   /* have a matching POP2 */
-        else if (*next == ADDSP) {             /* after func call */
+            else return next;                   // have a matching POP2
+        else if (*next == ADDSP) {             // after func call
             if ((level -= (next[1] >> LBPW)) < 0)
                 return 0;
         }
         else {
-            cp = code[*next];                   /* code string ptr */
-            if (*cp & PUSHES) ++level;           /* must be a push */
+            cp = code[*next];                   // code string ptr
+            if (*cp & PUSHES) ++level;           // must be a push
         }
         next += 2;
     }
 }
 
-/******************* output functions *********************/
+// === output functions =======================================================
 
 colon() {
     fputc(':', output);
@@ -733,34 +701,32 @@ newline() {
     fputc(NEWLINE, output);
 }
 
-/*
-** output assembly code.
-*/
+// output assembly code.
 outcode(int pcode, int value) {
     int part, skip, count;
     char *cp, *back;
     part = back = 0;
     skip = NO;
-    cp = code[pcode] + 1;          /* skip 1st byte of code string */
+    cp = code[pcode] + 1;          // skip 1st byte of code string
     while (*cp) {
         if (*cp == '<') {
-            ++cp;                      /* skip to action code */
+            ++cp;                      // skip to action code
             if (skip == NO) switch (*cp) {
-            case 'm': outname(value + NAME); break; /* mem ref by label */
-            case 'n': outdec(value);       break; /* numeric constant */
-            case 'l': outdec(litlab);      break; /* current literal label */
+            case 'm': outname(value + NAME); break; // mem ref by label
+            case 'n': outdec(value);       break; // numeric constant
+            case 'l': outdec(litlab);      break; // current literal label
             }
-            cp += 2;                   /* skip past > */
+            cp += 2;                   // skip past >
         }
-        else if (*cp == '?') {        /* ?..if value...?...if not value...? */
+        else if (*cp == '?') {        // ?..if value...?...if not value...?
             switch (++part) {
             case 1: if (value == 0) skip = YES; break;
             case 2: skip = !skip;              break;
             case 3: part = 0; skip = NO;       break;
             }
-            ++cp;                      /* skip past ? */
+            ++cp;                      // skip past ?
         }
-        else if (*cp == '#') {        /* repeat #...# value times */
+        else if (*cp == '#') {        // repeat #...# value times
             ++cp;
             if (back == 0) {
                 if ((count = value) < 1) {
@@ -812,6 +778,6 @@ outname(char ptr[]) {
 }
 
 outstr(char ptr[]) {
-    poll(1);           /* allow program interruption */
+    poll(1);           // allow program interruption
     while (*ptr >= ' ') fputc(*ptr++, output);
 }
