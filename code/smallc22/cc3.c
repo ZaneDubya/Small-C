@@ -94,8 +94,8 @@ IsConstExpr(int *val) {
     int *before, *start;
     setstage(&before, &start);
     ParseExpression(&const, val);
-    ClearStage(before, 0);     /* scratch generated code */
     if (const == 0) {
+    ClearStage(before, 0);     // scratch generated code
         error("must be constant expression");
     }
     return const;
@@ -135,7 +135,7 @@ GenTestAndJmp(int label, int reqParens) {
     if (reqParens) {
         Require(")");
     }
-    if (is[TYP_CNST]) {             /* constant expression */
+    if (is[TYP_CNST]) {             // constant expression
         ClearStage(before, 0);
         if (is[VAL_CNST]) {
             return;
@@ -143,8 +143,8 @@ GenTestAndJmp(int label, int reqParens) {
         gen(JMPm, label);
         return;
     }
-    if (is[STG_ADR]) {             /* stage address of "oper 0" code */
-        switch (is[LAST_OP]) {       /* operator code */
+    if (is[STG_ADR]) {             // stage address of "oper 0" code
+        switch (is[LAST_OP]) {       // operator code
             case EQ12:
             case LE12u: 
                 GenJmpIfZero(EQ10f, label, is); 
@@ -184,7 +184,7 @@ GenTestAndJmp(int label, int reqParens) {
 
 // test primary register against zero and generate a jump instruction if false
 GenJmpIfZero(int oper, int label, int is[]) {
-    ClearStage(is[STG_ADR], 0);       /* purge conventional code */
+    ClearStage(is[STG_ADR], 0);       // purge conventional code
     gen(oper, label);
 }
 
@@ -264,19 +264,19 @@ level1(int is[]) {
         }
         down2(oper, oper2, level1, is, is2);    /* parse right side */
         if (oper)
-            gen(POP2, 0);                       /* retrieve address */
+            gen(POP2, 0);                       // retrieve address
     }
-    else {                                      /* direct target */
-        if (oper) {                             /* ?= */
-            fetch(is);                          /* fetch left side */
-            down2(oper, oper2, level1, is, is2);/* parse right side */
+    else {                                      // direct target
+        if (oper) {                             // ?=
+            fetch(is);                          // fetch left side
+            down2(oper, oper2, level1, is, is2);// parse right side
         }
-        else {                                  /*  = */
+        else {                                  //  =
             if (level1(is2))
-                fetch(is2);                     /* parse right side */
+                fetch(is2);                     // parse right side
         }
     }
-    store(is3);                                 /* store result */
+    store(is3);                                 // store result
     return 0;
 }
 
@@ -305,23 +305,23 @@ level2(int is1[]) {
     gen(JMPm, endlab = getlabel());
     gen(LABm, flab);
     if (down1(level2, is3)) {
-        fetch(is3);        /* expression 3 */
+        fetch(is3);        // expression 3
     }
     else if (is3[TYP_CNST]) {
         gen(GETw1n, is3[VAL_CNST]);
     }
     gen(LABm, endlab);
     is1[TYP_CNST] = is1[VAL_CNST] = 0;
-    if (is2[TYP_CNST] && is3[TYP_CNST]) {                  /* expr1 ? const2 : const3 */
+    if (is2[TYP_CNST] && is3[TYP_CNST]) {                  // expr1 ? const2 : const3
         is1[TYP_ADR] = is1[TYP_OBJ] = is1[STG_ADR] = 0;
     }
-    else if (is3[TYP_CNST]) {                        /* expr1 ? var2 : const3 */
+    else if (is3[TYP_CNST]) {                        // expr1 ? var2 : const3
         is1[TYP_ADR] = is2[TYP_ADR];
         is1[TYP_OBJ] = is2[TYP_OBJ];
         is1[STG_ADR] = is2[STG_ADR];
     }
-    else if ((is2[TYP_CNST])                         /* expr1 ? const2 : var3 */
-        || (is2[TYP_ADR] == is3[TYP_ADR])) {           /* expr1 ? same2 : same3 */
+    else if ((is2[TYP_CNST])                         // expr1 ? const2 : var3
+        || (is2[TYP_ADR] == is3[TYP_ADR])) {           // expr1 ? same2 : same3
         is1[TYP_ADR] = is3[TYP_ADR];
         is1[TYP_OBJ] = is3[TYP_OBJ];
         is1[STG_ADR] = is3[STG_ADR];
@@ -385,7 +385,7 @@ level12(int is[]) {
 level13(int is[]) {
     int k;
     char *ptr;
-    if (IsMatch("++")) {                 /* ++lval */
+    if (IsMatch("++")) {                 // ++lval
         if (level13(is) == 0) {
             needlval();
             return 0;
@@ -393,7 +393,7 @@ level13(int is[]) {
         step(rINC1, is, 0);
         return 0;
     }
-    else if (IsMatch("--")) {            /* --lval */
+    else if (IsMatch("--")) {            // --lval
         if (level13(is) == 0) {
             needlval();
             return 0;
@@ -401,35 +401,35 @@ level13(int is[]) {
         step(rDEC1, is, 0);
         return 0;
     }
-    else if (IsMatch("~")) {             /* ~ */
+    else if (IsMatch("~")) {             // ~
         if (level13(is)) fetch(is);
         gen(COM1, 0);
         is[VAL_CNST] = ~is[VAL_CNST];
         return (is[STG_ADR] = 0);
     }
-    else if (IsMatch("!")) {             /* ! */
+    else if (IsMatch("!")) {             // !
         if (level13(is)) fetch(is);
         gen(LNEG1, 0);
         is[VAL_CNST] = !is[VAL_CNST];
         return (is[STG_ADR] = 0);
     }
-    else if (IsMatch("-")) {             /* unary - */
+    else if (IsMatch("-")) {             // unary -
         if (level13(is)) fetch(is);
         gen(ANEG1, 0);
         is[VAL_CNST] = -is[VAL_CNST];
         return (is[STG_ADR] = 0);
     }
-    else if (IsMatch("*")) {             /* unary * */
+    else if (IsMatch("*")) {             // unary *
         if (level13(is)) fetch(is);
         if (ptr = is[SYMTAB_ADR])
             is[TYP_OBJ] = ptr[TYPE];
         else
             is[TYP_OBJ] = TYPE_INT;
         is[STG_ADR] = is[TYP_ADR] = is[TYP_CNST] = 0; // no op0 stage addr, not addr or const
-        is[VAL_CNST] = 1;                   /* omit fetch() on func call */
+        is[VAL_CNST] = 1;                   // omit fetch() on func call
         return 1;
     }
-    else if (amatch("sizeof", 6)) {    /* sizeof() */
+    else if (amatch("sizeof", 6)) {    // sizeof()
         int sz, p;  char *ptr, sname[NAMESIZE];
         if (IsMatch("(")) {
             p = 1;
@@ -468,7 +468,7 @@ level13(int is[]) {
         is[TYP_ADR] = is[TYP_OBJ] = is[SYMTAB_ADR] = 0;
         return 0;
     }
-    else if (IsMatch("&")) {             /* unary & */
+    else if (IsMatch("&")) {             // unary &
         if (level13(is) == 0) {
             error("illegal address");
             return 0;
@@ -484,7 +484,7 @@ level13(int is[]) {
     }
     else {
         k = level14(is);
-        if (IsMatch("++")) {               /* lval++ */
+        if (IsMatch("++")) {               // lval++
             if (k == 0) {
                 needlval();
                 return 0;
@@ -492,7 +492,7 @@ level13(int is[]) {
             step(rINC1, is, rDEC1);
             return 0;
         }
-        else if (IsMatch("--")) {          /* lval-- */
+        else if (IsMatch("--")) {          // lval--
             if (k == 0) {
                 needlval();
                 return 0;
@@ -657,9 +657,9 @@ primary(int *is) {
         Require(")");
         return k;
     }
-    putint(0, is, 7 << LBPW);         /* clear "is" array */
-    if (symname(sname)) {              /* is legal symbol */
-        if (ptr = findloc(sname)) {      /* is local */
+    putint(0, is, 7 << LBPW);         // clear "is" array
+    if (symname(sname)) {              // is legal symbol
+        if (ptr = findloc(sname)) {      // is local
             if (ptr[IDENT] == IDENT_LABEL) {
                 experr();
                 return 0;
@@ -677,7 +677,7 @@ primary(int *is) {
             }
             return 1;
         }
-        if (ptr = findglb(sname)) {      /* is global */
+        if (ptr = findglb(sname)) {      // is global
             is[SYMTAB_ADR] = ptr;
             if (ptr[IDENT] != IDENT_FUNCTION) {
                 if (ptr[IDENT] == IDENT_ARRAY) {
@@ -713,10 +713,10 @@ experr() {
     skip();
 }
 
-callfunc(char *ptr) {      /* symbol table entry or 0 */
     int nargs, const, val;
+callfunc(char *ptr) {      // symbol table entry or 0
     nargs = 0;
-    blanks();                      /* already saw open paren */
+    blanks();                      // already saw open paren
     while (streq(lptr, ")") == 0) {
         if (endst()) {
             break;
@@ -730,7 +730,7 @@ callfunc(char *ptr) {      /* symbol table entry or 0 */
             ParseExpression(&const, &val);
             gen(SWAP1s, 0);            /* don't push addr */
         }
-        nargs = nargs + BPW;         /* count args*BPW */
+        nargs = nargs + BPW;         // count args*BPW
         if (IsMatch(",") == 0) {
             break;
         }
@@ -748,10 +748,8 @@ callfunc(char *ptr) {      /* symbol table entry or 0 */
     gen(ADDSP, csp + nargs);
 }
 
-/*
-** true if is2's operand should be doubled
-*/
 double(int oper, int is1[], int is2[]) {
+// true if is2's operand should be doubled
     if ((oper != ADD12 && oper != SUB12) 
         || (is1[TYP_ADR] >> 2 != BPW) 
         || (is2[TYP_ADR])) {
@@ -771,7 +769,7 @@ step(int oper, int is[], int oper2) {
 
 store(int is[]) {
     char *ptr;
-    if (is[TYP_OBJ]) {                    /* putstk */
+    if (is[TYP_OBJ]) {                    // putstk
         if (is[TYP_OBJ] >> 2 == 1) {
             gen(PUTbp1, 0);
         }
@@ -779,7 +777,7 @@ store(int is[]) {
             gen(PUTwp1, 0);
         }
     }
-    else {                          /* putmem */
+    else {                          // putmem
         ptr = is[SYMTAB_ADR];
         if (ptr[IDENT] != IDENT_POINTER && ptr[TYPE] >> 2 == 1) {
             gen(PUTbm1, ptr);
@@ -793,7 +791,7 @@ store(int is[]) {
 fetch(int is[]) {
     char *ptr;
     ptr = is[SYMTAB_ADR];
-    if (is[TYP_OBJ]) {                                   /* indirect */
+    if (is[TYP_OBJ]) {                                   // indirect
         if (is[TYP_OBJ] >> 2 == BPW) {
             gen(GETw1p, 0);
         }
@@ -804,7 +802,7 @@ fetch(int is[]) {
                 gen(GETb1p, 0);
         }
     }
-    else {                                         /* direct */
+    else {                                         // direct
         if (ptr[IDENT] == IDENT_POINTER || ptr[TYPE] >> 2 == BPW) {
             gen(GETw1m, ptr);
         }
@@ -910,11 +908,11 @@ litchar() {
         case 'n': gch();
             return NEWLINE;
         case 't': gch();
-            return  9;  /* HT */
+            return  9;  // HT
         case 'b': gch();
-            return  8;  /* BS */
+            return  8;  // BS
         case 'f': gch();
-            return 12;  /* FF */
+            return 12;  // FF
     }
     i = 3;
     oct = 0;
@@ -927,11 +925,9 @@ litchar() {
         return oct;
 }
 
-/***************** pipeline functions ******************/
+// === pipeline functions =====================================================
 
-/*
-** skim over terms adjoining || and && operators
-*/
+// skim over terms adjoining || and && operators
 skim(char *opstr, int tcode, int dropval, int endval, int (*level)(), int is[]){
     int k, droplab, endlab;
     droplab = 0;
@@ -958,20 +954,16 @@ skim(char *opstr, int tcode, int dropval, int endval, int (*level)(), int is[]){
     }
 }
 
-/*
-** test for early dropout from || or && sequences
-*/
+// test for early dropout from || or && sequences
 dropout(int k, int tcode, int exit1, int is[]) {
     if (k)
         fetch(is);
     else if (is[TYP_CNST])
         gen(GETw1n, is[VAL_CNST]);
-    gen(tcode, exit1);          /* jumps on false */
+    gen(tcode, exit1);          // jumps on false
 }
 
-/*
-** drop to a lower level
-*/
+// drop to a lower level
 down(char *opstr, int opoff, int (*level)(), int is[]) {
     int k;
     k = down1(level, is);
@@ -981,7 +973,7 @@ down(char *opstr, int opoff, int (*level)(), int is[]) {
         fetch(is);
     while (1) {
         if (nextop(opstr)) {
-            int is2[7];     /* allocate only if needed */
+            int is2[7];     // allocate only if needed
             bump(opsize);
             opindex += opoff;
             down2(op[opindex], op2[opindex], level, is, is2);
@@ -990,50 +982,47 @@ down(char *opstr, int opoff, int (*level)(), int is[]) {
     }
 }
 
-/*
-** unary drop to a lower level
-*/
+// unary drop to a lower level
 down1(int (*level)(), int is[]) {
     int k, *before, *start;
     setstage(&before, &start);
     k = (*level)(is);
     if (is[TYP_CNST])  {
-        ClearStage(before, 0);  /* load constant later */
+        ClearStage(before, 0);  // load constant later
     }
     return k;
 }
 
-/*
-** binary drop to a lower level
-*/
+// binary drop to a lower level
 down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
     int *before, *start;
     char *ptr;
     setstage(&before, &start);
-    is[STG_ADR] = 0;                             /* not "... op 0" syntax */
-    if (is[TYP_CNST]) {                           /* consant op unknown */
+    is[STG_ADR] = 0;                             // not "... op 0" syntax
+    if (is[TYP_CNST]) {                           // consant op unknown
         if (down1(level, is2))
             fetch(is2);
         if (is[VAL_CNST] == 0)
             is[STG_ADR] = snext;
         gen(GETw2n, is[VAL_CNST] << double(oper, is2, is));
     }
-    else {                                  /* variable op unknown */
-        gen(PUSH1, 0);                      /* at start in the buffer */
+    else {                                  // variable op unknown
+        gen(PUSH1, 0);                      // at start in the buffer
         if (down1(level, is2)) fetch(is2);
-        if (is2[TYP_CNST]) {                      /* variable op constant */
+        if (is2[TYP_CNST]) {                      // variable op constant
             if (is2[VAL_CNST] == 0) is[STG_ADR] = start;
-            csp += BPW;                     /* adjust stack and */
-            ClearStage(before, 0);          /* discard the PUSH */
-            if (oper == ADD12) {            /* commutative */
                 gen(GETw2n, is2[VAL_CNST] << double(oper, is, is2));
+            csp += BPW;                     // adjust stack and
+            ClearStage(before, 0);          // discard the PUSH
+            if (oper == ADD12) {            // commutative
+                gen(GETw2n, is2[VAL_CNST] << isDouble(oper, is, is2));
             }
-            else {                          /* non-commutative */
+            else {                          // non-commutative
                 gen(MOVE21, 0);
                 gen(GETw1n, is2[VAL_CNST] << double(oper, is, is2));
             }
         }
-        else {                              /* variable op variable */
+        else {                              // variable op variable
             gen(POP2, 0);
             if (double(oper, is, is2)) gen(DBL1, 0);
             if (double(oper, is2, is)) gen(DBL2, 0);
@@ -1043,7 +1032,7 @@ down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
         if (IsUnsigned(is) || IsUnsigned(is2)) {
             oper = oper2;
         }
-        if (is[TYP_CNST] = is[TYP_CNST] & is2[TYP_CNST]) {               /* constant result */
+        if (is[TYP_CNST] = is[TYP_CNST] & is2[TYP_CNST]) {               // constant result
             is[VAL_CNST] = CalcConst(is[VAL_CNST], oper, is2[VAL_CNST]);
             ClearStage(before, 0);
             if (is2[TYP_CNST] == TYPE_UINT) {
@@ -1051,24 +1040,24 @@ down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
             }
         }
         else {
-            /* variable result */
+            // variable result
             gen(oper, 0);
             if (oper == SUB12 && is[TYP_ADR] >> 2 == BPW && is2[TYP_ADR] >> 2 == BPW) { 
-                /* difference of two word addresses */
+                // difference of two word addresses
                 gen(SWAP12, 0);
                 gen(GETw1n, 1);
-                gen(ASR12, 0);          /* div by 2 */
+                gen(ASR12, 0);          // div by 2
             }
-            /* identify the operator */
+            // identify the operator
             is[LAST_OP] = oper;
         }
         if (oper == SUB12 || oper == ADD12) {
             if (is[TYP_ADR] && is2[TYP_ADR]) {
-                /*  addr +/- addr */
+                //  addr +/- addr
                 is[TYP_ADR] = 0;
             }
             else if (is2[TYP_ADR]) {
-                /* value +/- addr */
+                // value +/- addr
                 is[SYMTAB_ADR] = is2[SYMTAB_ADR];
                 is[TYP_OBJ] = is2[TYP_OBJ];
                 is[TYP_ADR] = is2[TYP_ADR];
@@ -1080,9 +1069,7 @@ down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
     }
 }
 
-/*
-** unsigned operand?
-*/
+// unsigned operand?
 IsUnsigned(int is[]) {
     char *ptr;
     if (is[TYP_ADR] || is[TYP_CNST] == TYPE_UINT || 
@@ -1091,9 +1078,7 @@ IsUnsigned(int is[]) {
     return 0;
 }
 
-/*
-** calculate signed constant result
-*/
+// calculate signed constant result
 CalcConst(int left, int oper, int right) {
     switch (oper) {
         case ADD12:
@@ -1132,9 +1117,7 @@ CalcConst(int left, int oper, int right) {
     return CalcUConst(left, oper, right);
 }
 
-/*
-** calculate unsigned constant result
-*/
+// calculate unsigned constant result
 CalcUConst(unsigned left, int oper, unsigned right) {
     switch (oper) {
         case MUL12u:
