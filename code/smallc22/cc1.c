@@ -186,20 +186,20 @@ dodeclare(int class) {
     char *p;
     type = dotype(&typeSubPtr);
     if (type != 0) {
-        if (type == TYPE_STRUCT) {
-            blanks();
-            p = lptr;
-            if (alpha(*p)) {
-                while (an(*p)) p++;
-                while (*p == ' ' || *p == '\t') p++;
-                if (*p == '(') {
-                    rettype = TYPE_STRUCT;
-                    rettypeSubPtr = typeSubPtr;
-                    dofunction(class);
-                    rettype = TYPE_INT;
-                    rettypeSubPtr = 0;
-                    return 1;
-                }
+        // Lookahead: if next tokens are "name(" this is a function
+        // definition, not a variable declaration. Divert to dofunction().
+        blanks();
+        p = lptr;
+        if (alpha(*p)) {
+            while (an(*p)) p++;
+            while (*p == ' ' || *p == '\t') p++;
+            if (*p == '(') {
+                rettype = (type == TYPE_STRUCT) ? TYPE_STRUCT : TYPE_INT;
+                rettypeSubPtr = (type == TYPE_STRUCT) ? typeSubPtr : 0;
+                dofunction(class);
+                rettype = TYPE_INT;
+                rettypeSubPtr = 0;
+                return 1;
             }
         }
         declglb(type, class, typeSubPtr);
