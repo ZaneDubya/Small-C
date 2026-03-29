@@ -228,7 +228,7 @@ level1(int is[]) {
             gen(PUSH1, 0);
             k = level1(is2);
             if (k && is2[TYP_OBJ] == TYPE_STRUCT) {
-                /* AX already holds src address */
+                // AX already holds src address
             } else if (k && is2[TYP_OBJ] == 0 && (rhsPtr = is2[SYMTAB_ADR])
                        && rhsPtr[TYPE] == TYPE_STRUCT) {
                 gen(POINT1m, rhsPtr);
@@ -240,9 +240,9 @@ level1(int is[]) {
             gen(PUSH1, 0);
             gen(GETw1n, getStructSize(getint(lhsPtr + CLASSPTR, 2)));
             gen(PUSH1, 0);
-            cpyfn = findglb("structcpy");
+            cpyfn = findglb("structcp");
             if (cpyfn == 0) {
-                cpyfn = AddSymbol("structcpy", IDENT_FUNCTION, TYPE_INT,
+                cpyfn = AddSymbol("structcp", IDENT_FUNCTION, TYPE_INT,
                     0, 0, &glbptr, AUTOEXT);
             }
             gen(ARGCNTn, 3);

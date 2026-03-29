@@ -28,8 +28,8 @@
 // Symbol table size == 9600 (NUMLOCS * SYMAVG + NUMGLBS * SYMMAX)
 
 // system wide name size (for symbols)
-#define NAMESIZE 12
-#define NAMEMAX  11
+#define NAMESIZE 13
+#define NAMEMAX  12
 
 // values for "IDENT"
 #define IDENT_LABEL    0

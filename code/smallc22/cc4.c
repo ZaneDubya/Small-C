@@ -16,7 +16,7 @@
 #include "stdio.h"
 #include "cc.h"
 
-/* #define DISOPT */       /* display optimizations values */
+// #define DISOPT           // display optimizations values
 
 // === externals ==============================================================
 
@@ -363,9 +363,9 @@ header() {
     outline("extrn __ugt: near");
     outline("extrn __lneg: near");
     outline("extrn __switch: near");
-    // outline("dw 0"); // force non-zero code pointers, word alignment
+    outline("dw 0"); // force non-zero code pointers, word alignment
     toseg(DATASEG);
-    // outline("dw 0"); // force non-zero data pointers, word alignment
+    outline("dw 0"); // force non-zero data pointers, word alignment
 }
 
 // print any assembler stuff needed at the end

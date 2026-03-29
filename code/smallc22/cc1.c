@@ -1078,7 +1078,7 @@ doreturn() {
                     error("must return a struct");
                 }
             }
-            // Emit structcpy(dst, src, n) call.
+            // Emit structcp(dst, src, n) call.
             // AX = src. Push src, load dst, swap so stack is [dst][src].
             gen(PUSH1, 0);
             gen(POINT1s, argtop + BPW);
@@ -1087,9 +1087,9 @@ doreturn() {
             gen(PUSH1, 0);
             gen(GETw1n, getStructSize(rettypeSubPtr));
             gen(PUSH1, 0);
-            cpyfn = findglb("structcpy");
+            cpyfn = findglb("structcp");
             if (cpyfn == 0)
-                cpyfn = AddSymbol("structcpy", IDENT_FUNCTION, TYPE_INT,
+                cpyfn = AddSymbol("structcp", IDENT_FUNCTION, TYPE_INT,
                     0, 0, &glbptr, AUTOEXT);
             gen(ARGCNTn, 3);
             gen(CALLm, cpyfn);
