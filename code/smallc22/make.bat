@@ -50,9 +50,9 @@ REM %BIN%\link cc1 cc2 cc3 cc4,cc,cc,..\smalllib\clib.lib
 if errorlevel 1 goto exit
 
 REM CLEANUP
-if exist *.asm del *.asm
-if exist *.obj del *.obj
-if exist *.map del *.map
+REM if exist *.asm del *.asm
+REM if exist *.obj del *.obj
+REM if exist *.map del *.map
 REM copy CC.EXE %BIN%\CC.EXE
 
 :exit

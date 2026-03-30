@@ -269,8 +269,8 @@ setcodes() {
     code[GE10f] = "\010OR AX,AX\nJGE $+5\nJMP _<n>\n";
     code[GE12] = "\011CALL __ge\n";
     code[GE12u] = "\011CALL __uge\n";
-    code[GETb1m] = "\020MOV AL,<m>\nCBW\n";
-    code[GETb1mu] = "\020MOV AL,<m>\nXOR AH,AH\n";
+    code[GETb1m] = "\020MOV AL,BYTE PTR <m>\nCBW\n";
+    code[GETb1mu] = "\020MOV AL,BYTE PTR <m>\nXOR AH,AH\n";
     code[GETb1p] = "\021MOV AL,?<n>??[BX]\nCBW\n";       // see gen()
     code[GETb1pu] = "\021MOV AL,?<n>??[BX]\nXOR AH,AH\n"; // see gen()
     code[GETb1s] = "\020MOV AL,<n>[BP]\nCBW\n";
@@ -324,7 +324,7 @@ setcodes() {
     code[PUSHp] = "\100PUSH ?<n>??[BX]\n";
     code[PUSHs] = "\100PUSH ?<n>??[BP]\n";
     code[PUT_m_] = "\000MOV <m>";
-    code[PUTbm1] = "\010MOV <m>,AL\n";
+    code[PUTbm1] = "\010MOV BYTE PTR <m>,AL\n";
     code[PUTbp1] = "\011MOV [BX],AL\n";
     code[PUTwm1] = "\010MOV WORD PTR <m>,AX\n";
     code[PUTwp1] = "\011MOV [BX],AX\n";
@@ -418,6 +418,7 @@ gen(int pcode, int value) {
             gen(SWAP12, 0);
             break;
         case PUSH1:
+        case PUSH2:
             csp -= BPW;
             break;
         case POP2:

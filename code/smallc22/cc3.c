@@ -32,9 +32,11 @@
 // other right arrays are declared as other binary operators are encountered.
 
 
-extern char *litq, *glbptr, *locptr, *lptr, ssname[NAMESIZE];
+extern char *litq, *glbptr, *locptr, *lptr, *dimdata, *dimdatptr,
+    ssname[NAMESIZE];
 extern int ch, csp, litlab, litptr, nch, op[16], op2[16], 
-    opindex, opsize, *snext, argtop, rettype, rettypeSubPtr;
+    opindex, opsize, *snext, argtop, rettype, rettypeSubPtr,
+    lastNdim, lastStrides[MAX_DIMS];
     
 // ****************************************************************************
 // lead-in functions
@@ -53,7 +55,7 @@ IsConstExpr(int *val) {
 }
 
 ParseExpression(int *con, int *val) {
-    int is[7], savedlocptr;
+    int is[8], savedlocptr;
     // Referenced struct member info is stored in the local symbol table,
     // thus we must restore the local symbol table ptr after each expression.
     savedlocptr = locptr;
@@ -66,7 +68,7 @@ ParseExpression(int *con, int *val) {
 }
 
 GenTestAndJmp(int label, int reqParens) {
-    int is[7];
+    int is[8];
     int *before, *start;
     if (reqParens) {
         Require("(");
@@ -160,7 +162,7 @@ GenJmpIfZero(int oper, int label, int is[]) {
 // initial instance of level1() returns to one of the lead-in functions or to
 // primary() or level14() (by way of down1() and down2() ).
 level1(int is[]) {
-    int k, is2[7], is3[2], oper, oper2;
+    int k, is2[8], is3[2], oper, oper2;
     char *lhsPtr, *rhsPtr;
     int isStructLhs, savedcsp, structSize;
     char *cpyfn;
@@ -222,7 +224,7 @@ level1(int is[]) {
             isStructLhs = 1;
         if (isStructLhs) {
             savedcsp = csp;
-            structSize = getStructSize(getint(lhsPtr + CLASSPTR, 2));
+            structSize = getStructSize(getClsPtr(lhsPtr));
             if (is[TYP_OBJ] == TYPE_STRUCT) {
                 // LHS is a computed address in AX (member access, etc).
                 // Must save before parsing RHS.
@@ -311,7 +313,7 @@ level1(int is[]) {
 
 // level2() parses the ternary operator Expression1 ? Expression2 : Expression3
 level2(int is1[]) {
-    int is2[7], is3[7], k, flab, endlab, *before, *after;
+    int is2[8], is3[8], k, flab, endlab, *before, *after;
     // Call level3() by way of down1() to parse the first expression.
     k = down1(level3, is1);
     // If next token is not ?, this is not a ternary operator, return to caller
@@ -548,7 +550,7 @@ level13(int is[]) {
 level14(int *is) {
     int k, val;
     char *ptr, *before, *start;
-    int is2[7];
+    int is2[8];
     k = primary(is);
     ptr = is[SYMTAB_ADR];
     blanks();
@@ -606,37 +608,68 @@ level14(int *is) {
             is2[TYP_CNST] = 0;
             down2(0, 0, level1, is2, is2);
             Require("]");
-            if (is2[TYP_CNST]) {
-                ClearStage(before, 0);
-                if (is2[VAL_CNST]) {             // only add if non-zero
+            if (is[DIM_LEFT] > 1) {
+                // multi-dim: use stride for this dimension
+                int stride;
+                stride = getDimStride(ptr,
+                    ptr[NDIM] - is[DIM_LEFT]);
+                if (is2[TYP_CNST]) {
+                    ClearStage(before, 0);
+                    if (is2[VAL_CNST]) {
+                        gen(GETw2n,
+                            is2[VAL_CNST] * stride);
+                        gen(ADD12, 0);
+                    }
+                }
+                else {
+                    gen(PUSH2, 0);
+                    gen(GETw2n, stride);
+                    gen(MUL12, 0);
+                    gen(POP2, 0);
+                    gen(ADD12, 0);
+                }
+                is[DIM_LEFT]--;
+                is[TYP_ADR] = ptr[TYPE];
+                k = 0;
+            }
+            else {
+                // final dimension or 1D: element-size scaling
+                if (is2[TYP_CNST]) {
+                    ClearStage(before, 0);
+                    if (is2[VAL_CNST]) {
+                        if (ptr[TYPE] == TYPE_STRUCT) {
+                            gen(GETw2n, is2[VAL_CNST]
+                                * getStructSize(
+                                    getClsPtr(ptr)));
+                        }
+                        else if (ptr[TYPE] >> 2 == BPW) {
+                            gen(GETw2n,
+                                is2[VAL_CNST] << LBPW);
+                        }
+                        else {
+                            gen(GETw2n, is2[VAL_CNST]);
+                        }
+                        gen(ADD12, 0);
+                    }
+                }
+                else {
                     if (ptr[TYPE] == TYPE_STRUCT) {
-                        gen(GETw2n, is2[VAL_CNST]
-                            * getStructSize(getint(
-                                ptr + CLASSPTR, 2)));
+                        gen(PUSH2, 0);
+                        gen(GETw2n, getStructSize(
+                            getClsPtr(ptr)));
+                        gen(MUL12, 0);
+                        gen(POP2, 0);
                     }
                     else if (ptr[TYPE] >> 2 == BPW) {
-                        gen(GETw2n, is2[VAL_CNST] << LBPW);
-                    }
-                    else {
-                        gen(GETw2n, is2[VAL_CNST]);
+                        gen(DBL1, 0);
                     }
                     gen(ADD12, 0);
                 }
+                is[DIM_LEFT] = 0;
+                is[TYP_ADR] = 0;
+                is[TYP_OBJ] = ptr[TYPE];
+                k = 1;
             }
-            else {
-                if (ptr[TYPE] == TYPE_STRUCT) {
-                    gen(GETw2n, getStructSize(
-                        getint(ptr + CLASSPTR, 2)));
-                    gen(MUL12, 0);
-                }
-                else if (ptr[TYPE] >> 2 == BPW) {
-                    gen(DBL1, 0);
-                }
-                gen(ADD12, 0);
-            }
-            is[TYP_ADR] = 0;
-            is[TYP_OBJ] = ptr[TYPE];
-            k = 1;
         }
         else if (IsMatch("(")) {         // function(...)
             if (ptr == 0) {
@@ -656,9 +689,9 @@ level14(int *is) {
                 is[TYP_OBJ] = TYPE_STRUCT;
                 is[SYMTAB_ADR] = AddSymbol("tmpRetStr",
                     IDENT_VARIABLE, TYPE_STRUCT,
-                    getStructSize(getint(ptr + CLASSPTR, 2)),
+                    getStructSize(getClsPtr(ptr)),
                     0, &locptr, AUTOMATIC);
-                putint(getint(ptr + CLASSPTR, 2),
+                putint(getClsPtr(ptr),
                        is[SYMTAB_ADR] + CLASSPTR, 2);
                 is[TYP_ADR] = is[TYP_CNST] = is[VAL_CNST] = 0;
                 is[LAST_OP] = is[STG_ADR] = 0;
@@ -691,7 +724,7 @@ structmember(char *ptr, int *is) {
         error("expected member name");
         return 0;
     }
-    member = getStructMember(getint(ptr + CLASSPTR, 2), memName);
+    member = getStructMember(getClsPtr(ptr), memName);
     if (member == 0) {
         error("not a member of this struct");
         return 0;
@@ -737,7 +770,7 @@ primary(int *is) {
         Require(")");
         return k;
     }
-    putint(0, is, 7 << LBPW);         // clear "is" array
+    putint(0, is, 8 << LBPW);         // clear "is" array
     if (symname(sname)) {              // is legal symbol
         if (ptr = findloc(sname)) {      // is local
             if (ptr[IDENT] == IDENT_LABEL) {
@@ -749,11 +782,15 @@ primary(int *is) {
             is[TYP_OBJ] = ptr[TYPE];
             if (ptr[IDENT] == IDENT_ARRAY) {
                 is[TYP_ADR] = ptr[TYPE];
+                if (ptr[NDIM] > 1)
+                    is[DIM_LEFT] = ptr[NDIM];
                 return 0;
             }
             if (ptr[IDENT] == IDENT_POINTER) {
                 is[TYP_OBJ] = TYPE_UINT;
                 is[TYP_ADR] = ptr[TYPE];
+                if (ptr[NDIM] > 1)
+                    is[DIM_LEFT] = ptr[NDIM];
             }
             return 1;
         }
@@ -763,10 +800,14 @@ primary(int *is) {
                 if (ptr[IDENT] == IDENT_ARRAY) {
                     gen(POINT1m, ptr);
                     is[TYP_OBJ] = is[TYP_ADR] = ptr[TYPE];
+                    if (ptr[NDIM] > 1)
+                        is[DIM_LEFT] = ptr[NDIM];
                     return 0;
                 }
                 if (ptr[IDENT] == IDENT_POINTER) {
                     is[TYP_ADR] = ptr[TYPE];
+                    if (ptr[NDIM] > 1)
+                        is[DIM_LEFT] = ptr[NDIM];
                 }
                 return 1;
             }
@@ -794,7 +835,7 @@ experr() {
 }
 
 callfunc(char *ptr) {      // symbol table entry or 0
-    int nargs, is[7];
+    int nargs, is[8];
     int savedlocptr, retStructSize;
     nargs = 0;
     retStructSize = 0;
@@ -802,7 +843,7 @@ callfunc(char *ptr) {      // symbol table entry or 0
     // For struct-returning functions, allocate return buffer
     // and push hidden first arg before user args.
     if (ptr && ptr[TYPE] == TYPE_STRUCT) {
-        retStructSize = getStructSize(getint(ptr + CLASSPTR, 2));
+        retStructSize = getStructSize(getClsPtr(ptr));
         gen(ADDSP, csp - retStructSize);
         gen(POINT1s, csp);
         gen(PUSH1, 0);
@@ -1096,7 +1137,7 @@ down(char *opstr, int opoff, int (*level)(), int is[]) {
         fetch(is);
     while (1) {
         if (nextop(opstr)) {
-            int is2[7];     // allocate only if needed
+            int is2[8];     // allocate only if needed
             bump(opsize);
             opindex += opoff;
             down2(op[opindex], op2[opindex], level, is, is2);
@@ -1258,21 +1299,4 @@ CalcUConst(unsigned left, int oper, unsigned right) {
             return (left > right);
     }
     return (0);
-}
-    
-// ****************************************************************************
-// debug functions
-// ****************************************************************************
-
-printIsDebug(int *is) {
-    printf("  IsInfo st=0x%x to=%u ta=%u tc=%u vc=%u lo=%u sa=%u\n",
-        is[0], is[1], is[2], is[3], is[4], is[5], is[6]);
-}
-
-printSymTabDebug(char *ptr) {
-    printf("  SymTab id=%u typ=%u cls=%u &cl=0x%x sz=%u ofs=%d\n",
-        ptr[IDENT], ptr[TYPE],  ptr[CLASS], 
-        getint(ptr + CLASSPTR, 2), 
-        getint(ptr + SIZE, 2), 
-        getint(ptr + OFFSET, 2));
 }

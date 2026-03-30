@@ -9,8 +9,9 @@
 // symbol table format
 #define IDENT     0
 #define TYPE      1
-#define CLASS     2    // unused byte at index 3
-#define CLASSPTR  4    // e.g. ptr to struct data in structdat
+#define CLASS     2
+#define NDIM      3    // number of dimensions (0 or 1 = normal)
+#define CLASSPTR  4    // e.g. ptr to struct data or dimdata entry
 #define SIZE      6
 #define OFFSET    8
 #define NAME      10
@@ -78,7 +79,11 @@
 #define LITABSZ 4000
 #define LITMAX  (LITABSZ-1)
 
-// is[] array -- expression state (7 ints)
+// multi-dimensional array metadata buffer
+#define DIMDATSZ  500  // dimdata buffer size
+#define MAX_DIMS    8  // max dimensions per array
+
+// is[] array -- expression state (8 ints)
 // Starting with level1(), this code places information about the expression
 // under analysis into the is[] and is2[] arrays. These are local arrays of
 // seven integers each. The term 'is' in these array names is not an acronym,
@@ -142,6 +147,12 @@
                         // If not zero, it tells test() that better code can be
                         // generated and how much of the end of the staging
                         // buffer to replace.
+
+#define DIM_LEFT 7      // is[DIM_LEFT] remaining dimensions to subscript.
+                        // Set in primary() for multi-dim arrays (NDIM > 1).
+                        // Decremented in level14() for each [index].
+                        // When it reaches 1, the final subscript uses
+                        // element-size scaling (normal path).
 
 // input line
 #define LINEMAX  127

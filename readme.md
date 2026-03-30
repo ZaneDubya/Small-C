@@ -13,7 +13,7 @@ website is [deturbulator.org](http://www.deturbulator.org/Jim.asp).
 YLink was written by Zane Wagner in 2017.
 
 ## Small-C Compiler
-Version 2.3, Revision Level 120
+Version 2.3, Revision Level 121
 Copyright 1982, 1983, 1985, 1988 J. E. Hendrix
 
 Enhancements by Zane Wagner:
@@ -24,6 +24,8 @@ Enhancements by Zane Wagner:
 * Support for 'static' access modifier for functions and globals.
 * Support for longer variable names.
 * Support for structs.
+* Support for local variable initialization.
+* Support for multi-dimensional arrays and initialization.
 
 ## Small-Assembler
 Version 1.2, Revision Level 14

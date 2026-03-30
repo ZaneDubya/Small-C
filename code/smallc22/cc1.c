@@ -83,8 +83,14 @@ char
     *cptr,     // work ptrs to any char buffer
     *cptr2,
     *cptr3,
+    *dimdata,  // multi-dim array metadata buffer
+    *dimdatptr, // next free entry in dimdata
     msname[NAMESIZE],   // macro symbol name
     ssname[NAMESIZE];   // global symbol name
+
+int
+    lastNdim,            // ndim from last parseLocalDeclare call
+    lastStrides[MAX_DIMS]; // strides from last parseLocalDeclare call
 
 int op[16] = {   // p-codes of signed binary operators
     OR12,                        // level5
@@ -128,6 +134,8 @@ main(int argc, int *argv) {
     symtab = calloc((NUMLOCS*SYMAVG + NUMGLBS*SYMMAX), 1);
     locptr = STARTLOC;
     glbptr = STARTGLB;
+    dimdatptr =
+        dimdata = calloc(DIMDATSZ, 1);
     initStructs();
     rettype = TYPE_INT;
     rettypeSubPtr = 0;
@@ -243,6 +251,9 @@ dotype(int *typeSubPtr) {
 // declare a global variable
 declglb(int type, int class, int typeSubPtr) {
     int id, dim;
+    int dims[MAX_DIMS], ndim, strides[MAX_DIMS];
+    int totalSize, elemSz, k;
+    char *ddentry;
     while (1) {
         if (endst()) 
             return;  // do line
@@ -254,6 +265,7 @@ declglb(int type, int class, int typeSubPtr) {
             id = IDENT_VARIABLE; 
             dim = 1; 
         }
+        ndim = 0;
         if (symname(ssname) == 0) 
             illname();
         if (findglb(ssname)) 
@@ -264,8 +276,17 @@ declglb(int type, int class, int typeSubPtr) {
                 Require(")"); 
             }
             else if (IsMatch("[")) { 
-                id = IDENT_ARRAY; 
-                dim = getArraySz(); 
+                id = IDENT_ARRAY;
+                dims[0] = getArraySz();
+                ndim = 1;
+                while (IsMatch("[")) {
+                    if (ndim >= MAX_DIMS) {
+                        error("too many dimensions");
+                        break;
+                    }
+                    dims[ndim++] = getArraySz();
+                }
+                dim = dims[0];
             }
         }
         if (class == EXTERNAL) 
@@ -273,11 +294,33 @@ declglb(int type, int class, int typeSubPtr) {
         else if (id != IDENT_FUNCTION) {
             if (type == TYPE_STRUCT && id == IDENT_VARIABLE)
                 InitStruct(typeSubPtr, class);
+            else if (ndim > 1)
+                initGlMDArr(type, typeSubPtr, ndim, dims, class);
             else
                 InitSize(type >> 2, id, dim, class);
         }
         if (id == IDENT_POINTER) {
             AddSymbol(ssname, id, type, BPW, 0, &glbptr, class);
+        }
+        else if (ndim > 1) {
+            // multi-dimensional array
+            if (type == TYPE_STRUCT)
+                elemSz = getStructSize(typeSubPtr);
+            else
+                elemSz = type >> 2;
+            if (elemSz < 1) elemSz = 1;
+            // compute strides bottom-up
+            strides[ndim - 2] = dims[ndim - 1] * elemSz;
+            k = ndim - 3;
+            while (k >= 0) {
+                strides[k] = dims[k + 1] * strides[k + 1];
+                --k;
+            }
+            totalSize = dims[0] * strides[0];
+            ddentry = storeDimDat(typeSubPtr, ndim, strides);
+            AddSymbol(ssname, id, type, totalSize, 0, &glbptr, class);
+            cptr[NDIM] = ndim;
+            putint(ddentry, cptr + CLASSPTR, 2);
         }
         else if (type == TYPE_STRUCT) {
             int structsize;
@@ -285,7 +328,7 @@ declglb(int type, int class, int typeSubPtr) {
             AddSymbol(ssname, id, type, dim * structsize, 0, &glbptr, class);
             putint(typeSubPtr, cptr + CLASSPTR, 2);
         }
-        else { // (type == TYPE_ARRAY)
+        else {
             AddSymbol(ssname, id, type, dim * (type >> 2), 0, &glbptr, class);
         }
         if (IsMatch(",") == 0) 
@@ -380,6 +423,114 @@ InitStruct(int typeSubPtr, int class) {
     }
     dumplits(1);
     dumpzero(1, structSize - litptr);
+}
+
+// initialize a global multi-dimensional array.
+// handles both nested braces {{1,2},{3,4}} and flat {1,2,3,4}.
+// type: e.g. TYPE_INT, TYPE_CHR
+// typeSubPtr: struct def ptr if TYPE_STRUCT, else 0
+// ndim: number of dimensions
+// dims[]: dimension sizes
+// class: GLOBAL or STATIC
+initGlMDArr(int type, int typeSubPtr, int ndim, int dims[], int class) {
+    int elemSz, totalElems, i;
+    elemSz = type >> 2;
+    if (type == TYPE_STRUCT)
+        elemSz = getStructSize(typeSubPtr);
+    if (elemSz < 1) elemSz = 1;
+    totalElems = 1;
+    i = 0;
+    while (i < ndim) {
+        totalElems *= dims[i];
+        ++i;
+    }
+    litptr = 0;
+    public(IDENT_ARRAY, class == GLOBAL);
+    if (IsMatch("=")) {
+        if (IsMatch("{")) {
+            initGlMDSub(elemSz, ndim, dims, 0);
+            Require("}");
+        }
+        else {
+            error("array initializer requires { }");
+        }
+    }
+    if (type == TYPE_STRUCT) {
+        dumplits(1);
+        dumpzero(1, totalElems * elemSz - litptr);
+    } else {
+        dumplits(elemSz);
+        dumpzero(elemSz, totalElems - litptr / elemSz);
+    }
+}
+
+// recursive helper for global multi-dim array init.
+// depth: current dimension index (0 = outermost)
+initGlMDSub(int elemSz, int ndim, int dims[], int depth) {
+    int i, dim, innerTot, j;
+    int savedLit;
+    dim = dims[depth];
+    if (depth == ndim - 1) {
+        // innermost dimension: parse scalar values
+        i = dim;
+        while (i) {
+            EvalInitValue(elemSz, IDENT_ARRAY, &i);
+            if (IsMatch(",") == 0) break;
+        }
+        // zero-fill remaining inner elements
+        while (i > 0) {
+            stowlit(0, elemSz);
+            --i;
+        }
+        return;
+    }
+    // non-innermost: compute inner total element count
+    innerTot = 1;
+    j = depth + 1;
+    while (j < ndim) {
+        innerTot *= dims[j];
+        ++j;
+    }
+    blanks();
+    if (streq(lptr, "{")) {
+        // nested braces mode
+        i = 0;
+        while (i < dim) {
+            Require("{");
+            savedLit = litptr;
+            initGlMDSub(elemSz, ndim, dims, depth + 1);
+            Require("}");
+            // zero-fill this row if short
+            while (litptr < savedLit + innerTot * elemSz) {
+                stowlit(0, elemSz);
+            }
+            ++i;
+            if (IsMatch(",") == 0) break;
+        }
+    }
+    else {
+        // flat mode: just parse all elements sequentially
+        i = dim * innerTot;
+        while (i) {
+            EvalInitValue(elemSz, IDENT_ARRAY, &i);
+            if (IsMatch(",") == 0) break;
+        }
+        // zero-fill remaining elements in flat mode
+        while (i > 0) {
+            stowlit(0, elemSz);
+            --i;
+        }
+        return;
+    }
+    // zero-fill remaining rows (nested brace mode)
+    while (i < dim) {
+        j = 0;
+        while (j < innerTot) {
+            stowlit(0, elemSz);
+            ++j;
+        }
+        ++i;
+    }
 }
 
 // get required array size
@@ -531,7 +682,7 @@ dofunction(int class) {
 // in type: the type of the first variable in the argument list.
 doArgsTyped(int type, int typeSubPtr) {
     int id, sz, namelen, paren;
-    char *ptr;
+    char *ptr, *ddentry;
     // get a list of all arguments. Set the name, id (Variable or Pointer),
     // type (unsigned/signed int/char), size, and 'argstk' for each. argstk is
     // the 0-based index of the variable on the stack. We will next reverse 
@@ -567,9 +718,40 @@ doArgsTyped(int type, int typeSubPtr) {
                     }
                     Require(")");
                 }
-                else if (id == IDENT_VARIABLE && IsMatch("[]")) {
+                else if (id == IDENT_VARIABLE && IsMatch("[")) {
+                    int dims[MAX_DIMS], ndim, elemSz, k;
+                    char *ddentry;
                     id = IDENT_POINTER;
-                    sz = BPW;      // size of pointer argument
+                    sz = BPW;
+                    dims[0] = getArraySz();
+                    ndim = 1;
+                    while (IsMatch("[")) {
+                        if (ndim >= MAX_DIMS) {
+                            error("too many dimensions");
+                            break;
+                        }
+                        dims[ndim++] = getArraySz();
+                    }
+                    if (ndim > 1) {
+                        if (type == TYPE_STRUCT)
+                            elemSz = getStructSize(
+                                typeSubPtr);
+                        else
+                            elemSz = type >> 2;
+                        if (elemSz < 1) elemSz = 1;
+                        lastStrides[ndim - 2] =
+                            dims[ndim - 1] * elemSz;
+                        k = ndim - 3;
+                        while (k >= 0) {
+                            lastStrides[k] = dims[k + 1]
+                                * lastStrides[k + 1];
+                            --k;
+                        }
+                        lastNdim = ndim;
+                    }
+                    else {
+                        lastNdim = 0;
+                    }
                 }
                 // Hidden pointer for struct params: caller pushes address
                 if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
@@ -577,7 +759,13 @@ doArgsTyped(int type, int typeSubPtr) {
                     sz = BPW;
                 }
                 AddSymbol(ssname, id, type, sz, argstk, &locptr, AUTOMATIC);
-                if (type == TYPE_STRUCT) {
+                if (lastNdim > 1) {
+                    cptr[NDIM] = lastNdim;
+                    ddentry = storeDimDat(typeSubPtr,
+                        lastNdim, lastStrides);
+                    putint(ddentry, cptr + CLASSPTR, 2);
+                }
+                else if (type == TYPE_STRUCT) {
                     putint(typeSubPtr, cptr + CLASSPTR, 2);
                 }
                 argstk += BPW;
@@ -658,7 +846,7 @@ doArgsNonTyped() {
 // declare argument types
 doArgTypes(int type, int typeSubPtr) {
     int id, sz;
-    char *ptr;
+    char *ptr, *ddentry;
     int t;
     while (1) {
         if (argstk == 0)
@@ -674,7 +862,13 @@ doArgTypes(int type, int typeSubPtr) {
                 ptr[TYPE] = type;
                 putint(sz, ptr + SIZE, 2);
                 putint(argtop - getint(ptr + OFFSET, 2), ptr + OFFSET, 2);
-                if (type == TYPE_STRUCT) {
+                if (lastNdim > 1) {
+                    ptr[NDIM] = lastNdim;
+                    ddentry = storeDimDat(typeSubPtr,
+                        lastNdim, lastStrides);
+                    putint(ddentry, ptr + CLASSPTR, 2);
+                }
+                else if (type == TYPE_STRUCT) {
                     putint(typeSubPtr, ptr + CLASSPTR, 2);
                 }
             }
@@ -725,19 +919,53 @@ parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
         Require(")");
     }
     else if (*id == IDENT_VARIABLE && IsMatch("[")) {
+        int dims[MAX_DIMS], ndim, elemSz, k;
         *id = defArrTyp;
-        if ((*sz *= getArraySz()) == 0) {
-            if (defArrTyp == IDENT_ARRAY
-                && (type == TYPE_CHR || type == TYPE_UCHR)) {
-                // char arr[] — size will be inferred from string init
+        dims[0] = getArraySz();
+        ndim = 1;
+        while (IsMatch("[")) {
+            if (ndim >= MAX_DIMS) {
+                error("too many dimensions");
+                break;
             }
-            else {
-                if (defArrTyp == IDENT_ARRAY) {
-                    error("need array size");
+            dims[ndim++] = getArraySz();
+        }
+        if (ndim > 1) {
+            // multi-dimensional: compute strides and total size
+            if (type == TYPE_STRUCT)
+                elemSz = getStructSize(typeSubPtr);
+            else
+                elemSz = type >> 2;
+            if (elemSz < 1) elemSz = 1;
+            lastStrides[ndim - 2] = dims[ndim - 1] * elemSz;
+            k = ndim - 3;
+            while (k >= 0) {
+                lastStrides[k] = dims[k + 1]
+                    * lastStrides[k + 1];
+                --k;
+            }
+            *sz = dims[0] * lastStrides[0];
+            lastNdim = ndim;
+        }
+        else {
+            // single dimension (original path)
+            lastNdim = 0;
+            if ((*sz *= dims[0]) == 0) {
+                if (defArrTyp == IDENT_ARRAY
+                    && (type == TYPE_CHR || type == TYPE_UCHR)) {
+                    // char arr[] — size inferred from string init
                 }
-                *sz = BPW;      // size of pointer argument
+                else {
+                    if (defArrTyp == IDENT_ARRAY) {
+                        error("need array size");
+                    }
+                    *sz = BPW;      // size of pointer argument
+                }
             }
         }
+    }
+    else {
+        lastNdim = 0;
     }
     return nameIsValid;
 }
@@ -924,6 +1152,199 @@ initLocArray(int type) {
             gen(PUTbp1, 0);
         }
         count++;
+    }
+}
+
+// initialize a local multi-dimensional array with { ... } syntax.
+// supports both nested braces and flat row-major form.
+// symptr must point to the symbol table entry for the array.
+initLcMDArr(int type, char *symptr) {
+    int offset, elemSz, totalElems, ndim;
+    int dims[MAX_DIMS], strides[MAX_DIMS];
+    int i, k;
+    char *ddentry;
+    offset = getint(symptr + OFFSET, 2);
+    ndim = symptr[NDIM];
+    if (type == TYPE_STRUCT)
+        elemSz = getStructSize(getClsPtr(symptr));
+    else
+        elemSz = type >> 2;
+    if (elemSz < 1) elemSz = 1;
+    // reconstruct dims from strides and total size
+    ddentry = getint(symptr + CLASSPTR, 2);
+    totalElems = getint(symptr + SIZE, 2) / elemSz;
+    // read strides from dimdata
+    i = 0;
+    while (i < ndim - 1) {
+        strides[i] = getint(ddentry + 2 + i * 2, 2);
+        ++i;
+    }
+    // reconstruct dimension sizes from strides
+    // strides[i] = dims[i+1] * strides[i+1] (or dims[ndim-1]*elemSz)
+    dims[ndim - 1] = strides[ndim - 2] / elemSz;
+    i = ndim - 2;
+    while (i > 0) {
+        dims[i] = strides[i - 1] / strides[i];
+        --i;
+    }
+    dims[0] = totalElems;
+    i = 1;
+    while (i < ndim) {
+        dims[0] /= dims[i];
+        ++i;
+    }
+    initLcMDSub(type, elemSz, ndim, dims, 0, offset, totalElems);
+    Require("}");
+}
+
+// recursive helper for local multi-dim array init.
+// emits code to store each element at the correct stack offset.
+initLcMDSub(int type, int elemSz, int ndim, int dims[],
+    int depth, int baseOff, int totalSlots) {
+    int i, dim, innerTot, j, isConst, val;
+    int *before, *start;
+    int count;
+    int strOff, strLen;
+    dim = dims[depth];
+    if (depth == ndim - 1) {
+        // innermost: check for string literal (char arrays)
+        if (elemSz == 1 && (type == TYPE_CHR
+            || type == TYPE_UCHR)) {
+            count = 0;
+            while (count < dim) {
+                if (string(&strOff)) {
+                    // copy string chars to stack
+                    i = 0;
+                    strLen = litptr - strOff - 1;
+                    while (i < strLen && count < dim) {
+                        gen(POINT1s,
+                            baseOff + count);
+                        gen(PUSH1, 0);
+                        gen(GETw1n,
+                            litq[strOff + i] & 255);
+                        gen(POP2, 0);
+                        gen(PUTbp1, 0);
+                        ++count;
+                        ++i;
+                    }
+                    litptr = strOff;
+                }
+                else {
+                    gen(POINT1s,
+                        baseOff + count);
+                    gen(PUSH1, 0);
+                    setstage(&before, &start);
+                    ParseExpression(&isConst, &val);
+                    ClearStage(before, start);
+                    gen(POP2, 0);
+                    gen(PUTbp1, 0);
+                    ++count;
+                }
+                if (IsMatch(",") == 0) break;
+            }
+            // zero-fill rest
+            while (count < dim) {
+                gen(POINT1s,
+                    baseOff + count);
+                gen(PUSH1, 0);
+                gen(GETw1n, 0);
+                gen(POP2, 0);
+                gen(PUTbp1, 0);
+                ++count;
+            }
+            return;
+        }
+        // innermost: parse and emit each element
+        count = 0;
+        while (count < dim) {
+            gen(POINT1s, baseOff + count * elemSz);
+            gen(PUSH1, 0);
+            setstage(&before, &start);
+            ParseExpression(&isConst, &val);
+            ClearStage(before, start);
+            gen(POP2, 0);
+            if (elemSz == BPW) gen(PUTwp1, 0);
+            else gen(PUTbp1, 0);
+            ++count;
+            if (IsMatch(",") == 0) break;
+        }
+        // zero-fill rest of this row
+        while (count < dim) {
+            gen(POINT1s, baseOff + count * elemSz);
+            gen(PUSH1, 0);
+            gen(GETw1n, 0);
+            gen(POP2, 0);
+            if (elemSz == BPW) gen(PUTwp1, 0);
+            else gen(PUTbp1, 0);
+            ++count;
+        }
+        return;
+    }
+    // compute inner total elements per this-dim slot
+    innerTot = 1;
+    j = depth + 1;
+    while (j < ndim) {
+        innerTot *= dims[j];
+        ++j;
+    }
+    blanks();
+    if (streq(lptr, "{")) {
+        // nested braces
+        i = 0;
+        while (i < dim) {
+            Require("{");
+            initLcMDSub(type, elemSz, ndim, dims,
+                depth + 1,
+                baseOff + i * innerTot * elemSz,
+                innerTot);
+            Require("}");
+            ++i;
+            if (IsMatch(",") == 0) break;
+        }
+    }
+    else {
+        // flat mode: sequential elements
+        count = 0;
+        while (count < dim * innerTot) {
+            gen(POINT1s,
+                baseOff + count * elemSz);
+            gen(PUSH1, 0);
+            setstage(&before, &start);
+            ParseExpression(&isConst, &val);
+            ClearStage(before, start);
+            gen(POP2, 0);
+            if (elemSz == BPW) gen(PUTwp1, 0);
+            else gen(PUTbp1, 0);
+            ++count;
+            if (IsMatch(",") == 0) break;
+        }
+        // zero-fill remaining flat elements
+        while (count < dim * innerTot) {
+            gen(POINT1s,
+                baseOff + count * elemSz);
+            gen(PUSH1, 0);
+            gen(GETw1n, 0);
+            gen(POP2, 0);
+            if (elemSz == BPW) gen(PUTwp1, 0);
+            else gen(PUTbp1, 0);
+            ++count;
+        }
+        return;
+    }
+    // zero-fill remaining rows (nested brace mode)
+    while (i < dim) {
+        j = 0;
+        while (j < innerTot) {
+            gen(POINT1s,
+                baseOff + (i * innerTot + j) * elemSz);
+            gen(PUSH1, 0);
+            gen(GETw1n, 0);
+            gen(POP2, 0);
+            if (elemSz == BPW) gen(PUTwp1, 0);
+            else gen(PUTbp1, 0);
+            ++j;
+        }
+        ++i;
     }
 }
 
@@ -1124,6 +1545,7 @@ initLocStrArr(int typeSubPtr) {
 // declare local variables
 declareLocals(int type, int typeSubPtr) {
     int id, sz;
+    char *ddentry;
     if (swactive) {
         error("not allowed in switch");
     }
@@ -1140,7 +1562,13 @@ declareLocals(int type, int typeSubPtr) {
         parseLocalDeclare(type, typeSubPtr, IDENT_ARRAY, &id, &sz);
         declared += sz;
         AddSymbol(ssname, id, type, sz, csp - declared, &locptr, AUTOMATIC);
-        if (type == TYPE_STRUCT) {
+        if (lastNdim > 1) {
+            cptr[NDIM] = lastNdim;
+            ddentry = storeDimDat(typeSubPtr, lastNdim,
+                lastStrides);
+            putint(ddentry, cptr + CLASSPTR, 2);
+        }
+        else if (type == TYPE_STRUCT) {
             putint(typeSubPtr, cptr + CLASSPTR, 2);
         }
         if (IsMatch("=")) {
@@ -1152,6 +1580,10 @@ declareLocals(int type, int typeSubPtr) {
                 allocPendLoc();
                 if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
                     initLocStruct(typeSubPtr);
+                }
+                else if (id == IDENT_ARRAY && lastNdim > 1
+                    && IsMatch("{")) {
+                    initLcMDArr(type, cptr);
                 }
                 else if (type == TYPE_STRUCT && id == IDENT_ARRAY) {
                     initLocStrArr(typeSubPtr);
@@ -1386,7 +1818,7 @@ doreturn() {
         if (rettype == TYPE_STRUCT) {
             // Return struct via hidden pointer (first caller-pushed arg).
             // Parse return expression as lvalue to get source address.
-            int is[7], savedlocptr, savcsp2;
+            int is[8], savedlocptr, savcsp2;
             char *cpyfn, *retptr;
             savedlocptr = locptr;
             savcsp2 = csp;

@@ -122,3 +122,12 @@ Small-C Revision History
     variable names. Adds support for 'static' global variables. Longer
     variable names permitted.
 120 Support added for structs, version bumped to 2.3.
+121 Support added for multi-dimensional arrays of ints, chars, structs.
+    Multi-dimensional arrays can be initialized (not structs, though).
+    Function parameters accept int b[][C] syntax for passing multi-dimensional
+    arrays. The first dimension is omitted (the pointer), while remaining
+    dimensions provide stride information for subscript computation.
+    Added BYTE PTR qualifier to GETb1m, GETb1mu, and PUTbm1 code templates
+    to prevent assembler errors when peephole-optimized byte accesses
+    reference word-declared labels.
+    Added PUSH2 to gen() csp tracking.

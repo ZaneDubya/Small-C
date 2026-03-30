@@ -19,7 +19,7 @@
 extern char
     *symtab, *macn, *macq, *pline, *mline, optimize,
     alarm, *glbptr, *line, *lptr, *cptr, *cptr2, *cptr3,
-    *locptr, msname[NAMESIZE], pause;
+    *locptr, *dimdata, *dimdatptr, msname[NAMESIZE], pause;
 
 extern int
     *wq, ccode, ch, csp, eof, errflag, iflevel,
@@ -369,6 +369,48 @@ endst() {
     return (streq(lptr, ";") || ch == 0);
 }
 
+// === multi-dimensional array metadata =======================================
+
+// Store dimension metadata for a multi-dim array.
+// Entry format: [structPtr(2)] [stride_0(2)] ... [stride_{ndim-2}(2)]
+// Returns pointer to start of entry in dimdata[].
+storeDimDat(int sptr, int ndim, int strides[]) {
+    char *entry;
+    int i, sz;
+    sz = ndim * 2;
+    if (dimdatptr + sz > dimdata + DIMDATSZ) {
+        error("dimdata overflow");
+        return 0;
+    }
+    entry = dimdatptr;
+    putint(sptr, dimdatptr, 2);
+    dimdatptr += 2;
+    i = 0;
+    while (i < ndim - 1) {
+        putint(strides[i], dimdatptr, 2);
+        dimdatptr += 2;
+        ++i;
+    }
+    return entry;
+}
+
+// Get struct def pointer from symbol, handling dimdata indirection.
+// If ndim > 1, first 2 bytes of dimdata entry hold struct def ptr.
+// Otherwise, CLASSPTR is the struct def ptr directly.
+getClsPtr(char *sym) {
+    if (sym[NDIM] > 1)
+        return getint(getint(sym + CLASSPTR, 2), 2);
+    return getint(sym + CLASSPTR, 2);
+}
+
+// Get stride for dimension idx from a multi-dim symbol's dimdata.
+// idx 0 = outermost stride (row size in bytes for 2D).
+getDimStride(char *sym, int idx) {
+    char *entry;
+    entry = getint(sym + CLASSPTR, 2);
+    return getint(entry + 2 + idx * 2, 2);
+}
+
 // === symbol table management functions ======================================
 
 AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class) {
@@ -391,6 +433,8 @@ AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int 
     cptr[IDENT] = id;
     cptr[TYPE] = type;
     cptr[CLASS] = class;
+    cptr[NDIM] = 0;
+    putint(0, cptr + CLASSPTR, 2);
     putint(size, cptr + SIZE, 2);
     putint(offset, cptr + OFFSET, 2);
     cptr3 = cptr2 = cptr + NAME;
