@@ -7,7 +7,7 @@ initially published in Dr. Dobbs Journal in the early 1980s. Jim Hendrix's
 website is [deturbulator.org](http://www.deturbulator.org/Jim.asp).
 
 ## Small-C Compiler
-Version 2.2, Revision Level 117
+Version 2.3, Revision Level 120
 Copyright 1982, 1983, 1985, 1988 J. E. Hendrix
 
 Enhancements by Zane Wagner:
@@ -17,6 +17,7 @@ Enhancements by Zane Wagner:
 * C89/C90 argument list types.
 * Support for 'static' access modifier for functions and globals.
 * Support for longer variable names.
+* Support for structs.
 
 ## Small-Assembler
 Version 1.2, Revision Level 14

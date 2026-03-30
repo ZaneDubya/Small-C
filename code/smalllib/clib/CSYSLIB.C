@@ -77,7 +77,9 @@ _parse() {
   pop     ds           ;        ds  (destination)
   mov     si,81h       ; source offset
   mov     di,[bp-2]    ; destination offset
-  rep     movsb        ; move string
+  ; rep prefix (0F3h)
+  DB 0F3H
+  movsb                ; move string
   mov     al,0
   stosb                ; terminate with null byte
   push    es

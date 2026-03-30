@@ -115,3 +115,10 @@ Small-C Revision History
     would update the wrong memory location.  Deleted cases 31 and 32, and 
     changed case 33 to do less optimizing.  Renumbered cases 33 thru 49 as
     31 thru 47.  
+118 Permit C99 style one-line comments, replaced Quote[] with inline string
+    literal. Consolidated type recognition in dofunction() and move function
+    argument parsing to its own function.
+119 Permit C89/C90 style argument lists, where types are inline with the 
+    variable names. Adds support for 'static' global variables. Longer
+    variable names permitted.
+120 Support added for structs, version bumped to 2.3.

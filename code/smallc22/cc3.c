@@ -161,6 +161,9 @@ GenJmpIfZero(int oper, int label, int is[]) {
 // primary() or level14() (by way of down1() and down2() ).
 level1(int is[]) {
     int k, is2[7], is3[2], oper, oper2;
+    char *lhsPtr, *rhsPtr;
+    int isStructLhs, savedcsp, structSize;
+    char *cpyfn;
     k = down1(level2, is);
     if (is[TYP_CNST]) {
         gen(GETw1n, is[VAL_CNST]);
@@ -210,8 +213,6 @@ level1(int is[]) {
     is3[TYP_OBJ] = is[TYP_OBJ];
     // Struct-to-struct deep copy (simple = only)
     if (oper == 0) {
-        char *lhsPtr, *rhsPtr;
-        int isStructLhs;
         lhsPtr = is[SYMTAB_ADR];
         isStructLhs = 0;
         if (is[TYP_OBJ] == TYPE_STRUCT)
@@ -220,26 +221,60 @@ level1(int is[]) {
                  && lhsPtr[IDENT] == IDENT_VARIABLE)
             isStructLhs = 1;
         if (isStructLhs) {
-            int savedcsp;
-            char *cpyfn;
             savedcsp = csp;
-            if (is[TYP_OBJ] == 0)
-                gen(POINT1m, lhsPtr);
-            gen(PUSH1, 0);
-            k = level1(is2);
-            if (k && is2[TYP_OBJ] == TYPE_STRUCT) {
-                // AX already holds src address
-            } else if (k && is2[TYP_OBJ] == 0 && (rhsPtr = is2[SYMTAB_ADR])
-                       && rhsPtr[TYPE] == TYPE_STRUCT) {
-                gen(POINT1m, rhsPtr);
-            } else {
-                error("type mismatch in struct assignment");
-                gen(ADDSP, savedcsp);
-                return 0;
+            structSize = getStructSize(getint(lhsPtr + CLASSPTR, 2));
+            if (is[TYP_OBJ] == TYPE_STRUCT) {
+                // LHS is a computed address in AX (member access, etc).
+                // Must save before parsing RHS.
+                gen(PUSH1, 0);
+                k = level1(is2);
+                if (k && is2[TYP_OBJ] == TYPE_STRUCT) {
+                    // AX = src from struct-returning function
+                } else if (k && is2[TYP_OBJ] == 0
+                           && (rhsPtr = is2[SYMTAB_ADR])
+                           && rhsPtr[TYPE] == TYPE_STRUCT) {
+                    gen(POINT1m, rhsPtr);
+                } else {
+                    error("type mismatch in struct assignment");
+                    gen(ADDSP, savedcsp);
+                    return 0;
+                }
+                // AX = &src.  Build contiguous structcp(dst,src,n)
+                // args so callfunc's return buffer can't separate
+                // &dst (saved above) from the rest.
+                // N.B. use PUSH1 (not PUSH2) so gen() tracks csp.
+                gen(MOVE21, 0);
+                gen(GETw1s, savedcsp - BPW);
+                gen(PUSH1, 0);
+                gen(SWAP12, 0);
+                gen(PUSH1, 0);
+                gen(GETw1n, structSize);
+                gen(PUSH1, 0);
             }
-            gen(PUSH1, 0);
-            gen(GETw1n, getStructSize(getint(lhsPtr + CLASSPTR, 2)));
-            gen(PUSH1, 0);
+            else {
+                // LHS from symbol table -- parse RHS first so that
+                // callfunc's return buffer doesn't separate &dst from
+                // the structcp arguments.
+                k = level1(is2);
+                if (k && is2[TYP_OBJ] == TYPE_STRUCT) {
+                    // AX = src from struct-returning function
+                } else if (k && is2[TYP_OBJ] == 0
+                           && (rhsPtr = is2[SYMTAB_ADR])
+                           && rhsPtr[TYPE] == TYPE_STRUCT) {
+                    gen(POINT1m, rhsPtr);
+                } else {
+                    error("type mismatch in struct assignment");
+                    gen(ADDSP, savedcsp);
+                    return 0;
+                }
+                // AX = &src.  Build structcp(dst, src, n) args.
+                gen(PUSH1, 0);
+                gen(POINT1m, lhsPtr);
+                gen(SWAP1s, 0);
+                gen(PUSH1, 0);
+                gen(GETw1n, structSize);
+                gen(PUSH1, 0);
+            }
             cpyfn = findglb("structcp");
             if (cpyfn == 0) {
                 cpyfn = AddSymbol("structcp", IDENT_FUNCTION, TYPE_INT,
@@ -821,6 +856,9 @@ callfunc(char *ptr) {      // symbol table entry or 0
         gen(CALL1, 0);
     }
     gen(ADDSP, csp + nargs);
+    if (retStructSize > 0) {
+        gen(POINT1s, csp);
+    }
 }
 
 // true if is2's operand should be doubled

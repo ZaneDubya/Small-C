@@ -511,6 +511,13 @@ dofunction(int class) {
     }
     gen(ENTER, 0);
     statement();
+    // Flush any code left in the staging buffer by doreturn() for struct-
+    // returning functions.  doreturn() activates the staging buffer via
+    // level1() but never calls ClearStage, so snext is non-zero on exit.
+    // If left unflushed, subsequent functions overflow the buffer and all
+    // gen() calls become no-ops, causing dumplits() to emit bare numbers
+    // with no leading "DB" directive.
+    ClearStage(0, snext);
     if (lastst != STRETURN && lastst != STGOTO)
         gen(RETURN, 0);
     if (litptr) {

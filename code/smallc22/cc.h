@@ -75,7 +75,7 @@
 #define WQEXIT  2
 
 // literal pool
-#define LITABSZ 2000
+#define LITABSZ 4000
 #define LITMAX  (LITABSZ-1)
 
 // is[] array -- expression state (7 ints)
