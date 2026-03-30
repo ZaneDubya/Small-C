@@ -60,7 +60,8 @@ start_2:
 _ccargc:
         mov     al,cl
         xor     ah,ah
-        ret
+        ; ret (0C3h)
+        DB 0C3H
 
 ;
 ; Test if Secondary (BX) <oper> Primary (AX)
@@ -80,7 +81,8 @@ __?1:
         cmp     ax,bx
         j?2     true
         xor     ax,ax   ; returns zero
-        ret
+        ; ret (0C3h)
+        DB 0C3H
         endm
 ;--------------------------
         compare ult,a
@@ -102,9 +104,11 @@ __lneg:
         or      ax,ax
         jnz     false
 true:   mov     ax,1    ; returns one
-        ret
+        ; ret (0C3h)
+        DB 0C3H
 false:  xor     ax,ax   ; returns zero
-        ret
+        ; ret (0C3h)
+        DB 0C3H          
 ;
 ;
 ; execute "switch" statement
@@ -143,4 +147,3 @@ __link: ret
 
 code ends
         end     start
-

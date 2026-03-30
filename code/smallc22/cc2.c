@@ -1,24 +1,33 @@
-/*
-** Small-C Compiler -- Part 2 -- Front End and Miscellaneous.
-** Copyright 1982, 1983, 1985, 1988 J. E. Hendrix
-** All rights reserved.
-*/
+// ============================================================================
+// Small-C Compiler -- Part 2 -- Front End and Miscellaneous.
+// Copyright 1982, 1983, 1985, 1988 J. E. Hendrix.
+// All rights reserved.
+// ----------------------------------------------------------------------------
+// Notice of Public Domain Status
+// The source code for the Small-C Compiler and runtime libraries (CP/M & DOS),
+// Small-Mac Assembler (CP/M), Small-Assembler (DOS), Small-Tools programs and
+// Small-Windows library to which I hold copyrights are hereby available for
+// royalty free use in private or commerical endeavors. The only obligation
+// being that the users retain the original copyright notices and credit all
+// prior authors (Ron Cain, James Hendrix, etc.) in derivative versions.
+// James E. Hendrix Jr.
+// ============================================================================
 
-#include <stdio.h>
+#include "stdio.h"
 #include "cc.h"
 
 extern char
-*symtab, *macn, *macq, *pline, *mline, optimize,
-alarm, *glbptr, *line, *lptr, *cptr, *cptr2, *cptr3,
-*locptr, msname[NAMESIZE], pause;
+    *symtab, *macn, *macq, *pline, *mline, optimize,
+    alarm, *glbptr, *line, *lptr, *cptr, *cptr2, *cptr3,
+    *locptr, msname[NAMESIZE], pause;
 
 extern int
-*wq, ccode, ch, csp, eof, errflag, iflevel,
-input, input2, listfp, macptr, nch,
-nxtlab, op[16], opindex, opsize, output, pptr,
-skiplevel, *wqptr;
+    *wq, ccode, ch, csp, eof, errflag, iflevel,
+    input, input2, listfp, macptr, nch,
+    nxtlab, op[16], opindex, opsize, output, pptr,
+    skiplevel, *wqptr;
 
-/********************** input functions **********************/
+// === input functions ========================================================
 
 preprocess() {
     int k;
@@ -29,7 +38,7 @@ preprocess() {
         if (eof) return;
     }
     else {
-        inline();
+        doInline();
         return;
     }
     pptr = -1;
@@ -75,7 +84,7 @@ preprocess() {
             }
             bump(2);
         }
-        /* ignore C99-style comments */
+        // ignore C99-style comments
         else if (ch == '/' && nch == '/') {
             bump(2);
             while ((ch == LF || ch == CR) == 0) {
@@ -97,7 +106,7 @@ preprocess() {
                 gch();
             }
             msname[k] = NULL;
-            if (search(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0)) {
+            if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0)) {
                 k = getint(cptr + NAMESIZE, 2);
                 while (c = macq[k++]) {
                   keepch(c);
@@ -133,26 +142,26 @@ keepch(char c) {
 
 ifline() {
     while (1) {
-        inline();
+        doInline();
         if (eof) return;
-        if (match("#ifdef")) {
+        if (IsMatch("#ifdef")) {
             ++iflevel;
             if (skiplevel) 
                 continue;
             symname(msname);
-            if (search(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0) == 0)
+            if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0) == 0)
                 skiplevel = iflevel;
             continue;
         }
-        if (match("#ifndef")) {
+        if (IsMatch("#ifndef")) {
             ++iflevel;
             if (skiplevel) continue;
             symname(msname);
-            if (search(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0))
+            if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0))
                 skiplevel = iflevel;
             continue;
         }
-        if (match("#else")) {
+        if (IsMatch("#else")) {
             if (iflevel) {
                 if (skiplevel == iflevel) skiplevel = 0;
                 else if (skiplevel == 0)  skiplevel = iflevel;
@@ -160,7 +169,7 @@ ifline() {
             else noiferr();
             continue;
         }
-        if (match("#endif")) {
+        if (IsMatch("#endif")) {
             if (iflevel) {
                 if (skiplevel == iflevel) skiplevel = 0;
                 --iflevel;
@@ -174,9 +183,9 @@ ifline() {
     }
 }
 
-inline() {           /* numerous revisions */
+doInline() {
     int k, unit;
-    poll(1);           /* allow operator interruption */
+    poll(1);           // allow operator interruption
     if (input == EOF)
         openfile();
     if (eof)
@@ -207,38 +216,42 @@ inbyte() {
     return gch();
 }
 
-/********************* scanning functions ********************/
+// === scanning functions =====================================================
 
-/*
-** test if next input string is legal symbol name
-*/
+// test if next input string is legal symbol name
 symname(char *sname) {
-    int k; char c;
+    int k;
     blanks();
-    if (alpha(ch) == 0) 
+    if (alpha(ch) == 0) {
         return (*sname = 0);
+    }
     k = 0;
     while (an(ch)) {
         sname[k] = gch();
-        if (k < NAMEMAX) 
+        if (k < NAMEMAX) {
             ++k;
+        }
     }
     sname[k] = 0;
     return 1;
 }
 
-need(char *str)  {
-    if (match(str) == 0) error("missing token");
+Require(char *str)  {
+    if (IsMatch(str) == 0) {
+        error("missing token");
+    }
 }
 
-ns() {
-    if (match(";") == 0) 
+ReqSemicolon() {
+    if (IsMatch(";") == 0) {
         error("no semicolon");
-    else 
+    }
+    else {
         errflag = 0;
+    }
 }
 
-match(char *lit) {
+IsMatch(char *lit) {
     int k;
     blanks();
     if (k = streq(lptr, lit)) {
@@ -252,8 +265,9 @@ streq(char str1[], char str2[]) {
     int k;
     k = 0;
     while (str2[k]) {
-        if (str1[k] != str2[k]) 
+        if (str1[k] != str2[k]) {
             return 0;
+        }
         ++k;
     }
     return k;
@@ -274,10 +288,8 @@ astreq(char str1[], char str2[], int len) {
     k = 0;
     while (k < len) {
         if (str1[k] != str2[k]) break;
-        /*
-        ** must detect end of symbol table names terminated by
-        ** symbol length in binary
-        */
+        // must detect end of symbol table names terminated by
+        // symbol length in binary
         if (str2[k] < ' ') 
             break;
         if (str1[k] < ' ') 
@@ -321,7 +333,7 @@ blanks() {
 }
 
 white() {
-    avail(YES);  /* abort on stack/symbol table overflow */
+    avail(YES);  // abort on stack/symbol table overflow
     return (*lptr <= ' ' && *lptr);
 }
 
@@ -357,9 +369,9 @@ endst() {
     return (streq(lptr, ";") || ch == 0);
 }
 
-/*********** symbol table management functions ***********/
+// === symbol table management functions ======================================
 
-addsym(char *sname, char id, char type, int size, int offset, int *lgpp, int class) {
+AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class) {
     if (lgpp == &glbptr) {
         if (cptr2 = findglb(sname)) {
             return cptr2;
@@ -382,19 +394,25 @@ addsym(char *sname, char id, char type, int size, int offset, int *lgpp, int cla
     putint(size, cptr + SIZE, 2);
     putint(offset, cptr + OFFSET, 2);
     cptr3 = cptr2 = cptr + NAME;
-    while (an(*sname)) *cptr2++ = *sname++;
+    while (an(*sname)) {
+      *cptr2++ = *sname++;
+    }
     if (lgpp == &locptr) {
-        *cptr2 = cptr2 - cptr3;         /* set length */
+        *cptr2 = cptr2 - cptr3;         // set length
         *lgpp = ++cptr2;
     }
     return cptr;
 }
 
-/*
-** search for symbol match
-** on return cptr points to slot found or empty slot
-*/
-search(char *sname, char *buf, int len, char *end, int max, int off) {
+// search for symbol match.
+// on return, cptr points to slot found or empty slot
+// sname: string we are trying to match
+// buf: table of strings to match against
+// len: max length to check for each symbol
+// end: end of table of strings
+// max: max count of strings in table
+// off: ???
+FindSymbol(char *sname, char *buf, int len, char *end, int max, int off) {
     unsigned int ihash, imax;
     imax = (max - 1);
     ihash = hash(sname) % imax;
@@ -419,13 +437,13 @@ hash(char *sname) {
 }
 
 findglb(char *sname) {
-    if (search(sname, STARTGLB, SYMMAX, ENDGLB, NUMGLBS, NAME))
+    if (FindSymbol(sname, STARTGLB, SYMMAX, ENDGLB, NUMGLBS, NAME))
         return cptr;
     return 0;
 }
 
 findloc(char *sname)  {
-    cptr = locptr - 1;  /* search backward for block locals */
+    cptr = locptr - 1;  // FindSymbol backward for block locals
     while (cptr > STARTLOC) {
         cptr = cptr - *cptr;
         if (astreq(sname, cptr, NAMEMAX)) return (cptr - NAME);
@@ -436,17 +454,17 @@ findloc(char *sname)  {
 
 nextsym(char *entry) {
     entry = entry + NAME;
-    while (*entry++ >= ' ');    /* find length byte */
+    while (*entry++ >= ' ');    // find length byte
     return entry;
 }
 
-/******** while queue management functions *********/
+// === while queue management functions =======================================
 
 addwhile(int ptr[]) {
     int k;
-    ptr[WQSP] = csp;         /* and stk ptr */
-    ptr[WQLOOP] = getlabel();  /* and looping label */
-    ptr[WQEXIT] = getlabel();  /* and exit label */
+    ptr[WQSP] = csp;         // and stk ptr
+    ptr[WQLOOP] = getlabel();  // and looping label
+    ptr[WQEXIT] = getlabel();  // and exit label
     if (wqptr == WQMAX) {
         error("control statement nesting limit");
         abort(ERRCODE);
@@ -467,44 +485,34 @@ delwhile() {
     if (wqptr > wq) wqptr -= WQSIZ;
 }
 
-/****************** utility functions ********************/
+// === utility functions ======================================================
 
-/*
-** test if c is alphabetic
-*/
+// test if c is alphabetic
 alpha(char c) {
     return (isalpha(c) || c == '_');
 }
 
-/*
-** test if given character is alphanumeric
-*/
+// test if given character is alphanumeric
 an(char c) {
     return (alpha(c) || isdigit(c));
 }
 
-/*
-** return next avail internal label number
-*/
+// return next avail internal label number
 getlabel() {
     return(++nxtlab);
 }
 
-/*
-** get integer of length len from address addr
-** (byte sequence set by "putint")
-*/
+// get integer of length len from address addr
+// (byte sequence set by "putint")
 getint(char *addr, int len) {
     int i;
-    i = *(addr + --len);  /* high order byte sign extended */
+    i = *(addr + --len);  // high order byte sign extended
     while (len--) i = (i << 8) | *(addr + len) & 255;
     return i;
 }
 
-/*
-** put integer i of length len into address addr
-** (low byte first)
-*/
+// put integer i of length len into address addr
+// (low byte first)
 putint(int i, char *addr, int len) {
     while (len--) {
         *addr++ = i;
@@ -517,7 +525,7 @@ lout(char *line, int fd) {
     fputc(NEWLINE, fd);
 }
 
-/******************* error functions *********************/
+// === error functions ========================================================
 
 illname() {
     error("illegal symbol");
@@ -538,8 +546,12 @@ noiferr() {
 }
 
 error(char msg[]) {
-    if (errflag) return;
-    else errflag = 1;
+    if (errflag) {
+        return;
+    }
+    else {
+        errflag = 1;
+    }
     lout(line, stderr);
     errout(msg, stderr);
     if (alarm) fputc(7, stderr);
@@ -550,8 +562,11 @@ error(char msg[]) {
 errout(char msg[], int fp) {
     int k;
     k = line + 2;
-    while (k++ <= lptr) fputc(' ', fp);
+    while (k++ <= lptr) {
+        fputc(' ', fp);
+    }
     lout("/\\", fp);
-    fputs("**** ", fp); lout(msg, fp);
+    fputs("Error: ", fp); 
+    lout(msg, fp);
 }
 

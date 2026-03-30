@@ -62,6 +62,7 @@ SET BIN=..\..\bin
 %BIN%\asm STRNCMP.ASM /p
 %BIN%\asm STRNCPY.ASM /p
 %BIN%\asm STRRCHR.ASM /p
+%BIN%\asm STRUCTCP.ASM /p
 %BIN%\asm TOASCII.ASM /p
 %BIN%\asm TOLOWER.ASM /p
 %BIN%\asm TOUPPER.ASM /p

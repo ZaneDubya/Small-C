@@ -1,106 +1,114 @@
-/*
-** Small-C Compiler -- Part 1 --  Top End.
-** Copyright 1982, 1983, 1985, 1988 J. E. Hendrix
-** All rights reserved.
-*/
+// ============================================================================
+// Small-C Compiler -- Part 1 --  Top End.
+// Copyright 1982, 1983, 1985, 1988 J. E. Hendrix.
+// All rights reserved.
+// ----------------------------------------------------------------------------
+// Notice of Public Domain Status
+// The source code for the Small-C Compiler and runtime libraries (CP/M & DOS),
+// Small-Mac Assembler (CP/M), Small-Assembler (DOS), Small-Tools programs and
+// Small-Windows library to which I hold copyrights are hereby available for
+// royalty free use in private or commerical endeavors. The only obligation
+// being that the users retain the original copyright notices and credit all
+// prior authors (Ron Cain, James Hendrix, etc.) in derivative versions.
+// James E. Hendrix Jr.
+// ============================================================================
 
 #include "stdio.h"
 #include "notice.h"
 #include "cc.h"
+#include "ccstruct.h"
 
-/*
-** miscellaneous storage
-*/
+// miscellaneous storage
 int
-    nogo,     /* disable goto statements? */
-    noloc,    /* disable block locals? */
-    opindex,  /* index to matched operator */
-    opsize,   /* size of operator in characters */
-    swactive, /* inside a switch? */
-    swdefault,/* default label #, else 0 */
-    *swnext,   /* address of next entry */
-    *swend,    /* address of last entry */
-    *stage,    /* staging buffer address */
-    *wq,       /* while queue */
-    argcs,     /* local copy of argc */
-    *argvs,    /* local copy of argv */
-    *wqptr,    /* ptr to next entry */
-    litptr,   /* ptr to next entry */
-    macptr,   /* macro buffer index */
-    pptr,     /* ptr to parsing buffer */
-    ch,       /* current character of input line */
-    nch,      /* next character of input line */
-    declared, /* # of local bytes to declare, -1 when declared */
-    iflevel,  /* #if... nest level */
-    skiplevel,/* level at which #if... skipping started */
-    nxtlab,   /* next avail label # */
-    litlab,   /* label # assigned to literal pool */
-    csp,      /* compiler relative stk ptr */
-    argstk,   /* function arg sp */
-    argtop,   /* highest formal argument offset */
-    ncmp,     /* # open compound statements */
-    errflag,  /* true after 1st error in statement */
-    eof,      /* true on final input eof */
-    output,   /* fd for output file */
-    files,    /* true if file list specified on cmd line */
-    filearg,  /* cur file arg index */
-    input = EOF, /* fd for input file */
-    input2 = EOF, /* fd for "#include" file */
-    usexpr = YES, /* true if value of expression is used */
-    ccode = YES, /* true while parsing C code */
-    *snext,    /* next addr in stage */
-    *stail,    /* last addr of data in stage */
-    *slast,    /* last addr in stage */
-    listfp,   /* file pointer to list device */
-    lastst,   /* last parsed statement type */
-    oldseg;   /* current segment (0, DATASEG, CODESEG) */
+    nogo,     // disable goto statements?
+    noloc,    // disable block locals?
+    opindex,  // index to matched operator
+    opsize,   // size of operator in characters
+    swactive, // inside a switch?
+    swdefault,// default label #, else 0
+    *swnext,   // address of next entry
+    *swend,    // address of last entry
+    *stage,    // staging buffer address
+    *wq,       // while queue
+    argcs,     // local copy of argc
+    *argvs,    // local copy of argv
+    *wqptr,    // ptr to next entry
+    litptr,   // ptr to next entry
+    macptr,   // macro buffer index
+    pptr,     // ptr to parsing buffer
+    ch,       // current character of input line
+    nch,      // next character of input line
+    declared, // # of local bytes to declare, -1 when declared
+    iflevel,  // #if... nest level
+    skiplevel,// level at which #if... skipping started
+    nxtlab,   // next avail label #
+    litlab,   // label # assigned to literal pool
+    csp,      // compiler relative stk ptr
+    argstk,   // function arg sp
+    argtop,   // highest formal argument offset
+    rettype,  // return type of current function (TYPE_INT default)
+    rettypeSubPtr, // struct def ptr if rettype == TYPE_STRUCT
+    ncmp,     // # open compound statements
+    errflag,  // true after 1st error in statement
+    eof,      // true on final input eof
+    output,   // fd for output file
+    files,    // true if file list specified on cmd line
+    filearg,  // cur file arg index
+    input = EOF, // fd for input file
+    input2 = EOF, // fd for "#include" file
+    usexpr = YES, // true if value of expression is used
+    ccode = YES, // true while parsing C code
+    *snext,    // next addr in stage
+    *stail,    // last addr of data in stage
+    *slast,    // last addr in stage
+    listfp,   // file pointer to list device
+    lastst,   // last parsed statement type
+    oldseg;   // current segment (0, DATASEG, CODESEG)
 
 char
-    optimize, /* optimize output of staging buffer? */
-    alarm,    /* audible alarm on errors? */
-    monitor,  /* monitor function headers? */
-    pause,    /* pause for operator on errors? */
-    *symtab,   /* symbol table */
-    *litq,     /* literal pool */
-    *macn,     /* macro name buffer */
-    *macq,     /* macro string buffer */
-    *pline,    /* parsing buffer */
-    *mline,    /* macro buffer */
-    *line,     /* ptr to pline or mline */
-    *lptr,     /* ptr to current character in "line" */
-    *glbptr,   /* global symbol table */
-    *locptr,   /* next local symbol table entry */
-    *cptr,     /* work ptrs to any char buffer */
+    optimize, // optimize output of staging buffer?
+    alarm,    // audible alarm on errors?
+    monitor,  // monitor function headers?
+    pause,    // pause for operator on errors?
+    *symtab,   // symbol table
+    *litq,     // literal pool
+    *macn,     // macro name buffer
+    *macq,     // macro string buffer
+    *pline,    // parsing buffer
+    *mline,    // macro buffer
+    *line,     // ptr to pline or mline
+    *lptr,     // ptr to current character in "line"
+    *glbptr,   // global symbol table
+    *locptr,   // next local symbol table entry
+    *cptr,     // work ptrs to any char buffer
     *cptr2,
     *cptr3,
-    msname[NAMESIZE],   /* macro symbol name */
-    ssname[NAMESIZE];   /* global symbol name */
+    msname[NAMESIZE],   // macro symbol name
+    ssname[NAMESIZE];   // global symbol name
 
-int op[16] = {   /* p-codes of signed binary operators */
-    OR12,                        /* level5 */
-    XOR12,                       /* level6 */
-    AND12,                       /* level7 */
-    EQ12,   NE12,                /* level8 */
-    LE12,   GE12,  LT12,  GT12,  /* level9 */
-    ASR12,  ASL12,               /* level10 */
-    ADD12,  SUB12,               /* level11 */
-    MUL12, DIV12, MOD12          /* level12 */
+int op[16] = {   // p-codes of signed binary operators
+    OR12,                        // level5
+    XOR12,                       // level6
+    AND12,                       // level7
+    EQ12,   NE12,                // level8
+    LE12,   GE12,  LT12,  GT12,  // level9
+    ASR12,  ASL12,               // level10
+    ADD12,  SUB12,               // level11
+    MUL12, DIV12, MOD12          // level12
 };
 
-int op2[16] = {  /* p-codes of unsigned binary operators */
-    OR12,                        /* level5 */
-    XOR12,                       /* level6 */
-    AND12,                       /* level7 */
-    EQ12,   NE12,                /* level8 */
-    LE12u,  GE12u, LT12u, GT12u, /* level9 */
-    ASR12,  ASL12,               /* level10 */
-    ADD12,  SUB12,               /* level11 */
-    MUL12u, DIV12u, MOD12u       /* level12 */
+int op2[16] = {  // p-codes of unsigned binary operators
+    OR12,                        // level5
+    XOR12,                       // level6
+    AND12,                       // level7
+    EQ12,   NE12,                // level8
+    LE12u,  GE12u, LT12u, GT12u, // level9
+    ASR12,  ASL12,               // level10
+    ADD12,  SUB12,               // level11
+    MUL12u, DIV12u, MOD12u       // level12
 };
 
-/*
-** execution begins here
-*/
+// execution begins here
 main(int argc, int *argv) {
     fputs(VERSION, stderr);
     fputs(CRIGHT1, stderr);
@@ -120,209 +128,279 @@ main(int argc, int *argv) {
     symtab = calloc((NUMLOCS*SYMAVG + NUMGLBS*SYMMAX), 1);
     locptr = STARTLOC;
     glbptr = STARTGLB;
-
-    ask();          /* get user options */
-    openfile();     /* and initial input file */
-    preprocess();   /* fetch first line */
-    header();       /* intro code */
-    setcodes();     /* initialize code pointer array */
-    parse();        /* process ALL input */
-    trailer();      /* follow-up code */
-    fclose(output); /* explicitly close output */
+    initStructs();
+    rettype = TYPE_INT;
+    rettypeSubPtr = 0;
+    getRunArgs();   // get run options from command line arguments
+    openfile();     // and initial input file
+    preprocess();   // fetch first line
+    header();       // intro code
+    setcodes();     // initialize code pointer array
+    parse();        // process ALL input
+    trailer();      // follow-up code
+    fclose(output); // explicitly close output
+    // printallstructs();
 }
 
-/******************** high level parsing *******************/
+// ****************************************************************************
+// High level Parsing
+// ****************************************************************************
 
-/*
-** process all input text
-**
-** At this level, only global declarations,
-**      defines, includes and function
-**      definitions are legal...
-*/
+// Process all input text. At this level, only global declarations, defines,
+// includes, structs, and function definitions are legal.
 parse() {
     while (eof == 0) {
         if (amatch("extern", 6))
             dodeclare(EXTERNAL);
-        else if (amatch("static", 6))
+        else if (amatch("static", 6)) // global static = "file scope"
             dostatic();
+        else if (amatch("struct", 6))
+            dostructblock();
         else if (dodeclare(GLOBAL))
             ;
-        else if (match("#asm"))
+        else if (IsMatch("#asm"))
             doasm();
-        else if (match("#include"))
+        else if (IsMatch("#include"))
             doinclude();
-        else if (match("#define"))
+        else if (IsMatch("#define"))
             dodefine();
         else
             dofunction(GLOBAL);
-        blanks();                 /* force eof if pending */
+        blanks();                 // force eof if pending
     }
 }
 
-/*
-** do a static variable or function
-*/
+// do a static variable or function
 dostatic() {
-  blanks();
-  if (dodeclare(STATIC)) {
-    ;
-  }
-  else {
-    dofunction(STATIC);
-  }
+    if (dodeclare(STATIC)) {
+        ;
+    }
+    else {
+        dofunction(STATIC);
+    }
 }
 
-/*
-** test for global declarations
-*/
+// test for global declarations
 dodeclare(int class) {
-    int type;
-    type = dotype();
+    int type, typeSubPtr;
+    char *p;
+    type = dotype(&typeSubPtr);
     if (type != 0) {
-        declglb(type, class);
+        // Lookahead: if next tokens are "name(" this is a function
+        // definition, not a variable declaration. Divert to dofunction().
+        blanks();
+        p = lptr;
+        if (alpha(*p)) {
+            while (an(*p)) p++;
+            while (*p == ' ' || *p == '\t') p++;
+            if (*p == '(') {
+                rettype = (type == TYPE_STRUCT) ? TYPE_STRUCT : TYPE_INT;
+                rettypeSubPtr = (type == TYPE_STRUCT) ? typeSubPtr : 0;
+                dofunction(class);
+                rettype = TYPE_INT;
+                rettypeSubPtr = 0;
+                return 1;
+            }
+        }
+        declglb(type, class, typeSubPtr);
     }
     else if (class == EXTERNAL) {
-        declglb(INT, class);
+        declglb(TYPE_INT, class, typeSubPtr);
     }
     else {
         return 0;
     }
-    ns();
+    ReqSemicolon();
     return 1;
 }
 
-dotype() {
+// get type of declaration
+// @return type value of declaration, otherwise 0 if not a valid declaration.
+dotype(int *typeSubPtr) {
     if (amatch("char", 4)) {
-        return CHR;
+        return TYPE_CHR;
     }
     else if (amatch("unsigned", 8)) {
         if (amatch("char", 4)) {
-            return UCHR;
+            return TYPE_UCHR;
         }
         else {
             amatch("int", 3);
-            return UINT;
+            return TYPE_UINT;
         }
     }
     else if (amatch("int", 3)) {
-        return INT;
+        return TYPE_INT;
+    }
+    else if (amatch("struct", 6)) {
+        if ((*typeSubPtr = getStructPtr()) == -1)
+            error("unknown struct name");
+        return TYPE_STRUCT;
     }
     return 0;
 }
 
-/*
-** declare a global variable
-*/
-declglb(int type, int class) {
+// declare a global variable
+declglb(int type, int class, int typeSubPtr) {
     int id, dim;
     while (1) {
         if (endst()) 
-            return;  /* do line */
-        if (match("*")) { 
-            id = POINTER; 
+            return;  // do line
+        if (IsMatch("*")) { 
+            id = IDENT_POINTER; 
             dim = 0;
         }
         else { 
-            id = VARIABLE; 
+            id = IDENT_VARIABLE; 
             dim = 1; 
         }
         if (symname(ssname) == 0) 
             illname();
         if (findglb(ssname)) 
             multidef(ssname);
-        if (id == VARIABLE) {
-            if (match("(")) { 
-                id = FUNCTION; 
-                need(")"); 
+        if (id == IDENT_VARIABLE) {
+            if (IsMatch("(")) { 
+                id = IDENT_FUNCTION; 
+                Require(")"); 
             }
-            else if (match("[")) { 
-                id = ARRAY; 
-                dim = needsub(); 
+            else if (IsMatch("[")) { 
+                id = IDENT_ARRAY; 
+                dim = getArraySz(); 
             }
         }
         if (class == EXTERNAL) 
             external(ssname, type >> 2, id);
-        else if (id != FUNCTION) 
-            initials(type >> 2, id, dim, class);
-        if (id == POINTER)
-            addsym(ssname, id, type, BPW, 0, &glbptr, class);
-        else 
-            addsym(ssname, id, type, dim * (type >> 2), 0, &glbptr, class);
-        if (match(",") == 0) 
+        else if (id != IDENT_FUNCTION) {
+            if (type == TYPE_STRUCT && id == IDENT_VARIABLE)
+                InitStruct(typeSubPtr, class);
+            else
+                InitSize(type >> 2, id, dim, class);
+        }
+        if (id == IDENT_POINTER) {
+            AddSymbol(ssname, id, type, BPW, 0, &glbptr, class);
+        }
+        else if (type == TYPE_STRUCT) {
+            int structsize;
+            structsize = getStructSize(typeSubPtr);
+            AddSymbol(ssname, id, type, dim * structsize, 0, &glbptr, class);
+            putint(typeSubPtr, cptr + CLASSPTR, 2);
+        }
+        else { // (type == TYPE_ARRAY)
+            AddSymbol(ssname, id, type, dim * (type >> 2), 0, &glbptr, class);
+        }
+        if (IsMatch(",") == 0) 
             return;
     }
 }
 
-/*
-** initialize global objects
-*/
-initials(int size, int ident, int dim, int class) {
+// initialize global objects
+InitSize(int size, int ident, int dim, int class) {
     int savedim;
     litptr = 0;
-    if (dim == 0) dim = -1;         /* *... or ...[] */
+    if (dim == 0) {
+        dim = -1;         // *... or ...[]
+    }
     savedim = dim;
     public(ident, class == GLOBAL); // don't do public if class == STATIC
-    if (match("=")) {
-        if (match("{")) {
+    if (IsMatch("=")) {
+        if (IsMatch("{")) {
             while (dim) {
-                init(size, ident, &dim);
-                if (match(",") == 0) break;
+                EvalInitValue(size, ident, &dim);
+                if (IsMatch(",") == 0) {
+                    break;
+                }
             }
-            need("}");
+            Require("}");
         }
-        else init(size, ident, &dim);
+        else EvalInitValue(size, ident, &dim);
     }
     if (savedim == -1 && dim == -1) {
-        if (ident == ARRAY)
+        if (ident == IDENT_ARRAY) {
             error("need array size");
+        }
         stowlit(0, size = BPW);
     }
     dumplits(size);
-    dumpzero(size, dim);           /* only if dim > 0 */
+    dumpzero(size, dim);           // only if dim > 0
 }
 
-/*
-** evaluate one initializer
-*/
-init(int size, int ident, int *dim) {
+// evaluate one initializer
+EvalInitValue(int size, int ident, int *dim) {
     int value;
     if (string(&value)) {
-        if (ident == VARIABLE || size != 1)
+        if (ident == IDENT_VARIABLE || size != 1) {
             error("must assign to char pointer or char array");
+        }
         *dim -= (litptr - value);
-        if (ident == POINTER) point();
+        if (ident == IDENT_POINTER) {
+            point();
+        }
     }
-    else if (constexpr(&value)) {
-        if (ident == POINTER) error("cannot assign to pointer");
+    else if (IsConstExpr(&value)) {
+        if (ident == IDENT_POINTER) {
+            error("cannot assign to pointer");
+        }
         stowlit(value, size);
         *dim -= 1;
     }
 }
 
-/*
-** get required array size
-*/
-needsub() {
+// initialize a global struct variable with optional { ... } brace syntax
+InitStruct(int typeSubPtr, int class) {
+    char *membercur, *memberend;
+    int memberSize, structSize, dim, memberTotal;
+    litptr = 0;
+    structSize = getStructSize(typeSubPtr);
+    public(IDENT_VARIABLE, class == GLOBAL);
+    if (IsMatch("=")) {
+        if (IsMatch("{")) {
+            membercur = getint(typeSubPtr + STRDAT_MBEG, 2);
+            memberend = getint(typeSubPtr + STRDAT_MEND, 2);
+            while (membercur < memberend) {
+                memberSize = membercur[STRMEM_TYPE] >> 2;
+                if (memberSize < 1) memberSize = 1;
+                memberTotal = getint(membercur + STRMEM_SIZE, 2);
+                dim = 1;
+                EvalInitValue(memberSize, IDENT_VARIABLE, &dim);
+                // Zero-fill remaining bytes for this member (e.g. array member)
+                while (litptr < getint(membercur + STRMEM_OFFSET, 2)
+                                + memberTotal) {
+                    stowlit(0, 1);
+                }
+                membercur += STRMEM_MAX;
+                if (membercur < memberend) {
+                    if (IsMatch(",") == 0) break;
+                }
+            }
+            Require("}");
+        }
+        else {
+            error("struct initializer requires { }");
+        }
+    }
+    dumplits(1);
+    dumpzero(1, structSize - litptr);
+}
+
+// get required array size
+getArraySz() {
     int val;
-    if (match("]")) 
-        return 0; /* null size */
-    if (constexpr(&val) == 0) 
+    if (IsMatch("]")) 
+        return 0; // null size
+    if (IsConstExpr(&val) == 0) 
         val = 1;
     if (val < 0) {
         error("negative size illegal");
         val = -val;
     }
-    need("]");               /* force single dimension */
-    return val;              /* and return size */
+    Require("]");               // force single dimension
+    return val;              // and return size
 }
 
-/*
-** open an include file
-*/
+// open an include file
 doinclude() {
     int i; char str[30];
-    blanks();       /* skip over to name */
+    blanks();       // skip over to name
     if (*lptr == '"' || *lptr == '<')  {
         ++lptr;
     }
@@ -336,12 +414,10 @@ doinclude() {
         input2 = EOF;
         error("open failure on include file");
     }
-    kill();   /* make next read come from new file (if open) */
+    kill();   // make next read come from new file (if open)
 }
 
-/*
-** define a macro symbol
-*/
+// define a macro symbol
 dodefine() {
     int k;
     if (symname(msname) == 0) {
@@ -350,7 +426,7 @@ dodefine() {
         return;
     }
     k = 0;
-    if (search(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0) == 0) {
+    if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0) == 0) {
         if (cptr2 = cptr)
             while (*cptr2++ = msname[k++]);
         else {
@@ -377,24 +453,22 @@ putmac(char c) {
     return c;
 }
 
-/*
-** begin a function
-**
-** called from "parse" and tries to make a function
-** out of the following text
-*/
+// begin a function
+//
+// called from "parse" and tries to make a function
+// out of the following text
 dofunction(int class) {
-    int firstType;
+    int firstType, typeSubPtr;
     char *pGlobal;
-    /*int typedargs; */           /* declared arguments have formal types */
-    nogo = 0;                     /* enable goto statements */
-    noloc = 0;                    /* enable block-local declarations */
-    lastst = 0;                   /* no statement yet */
-    litptr = 0;                   /* clear lit pool */
-    litlab = getlabel();          /* label next lit pool */
-    locptr = STARTLOC;            /* clear local variables */
-    /* skip "void" & locate header */
-    if (match("void")) {
+    // declared arguments have formal types
+    nogo = 0;                     // enable goto statements
+    noloc = 0;                    // enable block-local declarations
+    lastst = 0;                   // no statement yet
+    litptr = 0;                   // clear lit pool
+    litlab = getlabel();          // label next lit pool
+    locptr = STARTLOC;            // clear local variables
+    // skip "void" & locate header
+    if (IsMatch("void")) {
         blanks();
     }
     if (monitor) {
@@ -403,47 +477,59 @@ dofunction(int class) {
     if (symname(ssname) == 0) {
         error("illegal function or declaration");
         errflag = 0;
-        kill();                     /* invalidate line */
+        kill();                     // invalidate line
         return;
     }
     // If this name is already in the symbol table and is an autoext function,
     // define it instead as a global function
     if (pGlobal = findglb(ssname)) {
-        if (pGlobal[CLASS] == AUTOEXT)
+        if (pGlobal[CLASS] == AUTOEXT) {
             pGlobal[CLASS] = class;
+            if (rettype == TYPE_STRUCT) {
+                pGlobal[TYPE] = TYPE_STRUCT;
+                putint(rettypeSubPtr, pGlobal + CLASSPTR, 2);
+            }
+        }
         else {
             // error: can't define something twice.
             multidef(ssname);
         }
     }
     else {
-        addsym(ssname, FUNCTION, INT, 0, 0, &glbptr, class);
+        AddSymbol(ssname, IDENT_FUNCTION, rettype, 0, 0, &glbptr, class);
+        if (rettype == TYPE_STRUCT)
+            putint(rettypeSubPtr, cptr + CLASSPTR, 2);
     }
-    public(FUNCTION, class == GLOBAL); // don't do public if class == STATIC
-    if (match("(") == 0)
+    public(IDENT_FUNCTION, class == GLOBAL); // don't do public if class == STATIC
+    if (IsMatch("(") == 0)
         error("no open paren");
-    if ((firstType = dotype()) != 0) {
-        doArgsTyped(firstType);
+    if ((firstType = dotype(&typeSubPtr)) != 0) {
+        doArgsTyped(firstType, typeSubPtr);
     }
     else {
         doArgsNonTyped();
     }
     gen(ENTER, 0);
     statement();
+    // Flush any code left in the staging buffer by doreturn() for struct-
+    // returning functions.  doreturn() activates the staging buffer via
+    // level1() but never calls ClearStage, so snext is non-zero on exit.
+    // If left unflushed, subsequent functions overflow the buffer and all
+    // gen() calls become no-ops, causing dumplits() to emit bare numbers
+    // with no leading "DB" directive.
+    ClearStage(0, snext);
     if (lastst != STRETURN && lastst != STGOTO)
         gen(RETURN, 0);
     if (litptr) {
         toseg(DATASEG);
         gen(REFm, litlab);
-        dumplits(1);               /* dump literals */
+        dumplits(1);               // dump literals
     }
 }
 
-/*
-** doArgsTyped: interpret a function argument list with declared types.
-** in type: the type of the first variable in the argument list.
-*/
-doArgsTyped(int type) {
+// doArgsTyped: interpret a function argument list with declared types.
+// in type: the type of the first variable in the argument list.
+doArgsTyped(int type, int typeSubPtr) {
     int id, sz, namelen, paren;
     char *ptr;
     // get a list of all arguments. Set the name, id (Variable or Pointer),
@@ -452,19 +538,19 @@ doArgsTyped(int type) {
     // these values and offset them to account for the pushed BP value, which
     // will also be on the stack.
     argstk = 0;
-    while (match(")") == 0) {
+    while (IsMatch(")") == 0) {
         // match opening parent for function ptr: (*arg)()
-        if (match("("))
+        if (IsMatch("("))
             paren = 1;
         else
             paren = 0;
         // match * for pointer, else variable
-        if (match("*")) {
-            id = POINTER;
+        if (IsMatch("*")) {
+            id = IDENT_POINTER;
             sz = BPW;
         }
         else {
-            id = VARIABLE;
+            id = IDENT_VARIABLE;
             sz = type >> 2;
         }
         if (symname(ssname)) {
@@ -472,20 +558,28 @@ doArgsTyped(int type) {
                 multidef(ssname);
             }
             else {
-                if (paren && match(")")) {
+                if (paren && IsMatch(")")) {
                     // unmatch paren for function ptr.
                 }
-                if (match("(")) {
-                    if (!paren || id != POINTER) {
+                if (IsMatch("(")) {
+                    if (!paren || id != IDENT_POINTER) {
                         error("not a valid function ptr, try (*...)()");
                     }
-                    need(")");
+                    Require(")");
                 }
-                else if (id == VARIABLE && match("[]")) {
-                    id = POINTER;
-                    sz = BPW;      /* size of pointer argument */
+                else if (id == IDENT_VARIABLE && IsMatch("[]")) {
+                    id = IDENT_POINTER;
+                    sz = BPW;      // size of pointer argument
                 }
-                addsym(ssname, id, type, sz, argstk, &locptr, AUTOMATIC);
+                // Hidden pointer for struct params: caller pushes address
+                if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
+                    id = IDENT_POINTER;
+                    sz = BPW;
+                }
+                AddSymbol(ssname, id, type, sz, argstk, &locptr, AUTOMATIC);
+                if (type == TYPE_STRUCT) {
+                    putint(typeSubPtr, cptr + CLASSPTR, 2);
+                }
                 argstk += BPW;
             }
         }
@@ -493,15 +587,15 @@ doArgsTyped(int type) {
             error("illegal argument name");
             break;
         }
-        /* advance to next arg or closing paren */
-        if (match(",")) {
-            if ((type = dotype()) == 0) {
+        // advance to next arg or closing paren
+        if (IsMatch(",")) {
+            if ((type = dotype(&typeSubPtr)) == 0) {
                 error("untyped argument declaration");
                 break;
             }
         }
     }
-    csp = 0;                       /* preset stack ptr */
+    csp = 0;                       // preset stack ptr
     // incremenet argtop by one word (space for pushed BP), and reverse the
     // placement of the arguments (per the SmallC specification, see Chapter 8
     // and Fig 8-1.
@@ -509,7 +603,7 @@ doArgsTyped(int type) {
     ptr = STARTLOC;
     while (argstk) {
         putint(argtop - getint(ptr + OFFSET, 2), ptr + OFFSET, 2);
-        argstk -= BPW;            /* count down */
+        argstk -= BPW;            // count down
         ptr += NAME;
         namelen = 0;
         while (*ptr != namelen) {
@@ -521,18 +615,16 @@ doArgsTyped(int type) {
     return;
 }
 
-/*
-** interpret a function argument list without declared types
-*/
+// interpret a function argument list without declared types
 doArgsNonTyped() {
-    /* count args */
+    // count args
     argstk = 0;
-    while (match(")") == 0) {
+    while (IsMatch(")") == 0) {
         if (symname(ssname)) {
             if (findloc(ssname))
                 multidef(ssname);
             else {
-                addsym(ssname, 0, 0, 0, argstk, &locptr, AUTOMATIC);
+                AddSymbol(ssname, 0, 0, 0, argstk, &locptr, AUTOMATIC);
                 argstk += BPW;
             }
         }
@@ -541,19 +633,19 @@ doArgsNonTyped() {
             skip();
         }
         blanks();
-        if (streq(lptr, ")") == 0 && match(",") == 0)
+        if (streq(lptr, ")") == 0 && IsMatch(",") == 0)
             error("no comma");
         if (endst())
             break;
     }
-    csp = 0;                       /* preset stack ptr */
-    argtop = argstk + BPW;         /* account for the pushed BP */
+    csp = 0;                       // preset stack ptr
+    argtop = argstk + BPW;         // account for the pushed BP
     while (argstk) {
-        int type;
-        type = dotype();
+        int type, typeSubPtr;
+        type = dotype(&typeSubPtr);
         if (type != 0) {
-            doArgTypes(type);
-            ns();
+            doArgTypes(type, typeSubPtr);
+            ReqSemicolon();
         }
         else {
             error("wrong number of arguments");
@@ -563,96 +655,117 @@ doArgsNonTyped() {
     return;
 }
 
-/*
-** declare argument types
-*/
-doArgTypes(int type) {
+// declare argument types
+doArgTypes(int type, int typeSubPtr) {
     int id, sz;
     char *ptr;
     int t;
     while (1) {
         if (argstk == 0)
-            return;           /* no arguments */
-        if (decl(type, POINTER, &id, &sz)) {
+            return;           // no arguments
+        if (parseLocalDeclare(type, typeSubPtr, IDENT_POINTER, &id, &sz)) {
             if (ptr = findloc(ssname)) {
+                // Hidden pointer for struct params
+                if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
+                    id = IDENT_POINTER;
+                    sz = BPW;
+                }
                 ptr[IDENT] = id;
                 ptr[TYPE] = type;
                 putint(sz, ptr + SIZE, 2);
                 putint(argtop - getint(ptr + OFFSET, 2), ptr + OFFSET, 2);
+                if (type == TYPE_STRUCT) {
+                    putint(typeSubPtr, ptr + CLASSPTR, 2);
+                }
             }
             else {
                 error("not an argument");
             }
         }
-        argstk = argstk - BPW;            /* cnt down */
+        argstk = argstk - BPW;            // cnt down
         if (endst())
             return;
-        if (match(",") == 0)
+        if (IsMatch(",") == 0)
             error("no comma or terminating semicolon");
     }
 }
 
-/*
-** parse next local or argument declaration
-*/
-decl(int type, int arrayid, int *id, int *sz) {
-    int n, p;
-    if (match("("))
-        p = 1;
-    else
-        p = 0;
-    if (match("*")) {
-        *id = POINTER;
+// parse next local or argument declaration
+// @param type value of type of variable, see cc.h
+// @param defArrTyp only comes into play if this is an array declare:
+//                        if IDENT_ARRAY, then must have array size;
+//                        if IDENT_POINTER, then must be a pointer.
+// @return 1 is name is valid, 0 + error if invalid.
+parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
+    int nameIsValid, hasOpenParen;
+    hasOpenParen = IsMatch("(") ? 1 : 0;
+    if (IsMatch("*")) {
+        *id = IDENT_POINTER;
         *sz = BPW;
     }
     else {
-        *id = VARIABLE;
-        *sz = type >> 2;
+        *id = IDENT_VARIABLE;
+        if (type == TYPE_STRUCT) {
+            *sz = getStructSize(typeSubPtr);
+        }
+        else {
+            *sz = type >> 2;
+        }
     }
-    if ((n = symname(ssname)) == 0)
+    if ((nameIsValid = symname(ssname)) == 0) {
         illname();
-    if (p && match(")")) {
+    }
+    if (hasOpenParen && IsMatch(")")) {
         // unmatch paren
     }
-    if (match("(")) {
-        if (!p || *id != POINTER) {
-            error("try (*...)()");
+    if (IsMatch("(")) {
+        if (!hasOpenParen || *id != IDENT_POINTER) {
+            error("Is this a function pointer? Try (*...)()");
         }
-        need(")");
+        Require(")");
     }
-    else if (*id == VARIABLE && match("[")) {
-        *id = arrayid;
-        if ((*sz *= needsub()) == 0) {
-            if (arrayid == ARRAY) {
+    else if (*id == IDENT_VARIABLE && IsMatch("[")) {
+        *id = defArrTyp;
+        if ((*sz *= getArraySz()) == 0) {
+            if (defArrTyp == IDENT_ARRAY) {
                 error("need array size");
             }
-            *sz = BPW;      /* size of pointer argument */
+            *sz = BPW;      // size of pointer argument
         }
     }
-    return n;
+    return nameIsValid;
 }
 
-/******************** start 2nd level parsing *******************/
+// ****************************************************************************
+// 2nd level parsing
+// ****************************************************************************
 
-/*
-** statement parser
-*/
+// Each call to statement() parses a single statement. Sequences of statements
+// only occur within a compound statement; the loop that recognizes statement
+// sequences is only found in compound().
+// First, statement() looks for a data declaration, introduced by char, int,
+// unsigned, unsigned char, or unsigned int. Finding one of these, it declares
+// a local, passing the data type (CHR, INT, UCHR, or UINT). It then enforces
+// the presence of a semicolon.
+// If that fails, it looks for one of the tokens that introduces an executable
+// statement. If successful, the corresponding parsing function is called, and
+// the global lastst is set to a value indicating which statement was parsed.
 statement() {
-    int type;
+    int type, typeSubPtr;
     if (ch == 0 && eof) return;
-    else if ((type = dotype()) != 0) {
-        declloc(type);
-        ns();
+    else if ((type = dotype(&typeSubPtr)) != 0) {
+        declareLocals(type, typeSubPtr);
+        ReqSemicolon();
     }
     else {
         if (declared >= 0) {
             if (ncmp > 1) {
-                nogo = declared;   /* disable goto */
+                nogo = declared;   // disable goto
             }
             gen(ADDSP, csp - declared);
             declared = -1;
         }
-        if (match("{")) {
+        if (IsMatch("{")) {
             compound();
         }
         else if (amatch("if", 2)) {
@@ -692,113 +805,125 @@ statement() {
         }
         else if (amatch("return", 6)) {
             doreturn();
-            ns();
+            ReqSemicolon();
             lastst = STRETURN;
         }
         else if (amatch("break", 5)) {
             dobreak();
-            ns();
+            ReqSemicolon();
             lastst = STBREAK;
         }
         else if (amatch("continue", 8)) {
             docont();
-            ns();
+            ReqSemicolon();
             lastst = STCONT;
         }
-        else if (match(";"))   {
+        else if (IsMatch(";"))   {
             errflag = 0;
         }
-        else if (match("#asm")) {
+        else if (IsMatch("#asm")) {
             doasm();
             lastst = STASM;
         }
         else {
             doexpr(NO);
-            ns();
+            ReqSemicolon();
             lastst = STEXPR;
         }
     }
     return lastst;
 }
 
-/*
-** declare local variables
-*/
-declloc(int type) {
+// declare local variables
+declareLocals(int type, int typeSubPtr) {
     int id, sz;
-    if (swactive)
+    if (swactive) {
         error("not allowed in switch");
-    if (noloc)
+    }
+    if (noloc) {
         error("not allowed with goto");
-    if (declared < 0)
+    }
+    if (declared < 0) {
         error("must declare first in block");
+    }
     while (1) {
-        if (endst())
+        if (endst()) {
             return;
-        decl(type, ARRAY, &id, &sz);
+        }
+        parseLocalDeclare(type, typeSubPtr, IDENT_ARRAY, &id, &sz);
         declared += sz;
-        addsym(ssname, id, type, sz, csp - declared, &locptr, AUTOMATIC);
-        if (match(",") == 0)
+        // printf(" decloc %s sz=%u\n", ssname, sz);
+        AddSymbol(ssname, id, type, sz, csp - declared, &locptr, AUTOMATIC);
+        if (type == TYPE_STRUCT) {
+            putint(typeSubPtr, cptr + CLASSPTR, 2);
+        }
+        if (IsMatch(",") == 0)
             return;
     }
 }
 
 compound() {
-    int savcsp;
+    int savcsp; 
     char *savloc;
     savcsp = csp;
     savloc = locptr;
-    declared = 0;           /* may now declare local variables */
-    ++ncmp;                 /* new level open */
-    while (match("}") == 0)
+    declared = 0;           // may now declare local variables
+    ++ncmp;                 // new level open
+    while (IsMatch("}") == 0)
         if (eof) {
             error("no final }");
             break;
         }
-        else statement();     /* do one */
-        if (--ncmp               /* close current level */
-            && lastst != STRETURN
-            && lastst != STGOTO)
-            gen(ADDSP, savcsp);   /* delete local variable space */
-        cptr = savloc;          /* retain labels */
+        else {
+            // do one statement:
+            statement();
+        }
+        // close current level
+        if (--ncmp && lastst != STRETURN && lastst != STGOTO) {
+            gen(ADDSP, savcsp);   // delete local variable space
+        }
+        cptr = savloc;          // retain labels
         while (cptr < locptr) {
             cptr2 = nextsym(cptr);
-            if (cptr[IDENT] == LABEL) {
-                while (cptr < cptr2) *savloc++ = *cptr++;
+            if (cptr[IDENT] == IDENT_LABEL) {
+                while (cptr < cptr2) {
+                    *savloc++ = *cptr++;
+                }
             }
-            else
+            else {
                 cptr = cptr2;
+            }
         }
-        locptr = savloc;        /* delete local symbols */
-        declared = -1;          /* may not declare variables */
+        locptr = savloc;        // delete local symbols
+        declared = -1;          // may not declare variables
 }
 
 doif() {
     int flab1, flab2;
-    test(flab1 = getlabel(), YES);  /* get expr, and branch false */
-    statement();                    /* if true, do a statement */
-    if (amatch("else", 4) == 0) {    /* if...else ? */
-      /* simple "if"...print false label */
+    GenTestAndJmp(flab1 = getlabel(), YES);  // get expr, and branch false
+    statement();                    // if true, do a statement
+    if (amatch("else", 4) == 0) {    // if...else?
+        // simple "if"...print false label
         gen(LABm, flab1);
-        return;                       /* and exit */
+        return;                       // and exit
     }
     flab2 = getlabel();
     if (lastst != STRETURN && lastst != STGOTO)
         gen(JMPm, flab2);
-    gen(LABm, flab1);    /* print false label */
-    statement();         /* and do "else" clause */
-    gen(LABm, flab2);    /* print true label */
+    gen(LABm, flab1);    // print false label
+    statement();         // and do "else" clause
+    gen(LABm, flab2);    // print true label
 }
 
 dowhile() {
-    int wq[4];              /* allocate local queue */
-    addwhile(wq);           /* add entry to queue for "break" */
-    gen(LABm, wq[WQLOOP]);  /* loop label */
-    test(wq[WQEXIT], YES);  /* see if true */
-    statement();            /* if so, do a statement */
-    gen(JMPm, wq[WQLOOP]);  /* loop to label */
-    gen(LABm, wq[WQEXIT]);  /* exit label */
-    delwhile();             /* delete queue entry */
+    int wq[4];              // allocate local queue
+    addwhile(wq);           // add entry to queue for "break"
+    gen(LABm, wq[WQLOOP]);  // loop label
+    GenTestAndJmp(wq[WQEXIT], YES);  // see if true
+    statement();            // if so, do a statement
+    gen(JMPm, wq[WQLOOP]);  // loop to label
+    gen(LABm, wq[WQEXIT]);  // exit label
+    delwhile();             // delete queue entry
 }
 
 dodo() {
@@ -806,12 +931,12 @@ dodo() {
     addwhile(wq);
     gen(LABm, wq[WQLOOP]);
     statement();
-    need("while");
-    test(wq[WQEXIT], YES);
+    Require("while");
+    GenTestAndJmp(wq[WQEXIT], YES);
     gen(JMPm, wq[WQLOOP]);
     gen(LABm, wq[WQEXIT]);
     delwhile();
-    ns();
+    ReqSemicolon();
 }
 
 dofor() {
@@ -819,21 +944,21 @@ dofor() {
     addwhile(wq);
     lab1 = getlabel();
     lab2 = getlabel();
-    need("(");
-    if (match(";") == 0) {
-        doexpr(NO);           /* expr 1 */
-        ns();
+    Require("(");
+    if (IsMatch(";") == 0) {
+        doexpr(NO);           // expr 1
+        ReqSemicolon();
     }
     gen(LABm, lab1);
-    if (match(";") == 0) {
-        test(wq[WQEXIT], NO); /* expr 2 */
-        ns();
+    if (IsMatch(";") == 0) {
+        GenTestAndJmp(wq[WQEXIT], NO); // expr 2
+        ReqSemicolon();
     }
     gen(JMPm, lab2);
     gen(LABm, wq[WQLOOP]);
-    if (match(")") == 0) {
-        doexpr(NO);           /* expr 3 */
-        need(")");
+    if (IsMatch(")") == 0) {
+        doexpr(NO);           // expr 3
+        Require(")");
     }
     gen(JMPm, lab1);
     gen(LABm, lab2);
@@ -850,19 +975,19 @@ doswitch() {
     swnex = swptr = swnext;
     addwhile(wq);
     *(wqptr + WQLOOP - WQSIZ) = 0;
-    need("(");
-    doexpr(YES);                /* evaluate switch expression */
-    need(")");
+    Require("(");
+    doexpr(YES);                // evaluate switch expression
+    Require(")");
     swdefault = 0;
     swactive = 1;
     gen(JMPm, endlab = getlabel());
-    statement();                /* cases, etc. */
+    statement();                // cases, etc.
     gen(JMPm, wq[WQEXIT]);
     gen(LABm, endlab);
-    gen(SWITCH, 0);             /* match cases */
+    gen(SWITCH, 0);             // match cases
     while (swptr < swnext) {
         gen(NEARm, *swptr++);
-        gen(WORDn, *swptr++);    /* case value */
+        gen(WORDn, *swptr++);    // case value
     }
     gen(WORDn, 0);
     if (swdefault)
@@ -881,8 +1006,8 @@ docase() {
         return;
     }
     gen(LABm, *swnext++ = getlabel());
-    constexpr(swnext++);
-    need(":");
+    IsConstExpr(swnext++);
+    Require(":");
 }
 
 dodefault() {
@@ -892,7 +1017,7 @@ dodefault() {
     }
     else
         error("not in switch");
-    need(":");
+    Require(":");
     gen(LABm, swdefault = getlabel());
 }
 
@@ -904,7 +1029,7 @@ dogoto() {
         gen(JMPm, addlabel(NO));
     else
         error("bad label");
-    ns();
+    ReqSemicolon();
 }
 
 dolabel() {
@@ -921,11 +1046,10 @@ dolabel() {
     return 0;
 }
 
-addlabel(def) int def;
-{
+addlabel(int def) {
     if (cptr = findloc(ssname)) {
-        if (cptr[IDENT] != LABEL)
-            error("not a label");
+        if (cptr[IDENT] != IDENT_LABEL)
+            error("not a label"); // same name used for variable
         else if (def) {
             if (cptr[TYPE])
                 error("duplicate label");
@@ -933,15 +1057,56 @@ addlabel(def) int def;
                 cptr[TYPE] = YES;
         }
     }
-    else
-        cptr = addsym(ssname, LABEL, def, 0, getlabel(), &locptr, LABEL);
+    else {
+        cptr = AddSymbol(ssname, IDENT_LABEL, def, 0, getlabel(), &locptr, TYPE_LABEL);
+    }
     return (getint(cptr + OFFSET, 2));
 }
 
 doreturn() {
     int savcsp;
-    if (endst() == 0)
-        doexpr(YES);
+    if (endst() == 0) {
+        if (rettype == TYPE_STRUCT) {
+            // Return struct via hidden pointer (first caller-pushed arg).
+            // Parse return expression as lvalue to get source address.
+            int is[7], savedlocptr, savcsp2;
+            char *cpyfn, *retptr;
+            savedlocptr = locptr;
+            savcsp2 = csp;
+            if (level1(is)) {
+                if (is[TYP_OBJ] == TYPE_STRUCT) {
+                    // AX = source address (local, member, dereferenced)
+                }
+                else if (is[TYP_OBJ] == 0 && (retptr = is[SYMTAB_ADR])
+                         && retptr[TYPE] == TYPE_STRUCT) {
+                    gen(POINT1m, retptr);
+                }
+                else {
+                    error("must return a struct");
+                }
+            }
+            // Emit structcp(dst, src, n) call.
+            // AX = src. Push src, load dst, swap so stack is [dst][src].
+            gen(PUSH1, 0);
+            gen(POINT1s, argtop + BPW);
+            gen(GETw1p, 0);
+            gen(SWAP1s, 0);
+            gen(PUSH1, 0);
+            gen(GETw1n, getStructSize(rettypeSubPtr));
+            gen(PUSH1, 0);
+            cpyfn = findglb("structcp");
+            if (cpyfn == 0)
+                cpyfn = AddSymbol("structcp", IDENT_FUNCTION, TYPE_INT,
+                    0, 0, &glbptr, AUTOEXT);
+            gen(ARGCNTn, 3);
+            gen(CALLm, cpyfn);
+            gen(ADDSP, savcsp2);
+            locptr = savedlocptr;
+        }
+        else {
+            doexpr(YES);
+        }
+    }
     savcsp = csp;
     gen(RETURN, 0);
     csp = savcsp;
@@ -969,10 +1134,10 @@ docont() {
 }
 
 doasm() {
-    ccode = 0;           /* mark mode as "asm" */
+    ccode = 0;           // mark mode as "asm"
     while (1) {
-        inline();
-        if (match("#endasm"))
+        doInline();
+        if (IsMatch("#endasm"))
             break;
         if (eof)
             break;
@@ -983,26 +1148,26 @@ doasm() {
 }
 
 doexpr(int use) {
-    int const, val;
+    int isConst, val;
     int *before, *start;
-    usexpr = use;        /* tell isfree() whether expr value is used */
+    usexpr = use;        // tell isfree() whether expr value is used
     while (1) {
         setstage(&before, &start);
-        expression(&const, &val);
-        clearstage(before, start);
+        ParseExpression(&isConst, &val);
+        ClearStage(before, start);
         if (ch != ',')
             break;
         bump(1);
     }
-    usexpr = YES;        /* return to normal value */
+    usexpr = YES;        // return to normal value
 }
 
-/******************** miscellaneous functions *******************/
+// ****************************************************************************
+// miscellaneous functions
+// ****************************************************************************
 
-/*
-** get run options
-*/
-ask() {
+// get run options
+getRunArgs() {
     int i;
     i = listfp = nxtlab = 0;
     output = stdout;
@@ -1040,10 +1205,8 @@ ask() {
     }
 }
 
-/*
-** input and output file opens
-*/
-openfile() {        /* entire function revised */
+// input and output file opens
+openfile() {        // entire function revised
     char outfn[15];
     int i, j, ext;
     input = EOF;
@@ -1076,9 +1239,7 @@ openfile() {        /* entire function revised */
     kill();
 }
 
-/*
-** open a file with error checking
-*/
+// open a file with error checking
 mustopen(char *fn, char *mode) {
     int fd;
     if (fd = fopen(fn, mode))
