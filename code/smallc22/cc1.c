@@ -727,10 +727,16 @@ parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
     else if (*id == IDENT_VARIABLE && IsMatch("[")) {
         *id = defArrTyp;
         if ((*sz *= getArraySz()) == 0) {
-            if (defArrTyp == IDENT_ARRAY) {
-                error("need array size");
+            if (defArrTyp == IDENT_ARRAY
+                && (type == TYPE_CHR || type == TYPE_UCHR)) {
+                // char arr[] — size will be inferred from string init
             }
-            *sz = BPW;      // size of pointer argument
+            else {
+                if (defArrTyp == IDENT_ARRAY) {
+                    error("need array size");
+                }
+                *sz = BPW;      // size of pointer argument
+            }
         }
     }
     return nameIsValid;
@@ -760,9 +766,11 @@ statement() {
     else {
         if (declared >= 0) {
             if (ncmp > 1) {
-                nogo = declared;   // disable goto
+                nogo = declared;
             }
-            gen(ADDSP, csp - declared);
+            if (declared > 0) {
+                gen(ADDSP, csp - declared);
+            }
             declared = -1;
         }
         if (IsMatch("{")) {
@@ -834,6 +842,285 @@ statement() {
     return lastst;
 }
 
+// allocate pending local variable space on the stack
+allocPendLoc() {
+    if (declared > 0) {
+        if (ncmp > 1) {
+            nogo = declared;
+        }
+        gen(ADDSP, csp - declared);
+        declared = 0;
+    }
+}
+
+// initialize a local scalar variable (int, char, pointer)
+// cptr must point to the symbol table entry for the variable.
+initLocScalar(int type) {
+    int isConst, val;
+    int *before, *start;
+    int offset, elemSize, isPtr;
+    char *savedcptr;
+    savedcptr = cptr;
+    offset = getint(savedcptr + OFFSET, 2);
+    isPtr = (savedcptr[IDENT] == IDENT_POINTER);
+    elemSize = type >> 2;
+    if (elemSize < 1) elemSize = 1;
+    // point to variable address, save it, evaluate expression, store
+    gen(POINT1s, offset);
+    gen(PUSH1, 0);
+    setstage(&before, &start);
+    ParseExpression(&isConst, &val);
+    ClearStage(before, start);
+    gen(POP2, 0);
+    if (isPtr || elemSize == BPW) {
+        gen(PUTwp1, 0);
+    }
+    else {
+        gen(PUTbp1, 0);
+    }
+}
+
+// initialize a local array variable with { expr, expr, ... }
+// cptr must point to the symbol table entry for the array.
+initLocArray(int type) {
+    int isConst, val;
+    int *before, *start;
+    int offset, elemSize, dim, count;
+    char *savedcptr;
+    savedcptr = cptr;
+    offset = getint(savedcptr + OFFSET, 2);
+    elemSize = type >> 2;
+    if (elemSize < 1) elemSize = 1;
+    dim = getint(savedcptr + SIZE, 2) / elemSize;
+    count = 0;
+    while (count < dim) {
+        gen(POINT1s, offset + count * elemSize);
+        gen(PUSH1, 0);
+        setstage(&before, &start);
+        ParseExpression(&isConst, &val);
+        ClearStage(before, start);
+        gen(POP2, 0);
+        if (elemSize == BPW) {
+            gen(PUTwp1, 0);
+        }
+        else {
+            gen(PUTbp1, 0);
+        }
+        count++;
+        if (IsMatch(",") == 0)
+            break;
+    }
+    Require("}");
+    // zero-fill remaining elements
+    while (count < dim) {
+        gen(POINT1s, offset + count * elemSize);
+        gen(PUSH1, 0);
+        gen(GETw1n, 0);
+        gen(POP2, 0);
+        if (elemSize == BPW) {
+            gen(PUTwp1, 0);
+        }
+        else {
+            gen(PUTbp1, 0);
+        }
+        count++;
+    }
+}
+
+// initialize a local char array from a string literal.
+// if infer is true, the array had [] with no size, so we fix up the
+// symbol table entry from the string length before allocating.
+// if infer is false, the array has an explicit size and
+// allocPendLoc() has already been called by the caller.
+initLocChrStr(int infer) {
+    int strOffset, strLen;
+    int offset, arrSize, i;
+    char *savedcptr;
+    savedcptr = cptr;
+    if (string(&strOffset) == 0) {
+        error("expected string literal");
+        return;
+    }
+    strLen = litptr - strOffset;
+    if (infer) {
+        declared += strLen;
+        putint(strLen, savedcptr + SIZE, 2);
+        putint(csp - declared, savedcptr + OFFSET, 2);
+        allocPendLoc();
+    }
+    offset = getint(savedcptr + OFFSET, 2);
+    arrSize = getint(savedcptr + SIZE, 2);
+    i = 0;
+    while (i < strLen && i < arrSize) {
+        gen(POINT1s, offset + i);
+        gen(PUSH1, 0);
+        gen(GETw1n, litq[strOffset + i] & 255);
+        gen(POP2, 0);
+        gen(PUTbp1, 0);
+        i++;
+    }
+    while (i < arrSize) {
+        gen(POINT1s, offset + i);
+        gen(PUSH1, 0);
+        gen(GETw1n, 0);
+        gen(POP2, 0);
+        gen(PUTbp1, 0);
+        i++;
+    }
+    litptr = strOffset;
+}
+
+// walk struct members and initialize each from expressions in current {...}.
+// typeSubPtr points to the struct definition.
+// baseOffset is the stack offset of the struct (or nested member) start.
+initLocStrMem(int typeSubPtr, int baseOffset) {
+    char *membercur, *memberend;
+    int memberSize, memberTotal, memberOffset;
+    int nestedPtr;
+    int isConst, val;
+    int *before, *start;
+    int elemCount, elemIdx, i;
+    membercur = getint(typeSubPtr + STRDAT_MBEG, 2);
+    memberend = getint(typeSubPtr + STRDAT_MEND, 2);
+    while (membercur < memberend) {
+        memberSize = membercur[STRMEM_TYPE] >> 2;
+        if (memberSize < 1) memberSize = 1;
+        memberTotal = getint(membercur + STRMEM_SIZE, 2);
+        memberOffset = getint(membercur + STRMEM_OFFSET, 2);
+        if (membercur[STRMEM_TYPE] == TYPE_STRUCT
+            && membercur[STRMEM_IDENT] == IDENT_VARIABLE) {
+            nestedPtr = getint(membercur + STRMEM_CLASSPTR, 2);
+            Require("{");
+            initLocStrMem(nestedPtr,
+                baseOffset + memberOffset);
+            Require("}");
+        }
+        else if (membercur[STRMEM_IDENT] == IDENT_ARRAY) {
+            elemCount = memberTotal / memberSize;
+            Require("{");
+            elemIdx = 0;
+            while (elemIdx < elemCount) {
+                gen(POINT1s,
+                    baseOffset + memberOffset + elemIdx * memberSize);
+                gen(PUSH1, 0);
+                setstage(&before, &start);
+                ParseExpression(&isConst, &val);
+                ClearStage(before, start);
+                gen(POP2, 0);
+                if (memberSize == BPW) {
+                    gen(PUTwp1, 0);
+                }
+                else {
+                    gen(PUTbp1, 0);
+                }
+                elemIdx++;
+                if (IsMatch(",") == 0) break;
+            }
+            Require("}");
+            while (elemIdx < elemCount) {
+                gen(POINT1s,
+                    baseOffset + memberOffset + elemIdx * memberSize);
+                gen(PUSH1, 0);
+                gen(GETw1n, 0);
+                gen(POP2, 0);
+                if (memberSize == BPW) {
+                    gen(PUTwp1, 0);
+                }
+                else {
+                    gen(PUTbp1, 0);
+                }
+                elemIdx++;
+            }
+        }
+        else {
+            gen(POINT1s, baseOffset + memberOffset);
+            gen(PUSH1, 0);
+            setstage(&before, &start);
+            ParseExpression(&isConst, &val);
+            ClearStage(before, start);
+            gen(POP2, 0);
+            if (memberSize == BPW
+                || membercur[STRMEM_IDENT] == IDENT_POINTER) {
+                gen(PUTwp1, 0);
+            }
+            else {
+                gen(PUTbp1, 0);
+            }
+        }
+        membercur += STRMEM_MAX;
+        if (membercur < memberend) {
+            if (IsMatch(",") == 0) break;
+        }
+    }
+    // zero-fill remaining members
+    while (membercur < memberend) {
+        memberTotal = getint(membercur + STRMEM_SIZE, 2);
+        memberOffset = getint(membercur + STRMEM_OFFSET, 2);
+        i = 0;
+        while (i < memberTotal) {
+            gen(POINT1s, baseOffset + memberOffset + i);
+            gen(PUSH1, 0);
+            gen(GETw1n, 0);
+            gen(POP2, 0);
+            gen(PUTbp1, 0);
+            i++;
+        }
+        membercur += STRMEM_MAX;
+    }
+}
+
+// initialize a local struct variable: struct tag v = { ... };
+// cptr must point to the symbol table entry for the variable.
+initLocStruct(int typeSubPtr) {
+    char *savedcptr;
+    int baseOffset;
+    savedcptr = cptr;
+    baseOffset = getint(savedcptr + OFFSET, 2);
+    if (IsMatch("{") == 0) {
+        error("struct initializer requires { }");
+        return;
+    }
+    initLocStrMem(typeSubPtr, baseOffset);
+    Require("}");
+}
+
+// initialize a local struct array: struct tag a[N] = {{...},{...},...};
+// cptr must point to the symbol table entry for the array.
+initLocStrArr(int typeSubPtr) {
+    char *savedcptr;
+    int baseOffset, structSize, dim, idx, i;
+    savedcptr = cptr;
+    baseOffset = getint(savedcptr + OFFSET, 2);
+    structSize = getStructSize(typeSubPtr);
+    dim = getint(savedcptr + SIZE, 2) / structSize;
+    if (IsMatch("{") == 0) {
+        error("struct array initializer requires { }");
+        return;
+    }
+    idx = 0;
+    while (idx < dim) {
+        Require("{");
+        initLocStrMem(typeSubPtr,
+            baseOffset + idx * structSize);
+        Require("}");
+        idx++;
+        if (IsMatch(",") == 0) break;
+    }
+    Require("}");
+    while (idx < dim) {
+        i = 0;
+        while (i < structSize) {
+            gen(POINT1s, baseOffset + idx * structSize + i);
+            gen(PUSH1, 0);
+            gen(GETw1n, 0);
+            gen(POP2, 0);
+            gen(PUTbp1, 0);
+            i++;
+        }
+        idx++;
+    }
+}
+
 // declare local variables
 declareLocals(int type, int typeSubPtr) {
     int id, sz;
@@ -852,10 +1139,40 @@ declareLocals(int type, int typeSubPtr) {
         }
         parseLocalDeclare(type, typeSubPtr, IDENT_ARRAY, &id, &sz);
         declared += sz;
-        // printf(" decloc %s sz=%u\n", ssname, sz);
         AddSymbol(ssname, id, type, sz, csp - declared, &locptr, AUTOMATIC);
         if (type == TYPE_STRUCT) {
             putint(typeSubPtr, cptr + CLASSPTR, 2);
+        }
+        if (IsMatch("=")) {
+            if (sz == 0 && id == IDENT_ARRAY) {
+                // char arr[] = "..." — infer size from string
+                initLocChrStr(1);
+            }
+            else {
+                allocPendLoc();
+                if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
+                    initLocStruct(typeSubPtr);
+                }
+                else if (type == TYPE_STRUCT && id == IDENT_ARRAY) {
+                    initLocStrArr(typeSubPtr);
+                }
+                else if (id == IDENT_ARRAY && IsMatch("{")) {
+                    initLocArray(type);
+                }
+                else if (id == IDENT_ARRAY
+                    && (type == TYPE_CHR || type == TYPE_UCHR)) {
+                    initLocChrStr(0);
+                }
+                else if (id == IDENT_ARRAY) {
+                    error("array initializer requires { }");
+                }
+                else {
+                    initLocScalar(type);
+                }
+            }
+        }
+        else if (sz == 0 && id == IDENT_ARRAY) {
+            error("need array size");
         }
         if (IsMatch(",") == 0)
             return;

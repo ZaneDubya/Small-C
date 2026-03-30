@@ -609,7 +609,12 @@ level14(int *is) {
             if (is2[TYP_CNST]) {
                 ClearStage(before, 0);
                 if (is2[VAL_CNST]) {             // only add if non-zero
-                    if (ptr[TYPE] >> 2 == BPW) {
+                    if (ptr[TYPE] == TYPE_STRUCT) {
+                        gen(GETw2n, is2[VAL_CNST]
+                            * getStructSize(getint(
+                                ptr + CLASSPTR, 2)));
+                    }
+                    else if (ptr[TYPE] >> 2 == BPW) {
                         gen(GETw2n, is2[VAL_CNST] << LBPW);
                     }
                     else {
@@ -619,7 +624,12 @@ level14(int *is) {
                 }
             }
             else {
-                if (ptr[TYPE] >> 2 == BPW) {
+                if (ptr[TYPE] == TYPE_STRUCT) {
+                    gen(GETw2n, getStructSize(
+                        getint(ptr + CLASSPTR, 2)));
+                    gen(MUL12, 0);
+                }
+                else if (ptr[TYPE] >> 2 == BPW) {
                     gen(DBL1, 0);
                 }
                 gen(ADD12, 0);
