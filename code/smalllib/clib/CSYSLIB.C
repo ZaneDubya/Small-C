@@ -232,6 +232,7 @@ _flush(fd) int fd; {
 _adjust(fd) int fd; {
   if(_bufuse[fd] == OUT) return (_flush(fd));
   if(_bufuse[fd] == IN ) return (_backup(fd));
+  return (NULL);
   }
 
 /*
