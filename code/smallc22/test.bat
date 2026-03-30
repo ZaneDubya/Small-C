@@ -1,1 +1,0 @@
-cc test -a -p

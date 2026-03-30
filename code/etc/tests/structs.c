@@ -7,7 +7,7 @@
 // Each test prints PASS or FAIL with a description.
 // At the end, a summary of passed/failed/total is printed.
 
-#include "stdio.h"
+#include "../../smallc22/stdio.h"
 
 int passed, failed;
 
