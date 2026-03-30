@@ -1,5 +1,5 @@
 /******************************************************************************
-* ylink - the ypsilon linker (c) 2017 Zane Wagner. All rights reserved.
+* ylink - a small dos linker (c) 2017 Zane Wagner. All rights reserved.
 ******************************************************************************/
 #include "stdio.h"
 #include "notice.h"
@@ -307,7 +307,6 @@ P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
     case LEDATA:
     case LIDATA:
     case LIBDEP:
-    case LIBEND:
       forward(fd, length);
       break;
     default:
@@ -602,7 +601,7 @@ P1_LIBHDR(uint length, uint fd) {
 // LIBEND record, and will not contain dictionary or dependancy records.
 P1_LIBEND(uint length, uint fd) {
   if (!libInLib) {
-    fatal("LIBEND: not a library!", 0);
+    fatal("LIBEND: not a library!");
   }
   clearsilent(length, fd);
   safefclose(fd);
@@ -938,7 +937,7 @@ P4_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
         forward(fd, length);
         break;
       default:
-        fatal("P4_DoMod: Unknown record of type %u.\n", recType);
+        fatalf("P4_DoMod: Unknown record of type %u.\n", recType);
         break;
     }
   }
