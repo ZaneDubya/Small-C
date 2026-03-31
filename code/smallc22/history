@@ -150,3 +150,5 @@ Small-C Revision History
     compiler always uses the CL path: MOV CX,AX / MOV AX,BX / SAL AX,CL. When
     the shift amount is constant 1, this is replaced with MOV AX,BX / SHL AX,1.
     Two p-codes (ASL1_1 and ASR1_1) do left and right shifts. Saves 2 bytes.
+123 Fix commutes bug in cc4, repairing seq27. See correct pattern in isfree().
+    Discovered by Fred J. Scipione (@FredJScipione on GitHub).

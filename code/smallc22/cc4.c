@@ -654,7 +654,7 @@ dumpzero(int size, int count) {
 // Try to optimize sequence at snext in the staging buffer.
 peep(int *seq) {
     int *next, *count, *pop, n, skip, tmp, reply;
-    char c;
+    char c, *cp;
     next = snext;
     count = seq++;
     while (*seq) {
@@ -672,7 +672,7 @@ peep(int *seq) {
                 break;
             return (NO);
         case comm: 
-            if (*next & COMMUTES)
+            if (*(cp = code[*next]) & COMMUTES)
                 break;
             return (NO);
         case _pop:
