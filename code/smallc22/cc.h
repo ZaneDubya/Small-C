@@ -33,11 +33,12 @@
 #define NAMEMAX  12
 
 // values for "IDENT"
-#define IDENT_LABEL    0
-#define IDENT_VARIABLE 1
-#define IDENT_ARRAY    2
-#define IDENT_POINTER  3
-#define IDENT_FUNCTION 4
+#define IDENT_LABEL     0
+#define IDENT_VARIABLE  1
+#define IDENT_ARRAY     2
+#define IDENT_POINTER   3
+#define IDENT_FUNCTION  4
+#define IDENT_PTR_ARRAY 5
 
 // values for "TYPE"
 //    high order 6 bits give length of object

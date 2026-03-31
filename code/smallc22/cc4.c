@@ -603,7 +603,8 @@ external(char *name, int size, int ident) {
 
 // output the size of the object pointed to.
 outsize(int size, int ident) {
-    if (size == 1 && ident != IDENT_POINTER && ident != IDENT_FUNCTION)
+    if (size == 1 && ident != IDENT_POINTER && ident != IDENT_PTR_ARRAY
+                  && ident != IDENT_FUNCTION)
         outstr("BYTE");
     else if (ident != IDENT_FUNCTION)
         outstr("WORD");

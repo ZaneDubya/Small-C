@@ -13,16 +13,18 @@ website is [deturbulator.org](http://www.deturbulator.org/Jim.asp).
 YLink was written by Zane Wagner in 2017.
 
 ## Small-C Compiler
-Version 2.3, Revision Level 123
+Version 2.3
 Copyright 1982, 1983, 1985, 1988 J. E. Hendrix
 
 Enhancements from Small-C Version 2.2:
-* Support for C99 style comments (//)
+* Support for reserved keyword checking.
+* Support for C99 style comments (//).
 * Support for C89/C90 argument list types.
 * Support for 'static' access modifier for functions and globals.
 * Support for longer variable names.
 * Support for structs.
 * Support for local variable initialization.
+* Support for pointer arrays.
 * Support for multi-dimensional arrays (and initialization).
 * New peephole optimizations.
 
