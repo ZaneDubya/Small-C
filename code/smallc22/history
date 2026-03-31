@@ -157,4 +157,4 @@ Small-C Revision History
     continues to support a (growing) amount of the C language; just because a
     keyword is reserved does not mean the feature associated with that keyword
     has been implemented.
-  
+125 Fixed overflow bug in CC1.C (incorrectly calculated slast and swend).
