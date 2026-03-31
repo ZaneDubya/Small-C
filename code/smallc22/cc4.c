@@ -571,7 +571,7 @@ toseg(int newseg) {
 }
 
 // declare variable, allowing global scope
-public(int ident, int isGlobal) {
+decGlobal(int ident, int isGlobal) {
     if (ident == IDENT_FUNCTION)
         toseg(CODESEG);
     else

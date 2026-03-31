@@ -344,7 +344,7 @@ InitSize(int size, int ident, int dim, int class) {
         dim = -1;         // *... or ...[]
     }
     savedim = dim;
-    public(ident, class == GLOBAL); // don't do public if class == STATIC
+    decGlobal(ident, class == GLOBAL); // don't do public if class == STATIC
     if (IsMatch("=")) {
         if (IsMatch("{")) {
             while (dim) {
@@ -394,7 +394,7 @@ InitStruct(int typeSubPtr, int class) {
     int memberSize, structSize, dim, memberTotal;
     litptr = 0;
     structSize = getStructSize(typeSubPtr);
-    public(IDENT_VARIABLE, class == GLOBAL);
+    decGlobal(IDENT_VARIABLE, class == GLOBAL);
     if (IsMatch("=")) {
         if (IsMatch("{")) {
             membercur = getint(typeSubPtr + STRDAT_MBEG, 2);
@@ -445,7 +445,7 @@ initGlMDArr(int type, int typeSubPtr, int ndim, int dims[], int class) {
         ++i;
     }
     litptr = 0;
-    public(IDENT_ARRAY, class == GLOBAL);
+    decGlobal(IDENT_ARRAY, class == GLOBAL);
     if (IsMatch("=")) {
         if (IsMatch("{")) {
             initGlMDSub(elemSz, ndim, dims, 0);
@@ -651,7 +651,7 @@ dofunction(int class) {
         if (rettype == TYPE_STRUCT)
             putint(rettypeSubPtr, cptr + CLASSPTR, 2);
     }
-    public(IDENT_FUNCTION, class == GLOBAL); // don't do public if class == STATIC
+    decGlobal(IDENT_FUNCTION, class == GLOBAL); // don't do public if class == STATIC
     if (IsMatch("(") == 0)
         error("no open paren");
     if ((firstType = dotype(&typeSubPtr)) != 0) {
