@@ -131,3 +131,22 @@ Small-C Revision History
     to prevent assembler errors when peephole-optimized byte accesses
     reference word-declared labels.
     Added PUSH2 to gen() csp tracking.
+122 New peephole optimizations:
+    (1) Eliminate LNEG before conditional jump (seq48-49): When !expr appears
+    in a boolean context, the compiler emits CALL __lneg followed by a
+    conditional jump. The CALL is unnecessary — flipping the jump sense from
+    NE10f to EQ10f (or vice versa) produces identical behavior. Saves 3 bytes.
+    (2) Inline comparison + conditional jump (seq50-59): When comparisons like
+    a == b appear in boolean context, the compiler emits a CALL to a library
+    routine (__eq, __ne, __lt, etc.) that returns 0/1 in AX, followed by a
+    test-and-jump. This two-step sequence is replaced with a single inline
+    CMP AX,BX / Jcc $+5 / JMP _label using the condition codes from CALL.ASM.
+    Ten new p-codes (EQf through GEuf) cover all comparisons. Saves 3 bytes.
+    (3) Direct stack stores (seq60-61): Every assignment to a local variable
+    generates LEA BX,n[BP] / MOV [BX],AX. When BX is not needed afterward, this
+    collapses to MOV n[BP],AX. Two new p-codes (PUTws1 for words, PUTbs1 for
+    bytes) mirror existing load-path optimization in seq42. Saves 2 bytes.
+    (4) Constant shift by 1 (seq62-63): The 8086 can shift by 1 or by CL. The
+    compiler always uses the CL path: MOV CX,AX / MOV AX,BX / SAL AX,CL. When
+    the shift amount is constant 1, this is replaced with MOV AX,BX / SHL AX,1.
+    Two p-codes (ASL1_1 and ASR1_1) do left and right shifts. Saves 2 bytes.
