@@ -121,7 +121,7 @@ main(int argc, int *argv) {
     argcs = argc;
     argvs = argv;
     swnext = calloc(SWTABSZ, 1);
-    swend = swnext + (SWTABSZ - SWSIZ);
+    swend = swnext + (SWTABSZ - SWSIZ) / BPW;
     stage = calloc(STAGESIZE, 2 * BPW);
     wqptr =
         wq = calloc(WQTABSZ, BPW);
@@ -130,7 +130,7 @@ main(int argc, int *argv) {
     macq = calloc(MACQSIZE, 1);
     pline = calloc(LINESIZE, 1);
     mline = calloc(LINESIZE, 1);
-    slast = stage + (STAGESIZE * 2 * BPW);
+    slast = stage + (STAGESIZE * 2);
     symtab = calloc((NUMLOCS*SYMAVG + NUMGLBS*SYMMAX), 1);
     locptr = STARTLOC;
     glbptr = STARTGLB;
