@@ -452,8 +452,12 @@ level13(int is[]) {
     }
     else if (IsMatch("*")) {             // unary *
         if (level13(is)) fetch(is);
-        if (ptr = is[SYMTAB_ADR])
-            is[TYP_OBJ] = ptr[TYPE];
+        if (ptr = is[SYMTAB_ADR]) {
+            if (ptr[IDENT] == IDENT_PTR_ARRAY)
+                is[TYP_OBJ] = TYPE_UINT;
+            else
+                is[TYP_OBJ] = ptr[TYPE];
+        }
         else
             is[TYP_OBJ] = TYPE_INT;
         is[STG_ADR] = is[TYP_ADR] = is[TYP_CNST] = 0; // no op0 stage addr, not addr or const
@@ -634,41 +638,62 @@ level14(int *is) {
             }
             else {
                 // final dimension or 1D: element-size scaling
-                if (is2[TYP_CNST]) {
-                    ClearStage(before, 0);
-                    if (is2[VAL_CNST]) {
-                        if (ptr[TYPE] == TYPE_STRUCT) {
-                            gen(GETw2n, is2[VAL_CNST]
-                                * getStructSize(
-                                    getClsPtr(ptr)));
-                        }
-                        else if (ptr[TYPE] >> 2 == BPW) {
+                if (ptr && ptr[IDENT] == IDENT_PTR_ARRAY) {
+                    // pointer array: elements are word-sized pointers
+                    if (is2[TYP_CNST]) {
+                        ClearStage(before, 0);
+                        if (is2[VAL_CNST]) {
                             gen(GETw2n,
                                 is2[VAL_CNST] << LBPW);
+                            gen(ADD12, 0);
                         }
-                        else {
-                            gen(GETw2n, is2[VAL_CNST]);
+                    }
+                    else {
+                        gen(DBL1, 0);
+                        gen(ADD12, 0);
+                    }
+                    is[DIM_LEFT] = 0;
+                    is[TYP_OBJ] = TYPE_UINT;
+                    is[TYP_ADR] = ptr[TYPE];
+                    k = 1;
+                }
+                else {
+                    if (is2[TYP_CNST]) {
+                        ClearStage(before, 0);
+                        if (is2[VAL_CNST]) {
+                            if (ptr[TYPE] == TYPE_STRUCT) {
+                                gen(GETw2n, is2[VAL_CNST]
+                                    * getStructSize(
+                                        getClsPtr(ptr)));
+                            }
+                            else if (ptr[TYPE] >> 2 == BPW) {
+                                gen(GETw2n,
+                                    is2[VAL_CNST] << LBPW);
+                            }
+                            else {
+                                gen(GETw2n, is2[VAL_CNST]);
+                            }
+                            gen(ADD12, 0);
+                        }
+                    }
+                    else {
+                        if (ptr[TYPE] == TYPE_STRUCT) {
+                            gen(PUSH2, 0);
+                            gen(GETw2n, getStructSize(
+                                getClsPtr(ptr)));
+                            gen(MUL12, 0);
+                            gen(POP2, 0);
+                        }
+                        else if (ptr[TYPE] >> 2 == BPW) {
+                            gen(DBL1, 0);
                         }
                         gen(ADD12, 0);
                     }
+                    is[DIM_LEFT] = 0;
+                    is[TYP_ADR] = 0;
+                    is[TYP_OBJ] = ptr[TYPE];
+                    k = 1;
                 }
-                else {
-                    if (ptr[TYPE] == TYPE_STRUCT) {
-                        gen(PUSH2, 0);
-                        gen(GETw2n, getStructSize(
-                            getClsPtr(ptr)));
-                        gen(MUL12, 0);
-                        gen(POP2, 0);
-                    }
-                    else if (ptr[TYPE] >> 2 == BPW) {
-                        gen(DBL1, 0);
-                    }
-                    gen(ADD12, 0);
-                }
-                is[DIM_LEFT] = 0;
-                is[TYP_ADR] = 0;
-                is[TYP_OBJ] = ptr[TYPE];
-                k = 1;
             }
         }
         else if (IsMatch("(")) {         // function(...)
@@ -786,6 +811,10 @@ primary(int *is) {
                     is[DIM_LEFT] = ptr[NDIM];
                 return 0;
             }
+            if (ptr[IDENT] == IDENT_PTR_ARRAY) {
+                is[TYP_ADR] = TYPE_UINT;
+                return 0;
+            }
             if (ptr[IDENT] == IDENT_POINTER) {
                 is[TYP_OBJ] = TYPE_UINT;
                 is[TYP_ADR] = ptr[TYPE];
@@ -802,6 +831,11 @@ primary(int *is) {
                     is[TYP_OBJ] = is[TYP_ADR] = ptr[TYPE];
                     if (ptr[NDIM] > 1)
                         is[DIM_LEFT] = ptr[NDIM];
+                    return 0;
+                }
+                if (ptr[IDENT] == IDENT_PTR_ARRAY) {
+                    gen(POINT1m, ptr);
+                    is[TYP_OBJ] = is[TYP_ADR] = TYPE_UINT;
                     return 0;
                 }
                 if (ptr[IDENT] == IDENT_POINTER) {

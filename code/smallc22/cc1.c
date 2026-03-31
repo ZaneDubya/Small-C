@@ -270,6 +270,12 @@ declglb(int type, int class, int typeSubPtr) {
             illname();
         if (findglb(ssname)) 
             multidef(ssname);
+        if (id == IDENT_POINTER && IsMatch("[")) {
+            id = IDENT_PTR_ARRAY;
+            dims[0] = getArraySz();
+            ndim = 1;
+            dim = dims[0];
+        }
         if (id == IDENT_VARIABLE) {
             if (IsMatch("(")) { 
                 id = IDENT_FUNCTION; 
@@ -292,14 +298,19 @@ declglb(int type, int class, int typeSubPtr) {
         if (class == EXTERNAL) 
             external(ssname, type >> 2, id);
         else if (id != IDENT_FUNCTION) {
-            if (type == TYPE_STRUCT && id == IDENT_VARIABLE)
+            if (id == IDENT_PTR_ARRAY)
+                dim = InitPtrArray(type, dim, class);
+            else if (type == TYPE_STRUCT && id == IDENT_VARIABLE)
                 InitStruct(typeSubPtr, class);
             else if (ndim > 1)
                 initGlMDArr(type, typeSubPtr, ndim, dims, class);
             else
                 InitSize(type >> 2, id, dim, class);
         }
-        if (id == IDENT_POINTER) {
+        if (id == IDENT_PTR_ARRAY) {
+            AddSymbol(ssname, id, type, dim * BPW, 0, &glbptr, class);
+        }
+        else if (id == IDENT_POINTER) {
             AddSymbol(ssname, id, type, BPW, 0, &glbptr, class);
         }
         else if (ndim > 1) {
@@ -386,6 +397,97 @@ EvalInitValue(int size, int ident, int *dim) {
         stowlit(value, size);
         *dim -= 1;
     }
+}
+
+// initialize a global pointer array (e.g. char *arr[] = {"str", 0})
+// returns actual element count
+InitPtrArray(int type, int dim, int class) {
+    int labels[50];
+    int values[50];
+    int isstr[50];
+    int strstart[50];
+    int strend[50];
+    int count, i, k, j, savedim, value;
+
+    litptr = 0;
+    count = 0;
+    savedim = dim;
+    if (dim == 0) dim = -1;
+
+    decGlobal(IDENT_PTR_ARRAY, class == GLOBAL);
+
+    if (IsMatch("=")) {
+        if (IsMatch("{")) {
+            while (dim && count < 50) {
+                if (string(&value)) {
+                    isstr[count] = 1;
+                    labels[count] = getlabel();
+                    strstart[count] = value;
+                    strend[count] = litptr;
+                    ++count;
+                    --dim;
+                }
+                else if (IsConstExpr(&value)) {
+                    isstr[count] = 0;
+                    values[count] = value;
+                    ++count;
+                    --dim;
+                }
+                else break;
+                if (IsMatch(",") == 0) break;
+            }
+            Require("}");
+        }
+    }
+
+    if (savedim == 0 && count == 0) {
+        error("need array size or initializer");
+    }
+
+    // emit array elements as DW entries
+    i = 0;
+    while (i < count) {
+        if (isstr[i]) {
+            gen(NEARm, labels[i]);
+        }
+        else {
+            gen(WORD_, 0);
+            outdec(values[i]);
+            newline();
+        }
+        ++i;
+    }
+
+    // zero-fill remaining declared elements
+    if (dim > 0) {
+        dumpzero(BPW, dim);
+    }
+
+    // emit string data with labels
+    i = 0;
+    while (i < count) {
+        if (isstr[i]) {
+            gen(LABm, labels[i]);
+            k = strstart[i];
+            while (k < strend[i]) {
+                gen(BYTE_, 0);
+                j = 10;
+                while (j--) {
+                    outdec(litq[k] & 255);
+                    ++k;
+                    if (j == 0 || k >= strend[i]) {
+                        newline();
+                        break;
+                    }
+                    fputc(',', output);
+                }
+            }
+        }
+        ++i;
+    }
+
+    if (savedim == 0) return count;
+    return savedim;
 }
 
 // initialize a global struct variable with optional { ... } brace syntax
@@ -917,6 +1019,18 @@ parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
             error("Is this a function pointer? Try (*...)()");
         }
         Require(")");
+    }
+    else if (*id == IDENT_POINTER && IsMatch("[")) {
+        // pointer array: *name[]
+        getArraySz();     // consume [] size if present
+        if (defArrTyp == IDENT_POINTER) {
+            // function parameter: *name[] is just a pointer
+            *sz = BPW;
+        }
+        else {
+            error("local pointer arrays not supported");
+        }
+        lastNdim = 0;
     }
     else if (*id == IDENT_VARIABLE && IsMatch("[")) {
         int dims[MAX_DIMS], ndim, elemSz, k;
