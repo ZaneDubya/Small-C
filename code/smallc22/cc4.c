@@ -209,9 +209,57 @@ int
                topop | GETw2s,go | p1,0 },
 
     seq47[] = { 0,SUB1n,0,                              // rDEC1 or rINC1 ?
-               ifl | m2,0,ifl | 0,rINC1,neg,0,ifl | p3,rDEC1,0,0 };
+               ifl | m2,0,ifl | 0,rINC1,neg,0,ifl | p3,rDEC1,0,0 },
 
-#define HIGH_SEQ  47
+    seq48[] = { 0,LNEG1,NE10f,0,                          // EQ10f
+               go | p1,EQ10f,0 },
+
+    seq49[] = { 0,LNEG1,EQ10f,0,                          // NE10f
+               go | p1,NE10f,0 },
+
+    seq50[] = { 0,EQ12,NE10f,0,                            // EQf
+               go | p1,EQf,0 },
+
+    seq51[] = { 0,NE12,NE10f,0,                            // NEf
+               go | p1,NEf,0 },
+
+    seq52[] = { 0,LT12,NE10f,0,                            // LTf
+               go | p1,LTf,0 },
+
+    seq53[] = { 0,GT12,NE10f,0,                            // GTf
+               go | p1,GTf,0 },
+
+    seq54[] = { 0,LE12,NE10f,0,                            // LEf
+               go | p1,LEf,0 },
+
+    seq55[] = { 0,GE12,NE10f,0,                            // GEf
+               go | p1,GEf,0 },
+
+    seq56[] = { 0,LT12u,NE10f,0,                           // LTuf
+               go | p1,LTuf,0 },
+
+    seq57[] = { 0,GT12u,NE10f,0,                           // GTuf
+               go | p1,GTuf,0 },
+
+    seq58[] = { 0,LE12u,NE10f,0,                           // LEuf
+               go | p1,LEuf,0 },
+
+    seq59[] = { 0,GE12u,NE10f,0,                           // GEuf
+               go | p1,GEuf,0 },
+
+    seq60[] = { 0,POINT2s,PUTwp1,sfree,0,                  // PUTws1
+               sum | p1,go | p1,PUTws1,gv | m1,0 },
+
+    seq61[] = { 0,POINT2s,PUTbp1,sfree,0,                  // PUTbs1
+               sum | p1,go | p1,PUTbs1,gv | m1,0 },
+
+    seq62[] = { 0,GETw1n,ASL12,0,                          // ASL1_1
+               ife | p1,go | p1,ASL1_1,0,0 },
+
+    seq63[] = { 0,GETw1n,ASR12,0,                          // ASR1_1
+               ife | p1,go | p1,ASR1_1,0,0 };
+
+#define HIGH_SEQ  63
 int seq[HIGH_SEQ + 1];
 setseq() {
     seq[0] = seq00;  seq[1] = seq01;  seq[2] = seq02;  seq[3] = seq03;
@@ -226,6 +274,10 @@ setseq() {
     seq[36] = seq36;  seq[37] = seq37;  seq[38] = seq38;  seq[39] = seq39;
     seq[40] = seq40;  seq[41] = seq41;  seq[42] = seq42;  seq[43] = seq43;
     seq[44] = seq44;  seq[45] = seq45;  seq[46] = seq46;  seq[47] = seq47;
+    seq[48] = seq48;  seq[49] = seq49;  seq[50] = seq50;  seq[51] = seq51;
+    seq[52] = seq52;  seq[53] = seq53;  seq[54] = seq54;  seq[55] = seq55;
+    seq[56] = seq56;  seq[57] = seq57;  seq[58] = seq58;  seq[59] = seq59;
+    seq[60] = seq60;  seq[61] = seq61;  seq[62] = seq62;  seq[63] = seq63;
 }
 
 // === assembly-code strings ==================================================
@@ -343,6 +395,23 @@ setcodes() {
     code[SWAP1s] = "\012POP BX\nXCHG AX,BX\nPUSH BX\n";
     code[SWITCH] = "\012CALL __switch\n";
     code[XOR12] = "\211XOR AX,BX\n";
+    // inline comparison + conditional jump (optimizer-generated)
+    code[EQf]  = "\011CMP AX,BX\nJE $+5\nJMP _<n>\n";
+    code[NEf]  = "\011CMP AX,BX\nJNE $+5\nJMP _<n>\n";
+    code[LTf]  = "\011CMP AX,BX\nJG $+5\nJMP _<n>\n";
+    code[GTf]  = "\011CMP AX,BX\nJL $+5\nJMP _<n>\n";
+    code[LEf]  = "\011CMP AX,BX\nJGE $+5\nJMP _<n>\n";
+    code[GEf]  = "\011CMP AX,BX\nJLE $+5\nJMP _<n>\n";
+    code[LTuf] = "\011CMP AX,BX\nJA $+5\nJMP _<n>\n";
+    code[GTuf] = "\011CMP AX,BX\nJB $+5\nJMP _<n>\n";
+    code[LEuf] = "\011CMP AX,BX\nJAE $+5\nJMP _<n>\n";
+    code[GEuf] = "\011CMP AX,BX\nJBE $+5\nJMP _<n>\n";
+    // direct stack stores (optimizer-generated)
+    code[PUTws1] = "\010MOV <n>[BP],AX\n";
+    code[PUTbs1] = "\010MOV BYTE PTR <n>[BP],AL\n";
+    // constant shift by 1 (optimizer-generated)
+    code[ASL1_1] = "\001MOV AX,BX\nSHL AX,1\n";
+    code[ASR1_1] = "\001MOV AX,BX\nSAR AX,1\n";
 }
 
 //  === code generation functions =============================================

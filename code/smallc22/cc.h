@@ -311,4 +311,24 @@
 #define SUBbpn  105   // sub n from mem byte thru sr ptr
 #define SUBwpn  106   // sub n from mem word thru sr ptr
 
-#define PCODES  107   // size of code[]
+// optimizer-generated: inline comparison + conditional jump
+#define EQf     107   // jump if (sr == pr) is false
+#define NEf     108   // jump if (sr != pr) is false
+#define LTf     109   // jump if (sr <  pr) is false (signed)
+#define GTf     110   // jump if (sr >  pr) is false (signed)
+#define LEf     111   // jump if (sr <= pr) is false (signed)
+#define GEf     112   // jump if (sr >= pr) is false (signed)
+#define LTuf    113   // jump if (sr <  pr) is false (unsigned)
+#define GTuf    114   // jump if (sr >  pr) is false (unsigned)
+#define LEuf    115   // jump if (sr <= pr) is false (unsigned)
+#define GEuf    116   // jump if (sr >= pr) is false (unsigned)
+
+// optimizer-generated: direct stack stores
+#define PUTws1  117   // put pr word into stack frame
+#define PUTbs1  118   // put pr byte into stack frame
+
+// optimizer-generated: constant shift by 1
+#define ASL1_1  119   // shift left sr by 1 into pr
+#define ASR1_1  120   // shift right sr by 1 into pr
+
+#define PCODES  121   // size of code[]
