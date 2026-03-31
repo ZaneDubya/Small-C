@@ -153,3 +153,8 @@ Small-C Revision History
 123 Fix commutes bug in cc4, repairing seq27. See correct pattern in isfree().
     Discovered by Fred J. Scipione (@FredJScipione on GitHub).
 124 Support for pointer arrays and initialization: char* varname[] = { ... }
+    Do not allow use of reserved keywords list. Note that this compiler
+    continues to support a (growing) amount of the C language; just because a
+    keyword is reserved does not mean the feature associated with that keyword
+    has been implemented.
+  
