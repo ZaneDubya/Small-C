@@ -64,7 +64,9 @@ int
     *slast,    // last addr in stage
     listfp,   // file pointer to list device
     lastst,   // last parsed statement type
-    oldseg;   // current segment (0, DATASEG, CODESEG)
+    oldseg,   // current segment (0, DATASEG, CODESEG)
+    lineno,   // current line number in input file
+    inclno;   // current line number in include file
 
 char
     optimize, // optimize output of staging buffer?
@@ -87,7 +89,9 @@ char
     *dimdata,  // multi-dim array metadata buffer
     *dimdatptr, // next free entry in dimdata
     msname[NAMESIZE],   // macro symbol name
-    ssname[NAMESIZE];   // global symbol name
+    ssname[NAMESIZE],   // global symbol name
+    infn[30],    // current input filename
+    inclfn[30];  // current include filename
 
 int
     lastNdim,            // ndim from last parseLocalDeclare call
@@ -692,7 +696,7 @@ doinclude() {
         ++lptr;
     }
     i = 0;
-    while (lptr[i] && lptr[i] != '"' && lptr[i] != '>' && lptr[i] != '\n') {
+    while (lptr[i] && lptr[i] != '"' && lptr[i] != '>' && lptr[i] != '\n' && lptr[i] != CR) {
         str[i] = lptr[i];
         ++i;
     }
@@ -700,6 +704,10 @@ doinclude() {
     if ((input2 = fopen(str, "r")) == NULL) {
         input2 = EOF;
         error("open failure on include file");
+    }
+    else {
+        strcpy(inclfn, str);
+        inclno = 0;
     }
     kill();   // make next read come from new file (if open)
 }
@@ -2272,6 +2280,8 @@ openfile() {        // entire function revised
         }
         if (!ext) strcpy(pline + i, ".C");
         input = mustopen(pline, "r");
+        strcpy(infn, pline);
+        lineno = 0;
         if (!files && iscons(stdout)) {
             strcpy(outfn + j, ".ASM");
             output = mustopen(outfn, "w");

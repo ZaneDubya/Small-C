@@ -29,13 +29,14 @@ char *keywords[] = {
 extern char
     *symtab, *macn, *macq, *pline, *mline, optimize,
     alarm, *glbptr, *line, *lptr, *cptr, *cptr2, *cptr3,
-    *locptr, *dimdata, *dimdatptr, msname[NAMESIZE], pause;
+    *locptr, *dimdata, *dimdatptr, msname[NAMESIZE], pause,
+    infn[30], inclfn[30];
 
 extern int
     *wq, ccode, ch, csp, eof, errflag, iflevel,
     input, input2, listfp, macptr, nch,
     nxtlab, op[16], opindex, opsize, output, pptr,
-    skiplevel, *wqptr;
+    skiplevel, *wqptr, lineno, inclno;
 
 // === input functions ========================================================
 
@@ -52,7 +53,7 @@ preprocess() {
         return;
     }
     pptr = -1;
-    while (ch != NEWLINE && ch) {
+    while (ch != LF && ch != CR && ch) {
         if (white()) {
             keepch(' ');
             while (white()) gch();
@@ -210,10 +211,14 @@ doInline() {
             input = EOF;
         *line = NULL;
     }
-    else if (listfp) {
-        if (listfp == output)
-            fputc(';', output);
-        fputs(line, listfp);
+    else {
+        if (input2 != EOF) ++inclno;
+        else                ++lineno;
+        if (listfp) {
+            if (listfp == output)
+                fputc(';', output);
+            fputs(line, listfp);
+        }
     }
     bump(0);
 }
@@ -621,6 +626,10 @@ error(char msg[]) {
     else {
         errflag = 1;
     }
+    if (input2 != EOF)
+        fprintf(stderr, "%s(%d) ", inclfn, inclno);
+    else
+        fprintf(stderr, "%s(%d) ", infn, lineno);
     lout(line, stderr);
     errout(msg, stderr);
     if (alarm) fputc(7, stderr);

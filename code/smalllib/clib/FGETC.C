@@ -30,8 +30,14 @@ fgetc(fd) int fd; {
     switch(ch) {            /* normal cooking */
           default:  return (ch);
       case DOSEOF: _seteof(fd); return (EOF);
-      case     CR:  return ('\n');
+      case     CR:
+          if (!iscons(fd)) {
+              ch = _read(fd);       /* peek: consume LF if CRLF pair */
+              if (ch != LF) _nextc[fd] = ch;
+          }
+          return ('\n');
       case     LF:
+          return ('\n');            /* standalone LF also terminates line */
       }
     }
   }
