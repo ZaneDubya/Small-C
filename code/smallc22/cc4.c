@@ -18,6 +18,8 @@
 
 // #define DISOPT           // display optimizations values
 
+char needLong;
+
 // === externals ==============================================================
 
 extern char
@@ -29,7 +31,6 @@ extern int
 
 
 // === optimizer command definitions ==========================================
-
 //              --      p-codes must not overlap these
 #define any     0x00FF   // matches any p-code
 #define _pop    0x00FE   // matches if corresponding POP2 exists
@@ -412,6 +413,71 @@ setcodes() {
     // constant shift by 1 (optimizer-generated)
     code[ASL1_1] = "\001MOV AX,BX\nSHL AX,1\n";
     code[ASR1_1] = "\001MOV AX,BX\nSAR AX,1\n";
+    // 32-bit load/store
+    code[GETd1m] = "\020MOV AX,WORD PTR <m>\nMOV DX,WORD PTR <m>+2\n";
+    code[GETd1p] = "\033MOV AX,[BX]\nMOV DX,2[BX]\n";       // see gen()
+    code[GETd1s] = "\020MOV AX,<n>[BP]\nMOV DX,<n>+2[BP]\n";
+    code[GETdxn] = "\020?MOV DX,<n>?XOR DX,DX?\n";
+    code[GETcxn] = "\000?MOV CX,<n>?XOR CX,CX?\n";
+    code[GETd2m] = "\003MOV BX,WORD PTR <m>\nMOV CX,WORD PTR <m>+2\n";
+    code[GETd2s] = "\003MOV BX,<n>[BP]\nMOV CX,<n>+2[BP]\n";
+    code[PUTdm1] = "\030MOV WORD PTR <m>,AX\nMOV WORD PTR <m>+2,DX\n";
+    code[PUTdp1] = "\033PUSH BX\nMOV [BX],AX\nMOV 2[BX],DX\nPOP BX\n";
+    code[PUTds1] = "\030MOV <n>[BP],AX\nMOV <n>+2[BP],DX\n";
+    // 32-bit stack
+    code[PUSHd1] = "\130PUSH DX\nPUSH AX\n";
+    code[POPd2]  = "\003POP BX\nPOP CX\n";
+    code[PUSHdm] = "\100PUSH WORD PTR <m>+2\nPUSH WORD PTR <m>\n";
+    code[PUSHds] = "\100PUSH <n>+2[BP]\nPUSH <n>[BP]\n";
+    // 32-bit move/swap
+    code[MOVEd21] = "\033MOV BX,AX\nMOV CX,DX\n";
+    code[SWAPd12] = "\033XCHG AX,BX\nXCHG DX,CX\n";
+    // 32-bit widening
+    code[WIDENs]  = "\030CWD\n";
+    code[WIDENu]  = "\020XOR DX,DX\n";
+    code[WIDENs2] = "\003XOR CX,CX\nTEST BX,8000h\nJZ $+3\nDEC CX\n";
+    code[WIDENu2] = "\001XOR CX,CX\n";
+    // 32-bit inline arithmetic
+    code[ADDd12]  = "\033ADD AX,BX\nADC DX,CX\n";
+    code[SUBd12]  = "\033SUB AX,BX\nSBB DX,CX\n";              // see gen()
+    code[ANDd12]  = "\033AND AX,BX\nAND DX,CX\n";
+    code[ORd12]   = "\033OR AX,BX\nOR DX,CX\n";
+    code[XORd12]  = "\033XOR AX,BX\nXOR DX,CX\n";
+    code[COMd1]   = "\030NOT AX\nNOT DX\n";
+    code[ANEGd1]  = "\030NEG DX\nNEG AX\nSBB DX,0\n";
+    code[rINCd1]  = "\030ADD AX,<n>\nADC DX,0\n";
+    code[rDECd1]  = "\030SUB AX,<n>\nSBB DX,0\n";
+    code[DBLd1]   = "\030SHL AX,1\nRCL DX,1\n";
+    code[DBLd2]   = "\003SHL BX,1\nRCL CX,1\n";
+    // 32-bit library-call arithmetic
+    code[MULd12]  = "\033CALL __lmul\n";
+    code[MULd12u] = "\033CALL __ulmul\n";
+    code[DIVd12]  = "\033CALL __ldiv\n";                        // see gen()
+    code[DIVd12u] = "\033CALL __uldiv\n";                       // see gen()
+    code[MODd12]  = "\033CALL __lmod\n";                        // see gen()
+    code[MODd12u] = "\033CALL __ulmod\n";                       // see gen()
+    code[ASLd12]  = "\033CALL __lshl\n";
+    code[ASRd12]  = "\033CALL __lsar\n";
+    code[ASRd12u] = "\033CALL __lshr\n";
+    // 32-bit library-call comparisons
+    code[EQd12]   = "\033CALL __leq\n";
+    code[NEd12]   = "\033CALL __lne\n";
+    code[LTd12]   = "\033CALL __llt\n";
+    code[LEd12]   = "\033CALL __lle\n";
+    code[GTd12]   = "\033CALL __lgt\n";
+    code[GEd12]   = "\033CALL __lge\n";
+    code[LTd12u]  = "\033CALL __ullt\n";
+    code[LEd12u]  = "\033CALL __ulle\n";
+    code[GTd12u]  = "\033CALL __ulgt\n";
+    code[GEd12u]  = "\033CALL __ulge\n";
+    // 32-bit unary
+    code[LNEGd1]  = "\030CALL __llneg\n";
+    // 32-bit truthiness
+    code[EQd10f]  = "\030OR AX,DX\nJE $+5\nJMP _<n>\n";
+    code[NEd10f]  = "\030OR AX,DX\nJNE $+5\nJMP _<n>\n";
+
+    // 32-bit switch dispatch
+    code[LSWITCHd] = "\012CALL __lswitch\n";
 }
 
 //  === code generation functions =============================================
@@ -419,6 +485,7 @@ setcodes() {
 // print all assembler info before any code is generated
 // and ensure that the segments appear in the correct order.
 header() {
+    needLong = 0;
     toseg(CODESEG);
     outline("extrn __eq: near");
     outline("extrn __ne: near");
@@ -448,6 +515,30 @@ trailer() {
     }
     if ((cp = findglb("main")) && cp[CLASS] == GLOBAL)
         external("_main", 0, IDENT_FUNCTION);
+    if (needLong) {
+        toseg(CODESEG);
+        outline("extrn __lmul: near");
+        outline("extrn __ulmul: near");
+        outline("extrn __ldiv: near");
+        outline("extrn __uldiv: near");
+        outline("extrn __lmod: near");
+        outline("extrn __ulmod: near");
+        outline("extrn __lshl: near");
+        outline("extrn __lsar: near");
+        outline("extrn __lshr: near");
+        outline("extrn __leq: near");
+        outline("extrn __lne: near");
+        outline("extrn __llt: near");
+        outline("extrn __lle: near");
+        outline("extrn __lgt: near");
+        outline("extrn __lge: near");
+        outline("extrn __ullt: near");
+        outline("extrn __ulle: near");
+        outline("extrn __ulgt: near");
+        outline("extrn __ulge: near");
+        outline("extrn __llneg: near");
+        outline("extrn __lswitch: near");
+    }
     toseg(NULL);
     outline("END");
 #ifdef DISOPT
@@ -479,6 +570,9 @@ gen(int pcode, int value) {
         case GETw1p:
             gen(MOVE21, 0); 
             break;
+        case GETd1p:
+            gen(MOVEd21, 0);
+            break;
         case SUB12:
         case MOD12:
         case MOD12u:
@@ -486,18 +580,43 @@ gen(int pcode, int value) {
         case DIV12u:
             gen(SWAP12, 0);
             break;
+        case SUBd12:
+        case MODd12:
+        case MODd12u:
+        case DIVd12:
+        case DIVd12u:
+            gen(SWAPd12, 0);
+            needLong = 1;
+            break;
         case PUSH1:
         case PUSH2:
             csp -= BPW;
             break;
+        case PUSHd1:
+        case PUSHdm:
+        case PUSHds:
+            csp -= BPD;
+            break;
         case POP2:
             csp += BPW;
+            break;
+        case POPd2:
+            csp += BPD;
             break;
         case ADDSP:
         case RETURN:
             newcsp = value;
             value -= csp;
             csp = newcsp;
+            break;
+        case MULd12:  case MULd12u:
+        case ASLd12:  case ASRd12:  case ASRd12u:
+        case EQd12:   case NEd12:
+        case LTd12:   case LEd12:   case GTd12:   case GEd12:
+        case LTd12u:  case LEd12u:  case GTd12u:  case GEd12u:
+        case LNEGd1:
+        case LSWITCHd:
+            needLong = 1;
     }
     if (snext == 0) {
         outcode(pcode, value);
@@ -606,6 +725,9 @@ outsize(int size, int ident) {
     if (size == 1 && ident != IDENT_POINTER && ident != IDENT_PTR_ARRAY
                   && ident != IDENT_FUNCTION)
         outstr("BYTE");
+    else if (size == BPD && ident != IDENT_POINTER && ident != IDENT_PTR_ARRAY
+                         && ident != IDENT_FUNCTION)
+        outstr("DWORD");
     else if (ident != IDENT_FUNCTION)
         outstr("WORD");
     else
@@ -629,9 +751,19 @@ dumplits(int size) {
             gen(WORD_, NULL);
         j = 10;
         while (j--) {
-            outdec(getint(litq + k, size));
-            k += size;
-            if (j == 0 || k >= litptr) {
+            if (size == BPD) {
+                // emit 32-bit value as two 16-bit words: lo, hi
+                outdec(getint(litq + k, BPW));
+                fputc(',', output);
+                outdec(getint(litq + k + BPW, BPW));
+                k += BPD;
+                j--;   // used an extra column for hi word
+            }
+            else {
+                outdec(getint(litq + k, size));
+                k += size;
+            }
+            if (j <= 0 || k >= litptr) {
                 newline();
                 break;
             }
@@ -645,6 +777,8 @@ dumpzero(int size, int count) {
     if (count > 0) {
         if (size == 1)
             gen(BYTEr0, count);
+        else if (size == BPD)
+            gen(WORDr0, count * 2);  // two zero words per long
         else
             gen(WORDr0, count);
     }

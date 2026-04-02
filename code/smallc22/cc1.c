@@ -26,6 +26,7 @@ int
     opsize,   // size of operator in characters
     swactive, // inside a switch?
     swdefault,// default label #, else 0
+    swislong, // switch expression is 32-bit?
     *swnext,   // address of next entry
     *swend,    // address of last entry
     *stage,    // staging buffer address
@@ -112,6 +113,28 @@ int op2[16] = {  // p-codes of unsigned binary operators
     ASR12,  ASL12,               // level10
     ADD12,  SUB12,               // level11
     MUL12u, DIV12u, MOD12u       // level12
+};
+
+int opd[16] = {  // p-codes of signed 32-bit binary operators
+    ORd12,                          // level5
+    XORd12,                         // level6
+    ANDd12,                         // level7
+    EQd12,   NEd12,                 // level8
+    LEd12,   GEd12,  LTd12,  GTd12, // level9
+    ASRd12,  ASLd12,                // level10
+    ADDd12,  SUBd12,                // level11
+    MULd12,  DIVd12, MODd12         // level12
+};
+
+int opd2[16] = { // p-codes of unsigned 32-bit binary operators
+    ORd12,                          // level5
+    XORd12,                         // level6
+    ANDd12,                         // level7
+    EQd12,   NEd12,                 // level8
+    LEd12u,  GEd12u, LTd12u, GTd12u, // level9
+    ASRd12u, ASLd12,                // level10
+    ADDd12,  SUBd12,                // level11
+    MULd12u, DIVd12u, MODd12u       // level12
 };
 
 // execution begins here
@@ -202,7 +225,7 @@ dodeclare(int class) {
             while (an(*p)) p++;
             while (*p == ' ' || *p == '\t') p++;
             if (*p == '(') {
-                rettype = (type == TYPE_STRUCT) ? TYPE_STRUCT : TYPE_INT;
+                rettype = type;
                 rettypeSubPtr = (type == TYPE_STRUCT) ? typeSubPtr : 0;
                 dofunction(class);
                 rettype = TYPE_INT;
@@ -232,10 +255,22 @@ dotype(int *typeSubPtr) {
         if (amatch("char", 4)) {
             return TYPE_UCHR;
         }
+        else if (amatch("long", 4)) {
+            amatch("int", 3);
+            return TYPE_ULONG;
+        }
         else {
             amatch("int", 3);
             return TYPE_UINT;
         }
+    }
+    else if (amatch("long", 4)) {
+        if (amatch("long", 4)) {
+            error("long long not supported");
+            return TYPE_LONG;
+        }
+        amatch("int", 3);
+        return TYPE_LONG;
     }
     else if (amatch("int", 3)) {
         return TYPE_INT;
@@ -408,7 +443,6 @@ InitPtrArray(int type, int dim, int class) {
     int strstart[50];
     int strend[50];
     int count, i, k, j, savedim, value;
-
     litptr = 0;
     count = 0;
     savedim = dim;
@@ -870,7 +904,11 @@ doArgsTyped(int type, int typeSubPtr) {
                 else if (type == TYPE_STRUCT) {
                     putint(typeSubPtr, cptr + CLASSPTR, 2);
                 }
-                argstk += BPW;
+                if (id != IDENT_POINTER
+                    && (type == TYPE_LONG || type == TYPE_ULONG))
+                    argstk += BPD;
+                else
+                    argstk += BPW;
             }
         }
         else {
@@ -892,8 +930,15 @@ doArgsTyped(int type, int typeSubPtr) {
     argtop = argstk + BPW;
     ptr = STARTLOC;
     while (argstk) {
-        putint(argtop - getint(ptr + OFFSET, 2), ptr + OFFSET, 2);
-        argstk -= BPW;            // count down
+        int psz;
+        if (ptr[IDENT] != IDENT_POINTER
+            && (ptr[TYPE] == TYPE_LONG || ptr[TYPE] == TYPE_ULONG))
+            psz = BPD;
+        else
+            psz = BPW;
+        putint(argtop - getint(ptr + OFFSET, 2) - psz + BPW,
+               ptr + OFFSET, 2);
+        argstk -= psz;            // count down
         ptr += NAME;
         namelen = 0;
         while (*ptr != namelen) {
@@ -903,6 +948,46 @@ doArgsTyped(int type, int typeSubPtr) {
         ptr++;
     }
     return;
+}
+
+// Recalculate argument offsets for K&R-style declarations after
+// all types are known. Needed because long params take 4 bytes
+// while the initial pass assumed all params were BPW (2 bytes).
+fixArgOffs() {
+    int total, running, psz, namelen;
+    char *ptr;
+    // Pass 1: compute total argument bytes
+    total = 0;
+    ptr = STARTLOC;
+    while (ptr < locptr) {
+        if (ptr[IDENT] != IDENT_POINTER
+            && (ptr[TYPE] == TYPE_LONG || ptr[TYPE] == TYPE_ULONG))
+            psz = BPD;
+        else
+            psz = BPW;
+        total += psz;
+        ptr += NAME;
+        namelen = 0;
+        while (*ptr != namelen) { ptr += 1; namelen++; }
+        ptr++;
+    }
+    argtop = total + BPW;
+    // Pass 2: assign final offsets
+    running = 0;
+    ptr = STARTLOC;
+    while (ptr < locptr) {
+        if (ptr[IDENT] != IDENT_POINTER
+            && (ptr[TYPE] == TYPE_LONG || ptr[TYPE] == TYPE_ULONG))
+            psz = BPD;
+        else
+            psz = BPW;
+        running += psz;
+        putint(argtop + BPW - running, ptr + OFFSET, 2);
+        ptr += NAME;
+        namelen = 0;
+        while (*ptr != namelen) { ptr += 1; namelen++; }
+        ptr++;
+    }
 }
 
 // interpret a function argument list without declared types
@@ -942,6 +1027,7 @@ doArgsNonTyped() {
             break;
         }
     }
+    fixArgOffs();
     return;
 }
 
@@ -1214,7 +1300,15 @@ initLocScalar(int type) {
     ParseExpression(&isConst, &val);
     ClearStage(before, start);
     gen(POP2, 0);
-    if (isPtr || elemSize == BPW) {
+    if (elemSize == BPD) {
+        // store low word, then zero the high word
+        // TODO: once 32-bit expressions produce DX:AX, use PUTdp1
+        gen(PUTwp1, 0);            // store AX at [BX]
+        gen(ADD2n, BPW);           // BX += 2
+        gen(GETw1n, 0);            // AX = 0
+        gen(PUTwp1, 0);            // store 0 at [BX+2]
+    }
+    else if (isPtr || elemSize == BPW) {
         gen(PUTwp1, 0);
     }
     else {
@@ -1242,7 +1336,13 @@ initLocArray(int type) {
         ParseExpression(&isConst, &val);
         ClearStage(before, start);
         gen(POP2, 0);
-        if (elemSize == BPW) {
+        if (elemSize == BPD) {
+            gen(PUTwp1, 0);
+            gen(ADD2n, BPW);
+            gen(GETw1n, 0);
+            gen(PUTwp1, 0);
+        }
+        else if (elemSize == BPW) {
             gen(PUTwp1, 0);
         }
         else {
@@ -1259,7 +1359,12 @@ initLocArray(int type) {
         gen(PUSH1, 0);
         gen(GETw1n, 0);
         gen(POP2, 0);
-        if (elemSize == BPW) {
+        if (elemSize == BPD) {
+            gen(PUTwp1, 0);
+            gen(ADD2n, BPW);
+            gen(PUTwp1, 0);    // AX still 0
+        }
+        else if (elemSize == BPW) {
             gen(PUTwp1, 0);
         }
         else {
@@ -1377,7 +1482,13 @@ initLcMDSub(int type, int elemSz, int ndim, int dims[],
             ParseExpression(&isConst, &val);
             ClearStage(before, start);
             gen(POP2, 0);
-            if (elemSz == BPW) gen(PUTwp1, 0);
+            if (elemSz == BPD) {
+                gen(PUTwp1, 0);
+                gen(ADD2n, BPW);
+                gen(GETw1n, 0);
+                gen(PUTwp1, 0);
+            }
+            else if (elemSz == BPW) gen(PUTwp1, 0);
             else gen(PUTbp1, 0);
             ++count;
             if (IsMatch(",") == 0) break;
@@ -1388,7 +1499,12 @@ initLcMDSub(int type, int elemSz, int ndim, int dims[],
             gen(PUSH1, 0);
             gen(GETw1n, 0);
             gen(POP2, 0);
-            if (elemSz == BPW) gen(PUTwp1, 0);
+            if (elemSz == BPD) {
+                gen(PUTwp1, 0);
+                gen(ADD2n, BPW);
+                gen(PUTwp1, 0);
+            }
+            else if (elemSz == BPW) gen(PUTwp1, 0);
             else gen(PUTbp1, 0);
             ++count;
         }
@@ -1542,7 +1658,13 @@ initLocStrMem(int typeSubPtr, int baseOffset) {
                 ParseExpression(&isConst, &val);
                 ClearStage(before, start);
                 gen(POP2, 0);
-                if (memberSize == BPW) {
+                if (memberSize == BPD) {
+                    gen(PUTwp1, 0);
+                    gen(ADD2n, BPW);
+                    gen(GETw1n, 0);
+                    gen(PUTwp1, 0);
+                }
+                else if (memberSize == BPW) {
                     gen(PUTwp1, 0);
                 }
                 else {
@@ -1558,7 +1680,12 @@ initLocStrMem(int typeSubPtr, int baseOffset) {
                 gen(PUSH1, 0);
                 gen(GETw1n, 0);
                 gen(POP2, 0);
-                if (memberSize == BPW) {
+                if (memberSize == BPD) {
+                    gen(PUTwp1, 0);
+                    gen(ADD2n, BPW);
+                    gen(PUTwp1, 0);
+                }
+                else if (memberSize == BPW) {
                     gen(PUTwp1, 0);
                 }
                 else {
@@ -1574,7 +1701,14 @@ initLocStrMem(int typeSubPtr, int baseOffset) {
             ParseExpression(&isConst, &val);
             ClearStage(before, start);
             gen(POP2, 0);
-            if (memberSize == BPW
+            if (memberSize == BPD
+                && membercur[STRMEM_IDENT] != IDENT_POINTER) {
+                gen(PUTwp1, 0);
+                gen(ADD2n, BPW);
+                gen(GETw1n, 0);
+                gen(PUTwp1, 0);
+            }
+            else if (memberSize == BPW
                 || membercur[STRMEM_IDENT] == IDENT_POINTER) {
                 gen(PUTwp1, 0);
             }
@@ -1674,6 +1808,9 @@ declareLocals(int type, int typeSubPtr) {
             return;
         }
         parseLocalDeclare(type, typeSubPtr, IDENT_ARRAY, &id, &sz);
+        // pad to even alignment for long (4-byte) locals
+        if ((type >> 2) >= BPD && (declared & 1))
+            declared++;
         declared += sz;
         AddSymbol(ssname, id, type, sz, csp - declared, &locptr, AUTOMATIC);
         if (lastNdim > 1) {
@@ -1832,14 +1969,24 @@ dofor() {
 }
 
 doswitch() {
-    int wq[4], endlab, swact, swdef, *swnex, *swptr;
+    int wq[4], endlab, swact, swdef, swilg, *swnex, *swptr;
     swact = swactive;
     swdef = swdefault;
+    swilg = swislong;
     swnex = swptr = swnext;
     addwhile(wq);
     *(wqptr + WQLOOP - WQSIZ) = 0;
     Require("(");
-    doexpr(YES);                // evaluate switch expression
+    {
+        int is[ISSIZE], savedloc;
+        int *before, *start;
+        savedloc = locptr;
+        setstage(&before, &start);
+        if (level1(is)) fetch(is);
+        ClearStage(before, start);
+        locptr = savedloc;
+        swislong = isLongVal(is);
+    }
     Require(")");
     swdefault = 0;
     swactive = 1;
@@ -1847,12 +1994,25 @@ doswitch() {
     statement();                // cases, etc.
     gen(JMPm, wq[WQEXIT]);
     gen(LABm, endlab);
-    gen(SWITCH, 0);             // match cases
-    while (swptr < swnext) {
-        gen(NEARm, *swptr++);
-        gen(WORDn, *swptr++);    // case value
+    if (swislong) {
+        gen(LSWITCHd, 0);
+        while (swptr < swnext) {
+            gen(NEARm, *swptr++);    // case label
+            gen(WORDn, *swptr++);    // value lo
+            gen(WORDn, *swptr++);    // value hi
+        }
+        gen(WORDn, 0);              // terminator
+        gen(WORDn, 0);
+        gen(WORDn, 0);
     }
-    gen(WORDn, 0);
+    else {
+        gen(SWITCH, 0);
+        while (swptr < swnext) {
+            gen(NEARm, *swptr++);
+            gen(WORDn, *swptr++);    // case value
+        }
+        gen(WORDn, 0);
+    }
     if (swdefault)
         gen(JMPm, swdefault);
     gen(LABm, wq[WQEXIT]);
@@ -1860,16 +2020,28 @@ doswitch() {
     swnext = swnex;
     swdefault = swdef;
     swactive = swact;
+    swislong = swilg;
 }
 
 docase() {
     if (swactive == 0) error("not in switch");
-    if (swnext > swend) {
+    if (swnext > swend - (swislong ? 1 : 0)) {
         error("too many cases");
         return;
     }
     gen(LABm, *swnext++ = getlabel());
-    IsConstExpr(swnext++);
+    if (swislong) {
+        int val_hi, val_lo;
+        IsCExpr32(&val_lo, &val_hi);
+        // Sign-extend 16-bit case constants to 32-bit
+        if (val_hi == 0 && (val_lo & 0x8000))
+            val_hi = -1;
+        *swnext++ = val_lo;
+        *swnext++ = val_hi;
+    }
+    else {
+        IsConstExpr(swnext++);
+    }
     Require(":");
 }
 
@@ -1932,7 +2104,7 @@ doreturn() {
         if (rettype == TYPE_STRUCT) {
             // Return struct via hidden pointer (first caller-pushed arg).
             // Parse return expression as lvalue to get source address.
-            int is[8], savedlocptr, savcsp2;
+            int is[ISSIZE], savedlocptr, savcsp2;
             char *cpyfn, *retptr;
             savedlocptr = locptr;
             savcsp2 = csp;
@@ -1967,7 +2139,20 @@ doreturn() {
             locptr = savedlocptr;
         }
         else {
-            doexpr(YES);
+            int is[ISSIZE], savedloc;
+            int *before, *start;
+            savedloc = locptr;
+            setstage(&before, &start);
+            if (level1(is)) fetch(is);
+            locptr = savedloc;
+            if ((rettype == TYPE_LONG || rettype == TYPE_ULONG)
+                && !isLongVal(is)) {
+                if (rettype == TYPE_ULONG || IsUnsigned(is))
+                    gen(WIDENu, 0);
+                else
+                    gen(WIDENs, 0);
+            }
+            ClearStage(before, start);
         }
     }
     savcsp = csp;
