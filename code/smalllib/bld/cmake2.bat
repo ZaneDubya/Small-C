@@ -43,6 +43,9 @@ SET BIN=..\..\bin
 %BIN%\asm ITOX.ASM /p
 %BIN%\asm LEFT.ASM /p
 %BIN%\asm LEXCMP.ASM /p
+%BIN%\asm LONGMATH.ASM /p
+%BIN%\asm LTOA.ASM /p
+%BIN%\asm LTOAB.ASM /p
 %BIN%\asm MALLOC.ASM /p
 %BIN%\asm OTOI.ASM /p
 %BIN%\asm PAD.ASM /p

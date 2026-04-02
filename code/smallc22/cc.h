@@ -3,6 +3,8 @@
 // machine dependent parameters
 #define BPW       2   // bytes per word
 #define LBPW      1   // log2(BPW)
+#define BPD       4   // bytes per dword (long)
+#define LBPD      2   // log2(BPD)
 #define SBPC      1   // stack bytes per character
 #define ERRCODE   7   // op sys return code
 
@@ -50,6 +52,8 @@
 #define TYPE_UCHR     ((  1 << 2) + 1)    // 1, 1     == 0x05
 #define TYPE_UINT     ((BPW << 2) + 1)    // BPW, 1   == 0x09
 #define TYPE_STRUCT   ((BPW << 2) + 2)    // BPW, 2   == 0x0A
+#define TYPE_LONG     ( BPD << 2)         // BPD, 0   == 0x10
+#define TYPE_ULONG    ((BPD << 2) + 1)    // BPD, 1   == 0x11
 
 // values for "CLASS" integer
 #define AUTOMATIC 1   // defined locally
@@ -155,15 +159,21 @@
                         // When it reaches 1, the final subscript uses
                         // element-size scaling (normal path).
 
+#define VAL_CNST_HI 8  // is[VAL_CNST_HI] contains the high 16-bit word of a
+                        // 32-bit constant value when TYP_CNST is TYPE_LONG or
+                        // TYPE_ULONG. Zero for 16-bit constants.
+
+#define ISSIZE 9        // number of entries in is[] arrays
+
 // input line
 #define LINEMAX  127
 #define LINESIZE 128
 
 // entries in staging buffer
-#define STAGESIZE   200
+#define STAGESIZE   300
 
 // macro (#define) pool
-#define MACNBR   300
+#define MACNBR   500
 #define MACNSIZE (MACNBR*(NAMESIZE+2))
 #define MACNEND  (macn+MACNSIZE)
 #define MACQSIZE (MACNBR*7)
@@ -332,4 +342,79 @@
 #define ASL1_1  119   // shift left sr by 1 into pr
 #define ASR1_1  120   // shift right sr by 1 into pr
 
-#define PCODES  121   // size of code[]
+// 32-bit (long) p-codes -- load/store
+//  d = dword (32-bit), using DX:AX (primary) / CX:BX (secondary)
+#define GETd1m  121   // load dword into DX:AX from global label
+#define GETd1p  122   // load dword into DX:AX thru pointer in BX
+#define GETd1s  123   // load dword into DX:AX from stack frame
+#define GETdxn  124   // load constant into DX (high word of primary)
+#define GETcxn  125   // load constant into CX (high word of secondary)
+#define GETd2m  126   // load dword into CX:BX from global label
+#define GETd2s  127   // load dword into CX:BX from stack frame
+#define PUTdm1  128   // store DX:AX dword to global label
+#define PUTdp1  129   // store DX:AX dword thru pointer in BX
+#define PUTds1  130   // store DX:AX dword to stack frame
+
+// 32-bit stack operations
+#define PUSHd1  131   // push DX:AX (4 bytes)
+#define POPd2   132   // pop 4 bytes into CX:BX
+#define PUSHdm  133   // push dword from global label
+#define PUSHds  134   // push dword from stack frame
+
+// 32-bit move/swap
+#define MOVEd21 135   // move DX:AX to CX:BX
+#define SWAPd12 136   // swap DX:AX with CX:BX
+
+// 32-bit widening
+#define WIDENs  137   // sign-extend AX to DX:AX (CWD)
+#define WIDENu  138   // zero-extend AX to DX:AX (XOR DX,DX)
+#define WIDENs2 139   // sign-extend BX to CX:BX
+#define WIDENu2 140   // zero-extend BX to CX:BX
+
+// 32-bit inline arithmetic
+#define ADDd12  141   // DX:AX += CX:BX
+#define SUBd12  142   // DX:AX -= CX:BX  (auto-swap)
+#define ANDd12  143   // DX:AX &= CX:BX
+#define ORd12   144   // DX:AX |= CX:BX
+#define XORd12  145   // DX:AX ^= CX:BX
+#define COMd1   146   // ~DX:AX (ones complement)
+#define ANEGd1  147   // -DX:AX (arith negate)
+#define rINCd1  148   // DX:AX += n (32-bit increment)
+#define rDECd1  149   // DX:AX -= n (32-bit decrement)
+#define DBLd1   150   // DX:AX <<= 1
+#define DBLd2   151   // CX:BX <<= 1
+
+// 32-bit library-call arithmetic
+#define MULd12  152   // DX:AX *= CX:BX (signed)
+#define MULd12u 153   // DX:AX *= CX:BX (unsigned)
+#define DIVd12  154   // DX:AX /= CX:BX (signed, auto-swap)
+#define DIVd12u 155   // DX:AX /= CX:BX (unsigned, auto-swap)
+#define MODd12  156   // DX:AX %= CX:BX (signed, auto-swap)
+#define MODd12u 157   // DX:AX %= CX:BX (unsigned, auto-swap)
+#define ASLd12  158   // DX:AX <<= CL
+#define ASRd12  159   // DX:AX >>= CL (signed)
+#define ASRd12u 160   // DX:AX >>= CL (unsigned)
+
+// 32-bit library-call comparisons (result: AX = 0 or 1, 16-bit)
+#define EQd12   161   // AX = (DX:AX == CX:BX)
+#define NEd12   162   // AX = (DX:AX != CX:BX)
+#define LTd12   163   // AX = (DX:AX <  CX:BX) signed
+#define LEd12   164   // AX = (DX:AX <= CX:BX) signed
+#define GTd12   165   // AX = (DX:AX >  CX:BX) signed
+#define GEd12   166   // AX = (DX:AX >= CX:BX) signed
+#define LTd12u  167   // AX = (DX:AX <  CX:BX) unsigned
+#define LEd12u  168   // AX = (DX:AX <= CX:BX) unsigned
+#define GTd12u  169   // AX = (DX:AX >  CX:BX) unsigned
+#define GEd12u  170   // AX = (DX:AX >= CX:BX) unsigned
+
+// 32-bit unary (library)
+#define LNEGd1  171   // AX = !DX:AX (result is 16-bit 0/1)
+
+// 32-bit truthiness (conditional jump)
+#define EQd10f  172   // jump if (DX:AX == 0) is false
+#define NEd10f  173   // jump if (DX:AX != 0) is false
+
+// 32-bit switch dispatch
+#define LSWITCHd 174  // CALL __lswitch
+
+#define PCODES  175   // size of code[]

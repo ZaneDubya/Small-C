@@ -34,7 +34,7 @@
 
 extern char *litq, *glbptr, *locptr, *lptr, *dimdata, *dimdatptr,
     ssname[NAMESIZE];
-extern int ch, csp, litlab, litptr, nch, op[16], op2[16], 
+extern int ch, csp, litlab, litptr, nch, op[16], op2[16], opd[16], opd2[16],
     opindex, opsize, *snext, argtop, rettype, rettypeSubPtr,
     lastNdim, lastStrides[MAX_DIMS];
     
@@ -55,7 +55,7 @@ IsConstExpr(int *val) {
 }
 
 ParseExpression(int *con, int *val) {
-    int is[8], savedlocptr;
+    int is[ISSIZE], savedlocptr;
     // Referenced struct member info is stored in the local symbol table,
     // thus we must restore the local symbol table ptr after each expression.
     savedlocptr = locptr;
@@ -67,8 +67,29 @@ ParseExpression(int *con, int *val) {
     locptr = savedlocptr;
 }
 
+ParseExpr32(int *con, int *val, int *val_hi) {
+    int is[ISSIZE], savedlocptr;
+    savedlocptr = locptr;
+    if (level1(is)) fetch(is);
+    *con = is[TYP_CNST];
+    *val = is[VAL_CNST];
+    *val_hi = is[VAL_CNST_HI];
+    locptr = savedlocptr;
+}
+
+IsCExpr32(int *val, int *val_hi) {
+    int isConst;
+    int *before, *start;
+    setstage(&before, &start);
+    ParseExpr32(&isConst, val, val_hi);
+    ClearStage(before, 0);
+    if (isConst == 0)
+        error("must be constant expression");
+    return isConst;
+}
+
 GenTestAndJmp(int label, int reqParens) {
-    int is[8];
+    int is[ISSIZE];
     int *before, *start;
     if (reqParens) {
         Require("(");
@@ -90,7 +111,7 @@ GenTestAndJmp(int label, int reqParens) {
     }
     if (is[TYP_CNST]) {             // constant expression
         ClearStage(before, 0);
-        if (is[VAL_CNST]) {
+        if (is[VAL_CNST] || is[VAL_CNST_HI]) {
             return;
         }
         gen(JMPm, label);
@@ -125,12 +146,18 @@ GenTestAndJmp(int label, int reqParens) {
                 GenJmpIfZero(LE10f, label, is); 
                 break;
             default:    
-                gen(NE10f, label);          
+                if (isLongVal(is))
+                    gen(NEd10f, label);
+                else
+                    gen(NE10f, label);          
                 break;
         }
     }
     else {
-        gen(NE10f, label);
+        if (isLongVal(is))
+            gen(NEd10f, label);
+        else
+            gen(NE10f, label);
     }
     ClearStage(before, start);
 }
@@ -162,13 +189,15 @@ GenJmpIfZero(int oper, int label, int is[]) {
 // initial instance of level1() returns to one of the lead-in functions or to
 // primary() or level14() (by way of down1() and down2() ).
 level1(int is[]) {
-    int k, is2[8], is3[2], oper, oper2;
+    int k, is2[ISSIZE], is3[2], oper, oper2;
     char *lhsPtr, *rhsPtr;
     int isStructLhs, savedcsp, structSize;
     char *cpyfn;
     k = down1(level2, is);
     if (is[TYP_CNST]) {
         gen(GETw1n, is[VAL_CNST]);
+        if (is[TYP_CNST] >> 2 == BPD)
+            gen(GETdxn, is[VAL_CNST_HI]);
     }
     // check if this is an assignment operator, requiring an lvalue.
     if (IsMatch("|=")) {
@@ -290,12 +319,20 @@ level1(int is[]) {
     }
     if (is[TYP_OBJ]) {                          // indirect target
         if (oper) {                             // ?=
-            gen(PUSH1, 0);                      // save address
+            gen(PUSH1, 0);                      // save address (always 16-bit)
             fetch(is);                          // fetch left side
-        }
-        down2(oper, oper2, level1, is, is2);    // parse right side
-        if (oper)
+            down2(oper, oper2, level1, is, is2);// parse right side
             gen(POP2, 0);                       // retrieve address
+        }
+        else {                                  //  =
+            gen(PUSH1, 0);                      // save address (always 16-bit)
+            if (level1(is2))
+                fetch(is2);
+            // widen RHS if LHS is long and RHS is not
+            if (is3[TYP_OBJ] >> 2 == BPD && !isLongVal(is2))
+                widen_primary(is2);
+            gen(POP2, 0);                       // retrieve address
+        }
     }
     else {                                      // direct target
         if (oper) {                             // ?=
@@ -305,6 +342,9 @@ level1(int is[]) {
         else {                                  //  =
             if (level1(is2))
                 fetch(is2);                     // parse right side
+            // widen RHS if LHS is long and RHS is not
+            if (isLongVal(is3) && !isLongVal(is2))
+                widen_primary(is2);
         }
     }
     store(is3);                                 // store result
@@ -313,7 +353,7 @@ level1(int is[]) {
 
 // level2() parses the ternary operator Expression1 ? Expression2 : Expression3
 level2(int is1[]) {
-    int is2[8], is3[8], k, flab, endlab, *before, *after;
+    int is2[ISSIZE], is3[ISSIZE], k, flab, endlab, *before, *after;
     // Call level3() by way of down1() to parse the first expression.
     k = down1(level3, is1);
     // If next token is not ?, this is not a ternary operator, return to caller
@@ -329,7 +369,9 @@ level2(int is1[]) {
         fetch(is2); // fetch() obtains the expression's value from memory.
     }
     else if (is2[TYP_CNST]) {
-        gen(GETw1n, is2[VAL_CNST]); // constant value is loaded directly.
+        gen(GETw1n, is2[VAL_CNST]);
+        if (is2[TYP_CNST] >> 2 == BPD)
+            gen(GETdxn, is2[VAL_CNST_HI]);
     }
     // Enforce second character of operator (":")
     Require(":");
@@ -340,6 +382,8 @@ level2(int is1[]) {
     }
     else if (is3[TYP_CNST]) {
         gen(GETw1n, is3[VAL_CNST]);
+        if (is3[TYP_CNST] >> 2 == BPD)
+            gen(GETdxn, is3[VAL_CNST_HI]);
     }
     gen(LABm, endlab);
     is1[TYP_CNST] = is1[VAL_CNST] = 0;
@@ -434,20 +478,45 @@ level13(int is[]) {
     }
     else if (IsMatch("~")) {             // ~
         if (level13(is)) fetch(is);
-        gen(COM1, 0);
+        if (isLongVal(is))
+            gen(COMd1, 0);
+        else
+            gen(COM1, 0);
         is[VAL_CNST] = ~is[VAL_CNST];
+        if (is[TYP_CNST] >> 2 == BPD)
+            is[VAL_CNST_HI] = ~is[VAL_CNST_HI];
         return (is[STG_ADR] = 0);
     }
     else if (IsMatch("!")) {             // !
         if (level13(is)) fetch(is);
-        gen(LNEG1, 0);
-        is[VAL_CNST] = !is[VAL_CNST];
+        if (isLongVal(is))
+            gen(LNEGd1, 0);
+        else
+            gen(LNEG1, 0);
+        // result is always 16-bit 0/1
+        is[TYP_OBJ] = 0;
+        is[SYMTAB_ADR] = 0;
+        if (is[TYP_CNST]) {
+            int wasTrue;
+            wasTrue = is[VAL_CNST] || is[VAL_CNST_HI];
+            is[TYP_CNST] = TYPE_INT;
+            is[VAL_CNST] = !wasTrue;
+            is[VAL_CNST_HI] = 0;
+        }
         return (is[STG_ADR] = 0);
     }
     else if (IsMatch("-")) {             // unary -
         if (level13(is)) fetch(is);
-        gen(ANEG1, 0);
-        is[VAL_CNST] = -is[VAL_CNST];
+        if (isLongVal(is))
+            gen(ANEGd1, 0);
+        else
+            gen(ANEG1, 0);
+        if (is[TYP_CNST] >> 2 == BPD) {
+            negate32(&is[VAL_CNST_HI], &is[VAL_CNST]);
+        }
+        else {
+            is[VAL_CNST] = -is[VAL_CNST];
+        }
         return (is[STG_ADR] = 0);
     }
     else if (IsMatch("*")) {             // unary *
@@ -475,9 +544,17 @@ level13(int is[]) {
         sz = 0;
         if (amatch("unsigned", 8)) {
             sz = BPW;
+            if (amatch("long", 4)) {
+                sz = BPD;
+                amatch("int", 3);
+            }
         }
-        if (amatch("int", 3)) {
-            sz = BPW;
+        if (amatch("long", 4)) {
+            sz = BPD;
+            amatch("int", 3);
+        }
+        else if (amatch("int", 3)) {
+            if (sz == 0) sz = BPW;
         }
         else if (amatch("char", 4)) {
             sz = 1;
@@ -554,7 +631,7 @@ level13(int is[]) {
 level14(int *is) {
     int k, val;
     char *ptr, *before, *start;
-    int is2[8];
+    int is2[ISSIZE];
     k = primary(is);
     ptr = is[SYMTAB_ADR];
     blanks();
@@ -666,6 +743,10 @@ level14(int *is) {
                                     * getStructSize(
                                         getClsPtr(ptr)));
                             }
+                            else if (ptr[TYPE] >> 2 == BPD) {
+                                gen(GETw2n,
+                                    is2[VAL_CNST] << LBPD);
+                            }
                             else if (ptr[TYPE] >> 2 == BPW) {
                                 gen(GETw2n,
                                     is2[VAL_CNST] << LBPW);
@@ -683,6 +764,10 @@ level14(int *is) {
                                 getClsPtr(ptr)));
                             gen(MUL12, 0);
                             gen(POP2, 0);
+                        }
+                        else if (ptr[TYPE] >> 2 == BPD) {
+                            gen(DBL1, 0);
+                            gen(DBL1, 0);
                         }
                         else if (ptr[TYPE] >> 2 == BPW) {
                             gen(DBL1, 0);
@@ -724,6 +809,11 @@ level14(int *is) {
             }
             else {
                 k = is[SYMTAB_ADR] = is[TYP_CNST] = is[VAL_CNST] = 0;
+                is[VAL_CNST_HI] = is[TYP_ADR] = is[LAST_OP] = is[STG_ADR] = 0;
+                if (ptr && (ptr[TYPE] == TYPE_LONG || ptr[TYPE] == TYPE_ULONG))
+                    is[TYP_OBJ] = ptr[TYPE];
+                else
+                    is[TYP_OBJ] = 0;
             }
         }
         else {
@@ -785,17 +875,123 @@ structmember(char *ptr, int *is) {
     return 1;
 }
 
+// Apply a type cast to the expression in is[].
+// Called after the operand has been parsed and fetched.
+// casttype: target TYPE_xxx constant.
+applycast(int casttype, int is[]) {
+    int srcLong, dstLong, dstSize;
+    dstSize = casttype >> 2;
+    srcLong = isLongVal(is);
+    dstLong = (dstSize == BPD);
+
+    // Constant folding path
+    if (is[TYP_CNST]) {
+        if (dstLong && !(is[TYP_CNST] >> 2 == BPD)) {
+            // Widen constant to 32-bit
+            if (!(is[TYP_CNST] & IS_UNSIGNED)
+                && (is[VAL_CNST] & 0x8000))
+                is[VAL_CNST_HI] = -1;
+            else
+                is[VAL_CNST_HI] = 0;
+            gen(GETdxn, is[VAL_CNST_HI]);
+        }
+        else if (!dstLong
+            && is[TYP_CNST] >> 2 == BPD) {
+            // Narrow from 32-bit
+            is[VAL_CNST_HI] = 0;
+            if (dstSize == 1)
+                is[VAL_CNST] = is[VAL_CNST] & 255;
+        }
+        else if (dstSize == 1) {
+            is[VAL_CNST] = is[VAL_CNST] & 255;
+            is[VAL_CNST_HI] = 0;
+        }
+        is[TYP_CNST] = casttype;
+        return;
+    }
+
+    // Runtime path
+    if (dstLong && !srcLong) {
+        // Widen based on SOURCE signedness
+        widen_primary(is);
+    }
+    // Narrowing and same-size: no codegen needed
+
+    // Update expression descriptor
+    is[TYP_CNST] = 0;
+    is[SYMTAB_ADR] = 0;
+    is[TYP_ADR] = 0;
+    is[STG_ADR] = 0;
+    if (dstLong)
+        is[TYP_OBJ] = casttype;
+    else
+        is[TYP_OBJ] = 0;
+}
+
+// Try to parse a cast expression after '(' has been matched.
+// Returns 1 if a cast was parsed, 0 if not (caller should
+// treat '(' as start of parenthesized subexpression).
+trycast(int is[]) {
+    char *saved;
+    int  sc, snc, casttype;
+
+    saved = lptr;
+    sc = ch;
+    snc = nch;
+    casttype = 0;
+
+    if (amatch("unsigned", 8)) {
+        if (amatch("long", 4)) {
+            amatch("int", 3);
+            casttype = TYPE_ULONG;
+        }
+        else if (amatch("char", 4))
+            casttype = TYPE_UCHR;
+        else {
+            amatch("int", 3);
+            casttype = TYPE_UINT;
+        }
+    }
+    else if (amatch("long", 4)) {
+        amatch("int", 3);
+        casttype = TYPE_LONG;
+    }
+    else if (amatch("int", 3))
+        casttype = TYPE_INT;
+    else if (amatch("char", 4))
+        casttype = TYPE_CHR;
+
+    if (casttype == 0) {
+        lptr = saved;
+        ch = sc;
+        nch = snc;
+        return 0;
+    }
+
+    if (IsMatch("*")) {
+        error("pointer casts unsupported");
+    }
+
+    Require(")");
+
+    if (level13(is)) fetch(is);
+
+    applycast(casttype, is);
+    return 1;
+}
+
 primary(int *is) {
     char *ptr, sname[NAMESIZE];
     int k;
-    if (IsMatch("(")) {                  // (subexpression)
+    if (IsMatch("(")) {                  // (cast) or (subexpression)
+        if (trycast(is)) return 0;
         do {
             k = level1(is); 
         } while (IsMatch(","));
         Require(")");
         return k;
     }
-    putint(0, is, 8 << LBPW);         // clear "is" array
+    putint(0, is, ISSIZE << LBPW);    // clear "is" array
     if (symname(sname)) {              // is legal symbol
         if (ptr = findloc(sname)) {      // is local
             if (ptr[IDENT] == IDENT_LABEL) {
@@ -869,9 +1065,10 @@ experr() {
 }
 
 callfunc(char *ptr) {      // symbol table entry or 0
-    int nargs, is[8];
+    int nargs, nargcnt, is[ISSIZE];
     int savedlocptr, retStructSize;
     nargs = 0;
+    nargcnt = 0;
     retStructSize = 0;
     blanks();                      // already saw open paren
     // For struct-returning functions, allocate return buffer
@@ -882,6 +1079,7 @@ callfunc(char *ptr) {      // symbol table entry or 0
         gen(POINT1s, csp);
         gen(PUSH1, 0);
         nargs += BPW;
+        nargcnt++;
     }
     while (streq(lptr, ")") == 0) {
         if (endst()) {
@@ -889,6 +1087,7 @@ callfunc(char *ptr) {      // symbol table entry or 0
         }
         savedlocptr = locptr;
         if (ptr) {
+            // Known function: evaluate arg, then push
             if (level1(is)) {
                 char *argptr;
                 if (is[TYP_OBJ] == TYPE_STRUCT) {
@@ -904,9 +1103,17 @@ callfunc(char *ptr) {      // symbol table entry or 0
                 }
             }
             locptr = savedlocptr;
-            gen(PUSH1, 0);
+            if (isLongVal(is)) {
+                gen(PUSHd1, 0);
+                nargs += BPD;
+            }
+            else {
+                gen(PUSH1, 0);
+                nargs += BPW;
+            }
         }
         else {
+            // Indirect call: pre-push to save function addr, eval, swap
             gen(PUSH1, 0);
             if (level1(is)) {
                 char *argptr;
@@ -923,16 +1130,17 @@ callfunc(char *ptr) {      // symbol table entry or 0
                 }
             }
             locptr = savedlocptr;
-            gen(SWAP1s, 0);            // don't push addr
+            gen(SWAP1s, 0);
+            nargs += BPW;
         }
-        nargs = nargs + BPW;         // count args*BPW
+        nargcnt++;
         if (IsMatch(",") == 0) {
             break;
         }
     }
     Require(")");
     if (streq(ptr + NAME, "CCARGC") == 0) {
-        gen(ARGCNTn, nargs >> LBPW);
+        gen(ARGCNTn, nargcnt);
     }
     if (ptr) {
         gen(CALLm, ptr);
@@ -946,29 +1154,126 @@ callfunc(char *ptr) {      // symbol table entry or 0
     }
 }
 
-// true if is2's operand should be doubled
-isDouble(int oper, int is1[], int is2[]) {
-    if ((oper != ADD12 && oper != SUB12) 
-        || (is1[TYP_ADR] >> 2 != BPW) 
+// Return the pointer scale factor: number of bytes per element.
+// Returns 0 if no scaling needed (not a pointer context).
+// is1 is the pointer side, is2 is the non-pointer side.
+ptrScale(int oper, int is1[], int is2[]) {
+    if ((oper != ADD12 && oper != SUB12)
+        || (is1[TYP_ADR] == 0)
         || (is2[TYP_ADR])) {
         return 0;
     }
-    return 1;
+    return is1[TYP_ADR] >> 2;
+}
+
+// true if is2's operand should be doubled (word pointer scaling)
+isDouble(int oper, int is1[], int is2[]) {
+    return (ptrScale(oper, is1, is2) == BPW);
 }
 
 step(int oper, int is[], int oper2) {
+    int longval, stepsize;
+    longval = isLongVal(is);
     fetch(is);
-    gen(oper, is[TYP_ADR] ? (is[TYP_ADR] >> 2) : 1);
-    store(is);
-    if (oper2) {
-        gen(oper2, is[TYP_ADR] ? (is[TYP_ADR] >> 2) : 1);
+    stepsize = is[TYP_ADR] ? (is[TYP_ADR] >> 2) : 1;
+    if (longval && !is[TYP_ADR]) {
+        // 32-bit value increment/decrement
+        gen(oper == rINC1 ? rINCd1 : rDECd1, stepsize);
+        store(is);
+        if (oper2)
+            gen(oper2 == rDEC1 ? rDECd1 : rINCd1, stepsize);
     }
+    else {
+        gen(oper, stepsize);
+        store(is);
+        if (oper2)
+            gen(oper2, stepsize);
+    }
+}
+
+// Return 1 if expression in is[] yields a 32-bit (long) value.
+// Pointers are always 16-bit, never long.
+isLongVal(int is[]) {
+    char *ptr;
+    if (is[TYP_CNST] >> 2 == BPD)
+        return 1;
+    if (is[TYP_OBJ] >> 2 == BPD)
+        return 1;
+    ptr = is[SYMTAB_ADR];
+    if (ptr && is[TYP_OBJ] == 0 && is[TYP_ADR] == 0
+        && ptr[IDENT] != IDENT_POINTER
+        && ptr[TYPE] >> 2 == BPD)
+        return 1;
+    return 0;
+}
+
+// Sign- or zero-extend AX to DX:AX based on signedness of is[].
+widen_primary(int is[]) {
+    if (IsUnsigned(is))
+        gen(WIDENu, 0);
+    else
+        gen(WIDENs, 0);
+}
+
+// Sign- or zero-extend BX to CX:BX based on signedness of is[].
+widen_secondary(int is[]) {
+    if (IsUnsigned(is))
+        gen(WIDENu2, 0);
+    else
+        gen(WIDENs2, 0);
+}
+
+// Map a 16-bit signed operator to its 32-bit equivalent.
+toLongOp(int oper) {
+    switch (oper) {
+        case ADD12:  return ADDd12;
+        case SUB12:  return SUBd12;
+        case MUL12:  return MULd12;
+        case DIV12:  return DIVd12;
+        case MOD12:  return MODd12;
+        case AND12:  return ANDd12;
+        case OR12:   return ORd12;
+        case XOR12:  return XORd12;
+        case ASL12:  return ASLd12;
+        case ASR12:  return ASRd12;
+        case EQ12:   return EQd12;
+        case NE12:   return NEd12;
+        case LT12:   return LTd12;
+        case LE12:   return LEd12;
+        case GT12:   return GTd12;
+        case GE12:   return GEd12;
+        case MUL12u: return MULd12u;
+        case DIV12u: return DIVd12u;
+        case MOD12u: return MODd12u;
+        case LT12u:  return LTd12u;
+        case LE12u:  return LEd12u;
+        case GT12u:  return GTd12u;
+        case GE12u:  return GEd12u;
+        case ASRd12u: return ASRd12u;
+    }
+    return oper;
+}
+
+// Return 1 if oper is a comparison operator (result is always 16-bit).
+isCmpOp(int oper) {
+    switch (oper) {
+        case EQd12:  case NEd12:
+        case LTd12:  case LEd12:
+        case GTd12:  case GEd12:
+        case LTd12u: case LEd12u:
+        case GTd12u: case GEd12u:
+            return 1;
+    }
+    return 0;
 }
 
 store(int is[]) {
     char *ptr;
     if (is[TYP_OBJ]) {                    // putstk
-        if (is[TYP_OBJ] >> 2 == 1) {
+        if (is[TYP_OBJ] >> 2 == BPD) {
+            gen(PUTdp1, 0);
+        }
+        else if (is[TYP_OBJ] >> 2 == 1) {
             gen(PUTbp1, 0);
         }
         else {
@@ -977,7 +1282,10 @@ store(int is[]) {
     }
     else {                          // putmem
         ptr = is[SYMTAB_ADR];
-        if (ptr[IDENT] != IDENT_POINTER && ptr[TYPE] >> 2 == 1) {
+        if (ptr[IDENT] != IDENT_POINTER && ptr[TYPE] >> 2 == BPD) {
+            gen(PUTdm1, ptr);
+        }
+        else if (ptr[IDENT] != IDENT_POINTER && ptr[TYPE] >> 2 == 1) {
             gen(PUTbm1, ptr);
         }
         else {
@@ -990,7 +1298,10 @@ fetch(int is[]) {
     char *ptr;
     ptr = is[SYMTAB_ADR];
     if (is[TYP_OBJ]) {                                   // indirect
-        if (is[TYP_OBJ] >> 2 == BPW) {
+        if (is[TYP_OBJ] >> 2 == BPD) {
+            gen(GETd1p, 0);
+        }
+        else if (is[TYP_OBJ] >> 2 == BPW) {
             gen(GETw1p, 0);
         }
         else {
@@ -1004,6 +1315,9 @@ fetch(int is[]) {
         if (ptr[IDENT] == IDENT_POINTER || ptr[TYPE] >> 2 == BPW) {
             gen(GETw1m, ptr);
         }
+        else if (ptr[TYPE] >> 2 == BPD) {
+            gen(GETd1m, ptr);
+        }
         else {
             if (ptr[TYPE] & IS_UNSIGNED) 
                 gen(GETb1mu, ptr);
@@ -1015,19 +1329,97 @@ fetch(int is[]) {
 
 constant(int is[]) {
     int offset;
-    if (is[TYP_CNST] = number(is + VAL_CNST)) gen(GETw1n, is[VAL_CNST]);
-    else if (is[TYP_CNST] = chrcon(is + VAL_CNST)) gen(GETw1n, is[VAL_CNST]);
+    if (is[TYP_CNST] = number(&is[VAL_CNST], &is[VAL_CNST_HI])) {
+        if (is[TYP_CNST] >> 2 == BPD) {
+            gen(GETw1n, is[VAL_CNST]);
+            gen(GETdxn, is[VAL_CNST_HI]);
+        }
+        else {
+            gen(GETw1n, is[VAL_CNST]);
+        }
+    }
+    else if (is[TYP_CNST] = chrcon(&is[VAL_CNST], &is[VAL_CNST_HI])) {
+        if (is[TYP_CNST] >> 2 == BPD) {
+            gen(GETw1n, is[VAL_CNST]);
+            gen(GETdxn, is[VAL_CNST_HI]);
+        }
+        else {
+            gen(GETw1n, is[VAL_CNST]);
+        }
+    }
     else if (string(&offset))          gen(POINT1l, offset);
     else return 0;
     return 1;
 }
 
-number(int *value) {
-    int k, minus;
-    k = minus = 0;
+// === 32-bit compile-time arithmetic helpers ================================
+// These operate on hi:lo pairs for the 16-bit self-hosted compiler.
+
+// Multiply khi:klo by a small factor (8, 10, or 16). Result in *hi:*lo.
+mul32x16(int *hi, int *lo, int factor) {
+    int ahi, bhi, carry;
+    unsigned alo, blo, newalo;
+    // Shift-and-add: multiply *hi:*lo by factor
+    ahi = 0;
+    alo = 0;
+    bhi = *hi;
+    blo = *lo;
+    while (factor) {
+        if (factor & 1) {
+            // add bhi:blo to ahi:alo (unsigned low word)
+            newalo = alo + blo;
+            carry = 0;
+            if (newalo < alo) carry = 1;
+            alo = newalo;
+            ahi = ahi + bhi + carry;
+        }
+        // double bhi:blo
+        carry = 0;
+        if (blo & 0x8000) carry = 1;
+        blo = blo << 1;
+        bhi = (bhi << 1) + carry;
+        factor = factor >> 1;
+    }
+    *lo = alo;
+    *hi = ahi;
+}
+
+// Add a small unsigned value (0-15) to khi:klo.
+add32x16(int *hi, int *lo, int addend) {
+    unsigned oldlo, newlo;
+    oldlo = *lo;
+    newlo = oldlo + addend;
+    if (newlo < oldlo)
+        *hi = *hi + 1;
+    *lo = newlo;
+}
+
+// Two's complement negate hi:lo.
+negate32(int *hi, int *lo) {
+    *hi = ~(*hi);
+    *lo = ~(*lo);
+    add32x16(hi, lo, 1);
+}
+
+// Return 1 if hi:lo fits in signed 16-bit range (-32768..32767).
+fits16s(int hi, int lo) {
+    if (hi == 0 && !(lo & 0x8000)) return 1;   // 0..32767
+    if (hi == -1 && (lo & 0x8000)) return 1;    // -32768..-1
+    return 0;
+}
+
+// Return 1 if hi:lo fits in unsigned 16-bit range (0..65535).
+fits16u(int hi, int lo) {
+    if (hi == 0) return 1;
+    return 0;
+}
+
+number(int *lo, int *hi) {
+    int klo, khi, minus, hasL, hasU, base, digit;
+    klo = khi = minus = hasL = hasU = 0;
     while (1) {
         if (IsMatch("+"));
-        else if (IsMatch("-")) 
+        else if (IsMatch("-"))
             minus = 1;
         else
             break;
@@ -1037,39 +1429,112 @@ number(int *value) {
         while (ch == '0') inbyte();
         if (toupper(ch) == 'X') {
             inbyte();
+            base = 16;
             while (isxdigit(ch)) {
                 if (isdigit(ch))
-                    k = k * 16 + (inbyte() - '0');
-                else 
-                    k = k * 16 + 10 + (toupper(inbyte()) - 'A');
+                    digit = inbyte() - '0';
+                else
+                    digit = 10 + (toupper(inbyte()) - 'A');
+                mul32x16(&khi, &klo, base);
+                add32x16(&khi, &klo, digit);
             }
         }
-        else while (ch >= '0' && ch <= '7') {
-            k = k * 8 + (inbyte() - '0');
+        else {
+            base = 8;
+            while (ch >= '0' && ch <= '7') {
+                digit = inbyte() - '0';
+                mul32x16(&khi, &klo, base);
+                add32x16(&khi, &klo, digit);
+            }
         }
     }
-    else while (isdigit(ch)) {
-        k = k * 10 + (inbyte() - '0');
+    else {
+        base = 10;
+        while (isdigit(ch)) {
+            digit = inbyte() - '0';
+            mul32x16(&khi, &klo, base);
+            add32x16(&khi, &klo, digit);
+        }
+    }
+    // Parse suffixes: L, U, UL, LU (case-insensitive)
+    if (toupper(ch) == 'U') {
+        inbyte();
+        hasU = 1;
+        if (toupper(ch) == 'L') {
+            inbyte();
+            hasL = 1;
+        }
+    }
+    else if (toupper(ch) == 'L') {
+        inbyte();
+        hasL = 1;
+        if (toupper(ch) == 'U') {
+            inbyte();
+            hasU = 1;
+        }
     }
     if (minus) {
-        *value = -k;
-        return TYPE_INT;
+        negate32(&khi, &klo);
     }
-    if ((*value = k) < 0) 
-        return TYPE_UINT;
-    else
-        return TYPE_INT;
+    *lo = klo;
+    *hi = khi;
+    // C89 type promotion rules:
+    // Decimal no suffix: int -> long -> unsigned long
+    // Octal/hex no suffix: int -> unsigned int -> long -> unsigned long
+    // U suffix: unsigned int -> unsigned long
+    // L suffix: long -> unsigned long
+    // UL suffix: unsigned long
+    if (hasU && hasL) {
+        return TYPE_ULONG;
+    }
+    if (hasL) {
+        // L suffix: long, or unsigned long if doesn't fit signed long
+        if (khi & 0x8000)
+            return TYPE_ULONG;
+        return TYPE_LONG;
+    }
+    if (hasU) {
+        // U suffix: unsigned int if fits, else unsigned long
+        if (fits16u(khi, klo))
+            return TYPE_UINT;
+        return TYPE_ULONG;
+    }
+    // No suffix
+    if (base == 10) {
+        // decimal: int -> long -> unsigned long
+        if (fits16s(khi, klo))
+            return TYPE_INT;
+        if (!(khi & 0x8000))
+            return TYPE_LONG;
+        return TYPE_ULONG;
+    }
+    else {
+        // octal/hex: int -> unsigned int -> long -> unsigned long
+        if (fits16s(khi, klo))
+            return TYPE_INT;
+        if (fits16u(khi, klo))
+            return TYPE_UINT;
+        if (!(khi & 0x8000))
+            return TYPE_LONG;
+        return TYPE_ULONG;
+    }
 }
 
-chrcon(int *value) {
-    int k;
-    k = 0;
-    if (IsMatch("'") == 0) 
+chrcon(int *lo, int *hi) {
+    int klo, khi, carry;
+    klo = khi = 0;
+    if (IsMatch("'") == 0)
         return 0;
-    while (ch != '\'') 
-        k = (k << 8) + (litchar() & 255);
+    while (ch != '\'') {
+        // shift khi:klo left by 8 and add new char
+        khi = (khi << 8) | ((klo >> 8) & 0xFF);
+        klo = ((klo << 8) + (litchar() & 255));
+    }
     gch();
-    *value = k;
+    *lo = klo;
+    *hi = khi;
+    if (khi)
+        return TYPE_LONG;
     return TYPE_INT;
 }
 
@@ -1156,9 +1621,22 @@ skim(char *opstr, int tcode, int dropval, int endval, int (*level)(), int is[]){
 dropout(int k, int tcode, int exit1, int is[]) {
     if (k)
         fetch(is);
-    else if (is[TYP_CNST])
+    else if (is[TYP_CNST]) {
         gen(GETw1n, is[VAL_CNST]);
-    gen(tcode, exit1);          // jumps on false
+        if (is[TYP_CNST] >> 2 == BPD)
+            gen(GETdxn, is[VAL_CNST_HI]);
+    }
+    // use 32-bit truthiness test when expression is long
+    if (isLongVal(is)) {
+        if (tcode == NE10f)
+            gen(NEd10f, exit1);
+        else if (tcode == EQ10f)
+            gen(EQd10f, exit1);
+        else
+            gen(tcode, exit1);
+    }
+    else
+        gen(tcode, exit1);          // jumps on false
 }
 
 // drop to a lower level
@@ -1171,7 +1649,7 @@ down(char *opstr, int opoff, int (*level)(), int is[]) {
         fetch(is);
     while (1) {
         if (nextop(opstr)) {
-            int is2[8];     // allocate only if needed
+            int is2[ISSIZE];     // allocate only if needed
             bump(opsize);
             opindex += opoff;
             down2(op[opindex], op2[opindex], level, is, is2);
@@ -1195,58 +1673,200 @@ down1(int (*level)(), int is[]) {
 down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
     int *before, *start;
     char *ptr;
+    int leftLong, rightLong, eitherLong, loper;
     setstage(&before, &start);
     is[STG_ADR] = 0;                             // not "... op 0" syntax
-    if (is[TYP_CNST]) {                           // consant op unknown
+    leftLong = isLongVal(is);
+    if (is[TYP_CNST]) {                           // constant op unknown
         if (down1(level, is2))
             fetch(is2);
-        if (is[VAL_CNST] == 0)
-            is[STG_ADR] = snext;
-        gen(GETw2n, is[VAL_CNST] << isDouble(oper, is2, is));
+        rightLong = isLongVal(is2);
+        eitherLong = leftLong || rightLong;
+        if (eitherLong) {
+            // widen RHS in DX:AX if it's 16-bit
+            if (!rightLong) widen_primary(is2);
+            if (is[VAL_CNST] == 0 && is[VAL_CNST_HI] == 0)
+                is[STG_ADR] = snext;
+            gen(GETw2n, is[VAL_CNST]);
+            gen(GETcxn, is[VAL_CNST_HI]);
+        }
+        else {
+            if (is[VAL_CNST] == 0)
+                is[STG_ADR] = snext;
+            gen(GETw2n, is[VAL_CNST] * (ptrScale(oper, is2, is) ? ptrScale(oper, is2, is) : 1));
+        }
     }
     else {                                  // variable op unknown
-        gen(PUSH1, 0);                      // at start in the buffer
+        if (leftLong)
+            gen(PUSHd1, 0);
+        else
+            gen(PUSH1, 0);                      // at start in the buffer
         if (down1(level, is2)) fetch(is2);
+        rightLong = isLongVal(is2);
+        eitherLong = leftLong || rightLong;
         if (is2[TYP_CNST]) {                      // variable op constant
-            if (is2[VAL_CNST] == 0) is[STG_ADR] = start;
-            csp += BPW;                     // adjust stack and
+            if (is2[VAL_CNST] == 0 && is2[VAL_CNST_HI] == 0)
+                is[STG_ADR] = start;
+            if (leftLong)
+                csp += BPD;
+            else
+                csp += BPW;                     // adjust stack and
             ClearStage(before, 0);          // discard the PUSH
-            if (oper == ADD12) {            // commutative
-                gen(GETw2n, is2[VAL_CNST] << isDouble(oper, is, is2));
+            if (eitherLong) {
+                if (!leftLong)
+                    gen(WIDENs, 0);     // widen left in DX:AX
+                if (oper == ADD12 || oper == ADDd12) {
+                    // commutative: left stays in DX:AX
+                    gen(GETw2n, is2[VAL_CNST]);
+                    gen(GETcxn, is2[VAL_CNST_HI]);
+                }
+                else {
+                    // non-commutative: swap
+                    gen(MOVEd21, 0);
+                    gen(GETw1n, is2[VAL_CNST]);
+                    gen(GETdxn, is2[VAL_CNST_HI]);
+                }
             }
-            else {                          // non-commutative
-                gen(MOVE21, 0);
-                gen(GETw1n, is2[VAL_CNST] << isDouble(oper, is, is2));
+            else {
+                if (oper == ADD12) {            // commutative
+                    gen(GETw2n, is2[VAL_CNST] * (ptrScale(oper, is, is2) ? ptrScale(oper, is, is2) : 1));
+                }
+                else {                          // non-commutative
+                    gen(MOVE21, 0);
+                    gen(GETw1n, is2[VAL_CNST] * (ptrScale(oper, is, is2) ? ptrScale(oper, is, is2) : 1));
+                }
             }
         }
         else {                              // variable op variable
-            gen(POP2, 0);
-            if (isDouble(oper, is, is2)) gen(DBL1, 0);
-            if (isDouble(oper, is2, is)) gen(DBL2, 0);
+            if (eitherLong) {
+                // widen right (in DX:AX) if not long
+                if (!rightLong) widen_primary(is2);
+                // pop left
+                if (leftLong)
+                    gen(POPd2, 0);
+                else {
+                    gen(POP2, 0);
+                    widen_secondary(is);
+                }
+            }
+            else {
+                gen(POP2, 0);
+                if (ptrScale(oper, is, is2) == BPD) {
+                    gen(DBL1, 0); gen(DBL1, 0);
+                }
+                else if (isDouble(oper, is, is2)) gen(DBL1, 0);
+                if (ptrScale(oper, is2, is) == BPD) {
+                    gen(DBL2, 0); gen(DBL2, 0);
+                }
+                else if (isDouble(oper, is2, is)) gen(DBL2, 0);
+            }
         }
     }
     if (oper) {
         if (IsUnsigned(is) || IsUnsigned(is2)) {
             oper = oper2;
         }
-        if (is[TYP_CNST] = is[TYP_CNST] & is2[TYP_CNST]) {               // constant result
-            is[VAL_CNST] = CalcConst(is[VAL_CNST], oper, is2[VAL_CNST]);
-            ClearStage(before, 0);
-            if (is2[TYP_CNST] == TYPE_UINT) {
-                is[TYP_CNST] = TYPE_UINT;
+        if (eitherLong)
+            loper = toLongOp(oper);
+        else
+            loper = oper;
+        if (is[TYP_CNST] && is2[TYP_CNST]) {               // constant result
+            if (eitherLong) {
+                // 32-bit constant folding
+                int rhi, rlo, lhi, llo, reshi, reslo;
+                // Widen 16-bit constants to 32-bit for folding
+                llo = is[VAL_CNST];
+                lhi = is[VAL_CNST_HI];
+                if (!leftLong) {
+                    // sign- or zero-extend left
+                    if (is[TYP_CNST] == TYPE_UINT)
+                        lhi = 0;
+                    else
+                        lhi = (llo & 0x8000) ? -1 : 0;
+                }
+                rlo = is2[VAL_CNST];
+                rhi = is2[VAL_CNST_HI];
+                if (!rightLong) {
+                    if (is2[TYP_CNST] == TYPE_UINT)
+                        rhi = 0;
+                    else
+                        rhi = (rlo & 0x8000) ? -1 : 0;
+                }
+                reshi = reslo = 0;
+                // Route to appropriate folding function
+                if (oper == LT12 || oper == LE12 ||
+                    oper == GT12 || oper == GE12) {
+                    CalcCmp32(lhi, llo, oper, rhi, rlo,
+                              &reshi, &reslo);
+                }
+                else if (IsUnsigned(is) || IsUnsigned(is2)) {
+                    CalcUConst32(lhi, llo, oper, rhi, rlo,
+                                 &reshi, &reslo);
+                }
+                else {
+                    CalcConst32(lhi, llo, oper, rhi, rlo,
+                                &reshi, &reslo);
+                }
+                is[VAL_CNST] = reslo;
+                is[VAL_CNST_HI] = reshi;
+                // Determine result type
+                if (oper == EQ12 || oper == NE12 ||
+                    oper == LT12 || oper == LE12 ||
+                    oper == GT12 || oper == GE12 ||
+                    oper == LT12u || oper == LE12u ||
+                    oper == GT12u || oper == GE12u) {
+                    // comparison: result is 16-bit int
+                    is[TYP_CNST] = TYPE_INT;
+                    is[VAL_CNST_HI] = 0;
+                }
+                else if (IsUnsigned(is) || IsUnsigned(is2)) {
+                    is[TYP_CNST] = TYPE_ULONG;
+                }
+                else {
+                    is[TYP_CNST] = TYPE_LONG;
+                }
             }
+            else {
+                is[VAL_CNST] = CalcConst(is[VAL_CNST], oper, is2[VAL_CNST]);
+                if (is2[TYP_CNST] == TYPE_UINT) {
+                    is[TYP_CNST] = TYPE_UINT;
+                }
+            }
+            ClearStage(before, 0);
         }
         else {
             // variable result
-            gen(oper, 0);
+            is[TYP_CNST] = 0;
+            is[VAL_CNST_HI] = 0;
+            gen(loper, 0);
             if (oper == SUB12 && is[TYP_ADR] >> 2 == BPW && is2[TYP_ADR] >> 2 == BPW) { 
                 // difference of two word addresses
                 gen(SWAP12, 0);
                 gen(GETw1n, 1);
                 gen(ASR12, 0);          // div by 2
             }
+            if (oper == SUB12 && is[TYP_ADR] >> 2 == BPD && is2[TYP_ADR] >> 2 == BPD) { 
+                // difference of two long addresses: div by 4
+                gen(SWAP12, 0);
+                gen(GETw1n, 2);
+                gen(ASR12, 0);
+            }
             // identify the operator
-            is[LAST_OP] = oper;
+            is[LAST_OP] = loper;
+            // comparison results are always 16-bit
+            if (eitherLong && isCmpOp(loper)) {
+                eitherLong = 0;
+                is[TYP_OBJ] = 0;
+                is[SYMTAB_ADR] = 0;
+            }
+            // non-comparison long ops produce a 32-bit result
+            else if (eitherLong) {
+                if (IsUnsigned(is) || IsUnsigned(is2))
+                    is[TYP_OBJ] = TYPE_ULONG;
+                else
+                    is[TYP_OBJ] = TYPE_LONG;
+                is[SYMTAB_ADR] = 0;
+            }
         }
         if (oper == SUB12 || oper == ADD12) {
             if (is[TYP_ADR] && is2[TYP_ADR]) {
@@ -1269,7 +1889,7 @@ down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
 // unsigned operand?
 IsUnsigned(int is[]) {
     char *ptr;
-    if (is[TYP_ADR] || is[TYP_CNST] == TYPE_UINT || 
+    if (is[TYP_ADR] || is[TYP_CNST] == TYPE_UINT || is[TYP_CNST] == TYPE_ULONG ||
         ((ptr = is[SYMTAB_ADR]) && (ptr[TYPE] & IS_UNSIGNED)))
         return 1;
     return 0;
@@ -1333,4 +1953,181 @@ CalcUConst(unsigned left, int oper, unsigned right) {
             return (left > right);
     }
     return (0);
+}
+
+// 32-bit signed constant folding.  Operates on hi:lo pairs.
+// Returns result type: TYPE_LONG or TYPE_ULONG.
+// Result stored via reshi/reslo pointers.
+CalcConst32(int lhi, int llo, int oper, int rhi, int rlo,
+            int *reshi, int *reslo) {
+    unsigned alo, blo, newlo;
+    int carry;
+    switch (oper) {
+        case ADD12:
+            alo = llo;
+            blo = rlo;
+            newlo = alo + blo;
+            carry = 0;
+            if (newlo < alo) carry = 1;
+            *reslo = newlo;
+            *reshi = lhi + rhi + carry;
+            return;
+        case SUB12:
+            alo = llo;
+            blo = rlo;
+            newlo = alo - blo;
+            carry = 0;
+            if (newlo > alo) carry = 1;
+            *reslo = newlo;
+            *reshi = lhi - rhi - carry;
+            return;
+        case AND12:
+            *reslo = llo & rlo;
+            *reshi = lhi & rhi;
+            return;
+        case OR12:
+            *reslo = llo | rlo;
+            *reshi = lhi | rhi;
+            return;
+        case XOR12:
+            *reslo = llo ^ rlo;
+            *reshi = lhi ^ rhi;
+            return;
+        case EQ12:
+            *reshi = 0;
+            *reslo = (lhi == rhi && llo == rlo) ? 1 : 0;
+            return;
+        case NE12:
+            *reshi = 0;
+            *reslo = (lhi != rhi || llo != rlo) ? 1 : 0;
+            return;
+        case ASL12:
+            // shift left by rlo (rhi should be 0 for valid shift)
+            *reshi = lhi;
+            *reslo = llo;
+            carry = rlo & 31;
+            while (carry > 0) {
+                *reshi = (*reshi << 1);
+                if (*reslo & 0x8000) *reshi = *reshi | 1;
+                *reslo = *reslo << 1;
+                carry--;
+            }
+            return;
+        case ASR12:
+            // arithmetic shift right
+            *reshi = lhi;
+            *reslo = llo;
+            carry = rlo & 31;
+            while (carry > 0) {
+                *reslo = (*reslo >> 1) & 0x7FFF;
+                if (*reshi & 1) *reslo = *reslo | 0x8000;
+                // arithmetic: preserve sign bit of hi
+                if (*reshi & 0x8000)
+                    *reshi = (*reshi >> 1) | 0x8000;
+                else
+                    *reshi = (*reshi >> 1) & 0x7FFF;
+                carry--;
+            }
+            return;
+        default:
+            // For MUL/DIV/MOD and comparisons, use mul32x16 approach
+            // or fall through to no-fold
+            *reslo = llo;
+            *reshi = lhi;
+            return;
+    }
+}
+
+// 32-bit unsigned constant folding for comparison operators.
+CalcUConst32(int lhi, int llo, int oper, int rhi, int rlo,
+             int *reshi, int *reslo) {
+    unsigned ulhi, ullo, urhi, urlo;
+    ulhi = lhi; ullo = llo; urhi = rhi; urlo = rlo;
+    *reshi = 0;
+    switch (oper) {
+        case LT12:
+            if (ulhi < urhi) *reslo = 1;
+            else if (ulhi > urhi) *reslo = 0;
+            else *reslo = (ullo < urlo) ? 1 : 0;
+            return;
+        case LE12:
+            if (ulhi < urhi) *reslo = 1;
+            else if (ulhi > urhi) *reslo = 0;
+            else *reslo = (ullo <= urlo) ? 1 : 0;
+            return;
+        case GT12:
+            if (ulhi > urhi) *reslo = 1;
+            else if (ulhi < urhi) *reslo = 0;
+            else *reslo = (ullo > urlo) ? 1 : 0;
+            return;
+        case GE12:
+            if (ulhi > urhi) *reslo = 1;
+            else if (ulhi < urhi) *reslo = 0;
+            else *reslo = (ullo >= urlo) ? 1 : 0;
+            return;
+        case LT12u:
+            if (ulhi < urhi) *reslo = 1;
+            else if (ulhi > urhi) *reslo = 0;
+            else *reslo = (ullo < urlo) ? 1 : 0;
+            return;
+        case LE12u:
+            if (ulhi < urhi) *reslo = 1;
+            else if (ulhi > urhi) *reslo = 0;
+            else *reslo = (ullo <= urlo) ? 1 : 0;
+            return;
+        case GT12u:
+            if (ulhi > urhi) *reslo = 1;
+            else if (ulhi < urhi) *reslo = 0;
+            else *reslo = (ullo > urlo) ? 1 : 0;
+            return;
+        case GE12u:
+            if (ulhi > urhi) *reslo = 1;
+            else if (ulhi < urhi) *reslo = 0;
+            else *reslo = (ullo >= urlo) ? 1 : 0;
+            return;
+        case MUL12u:
+        case DIV12u:
+        case MOD12u:
+            // Too complex for 16-bit compile-time folding; don't fold
+            *reslo = llo;
+            *reshi = lhi;
+            return;
+        default:
+            // delegate to signed version for non-comparison ops
+            CalcConst32(lhi, llo, oper, rhi, rlo, reshi, reslo);
+            return;
+    }
+}
+
+// Signed 32-bit comparison folding.
+CalcCmp32(int lhi, int llo, int oper, int rhi, int rlo,
+          int *reshi, int *reslo) {
+    unsigned ullo, urlo;
+    ullo = llo; urlo = rlo;
+    *reshi = 0;
+    switch (oper) {
+        case LT12:
+            if (lhi < rhi) *reslo = 1;
+            else if (lhi > rhi) *reslo = 0;
+            else *reslo = (ullo < urlo) ? 1 : 0;
+            return;
+        case LE12:
+            if (lhi < rhi) *reslo = 1;
+            else if (lhi > rhi) *reslo = 0;
+            else *reslo = (ullo <= urlo) ? 1 : 0;
+            return;
+        case GT12:
+            if (lhi > rhi) *reslo = 1;
+            else if (lhi < rhi) *reslo = 0;
+            else *reslo = (ullo > urlo) ? 1 : 0;
+            return;
+        case GE12:
+            if (lhi > rhi) *reslo = 1;
+            else if (lhi < rhi) *reslo = 0;
+            else *reslo = (ullo >= urlo) ? 1 : 0;
+            return;
+        default:
+            *reslo = 0;
+            return;
+    }
 }

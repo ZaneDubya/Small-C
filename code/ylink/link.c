@@ -92,8 +92,10 @@ main(int argc, int *argv) {
     Pass2();
     Pass3();
     Pass4();
+    printf("  Linked. Code: %u b, Data: %u b, Stack: %u b\n",
+      segLengths[SEG_CODE], segLengths[SEG_DATA], segLengths[SEG_STACK]);
     if (fdDebug != 0xffff) {
-      fprintf(fdDebug, "Code: %u b Data: %u b, Stack: %u b\n",
+      fprintf(fdDebug, "Code: %u b, Data: %u b, Stack: %u b\n",
         segLengths[SEG_CODE], segLengths[SEG_DATA], segLengths[SEG_STACK]);
     }
   }

@@ -158,3 +158,12 @@ Small-C Revision History
     keyword is reserved does not mean the feature associated with that keyword
     has been implemented.
 125 Fixed overflow bug in CC1.C (incorrectly calculated slast and swend).
+126 Added 32-bit 'long' and 'unsigned long' integer types. Supports
+    declarations, initialization, arithmetic (+, -, *, /, %, shifts,
+    bitwise), comparisons, pointer-to-long arithmetic, multi-dimensional
+    long arrays, long struct members, long function parameters and return
+    values, explicit casts between long and narrower types, and switch on
+    long expressions. printf/scanf recognize %ld, %lu, and %lx. Numeric
+    literals accept L, U, UL suffixes. C89 type promotion rules apply.
+    Long values occupy 4 bytes. It is intended that local long variables
+    are 2-byte aligned on the stack.

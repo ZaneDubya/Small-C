@@ -27,6 +27,9 @@ printf(argc) int argc; {
 */
 _print(fd, nxtarg) int fd, *nxtarg; {
   int  arg, left, pad, cc, len, maxchr, width;
+  int  islong;
+  long lval;
+  int  *lp;
   char *ctl, *sptr, str[17];
   cc = 0;                                         
   ctl = *nxtarg--;                          
@@ -46,17 +49,32 @@ _print(fd, nxtarg) int fd, *nxtarg; {
       while(isdigit(*ctl)) ++ctl;
       }
     else maxchr = 0;
-    arg = *nxtarg--;
+    if(*ctl=='l') {islong = 1; ++ctl;} else islong = 0;
     sptr = str;
-    switch(*ctl++) {
-      case 'c': str[0] = arg; str[1] = NULL; break;
-      case 's': sptr = arg;        break;
-      case 'd': itoa(arg,str);     break;
-      case 'b': itoab(arg,str,2);  break;
-      case 'o': itoab(arg,str,8);  break;
-      case 'u': itoab(arg,str,10); break;
-      case 'x': itoab(arg,str,16); break;
-      default:  return (cc);
+    if(islong) {
+      lp = &lval;
+      *lp = *nxtarg--;
+      *(lp+1) = *nxtarg--;
+      switch(*ctl++) {
+        case 'd': ltoa(lval, str);      break;
+        case 'u': ltoab(lval, str, 10); break;
+        case 'x': ltoab(lval, str, 16); break;
+        case 'o': ltoab(lval, str, 8);  break;
+        default:  return (cc);
+        }
+      }
+    else {
+      arg = *nxtarg--;
+      switch(*ctl++) {
+        case 'c': str[0] = arg; str[1] = NULL; break;
+        case 's': sptr = arg;        break;
+        case 'd': itoa(arg,str);     break;
+        case 'b': itoab(arg,str,2);  break;
+        case 'o': itoab(arg,str,8);  break;
+        case 'u': itoab(arg,str,10); break;
+        case 'x': itoab(arg,str,16); break;
+        default:  return (cc);
+        }
       }
     len = strlen(sptr);
     if(maxchr && maxchr<len) len = maxchr;
