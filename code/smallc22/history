@@ -167,3 +167,11 @@ Small-C Revision History
     literals accept L, U, UL suffixes. C89 type promotion rules apply.
     Long values occupy 4 bytes. It is intended that local long variables
     are 2-byte aligned on the stack.
+127 Fixed // comment handler in preprocess() (CC2.C) to not read past end of
+    buffer into the parent file, which dropped the line after a #include when
+    the included file had no trailing newline. Added input line/filename
+    tracking (lineno, inclno, infn[], inclfn[]) so error() prefixes each
+    message with "filename(lineno)". Added multi-platform line-ending support:
+    preprocess() stops on CR or LF; doinclude() strips CR from filenames;
+    fgetc() (FGETC.C) now treats standalone LF as a line terminator and
+    consumes the LF in a CRLF pair.
