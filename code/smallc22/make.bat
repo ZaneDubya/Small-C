@@ -49,6 +49,12 @@ REM %BIN%\link cc1 cc2 cc3 cc4,cc,cc,..\smalllib\clib.lib
 %BIN%\ylink cc1.obj,cc2.obj,cc3.obj,cc4.obj,ccstruct.obj,%LIB%\clib.lib -e=cc.exe
 if errorlevel 1 goto exit
 
+ECHO Copy cc.exe to %BIN%? [y/n]
+CHOICE /C:YN
+if errorlevel 2 goto exit
+copy cc.exe %BIN%\cc.exe
+
+:cleanup
 REM CLEANUP
 REM if exist *.asm del *.asm
 REM if exist *.obj del *.obj

@@ -10,4 +10,4 @@ emu/stderr.txt
 
 # Allow
 !/code/bin/*.EXE
-!/code/smalllib/clib/CALL.ASM
+!/code/smalllib/clib/*.ASM

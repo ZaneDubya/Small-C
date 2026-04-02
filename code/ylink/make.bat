@@ -18,5 +18,10 @@ ECHO === Linking ===
 %BIN%\ylink link.obj,%LIB%\clib.lib -e=ylink.exe
 if errorlevel 1 goto exit
 
+ECHO Copy ylink.exe to %BIN%? [y/n]
+CHOICE /C:YN
+if errorlevel 2 goto exit
+copy ylink.exe %BIN%\ylink.exe
+
 :exit
 @ECHO ON
