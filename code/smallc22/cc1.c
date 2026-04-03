@@ -89,7 +89,8 @@ char
     *dimdata,  // multi-dim array metadata buffer
     *dimdatptr, // next free entry in dimdata
     msname[NAMESIZE],   // macro symbol name
-    ssname[NAMESIZE],   // global symbol name
+    ssname[NAMESIZE],   // symbol name (static locals mangled to _L<N> form)
+    curfn[NAMESIZE],    // name of function currently being compiled
     infn[30],    // current input filename
     inclfn[30];  // current include filename
 
@@ -143,6 +144,7 @@ int opd2[16] = { // p-codes of unsigned 32-bit binary operators
 
 // execution begins here
 main(int argc, int *argv) {
+    unsigned int availMem;
     fputs(VERSION, stderr);
     fputs(CRIGHT1, stderr);
     argcs = argc;
@@ -150,20 +152,24 @@ main(int argc, int *argv) {
     swnext = calloc(SWTABSZ, 1);
     swend = swnext + (SWTABSZ - SWSIZ) / BPW;
     stage = calloc(STAGESIZE, 2 * BPW);
-    wqptr =
-        wq = calloc(WQTABSZ, BPW);
+    wqptr = wq = calloc(WQTABSZ, BPW);
     litq = calloc(LITABSZ, 1);
     macn = calloc(MACNSIZE, 1);
     macq = calloc(MACQSIZE, 1);
     pline = calloc(LINESIZE, 1);
     mline = calloc(LINESIZE, 1);
     slast = stage + (STAGESIZE * 2);
-    symtab = calloc((NUMLOCS*SYMAVG + NUMGLBS*SYMMAX), 1);
+    symtab = calloc(NUMLOCS*SYMAVG + NUMGLBS*SYMMAX, 1);
     locptr = STARTLOC;
     glbptr = STARTGLB;
-    dimdatptr =
-        dimdata = calloc(DIMDATSZ, 1);
+    dimdatptr = dimdata = calloc(DIMDATSZ, 1);
     initStructs();
+    availMem = avail(0);
+    fprintf(stderr, "  Memory available: %d b\n", availMem);
+    if (availMem < 2000) {
+        fputs("out of memory\n", stderr);
+        exit(1);
+    }
     rettype = TYPE_INT;
     rettypeSubPtr = 0;
     getRunArgs();   // get run options from command line arguments
@@ -174,7 +180,6 @@ main(int argc, int *argv) {
     parse();        // process ALL input
     trailer();      // follow-up code
     fclose(output); // explicitly close output
-    // printallstructs();
 }
 
 // ****************************************************************************
@@ -187,20 +192,27 @@ parse() {
     while (eof == 0) {
         if (amatch("extern", 6))
             dodeclare(EXTERNAL);
-        else if (amatch("static", 6)) // global static = "file scope"
+        else if (amatch("static", 6)) {
             dostatic();
-        else if (amatch("struct", 6))
+        }
+        else if (amatch("struct", 6)) {
             dostructblock();
-        else if (dodeclare(GLOBAL))
-            ;
-        else if (IsMatch("#asm"))
+        }
+        else if (dodeclare(GLOBAL)) {
+            // do nothing - for now, we only support global variable declarations of the form "extern int x;"
+        }
+        else if (IsMatch("#asm")) {
             doasm();
-        else if (IsMatch("#include"))
+        }
+        else if (IsMatch("#include")) {
             doinclude();
-        else if (IsMatch("#define"))
+        }
+        else if (IsMatch("#define")) {
             dodefine();
-        else
+        }
+        else {
             dofunction(GLOBAL);
+        }
         blanks();                 // force eof if pending
     }
 }
@@ -294,8 +306,9 @@ declglb(int type, int class, int typeSubPtr) {
     int totalSize, elemSz, k;
     char *ddentry;
     while (1) {
-        if (endst()) 
+        if (endst()) {
             return;  // do line
+        }
         if (IsMatch("*")) { 
             id = IDENT_POINTER; 
             dim = 0;
@@ -343,8 +356,9 @@ declglb(int type, int class, int typeSubPtr) {
                 InitStruct(typeSubPtr, class);
             else if (ndim > 1)
                 initGlMDArr(type, typeSubPtr, ndim, dims, class);
-            else
+            else {
                 InitSize(type >> 2, id, dim, class);
+            }
         }
         if (id == IDENT_PTR_ARRAY) {
             AddSymbol(ssname, id, type, dim * BPW, 0, &glbptr, class);
@@ -405,7 +419,9 @@ InitSize(int size, int ident, int dim, int class) {
             }
             Require("}");
         }
-        else EvalInitValue(size, ident, &dim);
+        else {
+            EvalInitValue(size, ident, &dim);
+        }
     }
     if (savedim == -1 && dim == -1) {
         if (ident == IDENT_ARRAY) {
@@ -419,7 +435,7 @@ InitSize(int size, int ident, int dim, int class) {
 
 // evaluate one initializer
 EvalInitValue(int size, int ident, int *dim) {
-    int value;
+    int value, value_hi;
     if (string(&value)) {
         if (ident == IDENT_VARIABLE || size != 1) {
             error("must assign to char pointer or char array");
@@ -429,12 +445,27 @@ EvalInitValue(int size, int ident, int *dim) {
             point();
         }
     }
-    else if (IsConstExpr(&value)) {
-        if (ident == IDENT_POINTER) {
-            error("cannot assign to pointer");
+    else {
+        if (size == BPD) {
+            // 32-bit long initializer: must capture hi word too
+            if (IsCExpr32(&value, &value_hi)) {
+                if (ident == IDENT_POINTER) {
+                    error("cannot assign to pointer");
+                }
+                stowlit(value, BPW);
+                stowlit(value_hi, BPW);
+                *dim -= 1;
+            }
         }
-        stowlit(value, size);
-        *dim -= 1;
+        else {
+            if (IsConstExpr(&value)) {
+                if (ident == IDENT_POINTER) {
+                    error("cannot assign to pointer");
+                }
+                stowlit(value, size);
+                *dim -= 1;
+            }
+        }
     }
 }
 
@@ -721,7 +752,7 @@ dodefine() {
         return;
     }
     k = 0;
-    if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0) == 0) {
+    if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0, NAMEMAX) == 0) {
         if (cptr2 = cptr)
             while (*cptr2++ = msname[k++]);
         else {
@@ -775,6 +806,11 @@ dofunction(int class) {
         kill();                     // invalidate line
         return;
     }
+    // capture current function name for static local name mangling
+    cptr2 = curfn;
+    cptr3 = ssname;
+    while (*cptr3) *cptr2++ = *cptr3++;
+    *cptr2 = 0;
     // If this name is already in the symbol table and is an autoext function,
     // define it instead as a global function
     if (pGlobal = findglb(ssname)) {
@@ -1043,7 +1079,6 @@ doArgsNonTyped() {
 doArgTypes(int type, int typeSubPtr) {
     int id, sz;
     char *ptr, *ddentry;
-    int t;
     while (1) {
         if (argstk == 0)
             return;           // no arguments
@@ -1193,11 +1228,16 @@ parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
 // statement. If successful, the corresponding parsing function is called, and
 // the global lastst is set to a value indicating which statement was parsed.
 statement() {
-    int type, typeSubPtr;
+    int type, typeSubPtr, isStatic;
+    isStatic = 0;
     if (ch == 0 && eof) return;
-    else if ((type = dotype(&typeSubPtr)) != 0) {
-        declareLocals(type, typeSubPtr);
+    if (amatch("static", 6)) isStatic = 1;
+    if ((type = dotype(&typeSubPtr)) != 0) {
+        declareLocals(type, typeSubPtr, isStatic);
         ReqSemicolon();
+    }
+    else if (isStatic) {
+        error("expected type after static");
     }
     else {
         if (declared >= 0) {
@@ -1289,6 +1329,48 @@ allocPendLoc() {
     }
 }
 
+// Helper: emit the store sequence after gen(POP2,0).
+// BX has the destination address, AX has the value to store.
+genStore(int elemSz, int isPtr) {
+    if (elemSz == BPD) {
+        gen(PUTwp1, 0);
+        gen(ADD2n, BPW);
+        gen(GETw1n, 0);
+        gen(PUTwp1, 0);
+    }
+    else if (isPtr || elemSz == BPW) {
+        gen(PUTwp1, 0);
+    }
+    else {
+        gen(PUTbp1, 0);
+    }
+}
+
+// Helper: emit the zero-store sequence after gen(GETw1n,0) + gen(POP2,0).
+// BX has the destination address, AX is already 0.
+genStoreZero(int elemSz) {
+    if (elemSz == BPD) {
+        gen(PUTwp1, 0);
+        gen(ADD2n, BPW);
+        gen(PUTwp1, 0);
+    }
+    else if (elemSz == BPW) {
+        gen(PUTwp1, 0);
+    }
+    else {
+        gen(PUTbp1, 0);
+    }
+}
+
+// Helper: emit POINT1s(off), PUSH1, GETw1n(val), POP2, PUTbp1.
+genStoreByte(int off, int val) {
+    gen(POINT1s, off);
+    gen(PUSH1, 0);
+    gen(GETw1n, val);
+    gen(POP2, 0);
+    gen(PUTbp1, 0);
+}
+
 // initialize a local scalar variable (int, char, pointer)
 // cptr must point to the symbol table entry for the variable.
 initLocScalar(int type) {
@@ -1308,20 +1390,7 @@ initLocScalar(int type) {
     ParseExpression(&isConst, &val);
     ClearStage(before, start);
     gen(POP2, 0);
-    if (elemSize == BPD) {
-        // store low word, then zero the high word
-        // TODO: once 32-bit expressions produce DX:AX, use PUTdp1
-        gen(PUTwp1, 0);            // store AX at [BX]
-        gen(ADD2n, BPW);           // BX += 2
-        gen(GETw1n, 0);            // AX = 0
-        gen(PUTwp1, 0);            // store 0 at [BX+2]
-    }
-    else if (isPtr || elemSize == BPW) {
-        gen(PUTwp1, 0);
-    }
-    else {
-        gen(PUTbp1, 0);
-    }
+    genStore(elemSize, isPtr);
 }
 
 // initialize a local array variable with { expr, expr, ... }
@@ -1344,18 +1413,7 @@ initLocArray(int type) {
         ParseExpression(&isConst, &val);
         ClearStage(before, start);
         gen(POP2, 0);
-        if (elemSize == BPD) {
-            gen(PUTwp1, 0);
-            gen(ADD2n, BPW);
-            gen(GETw1n, 0);
-            gen(PUTwp1, 0);
-        }
-        else if (elemSize == BPW) {
-            gen(PUTwp1, 0);
-        }
-        else {
-            gen(PUTbp1, 0);
-        }
+        genStore(elemSize, 0);
         count++;
         if (IsMatch(",") == 0)
             break;
@@ -1367,17 +1425,7 @@ initLocArray(int type) {
         gen(PUSH1, 0);
         gen(GETw1n, 0);
         gen(POP2, 0);
-        if (elemSize == BPD) {
-            gen(PUTwp1, 0);
-            gen(ADD2n, BPW);
-            gen(PUTwp1, 0);    // AX still 0
-        }
-        else if (elemSize == BPW) {
-            gen(PUTwp1, 0);
-        }
-        else {
-            gen(PUTbp1, 0);
-        }
+        genStoreZero(elemSize);
         count++;
     }
 }
@@ -1444,13 +1492,8 @@ initLcMDSub(int type, int elemSz, int ndim, int dims[],
                     i = 0;
                     strLen = litptr - strOff - 1;
                     while (i < strLen && count < dim) {
-                        gen(POINT1s,
-                            baseOff + count);
-                        gen(PUSH1, 0);
-                        gen(GETw1n,
+                        genStoreByte(baseOff + count,
                             litq[strOff + i] & 255);
-                        gen(POP2, 0);
-                        gen(PUTbp1, 0);
                         ++count;
                         ++i;
                     }
@@ -1471,12 +1514,7 @@ initLcMDSub(int type, int elemSz, int ndim, int dims[],
             }
             // zero-fill rest
             while (count < dim) {
-                gen(POINT1s,
-                    baseOff + count);
-                gen(PUSH1, 0);
-                gen(GETw1n, 0);
-                gen(POP2, 0);
-                gen(PUTbp1, 0);
+                genStoreByte(baseOff + count, 0);
                 ++count;
             }
             return;
@@ -1490,14 +1528,7 @@ initLcMDSub(int type, int elemSz, int ndim, int dims[],
             ParseExpression(&isConst, &val);
             ClearStage(before, start);
             gen(POP2, 0);
-            if (elemSz == BPD) {
-                gen(PUTwp1, 0);
-                gen(ADD2n, BPW);
-                gen(GETw1n, 0);
-                gen(PUTwp1, 0);
-            }
-            else if (elemSz == BPW) gen(PUTwp1, 0);
-            else gen(PUTbp1, 0);
+            genStore(elemSz, 0);
             ++count;
             if (IsMatch(",") == 0) break;
         }
@@ -1507,13 +1538,7 @@ initLcMDSub(int type, int elemSz, int ndim, int dims[],
             gen(PUSH1, 0);
             gen(GETw1n, 0);
             gen(POP2, 0);
-            if (elemSz == BPD) {
-                gen(PUTwp1, 0);
-                gen(ADD2n, BPW);
-                gen(PUTwp1, 0);
-            }
-            else if (elemSz == BPW) gen(PUTwp1, 0);
-            else gen(PUTbp1, 0);
+            genStoreZero(elemSz);
             ++count;
         }
         return;
@@ -1611,19 +1636,11 @@ initLocChrStr(int infer) {
     arrSize = getint(savedcptr + SIZE, 2);
     i = 0;
     while (i < strLen && i < arrSize) {
-        gen(POINT1s, offset + i);
-        gen(PUSH1, 0);
-        gen(GETw1n, litq[strOffset + i] & 255);
-        gen(POP2, 0);
-        gen(PUTbp1, 0);
+        genStoreByte(offset + i, litq[strOffset + i] & 255);
         i++;
     }
     while (i < arrSize) {
-        gen(POINT1s, offset + i);
-        gen(PUSH1, 0);
-        gen(GETw1n, 0);
-        gen(POP2, 0);
-        gen(PUTbp1, 0);
+        genStoreByte(offset + i, 0);
         i++;
     }
     litptr = strOffset;
@@ -1666,18 +1683,7 @@ initLocStrMem(int typeSubPtr, int baseOffset) {
                 ParseExpression(&isConst, &val);
                 ClearStage(before, start);
                 gen(POP2, 0);
-                if (memberSize == BPD) {
-                    gen(PUTwp1, 0);
-                    gen(ADD2n, BPW);
-                    gen(GETw1n, 0);
-                    gen(PUTwp1, 0);
-                }
-                else if (memberSize == BPW) {
-                    gen(PUTwp1, 0);
-                }
-                else {
-                    gen(PUTbp1, 0);
-                }
+                genStore(memberSize, 0);
                 elemIdx++;
                 if (IsMatch(",") == 0) break;
             }
@@ -1688,17 +1694,7 @@ initLocStrMem(int typeSubPtr, int baseOffset) {
                 gen(PUSH1, 0);
                 gen(GETw1n, 0);
                 gen(POP2, 0);
-                if (memberSize == BPD) {
-                    gen(PUTwp1, 0);
-                    gen(ADD2n, BPW);
-                    gen(PUTwp1, 0);
-                }
-                else if (memberSize == BPW) {
-                    gen(PUTwp1, 0);
-                }
-                else {
-                    gen(PUTbp1, 0);
-                }
+                genStoreZero(memberSize);
                 elemIdx++;
             }
         }
@@ -1735,11 +1731,7 @@ initLocStrMem(int typeSubPtr, int baseOffset) {
         memberOffset = getint(membercur + STRMEM_OFFSET, 2);
         i = 0;
         while (i < memberTotal) {
-            gen(POINT1s, baseOffset + memberOffset + i);
-            gen(PUSH1, 0);
-            gen(GETw1n, 0);
-            gen(POP2, 0);
-            gen(PUTbp1, 0);
+            genStoreByte(baseOffset + memberOffset + i, 0);
             i++;
         }
         membercur += STRMEM_MAX;
@@ -1787,21 +1779,132 @@ initLocStrArr(int typeSubPtr) {
     while (idx < dim) {
         i = 0;
         while (i < structSize) {
-            gen(POINT1s, baseOffset + idx * structSize + i);
-            gen(PUSH1, 0);
-            gen(GETw1n, 0);
-            gen(POP2, 0);
-            gen(PUTbp1, 0);
+            genStoreByte(baseOffset + idx * structSize + i, 0);
             i++;
         }
         idx++;
     }
 }
 
+// Build mangled name for a static local into dst.
+// Format: _L<N> where N is a unique label number (e.g. _L42).
+// dst must be at least NAMESIZE bytes.
+buildmangle(char *dst, int n) {
+    char buf[8];
+    int len;
+    char *p, *q;
+    p = dst;
+    *p++ = '_';
+    *p++ = 'L';
+    if (n == 0) { *p++ = '0'; }
+    else {
+        q = buf;
+        while (n > 0) { *q++ = (n % 10) + '0'; n /= 10; }
+        len = q - buf;
+        while (len > 0) *p++ = buf[--len];
+    }
+    *p = 0;
+}
+
+// Emit DATA segment storage for a static local variable.
+// ssname must hold the mangled label name on entry.
+// Consumes "= initializer" if present; otherwise zero-fills.
+// Flushes the staging buffer before switching segments.
+// Returns after switching back to CODE segment.
+emitStatLoc(int type, int id, int sz) {
+    int esize, dim, count, val;
+    // compute element size and element count
+    if (id == IDENT_POINTER) {
+        esize = BPW;
+    }
+    else {
+        esize = type >> 2;
+        if (esize < 1) esize = 1;
+    }
+    dim = sz / esize;
+    if (dim < 1) dim = 1;
+    // flush any pending stack allocations and staged code before switching segments
+    allocPendLoc();
+    ClearStage(0, snext);
+    // emit label in DATA segment — no PUBLIC since CLASS == STATIC
+    decGlobal(id, 0);
+    if (IsMatch("=")) {
+        if (id == IDENT_ARRAY) {
+            if (IsMatch("{")) {
+                count = 0;
+                while (count < dim) {
+                    int val_hi;
+                    if (esize == BPD) {
+                        if (IsCExpr32(&val, &val_hi) == 0) {
+                            error("static local: constant initializer required");
+                            break;
+                        }
+                        gen(WORD_, 0); outdec(val);     newline();
+                        gen(WORD_, 0); outdec(val_hi);  newline();
+                    }
+                    else {
+                        if (IsConstExpr(&val) == 0) {
+                            error("static local: constant initializer required");
+                            break;
+                        }
+                        if (esize == 1) {
+                            gen(BYTE_, 0); outdec(val & 255); newline();
+                        }
+                        else {
+                            gen(WORD_, 0); outdec(val); newline();
+                        }
+                    }
+                    count++;
+                    if (IsMatch(",") == 0) break;
+                }
+                Require("}");
+            }
+            else {
+                error("static local: array initializer requires { }");
+                count = 0;
+            }
+            dumpzero(esize, dim - count);
+        }
+        else {
+            // scalar or pointer
+            int val_hi;
+            if (esize == BPD) {
+                if (IsCExpr32(&val, &val_hi) == 0) {
+                    error("static local: constant initializer required");
+                    val = 0; val_hi = 0;
+                }
+                gen(WORD_, 0); outdec(val);     newline();
+                gen(WORD_, 0); outdec(val_hi);  newline();
+            }
+            else {
+                if (IsConstExpr(&val) == 0) {
+                    error("static local: constant initializer required");
+                    val = 0;
+                }
+                if (esize == 1) {
+                    gen(BYTE_, 0); outdec(val & 255); newline();
+                }
+                else {
+                    gen(WORD_, 0); outdec(val); newline();
+                }
+            }
+        }
+    }
+    else {
+        // no initializer: zero-fill (static storage always initialized to zero)
+        dumpzero(esize, dim);
+    }
+    // switch back to code segment so function body resumes correctly
+    toseg(CODESEG);
+}
+
 // declare local variables
-declareLocals(int type, int typeSubPtr) {
-    int id, sz;
-    char *ddentry;
+// isStatic: 1 if the 'static' keyword preceded the type
+declareLocals(int type, int typeSubPtr, int isStatic) {
+    int id, sz, N;
+    char *ddentry, *glbEntry;
+    char localName[NAMESIZE];
+    char *p, *q;
     if (swactive) {
         error("not allowed in switch");
     }
@@ -1816,54 +1919,92 @@ declareLocals(int type, int typeSubPtr) {
             return;
         }
         parseLocalDeclare(type, typeSubPtr, IDENT_ARRAY, &id, &sz);
-        // pad to even alignment for long (4-byte) locals
-        if ((type >> 2) >= BPD && (declared & 1))
-            declared++;
-        declared += sz;
-        AddSymbol(ssname, id, type, sz, csp - declared, &locptr, AUTOMATIC);
-        if (lastNdim > 1) {
-            cptr[NDIM] = lastNdim;
-            ddentry = storeDimDat(typeSubPtr, lastNdim,
-                lastStrides);
-            putint(ddentry, cptr + CLASSPTR, 2);
-        }
-        else if (type == TYPE_STRUCT) {
-            putint(typeSubPtr, cptr + CLASSPTR, 2);
-        }
-        if (IsMatch("=")) {
-            if (sz == 0 && id == IDENT_ARRAY) {
-                // char arr[] = "..." — infer size from string
-                initLocChrStr(1);
+        if (isStatic) {
+            // static local: allocate in DATA segment, not on stack
+            // save the short local name (user-visible, stored in local entry)
+            p = localName; q = ssname;
+            while (*q) *p++ = *q++;
+            *p = 0;
+            // build unique _L<N> label into ssname for DATA segment and global entry
+            N = getlabel();
+            buildmangle(ssname, N);
+            // emit DATA segment label + initializer (or zero-fill)
+            emitStatLoc(type, id, sz);
+            // add to global table under _L<N> name
+            glbEntry = AddSymbol(ssname, id, type, sz, 0, &glbptr, STATIC);
+            if (lastNdim > 1) {
+                cptr[NDIM] = lastNdim;
+                ddentry = storeDimDat(typeSubPtr, lastNdim, lastStrides);
+                putint(ddentry, cptr + CLASSPTR, 2);
             }
-            else {
-                allocPendLoc();
-                if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
-                    initLocStruct(typeSubPtr);
-                }
-                else if (id == IDENT_ARRAY && lastNdim > 1
-                    && IsMatch("{")) {
-                    initLcMDArr(type, cptr);
-                }
-                else if (type == TYPE_STRUCT && id == IDENT_ARRAY) {
-                    initLocStrArr(typeSubPtr);
-                }
-                else if (id == IDENT_ARRAY && IsMatch("{")) {
-                    initLocArray(type);
-                }
-                else if (id == IDENT_ARRAY
-                    && (type == TYPE_CHR || type == TYPE_UCHR)) {
-                    initLocChrStr(0);
-                }
-                else if (id == IDENT_ARRAY) {
-                    error("array initializer requires { }");
+            else if (type == TYPE_STRUCT) {
+                putint(typeSubPtr, cptr + CLASSPTR, 2);
+            }
+            // restore short name; add local entry for scoping
+            // OFFSET holds the global entry pointer for redirect in primary()
+            p = ssname; q = localName;
+            while (*q) *p++ = *q++;
+            *p = 0;
+            AddSymbol(ssname, id, type, sz, glbEntry, &locptr, STATIC);
+            if (lastNdim > 1) {
+                cptr[NDIM] = lastNdim;
+                putint(ddentry, cptr + CLASSPTR, 2);
+            }
+            else if (type == TYPE_STRUCT) {
+                putint(typeSubPtr, cptr + CLASSPTR, 2);
+            }
+            // no stack space needed for static locals
+        }
+        else {
+            // pad to even alignment for long (4-byte) locals
+            if ((type >> 2) >= BPD && (declared & 1))
+                declared++;
+            declared += sz;
+            AddSymbol(ssname, id, type, sz, csp - declared, &locptr, AUTOMATIC);
+            if (lastNdim > 1) {
+                cptr[NDIM] = lastNdim;
+                ddentry = storeDimDat(typeSubPtr, lastNdim,
+                    lastStrides);
+                putint(ddentry, cptr + CLASSPTR, 2);
+            }
+            else if (type == TYPE_STRUCT) {
+                putint(typeSubPtr, cptr + CLASSPTR, 2);
+            }
+            if (IsMatch("=")) {
+                if (sz == 0 && id == IDENT_ARRAY) {
+                    // char arr[] = "..." — infer size from string
+                    initLocChrStr(1);
                 }
                 else {
-                    initLocScalar(type);
+                    allocPendLoc();
+                    if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
+                        initLocStruct(typeSubPtr);
+                    }
+                    else if (id == IDENT_ARRAY && lastNdim > 1
+                        && IsMatch("{")) {
+                        initLcMDArr(type, cptr);
+                    }
+                    else if (type == TYPE_STRUCT && id == IDENT_ARRAY) {
+                        initLocStrArr(typeSubPtr);
+                    }
+                    else if (id == IDENT_ARRAY && IsMatch("{")) {
+                        initLocArray(type);
+                    }
+                    else if (id == IDENT_ARRAY
+                        && (type == TYPE_CHR || type == TYPE_UCHR)) {
+                        initLocChrStr(0);
+                    }
+                    else if (id == IDENT_ARRAY) {
+                        error("array initializer requires { }");
+                    }
+                    else {
+                        initLocScalar(type);
+                    }
                 }
             }
-        }
-        else if (sz == 0 && id == IDENT_ARRAY) {
-            error("need array size");
+            else if (sz == 0 && id == IDENT_ARRAY) {
+                error("need array size");
+            }
         }
         if (IsMatch(",") == 0)
             return;

@@ -17,9 +17,8 @@
 #define SIZE      6
 #define OFFSET    8
 #define NAME      10
-
-#define SYMAVG    20 // avg name = 10 chars
-#define SYMMAX    24 // max name = (14-1) chars 
+#define SYMAVG    24 // local entry stride: NAME(10)+NAMEMAX(12)+NUL(1)+1pad = 24
+#define SYMMAX    24 // global entry stride: NAME(10)+NAMEMAX(12)+NUL(1)+1pad = 24
 
 // symbol table parameters
 #define NUMLOCS   100
@@ -28,7 +27,7 @@
 #define NUMGLBS   400
 #define STARTGLB  ENDLOC
 #define ENDGLB    (ENDLOC+(NUMGLBS-1)*SYMMAX)
-// Symbol table size == 9600 (NUMLOCS * SYMAVG + NUMGLBS * SYMMAX)
+// Symbol table size == (NUMLOCS*SYMAVG + NUMGLBS*SYMMAX)
 
 // system wide name size (for symbols)
 #define NAMESIZE 13
