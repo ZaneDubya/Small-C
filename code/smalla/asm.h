@@ -41,8 +41,8 @@
 #define STSIZE  (STNDX   + 1)   /* offset to data definition size */
 #define STFLAGS (STSIZE  + 1)   /* offset to flag word */
 #define STENTRY (STFLAGS + 2)   /* st entry size */
-#define STMAX     1000          /* maximum lables allowed */
-#define STRAVG      10          /* average symbol string size */
+#define STMAX     1500          /* maximum labels allowed */
+#define STRAVG      15          /* average symbol string size */
 
 /*
 ** symbol flags
