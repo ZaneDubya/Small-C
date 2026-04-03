@@ -15,7 +15,9 @@ char *pathDebug; // path to file used for debug output.
 char *pathLibInput; // path to file used as library object file input.
 uint fdDebug; // fd to which we will output debug information. can be stdout
 // --- DOS exe data -----------------------------------------------------------
-#define EXE_HDR_LEN 512
+// Header is 64 bytes (4 paragraphs): 30 bytes fixed fields + up to 8 reloc
+// entries at 4 bytes each = 62 bytes, rounded up to 64.
+#define EXE_HDR_LEN 64
 #define RELOC_COUNT 8
 #define RELOC_PER 1
 int *relocData;
@@ -525,6 +527,7 @@ P1_PUBDEF(uint length, uint fd) {  byte typeindex;
 P1_SEGDEF(uint length, uint fd, uint pass1) {
   byte segattr, segname, classname;
   uint seglen;
+  long lstk;
   // segment attribute
   segattr = read_u8(fd);
   if ((segattr & 0xe0) != 0x60) {
@@ -566,7 +569,11 @@ P1_SEGDEF(uint length, uint fd, uint pass1) {
   else if (segname == LNAME_STACK) {
     if (pass1 == 1) {
       modData[modCount * MDAT_PER + MDAT_FLG] |= FlgStack;
-      segLengths[SEG_STACK] += seglen;
+      lstk = (long)segLengths[SEG_STACK] + (long)seglen;
+      if (lstk > 65535L) {
+        fatalfl("Stack segment overflow: ", lstk);
+      }
+      segLengths[SEG_STACK] = (uint)lstk;
     }
     locSegs[segIndex] = SEG_STACK;
   }
@@ -612,12 +619,24 @@ P1_LIBEND(uint length, uint fd) {
 
 AlignSegments(int amount) {
   int i, next;
+  long lval;
+  long overflow;
+  overflow = 0L;
   for (i = 0; i < SEGS_CNT; i++) {
     next = segLengths[i] % amount;
     if (next != 0) {
-      segLengths[i] += (amount - next);
+      lval = (long)segLengths[i] + (long)(amount - next);
+      if (lval > 65535L) {
+        if (lval > overflow) {
+          overflow = lval;
+        }
+      }
+      else {
+        segLengths[i] = (uint)lval;
+      }
     }
   }
+  return overflow;
 }
 
 // ============================================================================
@@ -753,29 +772,45 @@ P2_Resolve() {
 Pass3() {
   // set code segment origins as in v5.P1_SEGDEF
   uint i, seglen;
+  long lcode, ldata, lval;
+  long lalign; // overflow from alignment
   puts("  Pass 3");
   if (fdDebug != 0xffff) {
     fprintf(fdDebug, "Pass 3: Setting segment origins.\n");
   }
+  lalign = 0L;
   for (i = 0; i < modCount; i++) {
     int mdatBase, mdatFile;
     mdatBase = i * MDAT_PER;
     if ((modData[mdatBase + MDAT_FLG] & FlgInclude) == FlgInclude) {
       // set code origin for this segment in this module
       seglen = modData[mdatBase + MDAT_CSO];
+      lcode = (long)segLengths[SEG_CODE] + (long)seglen;
+      if (lcode > 65535L) {
+        fatalfl("Code segment overflow: ", lcode);
+      }
       modData[mdatBase + MDAT_CSO] = segLengths[SEG_CODE];
-      segLengths[SEG_CODE] += seglen;
+      segLengths[SEG_CODE] = (uint)lcode;
       // set data origin for this segment in this module
       seglen = modData[mdatBase + MDAT_DSO];
+      ldata = (long)segLengths[SEG_DATA] + (long)seglen;
+      if (ldata > 65535L) {
+        fatalfl("Data segment overflow: ", ldata);
+      }
       modData[mdatBase + MDAT_DSO] = segLengths[SEG_DATA];
-      segLengths[SEG_DATA] += seglen;
+      segLengths[SEG_DATA] = (uint)ldata;
       if ((modData[mdatBase + MDAT_FLG] & FlgStart) == FlgStart) {
         exeStartAddress += modData[mdatBase + MDAT_CSO];
       }
     }
-    AlignSegments(SEG_ALIGNMENT);
+    lval = AlignSegments(SEG_ALIGNMENT);
+    if (lval > lalign) { lalign = lval; }
   }
-  AlignSegments(16);
+  lval = AlignSegments(16);
+  if (lval > lalign) { lalign = lval; }
+  if (lalign > 0L) {
+    fatalfl("Segment overflow after alignment: ", lalign);
+  }
   if (fdDebug != 0xffff) {
     fprintf(fdDebug, "  CODE=%x\n  DATA=%x\n", 
       segLengths[SEG_CODE],
@@ -817,10 +852,12 @@ Pass4() {
         fatalf("Could not seek to position %u, file too short.", modOffset[0]);
       }
       // get base code and base data offsets for the output file:
-      codeBase[0] = EXE_HDR_LEN + modData[mdatBase + MDAT_CSO];
+      codeBase[0] = EXE_HDR_LEN;
       codeBase[1] = 0;
-      dataBase[0] = EXE_HDR_LEN + segLengths[SEG_CODE];
+      Add1632(modData[mdatBase + MDAT_CSO], codeBase);
+      dataBase[0] = EXE_HDR_LEN;
       dataBase[1] = 0;
+      Add1632(segLengths[SEG_CODE], dataBase);
       Add1632(modData[mdatBase + MDAT_DSO], dataBase);
       // reset extdef buffer
       extNext = 0;
@@ -868,8 +905,9 @@ WriteExeHeader(uint checksum) {
   Add1632(segLengths[0], totalsize);
   Add1632(segLengths[1], totalsize);
   Add1632(segLengths[2], totalsize);
+  Add1632(EXE_HDR_LEN, totalsize); // include header in total file size
   lastblock = totalsize[0] % 512;
-  blockcount = totalsize[1] * 128 + totalsize[0] / 512 + 1;
+  blockcount = totalsize[1] * 128 + totalsize[0] / 512;
   if (lastblock != 0) {
     blockcount += 1;
   }
@@ -878,8 +916,8 @@ WriteExeHeader(uint checksum) {
   fputs("MZ", fd); // 00: "MZ"
   write_f16(fd, lastblock); // 02: count of bytes in last 512b block
   write_f16(fd, blockcount); // 04: count of 512b blocks in file
-  write_f16(fd, 0x0004); // 06: relocation entry count.
-  write_f16(fd, 0x0020); // 08: size of header in paras (0x20 * 0x10 = 0x200).
+  write_f16(fd, relocCount); // 06: relocation entry count.
+  write_f16(fd, EXE_HDR_LEN / 16); // 08: size of header in paragraphs.
   write_f16(fd, 0x0000); // 0A: paras mem needed
   write_f16(fd, 0xffff); // 0C: paras mem wanted
   write_f16(fd, rvSS); // 0E: Relative value of the stack segment.
@@ -1364,8 +1402,9 @@ P4_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
   }
   else if (segType == SEG_STACK) {
     // this is why we can only have one stack segment.
-    segBase[0] = EXE_HDR_LEN + segLengths[SEG_CODE];
+    segBase[0] = EXE_HDR_LEN;
     segBase[1] = 0;
+    Add1632(segLengths[SEG_CODE], segBase);
     Add1632(segLengths[SEG_DATA], segBase);
   }
   else {
@@ -1785,6 +1824,23 @@ fatalf(char *format, char *arg) {
 fatalf2(char *format, char *arg0, char *arg1) {
   fputs("  Error: ", stderr); 
   fprintf(stderr, format, arg0, arg1);
+  fputc(NEWLINE, stderr);
+  abort(1);
+}
+
+fatalfl(char *msg, long arg) {
+  char buf[12];
+  long lval;
+  int *lp, *lq;
+  lp = &arg;
+  lq = &lval;
+  lq[0] = lp[0];
+  lq[1] = lp[1];
+  fputs("  Error: ", stderr);
+  fputs(msg, stderr);
+  ltoa(lval, buf);
+  fputs(buf, stderr);
+  fputs(" bytes exceeds 64KB limit.", stderr);
   fputc(NEWLINE, stderr);
   abort(1);
 }
