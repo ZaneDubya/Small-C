@@ -1,7 +1,7 @@
 # YLINK
 A Linker for MS-DOS.
 
-Copyright 2017 Zane Wagner. Released to public domain.
+Copyright 2017, 2026 Zane Wagner. Released to public domain.
 
 YLINK will link together object files created by the Small Assembler, and
 library files containing many of these object files. The resulting output is

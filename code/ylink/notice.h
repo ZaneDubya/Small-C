@@ -1,1 +1,1 @@
-#define VERSION "YLink, Version 1.1, Copyright 2017 Zane Wagner"
+#define VERSION "YLink, Version 1.2, Copyright 2017, 2026 Zane Wagner"

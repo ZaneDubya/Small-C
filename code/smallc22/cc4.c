@@ -155,203 +155,219 @@ int seqdata[HIGH_SEQ + 1][SEQLEN] = {
 
 // === assembly-code strings ==================================================
 
-int code[PCODES];
-
 // First byte contains flag bits indicating:
 //    the value in ax is needed (010) or zapped (020)
 //    the value in bx is needed (001) or zapped (002)
-setcodes() {
-    code[ADD12] = "\211ADD AX,BX\n";
-    code[ADD1n] = "\010?ADD AX,<n>\n??";
-    code[ADD21] = "\211ADD BX,AX\n";
-    code[ADD2n] = "\010?ADD BX,<n>\n??";
-    code[ADDbpn] = "\001ADD BYTE PTR [BX],<n>\n";
-    code[ADDwpn] = "\001ADD WORD PTR [BX],<n>\n";
-    code[ADDm_] = "\000ADD <m>";
-    code[ADDSP] = "\000?ADD SP,<n>\n??";
-    code[AND12] = "\211AND AX,BX\n";
-    code[ANEG1] = "\010NEG AX\n";
-    code[ARGCNTn] = "\000?MOV CL,<n>?XOR CL,CL?\n";
-    code[ASL12] = "\011MOV CX,AX\nMOV AX,BX\nSAL AX,CL\n";
-    code[ASR12] = "\011MOV CX,AX\nMOV AX,BX\nSAR AX,CL\n";
-    code[CALL1] = "\010CALL AX\n";
-    code[CALLm] = "\020CALL <m>\n";
-    code[BYTE_] = "\000 DB ";
-    code[BYTEn] = "\000 DB <n>\n";
-    code[BYTEr0] = "\000 DB <n> DUP(0)\n";
-    code[COM1] = "\010NOT AX\n";
-    code[COMMAn] = "\000,<n>\n";
-    code[DBL1] = "\010SHL AX,1\n";
-    code[DBL2] = "\001SHL BX,1\n";
-    code[DECbp] = "\001DEC BYTE PTR [BX]\n";
-    code[DECwp] = "\001DEC WORD PTR [BX]\n";
-    code[DIV12] = "\011CWD\nIDIV BX\n";                 // see gen()
-    code[DIV12u] = "\011XOR DX,DX\nDIV BX\n";            // see gen()
-    code[ENTER] = "\100PUSH BP\nMOV BP,SP\n";
-    code[EQ10f] = "\010OR AX,AX\nJE $+5\nJMP _<n>\n";
-    code[EQ12] = "\211CALL __eq\n";
-    code[GE10f] = "\010OR AX,AX\nJGE $+5\nJMP _<n>\n";
-    code[GE12] = "\011CALL __ge\n";
-    code[GE12u] = "\011CALL __uge\n";
-    code[GETb1m] = "\020MOV AL,BYTE PTR <m>\nCBW\n";
-    code[GETb1mu] = "\020MOV AL,BYTE PTR <m>\nXOR AH,AH\n";
-    code[GETb1p] = "\021MOV AL,?<n>??[BX]\nCBW\n";       // see gen()
-    code[GETb1pu] = "\021MOV AL,?<n>??[BX]\nXOR AH,AH\n"; // see gen()
-    code[GETb1s] = "\020MOV AL,<n>[BP]\nCBW\n";
-    code[GETb1su] = "\020MOV AL,<n>[BP]\nXOR AH,AH\n";
-    code[GETw1m] = "\020MOV AX,WORD PTR <m>\n";
-    code[GETw1m_] = "\020MOV AX,WORD PTR <m>";
-    code[GETw1n] = "\020?MOV AX,<n>?XOR AX,AX?\n";
-    code[GETw1p] = "\021MOV AX,?<n>??[BX]\n";            // see gen()
-    code[GETw1s] = "\020MOV AX,<n>[BP]\n";
-    code[GETw2m] = "\002MOV BX,WORD PTR <m>\n";
-    code[GETw2n] = "\002?MOV BX,<n>?XOR BX,BX?\n";
-    code[GETw2p] = "\021MOV BX,?<n>??[BX]\n";
-    code[GETw2s] = "\002MOV BX,<n>[BP]\n";
-    code[GT10f] = "\010OR AX,AX\nJG $+5\nJMP _<n>\n";
-    code[GT12] = "\010CALL __gt\n";
-    code[GT12u] = "\011CALL __ugt\n";
-    code[INCbp] = "\001INC BYTE PTR [BX]\n";
-    code[INCwp] = "\001INC WORD PTR [BX]\n";
-    code[WORD_] = "\000 DW ";
-    code[WORDn] = "\000 DW <n>\n";
-    code[WORDr0] = "\000 DW <n> DUP(0)\n";
-    code[JMPm] = "\000JMP _<n>\n";
-    code[LABm] = "\000_<n>:\n";
-    code[LE10f] = "\010OR AX,AX\nJLE $+5\nJMP _<n>\n";
-    code[LE12] = "\011CALL __le\n";
-    code[LE12u] = "\011CALL __ule\n";
-    code[LNEG1] = "\010CALL __lneg\n";
-    code[LT10f] = "\010OR AX,AX\nJL $+5\nJMP _<n>\n";
-    code[LT12] = "\011CALL __lt\n";
-    code[LT12u] = "\011CALL __ult\n";
-    code[MOD12] = "\011CWD\nIDIV BX\nMOV AX,DX\n";      // see gen()
-    code[MOD12u] = "\011XOR DX,DX\nDIV BX\nMOV AX,DX\n"; // see gen()
-    code[MOVE21] = "\012MOV BX,AX\n";
-    code[MUL12] = "\211IMUL BX\n";
-    code[MUL12u] = "\211MUL BX\n";
-    code[NE10f] = "\010OR AX,AX\nJNE $+5\nJMP _<n>\n";
-    code[NE12] = "\211CALL __ne\n";
-    code[NEARm] = "\000 DW _<n>\n";
-    code[OR12] = "\211OR AX,BX\n";
-    code[PLUSn] = "\000?+<n>??\n";
-    code[POINT1l] = "\020MOV AX,OFFSET _<l>+<n>\n";
-    code[POINT1m] = "\020MOV AX,OFFSET <m>\n";
-    code[POINT1s] = "\020LEA AX,<n>[BP]\n";
-    code[POINT2m] = "\002MOV BX,OFFSET <m>\n";
-    code[POINT2m_] = "\002MOV BX,OFFSET <m>";
-    code[POINT2s] = "\002LEA BX,<n>[BP]\n";
-    code[POP2] = "\002POP BX\n";
-    code[PUSH1] = "\110PUSH AX\n";
-    code[PUSH2] = "\101PUSH BX\n";
-    code[PUSHm] = "\100PUSH WORD PTR <m>\n";
-    code[PUSHp] = "\100PUSH ?<n>??[BX]\n";
-    code[PUSHs] = "\100PUSH ?<n>??[BP]\n";
-    code[PUT_m_] = "\000MOV <m>";
-    code[PUTbm1] = "\010MOV BYTE PTR <m>,AL\n";
-    code[PUTbp1] = "\011MOV [BX],AL\n";
-    code[PUTwm1] = "\010MOV WORD PTR <m>,AX\n";
-    code[PUTwp1] = "\011MOV [BX],AX\n";
-    code[rDEC1] = "\010#DEC AX\n#";
-    code[rDEC2] = "\010#DEC BX\n#";
-    code[REFm] = "\000_<n>";
-    code[RETURN] = "\000?MOV SP,BP\n??POP BP\nRET\n";
-    code[rINC1] = "\010#INC AX\n#";
-    code[rINC2] = "\010#INC BX\n#";
-    code[SUB_m_] = "\000SUB <m>";
-    code[SUB12] = "\011SUB AX,BX\n";                    // see gen()
-    code[SUB1n] = "\010?SUB AX,<n>\n??";
-    code[SUBbpn] = "\001SUB BYTE PTR [BX],<n>\n";
-    code[SUBwpn] = "\001SUB WORD PTR [BX],<n>\n";
-    code[SWAP12] = "\011XCHG AX,BX\n";
-    code[SWAP1s] = "\012POP BX\nXCHG AX,BX\nPUSH BX\n";
-    code[SWITCH] = "\012CALL __switch\n";
-    code[XOR12] = "\211XOR AX,BX\n";
-    // inline comparison + conditional jump (optimizer-generated)
-    code[EQf]  = "\011CMP AX,BX\nJE $+5\nJMP _<n>\n";
-    code[NEf]  = "\011CMP AX,BX\nJNE $+5\nJMP _<n>\n";
-    code[LTf]  = "\011CMP AX,BX\nJG $+5\nJMP _<n>\n";
-    code[GTf]  = "\011CMP AX,BX\nJL $+5\nJMP _<n>\n";
-    code[LEf]  = "\011CMP AX,BX\nJGE $+5\nJMP _<n>\n";
-    code[GEf]  = "\011CMP AX,BX\nJLE $+5\nJMP _<n>\n";
-    code[LTuf] = "\011CMP AX,BX\nJA $+5\nJMP _<n>\n";
-    code[GTuf] = "\011CMP AX,BX\nJB $+5\nJMP _<n>\n";
-    code[LEuf] = "\011CMP AX,BX\nJAE $+5\nJMP _<n>\n";
-    code[GEuf] = "\011CMP AX,BX\nJBE $+5\nJMP _<n>\n";
-    // direct stack stores (optimizer-generated)
-    code[PUTws1] = "\010MOV <n>[BP],AX\n";
-    code[PUTbs1] = "\010MOV BYTE PTR <n>[BP],AL\n";
-    // constant shift by 1 (optimizer-generated)
-    code[ASL1_1] = "\001MOV AX,BX\nSHL AX,1\n";
-    code[ASR1_1] = "\001MOV AX,BX\nSAR AX,1\n";
-    // 32-bit load/store
-    code[GETd1m] = "\020MOV AX,WORD PTR <m>\nMOV DX,WORD PTR <m>+2\n";
-    code[GETd1p] = "\033MOV AX,[BX]\nMOV DX,2[BX]\n";       // see gen()
-    code[GETd1s] = "\020MOV AX,<n>[BP]\nMOV DX,<n>+2[BP]\n";
-    code[GETdxn] = "\020?MOV DX,<n>?XOR DX,DX?\n";
-    code[GETcxn] = "\000?MOV CX,<n>?XOR CX,CX?\n";
-    code[GETd2m] = "\003MOV BX,WORD PTR <m>\nMOV CX,WORD PTR <m>+2\n";
-    code[GETd2s] = "\003MOV BX,<n>[BP]\nMOV CX,<n>+2[BP]\n";
-    code[PUTdm1] = "\030MOV WORD PTR <m>,AX\nMOV WORD PTR <m>+2,DX\n";
-    code[PUTdp1] = "\033PUSH BX\nMOV [BX],AX\nMOV 2[BX],DX\nPOP BX\n";
-    code[PUTds1] = "\030MOV <n>[BP],AX\nMOV <n>+2[BP],DX\n";
-    // 32-bit stack
-    code[PUSHd1] = "\130PUSH DX\nPUSH AX\n";
-    code[POPd2]  = "\003POP BX\nPOP CX\n";
-    code[PUSHdm] = "\100PUSH WORD PTR <m>+2\nPUSH WORD PTR <m>\n";
-    code[PUSHds] = "\100PUSH <n>+2[BP]\nPUSH <n>[BP]\n";
-    // 32-bit move/swap
-    code[MOVEd21] = "\033MOV BX,AX\nMOV CX,DX\n";
-    code[SWAPd12] = "\033XCHG AX,BX\nXCHG DX,CX\n";
-    // 32-bit widening
-    code[WIDENs]  = "\030CWD\n";
-    code[WIDENu]  = "\020XOR DX,DX\n";
-    code[WIDENs2] = "\003XOR CX,CX\nTEST BX,8000h\nJZ $+3\nDEC CX\n";
-    code[WIDENu2] = "\001XOR CX,CX\n";
-    // 32-bit inline arithmetic
-    code[ADDd12]  = "\033ADD AX,BX\nADC DX,CX\n";
-    code[SUBd12]  = "\033SUB AX,BX\nSBB DX,CX\n";              // see gen()
-    code[ANDd12]  = "\033AND AX,BX\nAND DX,CX\n";
-    code[ORd12]   = "\033OR AX,BX\nOR DX,CX\n";
-    code[XORd12]  = "\033XOR AX,BX\nXOR DX,CX\n";
-    code[COMd1]   = "\030NOT AX\nNOT DX\n";
-    code[ANEGd1]  = "\030NEG DX\nNEG AX\nSBB DX,0\n";
-    code[rINCd1]  = "\030ADD AX,<n>\nADC DX,0\n";
-    code[rDECd1]  = "\030SUB AX,<n>\nSBB DX,0\n";
-    code[DBLd1]   = "\030SHL AX,1\nRCL DX,1\n";
-    code[DBLd2]   = "\003SHL BX,1\nRCL CX,1\n";
-    // 32-bit library-call arithmetic
-    code[MULd12]  = "\033CALL __lmul\n";
-    code[MULd12u] = "\033CALL __ulmul\n";
-    code[DIVd12]  = "\033CALL __ldiv\n";                        // see gen()
-    code[DIVd12u] = "\033CALL __uldiv\n";                       // see gen()
-    code[MODd12]  = "\033CALL __lmod\n";                        // see gen()
-    code[MODd12u] = "\033CALL __ulmod\n";                       // see gen()
-    code[ASLd12]  = "\033CALL __lshl\n";
-    code[ASRd12]  = "\033CALL __lsar\n";
-    code[ASRd12u] = "\033CALL __lshr\n";
-    // 32-bit library-call comparisons
-    code[EQd12]   = "\033CALL __leq\n";
-    code[NEd12]   = "\033CALL __lne\n";
-    code[LTd12]   = "\033CALL __llt\n";
-    code[LEd12]   = "\033CALL __lle\n";
-    code[GTd12]   = "\033CALL __lgt\n";
-    code[GEd12]   = "\033CALL __lge\n";
-    code[LTd12u]  = "\033CALL __ullt\n";
-    code[LEd12u]  = "\033CALL __ulle\n";
-    code[GTd12u]  = "\033CALL __ulgt\n";
-    code[GEd12u]  = "\033CALL __ulge\n";
-    // 32-bit unary
-    code[LNEGd1]  = "\030CALL __llneg\n";
-    // 32-bit truthiness
-    code[EQd10f]  = "\030OR AX,DX\nJE $+5\nJMP _<n>\n";
-    code[NEd10f]  = "\030OR AX,DX\nJNE $+5\nJMP _<n>\n";
-
-    // 32-bit switch dispatch
-    code[LSWITCHd] = "\012CALL __lswitch\n";
-}
+char* code[PCODES] = {
+    /* 0   (unused)   */ 0,
+    /* 1   ADD12      */ "\211ADD AX,BX\n",
+    /* 2   ADDSP      */ "\000?ADD SP,<n>\n??",
+    /* 3   AND12      */ "\211AND AX,BX\n",
+    /* 4   ANEG1      */ "\010NEG AX\n",
+    /* 5   ARGCNTn    */ "\000?MOV CL,<n>?XOR CL,CL?\n",
+    /* 6   ASL12      */ "\011MOV CX,AX\nMOV AX,BX\nSAL AX,CL\n",
+    /* 7   ASR12      */ "\011MOV CX,AX\nMOV AX,BX\nSAR AX,CL\n",
+    /* 8   CALL1      */ "\010CALL AX\n",
+    /* 9   CALLm      */ "\020CALL <m>\n",
+    /* 10  BYTE_      */ "\000 DB ",
+    /* 11  BYTEn      */ "\000 DB <n>\n",
+    /* 12  BYTEr0     */ "\000 DB <n> DUP(0)\n",
+    /* 13  COM1       */ "\010NOT AX\n",
+    /* 14  DBL1       */ "\010SHL AX,1\n",
+    /* 15  DBL2       */ "\001SHL BX,1\n",
+    /* 16  DIV12      */ "\011CWD\nIDIV BX\n",                 /* see gen() */
+    /* 17  DIV12u     */ "\011XOR DX,DX\nDIV BX\n",            /* see gen() */
+    /* 18  ENTER      */ "\100PUSH BP\nMOV BP,SP\n",
+    /* 19  EQ10f      */ "\010OR AX,AX\nJE $+5\nJMP _<n>\n",
+    /* 20  EQ12       */ "\211CALL __eq\n",
+    /* 21  GE10f      */ "\010OR AX,AX\nJGE $+5\nJMP _<n>\n",
+    /* 22  GE12       */ "\011CALL __ge\n",
+    /* 23  GE12u      */ "\011CALL __uge\n",
+    /* 24  POINT1l    */ "\020MOV AX,OFFSET _<l>+<n>\n",
+    /* 25  POINT1m    */ "\020MOV AX,OFFSET <m>\n",
+    /* 26  GETb1m     */ "\020MOV AL,BYTE PTR <m>\nCBW\n",
+    /* 27  GETb1mu    */ "\020MOV AL,BYTE PTR <m>\nXOR AH,AH\n",
+    /* 28  GETb1p     */ "\021MOV AL,?<n>??[BX]\nCBW\n",       /* see gen() */
+    /* 29  GETb1pu    */ "\021MOV AL,?<n>??[BX]\nXOR AH,AH\n", /* see gen() */
+    /* 30  GETw1m     */ "\020MOV AX,WORD PTR <m>\n",
+    /* 31  GETw1n     */ "\020?MOV AX,<n>?XOR AX,AX?\n",
+    /* 32  GETw1p     */ "\021MOV AX,?<n>??[BX]\n",            /* see gen() */
+    /* 33  GETw2n     */ "\002?MOV BX,<n>?XOR BX,BX?\n",
+    /* 34  GT10f      */ "\010OR AX,AX\nJG $+5\nJMP _<n>\n",
+    /* 35  GT12       */ "\010CALL __gt\n",
+    /* 36  GT12u      */ "\011CALL __ugt\n",
+    /* 37  WORD_      */ "\000 DW ",
+    /* 38  WORDn      */ "\000 DW <n>\n",
+    /* 39  WORDr0     */ "\000 DW <n> DUP(0)\n",
+    /* 40  JMPm       */ "\000JMP _<n>\n",
+    /* 41  LABm       */ "\000_<n>:\n",
+    /* 42  LE10f      */ "\010OR AX,AX\nJLE $+5\nJMP _<n>\n",
+    /* 43  LE12       */ "\011CALL __le\n",
+    /* 44  LE12u      */ "\011CALL __ule\n",
+    /* 45  LNEG1      */ "\010CALL __lneg\n",
+    /* 46  LT10f      */ "\010OR AX,AX\nJL $+5\nJMP _<n>\n",
+    /* 47  LT12       */ "\011CALL __lt\n",
+    /* 48  LT12u      */ "\011CALL __ult\n",
+    /* 49  MOD12      */ "\011CWD\nIDIV BX\nMOV AX,DX\n",      /* see gen() */
+    /* 50  MOD12u     */ "\011XOR DX,DX\nDIV BX\nMOV AX,DX\n", /* see gen() */
+    /* 51  MOVE21     */ "\012MOV BX,AX\n",
+    /* 52  MUL12      */ "\211IMUL BX\n",
+    /* 53  MUL12u     */ "\211MUL BX\n",
+    /* 54  NE10f      */ "\010OR AX,AX\nJNE $+5\nJMP _<n>\n",
+    /* 55  NE12       */ "\211CALL __ne\n",
+    /* 56  NEARm      */ "\000 DW _<n>\n",
+    /* 57  OR12       */ "\211OR AX,BX\n",
+    /* 58  POINT1s    */ "\020LEA AX,<n>[BP]\n",
+    /* 59  POP2       */ "\002POP BX\n",
+    /* 60  PUSH1      */ "\110PUSH AX\n",
+    /* 61  PUTbm1     */ "\010MOV BYTE PTR <m>,AL\n",
+    /* 62  PUTbp1     */ "\011MOV [BX],AL\n",
+    /* 63  PUTwm1     */ "\010MOV WORD PTR <m>,AX\n",
+    /* 64  PUTwp1     */ "\011MOV [BX],AX\n",
+    /* 65  rDEC1      */ "\010#DEC AX\n#",
+    /* 66  REFm       */ "\000_<n>",
+    /* 67  RETURN     */ "\000?MOV SP,BP\n??POP BP\nRET\n",
+    /* 68  rINC1      */ "\010#INC AX\n#",
+    /* 69  SUB12      */ "\011SUB AX,BX\n",                    /* see gen() */
+    /* 70  SWAP12     */ "\011XCHG AX,BX\n",
+    /* 71  SWAP1s     */ "\012POP BX\nXCHG AX,BX\nPUSH BX\n",
+    /* 72  SWITCH     */ "\012CALL __switch\n",
+    /* 73  XOR12      */ "\211XOR AX,BX\n",
+    /* optimizer-generated */
+    /* 74  ADD1n      */ "\010?ADD AX,<n>\n??",
+    /* 75  ADD21      */ "\211ADD BX,AX\n",
+    /* 76  ADD2n      */ "\010?ADD BX,<n>\n??",
+    /* 77  ADDbpn     */ "\001ADD BYTE PTR [BX],<n>\n",
+    /* 78  ADDwpn     */ "\001ADD WORD PTR [BX],<n>\n",
+    /* 79  ADDm_      */ "\000ADD <m>",
+    /* 80  COMMAn     */ "\000,<n>\n",
+    /* 81  DECbp      */ "\001DEC BYTE PTR [BX]\n",
+    /* 82  DECwp      */ "\001DEC WORD PTR [BX]\n",
+    /* 83  POINT2m    */ "\002MOV BX,OFFSET <m>\n",
+    /* 84  POINT2m_   */ "\002MOV BX,OFFSET <m>",
+    /* 85  GETb1s     */ "\020MOV AL,<n>[BP]\nCBW\n",
+    /* 86  GETb1su    */ "\020MOV AL,<n>[BP]\nXOR AH,AH\n",
+    /* 87  GETw1m_    */ "\020MOV AX,WORD PTR <m>",
+    /* 88  GETw1s     */ "\020MOV AX,<n>[BP]\n",
+    /* 89  GETw2m     */ "\002MOV BX,WORD PTR <m>\n",
+    /* 90  GETw2p     */ "\021MOV BX,?<n>??[BX]\n",
+    /* 91  GETw2s     */ "\002MOV BX,<n>[BP]\n",
+    /* 92  INCbp      */ "\001INC BYTE PTR [BX]\n",
+    /* 93  INCwp      */ "\001INC WORD PTR [BX]\n",
+    /* 94  PLUSn      */ "\000?+<n>??\n",
+    /* 95  POINT2s    */ "\002LEA BX,<n>[BP]\n",
+    /* 96  PUSH2      */ "\101PUSH BX\n",
+    /* 97  PUSHm      */ "\100PUSH WORD PTR <m>\n",
+    /* 98  PUSHp      */ "\100PUSH ?<n>??[BX]\n",
+    /* 99  PUSHs      */ "\100PUSH ?<n>??[BP]\n",
+    /* 100 PUT_m_     */ "\000MOV <m>",
+    /* 101 rDEC2      */ "\010#DEC BX\n#",
+    /* 102 rINC2      */ "\010#INC BX\n#",
+    /* 103 SUB_m_     */ "\000SUB <m>",
+    /* 104 SUB1n      */ "\010?SUB AX,<n>\n??",
+    /* 105 SUBbpn     */ "\001SUB BYTE PTR [BX],<n>\n",
+    /* 106 SUBwpn     */ "\001SUB WORD PTR [BX],<n>\n",
+    /* optimizer-generated: inline comparison + conditional jump */
+    /* 107 EQf        */ "\011CMP AX,BX\nJE $+5\nJMP _<n>\n",
+    /* 108 NEf        */ "\011CMP AX,BX\nJNE $+5\nJMP _<n>\n",
+    /* 109 LTf        */ "\011CMP AX,BX\nJG $+5\nJMP _<n>\n",
+    /* 110 GTf        */ "\011CMP AX,BX\nJL $+5\nJMP _<n>\n",
+    /* 111 LEf        */ "\011CMP AX,BX\nJGE $+5\nJMP _<n>\n",
+    /* 112 GEf        */ "\011CMP AX,BX\nJLE $+5\nJMP _<n>\n",
+    /* 113 LTuf       */ "\011CMP AX,BX\nJA $+5\nJMP _<n>\n",
+    /* 114 GTuf       */ "\011CMP AX,BX\nJB $+5\nJMP _<n>\n",
+    /* 115 LEuf       */ "\011CMP AX,BX\nJAE $+5\nJMP _<n>\n",
+    /* 116 GEuf       */ "\011CMP AX,BX\nJBE $+5\nJMP _<n>\n",
+    /* optimizer-generated: direct stack stores */
+    /* 117 PUTws1     */ "\010MOV <n>[BP],AX\n",
+    /* 118 PUTbs1     */ "\010MOV BYTE PTR <n>[BP],AL\n",
+    /* optimizer-generated: constant shift by 1 */
+    /* 119 ASL1_1     */ "\001MOV AX,BX\nSHL AX,1\n",
+    /* 120 ASR1_1     */ "\001MOV AX,BX\nSAR AX,1\n",
+    /* 32-bit load/store */
+    /* 121 GETd1m     */ "\020MOV AX,WORD PTR <m>\nMOV DX,WORD PTR <m>+2\n",
+    /* 122 GETd1p     */ "\033MOV AX,[BX]\nMOV DX,2[BX]\n",       /* see gen() */
+    /* 123 GETd1s     */ "\020MOV AX,<n>[BP]\nMOV DX,<n>+2[BP]\n",
+    /* 124 GETdxn     */ "\020?MOV DX,<n>?XOR DX,DX?\n",
+    /* 125 GETcxn     */ "\000?MOV CX,<n>?XOR CX,CX?\n",
+    /* 126 GETd2m     */ "\003MOV BX,WORD PTR <m>\nMOV CX,WORD PTR <m>+2\n",
+    /* 127 GETd2s     */ "\003MOV BX,<n>[BP]\nMOV CX,<n>+2[BP]\n",
+    /* 128 PUTdm1     */ "\030MOV WORD PTR <m>,AX\nMOV WORD PTR <m>+2,DX\n",
+    /* 129 PUTdp1     */ "\033PUSH BX\nMOV [BX],AX\nMOV 2[BX],DX\nPOP BX\n",
+    /* 130 PUTds1     */ "\030MOV <n>[BP],AX\nMOV <n>+2[BP],DX\n",
+    /* 32-bit stack */
+    /* 131 PUSHd1     */ "\130PUSH DX\nPUSH AX\n",
+    /* 132 POPd2      */ "\003POP BX\nPOP CX\n",
+    /* 133 PUSHdm     */ "\100PUSH WORD PTR <m>+2\nPUSH WORD PTR <m>\n",
+    /* 134 PUSHds     */ "\100PUSH <n>+2[BP]\nPUSH <n>[BP]\n",
+    /* 32-bit move/swap */
+    /* 135 MOVEd21    */ "\033MOV BX,AX\nMOV CX,DX\n",
+    /* 136 SWAPd12    */ "\033XCHG AX,BX\nXCHG DX,CX\n",
+    /* 32-bit widening */
+    /* 137 WIDENs     */ "\030CWD\n",
+    /* 138 WIDENu     */ "\020XOR DX,DX\n",
+    /* 139 WIDENs2    */ "\003XOR CX,CX\nTEST BX,8000h\nJZ $+3\nDEC CX\n",
+    /* 140 WIDENu2    */ "\001XOR CX,CX\n",
+    /* 32-bit inline arithmetic */
+    /* 141 ADDd12     */ "\033ADD AX,BX\nADC DX,CX\n",
+    /* 142 SUBd12     */ "\033SUB AX,BX\nSBB DX,CX\n",              /* see gen() */
+    /* 143 ANDd12     */ "\033AND AX,BX\nAND DX,CX\n",
+    /* 144 ORd12      */ "\033OR AX,BX\nOR DX,CX\n",
+    /* 145 XORd12     */ "\033XOR AX,BX\nXOR DX,CX\n",
+    /* 146 COMd1      */ "\030NOT AX\nNOT DX\n",
+    /* 147 ANEGd1     */ "\030NEG DX\nNEG AX\nSBB DX,0\n",
+    /* 148 rINCd1     */ "\030ADD AX,<n>\nADC DX,0\n",
+    /* 149 rDECd1     */ "\030SUB AX,<n>\nSBB DX,0\n",
+    /* 150 DBLd1      */ "\030SHL AX,1\nRCL DX,1\n",
+    /* 151 DBLd2      */ "\003SHL BX,1\nRCL CX,1\n",
+    /* 32-bit library-call arithmetic */
+    /* 152 MULd12     */ "\033CALL __lmul\n",
+    /* 153 MULd12u    */ "\033CALL __ulmul\n",
+    /* 154 DIVd12     */ "\033CALL __ldiv\n",                        /* see gen() */
+    /* 155 DIVd12u    */ "\033CALL __uldiv\n",                       /* see gen() */
+    /* 156 MODd12     */ "\033CALL __lmod\n",                        /* see gen() */
+    /* 157 MODd12u    */ "\033CALL __ulmod\n",                       /* see gen() */
+    /* 158 ASLd12     */ "\033CALL __lshl\n",
+    /* 159 ASRd12     */ "\033CALL __lsar\n",
+    /* 160 ASRd12u    */ "\033CALL __lshr\n",
+    /* 32-bit library-call comparisons */
+    /* 161 EQd12      */ "\033CALL __leq\n",
+    /* 162 NEd12      */ "\033CALL __lne\n",
+    /* 163 LTd12      */ "\033CALL __llt\n",
+    /* 164 LEd12      */ "\033CALL __lle\n",
+    /* 165 GTd12      */ "\033CALL __lgt\n",
+    /* 166 GEd12      */ "\033CALL __lge\n",
+    /* 167 LTd12u     */ "\033CALL __ullt\n",
+    /* 168 LEd12u     */ "\033CALL __ulle\n",
+    /* 169 GTd12u     */ "\033CALL __ulgt\n",
+    /* 170 GEd12u     */ "\033CALL __ulge\n",
+    /* 32-bit unary */
+    /* 171 LNEGd1     */ "\030CALL __llneg\n",
+    /* 32-bit truthiness */
+    /* 172 EQd10f     */ "\030OR AX,DX\nJE $+5\nJMP _<n>\n",
+    /* 173 NEd10f     */ "\030OR AX,DX\nJNE $+5\nJMP _<n>\n",
+    /* 32-bit switch dispatch */
+    /* 174 LSWITCHd   */ "\012CALL __lswitch\n"
+};
 
 //  === code generation functions =============================================
+
+setcodes() {
+    
+}
+
+// debug: dump the code[] array to stderr
+dumpCodes() {
+    int i;
+    i = 0;
+    while (i < PCODES) {
+        if (code[i])
+            fprintf(stderr, "code[%d]=%s\n", i, code[i] + 1);
+        else
+            fprintf(stderr, "code[%d]=(null)\n", i);
+        ++i;
+    }
+}
 
 // print all assembler info before any code is generated
 // and ensure that the segments appear in the correct order.

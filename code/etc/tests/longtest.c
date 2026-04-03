@@ -640,6 +640,11 @@ test_const_unary() {
 
 // --- Phase 7a: Long function arguments ---
 
+// Helpers for test11_addr_arg: take int* like btell(fd, offset[])
+fill_long(int *p, int lo, int hi) { p[0] = lo; p[1] = hi; }
+int get_lo(p) int *p; { return p[0]; }
+int get_hi(p) int *p; { return p[1]; }
+
 long add_longs(long a, long b) { return a + b; }
 
 long add_int_lng(int a, long b) { return a + b; }
@@ -1443,6 +1448,106 @@ test10_dec40() {
 }
 
 // ============================================================================
+// Phase 11: &(long_local) passed directly as a function argument
+// This is the btell(fd, &offset) pattern that previously triggered the
+// PUSHd1 bug: cc3.c left TYP_OBJ = TYPE_ULONG after the & operator,
+// causing isLongVal() to emit PUSH DX + PUSH AX instead of just PUSH AX.
+// ============================================================================
+
+test11_addr_arg() {
+    unsigned long lv;
+    long sl;
+    int *p;
+
+    printf("--- Phase 11: &long as function argument ---\n");
+
+    // fill_long writes through int* — same pattern as btell(fd, &offset)
+    fill_long(&lv, 1234, 5678);
+    p = &lv;
+    check("fill &ulong lo", *p == 1234);
+    check("fill &ulong hi", *(p+1) == 5678);
+
+    // read back via get_lo / get_hi
+    lv = 70000;
+    check("get_lo(&ulong)", get_lo(&lv) == 4464);
+    check("get_hi(&ulong)", get_hi(&lv) == 1);
+
+    // same with signed long
+    fill_long(&sl, -1, -1);
+    p = &sl;
+    check("fill &long lo==-1", *p == -1);
+    check("fill &long hi==-1", *(p+1) == -1);
+
+    sl = -70000;
+    check("get_lo(&long neg)", get_lo(&sl) == -4464);
+    check("get_hi(&long neg)", get_hi(&sl) == -2);
+}
+
+// ============================================================================
+// Phase 12: int-to-unsigned-long widening (sign-extension trap)
+// When an int value >= 0x8000 is cast directly to unsigned long, it
+// sign-extends to 0xFFFFxxxx. The fix is to cast through uint first:
+//   (unsigned long)(uint)int_val   -- zero-extends (correct)
+//   (unsigned long)int_val         -- sign-extends (wrong)
+// ============================================================================
+
+// Helper: store a value into an int array slot, widen via uint (correct)
+unsigned long widen_uint(int arr[], int idx) {
+    unsigned int u;
+    u = arr[idx];
+    return (unsigned long)u;
+}
+
+// Helper: widen directly from int (exposes sign-extension if value >= 0x8000)
+unsigned long widen_int(int arr[], int idx) {
+    return (unsigned long)arr[idx];
+}
+
+test12_widen() {
+    int tbl[4];
+    unsigned long r;
+
+    printf("--- Phase 12: int->ulong widening sign-extension ---\n");
+
+    // Small value: both paths identical
+    tbl[0] = 0x1234;
+    r = widen_uint(tbl, 0);
+    check("widen_uint small", r == 0x1234);
+    r = widen_int(tbl, 0);
+    check("widen_int small", r == 0x1234);
+
+    // Value just below 0x8000: still safe
+    tbl[0] = 0x7FFF;
+    r = widen_uint(tbl, 0);
+    check("widen_uint 0x7FFF", r == 0x7FFF);
+
+    // Value >= 0x8000: sign-extension trap
+    // 0xBC46 is a real value from the ylink bug (CC4.OBJ code segment origin)
+    tbl[0] = 0xBC46;
+    r = widen_uint(tbl, 0);
+    check("widen_uint 0xBC46 lo", (int)(r & 0xFFFF) == 0xBC46);
+    check("widen_uint 0xBC46 hi", (int)(r >> 16) == 0);
+
+    // Direct int->ulong cast sign-extends: hi word becomes 0xFFFF
+    r = widen_int(tbl, 0);
+    check("widen_int 0xBC46 hi==0xFFFF", (int)(r >> 16) == 0xFFFF);
+
+    // Another boundary: 0x8000 itself
+    tbl[0] = 0x8000;
+    r = widen_uint(tbl, 0);
+    check("widen_uint 0x8000 hi==0", (int)(r >> 16) == 0);
+    r = widen_int(tbl, 0);
+    check("widen_int 0x8000 hi==0xFFFF", (int)(r >> 16) == 0xFFFF);
+
+    // The ylink fix: EXE_HDR_LEN(0x40) + 0xBC46, cast through uint
+    tbl[0] = 0xBC46;
+    { unsigned int u; u = tbl[0];
+      r = (unsigned long)0x40 + (unsigned long)u; }
+    check("ylink fix codeBase hi==0", (int)(r >> 16) == 0);
+    check("ylink fix codeBase lo==0xBC86", (int)(r & 0xFFFF) == 0xBC86);
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 
@@ -1520,6 +1625,12 @@ main() {
     test10_chlng();
     test10_logic();
     test10_dec40();
+
+    // Phase 11 tests
+    test11_addr_arg();
+
+    // Phase 12 tests
+    test12_widen();
 
     // Are ya winning, son?
     printf("\n=== Results: %d passed, %d failed, %d total ===\n",

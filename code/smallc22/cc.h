@@ -29,6 +29,9 @@
 #define ENDGLB    (ENDLOC+(NUMGLBS-1)*SYMMAX)
 // Symbol table size == (NUMLOCS*SYMAVG + NUMGLBS*SYMMAX)
 
+// array initializer limit
+#define MAXARRAYDIM 200
+
 // system wide name size (for symbols)
 #define NAMESIZE 13
 #define NAMEMAX  12
@@ -162,7 +165,13 @@
                         // 32-bit constant value when TYP_CNST is TYPE_LONG or
                         // TYPE_ULONG. Zero for 16-bit constants.
 
-#define ISSIZE 9        // number of entries in is[] arrays
+#define TYP_VAL 9       // is[TYP_VAL] holds the TYPE_xxx of the current value
+                        // after an explicit cast (applycast), so that a
+                        // subsequent widening cast can see whether the value
+                        // is signed or unsigned. Zero when no cast has been
+                        // applied (e.g. bare function call return values).
+
+#define ISSIZE 10       // number of entries in is[] arrays
 
 // input line
 #define LINEMAX  127

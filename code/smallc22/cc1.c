@@ -66,13 +66,15 @@ int
     lastst,   // last parsed statement type
     oldseg,   // current segment (0, DATASEG, CODESEG)
     lineno,   // current line number in input file
-    inclno;   // current line number in include file
+    inclno,   // current line number in include file
+    warncount; // number of warnings emitted this compilation
 
 char
     optimize, // optimize output of staging buffer?
     alarm,    // audible alarm on errors?
     monitor,  // monitor function headers?
     pause,    // pause for operator on errors?
+    nowarn,   // suppress warnings?
     *symtab,   // symbol table
     *litq,     // literal pool
     *macn,     // macro name buffer
@@ -172,6 +174,7 @@ main(int argc, int *argv) {
     }
     rettype = TYPE_INT;
     rettypeSubPtr = 0;
+    warncount = 0;
     getRunArgs();   // get run options from command line arguments
     openfile();     // and initial input file
     preprocess();   // fetch first line
@@ -180,6 +183,10 @@ main(int argc, int *argv) {
     parse();        // process ALL input
     trailer();      // follow-up code
     fclose(output); // explicitly close output
+    if (warncount > 0) {
+        fprintf(stderr, "  %d warning(s). Press any key to continue...\n", warncount);
+        fgetc(stderr);
+    }
 }
 
 // ****************************************************************************
@@ -318,8 +325,10 @@ declglb(int type, int class, int typeSubPtr) {
             dim = 1; 
         }
         ndim = 0;
-        if (symname(ssname) == 0) 
+        if (symname(ssname) == 0)
             illname();
+        else if (isreserved(ssname))
+            error("reserved keyword used as name");
         if (findglb(ssname)) 
             multidef(ssname);
         if (id == IDENT_POINTER && IsMatch("[")) {
@@ -472,11 +481,11 @@ EvalInitValue(int size, int ident, int *dim) {
 // initialize a global pointer array (e.g. char *arr[] = {"str", 0})
 // returns actual element count
 InitPtrArray(int type, int dim, int class) {
-    int labels[50];
-    int values[50];
-    int isstr[50];
-    int strstart[50];
-    int strend[50];
+    int labels[MAXARRAYDIM];
+    int values[MAXARRAYDIM];
+    int isstr[MAXARRAYDIM];
+    int strstart[MAXARRAYDIM];
+    int strend[MAXARRAYDIM];
     int count, i, k, j, savedim, value;
     litptr = 0;
     count = 0;
@@ -487,7 +496,7 @@ InitPtrArray(int type, int dim, int class) {
 
     if (IsMatch("=")) {
         if (IsMatch("{")) {
-            while (dim && count < 50) {
+            while (dim && count < MAXARRAYDIM) {
                 if (string(&value)) {
                     isstr[count] = 1;
                     labels[count] = getlabel();
@@ -806,6 +815,11 @@ dofunction(int class) {
         kill();                     // invalidate line
         return;
     }
+    if (isreserved(ssname)) {
+        error("reserved keyword used as name");
+        kill();
+        return;
+    }
     // capture current function name for static local name mangling
     cptr2 = curfn;
     cptr3 = ssname;
@@ -885,7 +899,10 @@ doArgsTyped(int type, int typeSubPtr) {
             sz = type >> 2;
         }
         if (symname(ssname)) {
-            if (findloc(ssname)) {
+            if (isreserved(ssname)) {
+                error("reserved keyword used as name");
+            }
+            else if (findloc(ssname)) {
                 multidef(ssname);
             }
             else {
@@ -1040,7 +1057,9 @@ doArgsNonTyped() {
     argstk = 0;
     while (IsMatch(")") == 0) {
         if (symname(ssname)) {
-            if (findloc(ssname))
+            if (isreserved(ssname))
+                error("reserved keyword used as name");
+            else if (findloc(ssname))
                 multidef(ssname);
             else {
                 AddSymbol(ssname, 0, 0, 0, argstk, &locptr, AUTOMATIC);
@@ -1139,6 +1158,10 @@ parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
     }
     if ((nameIsValid = symname(ssname)) == 0) {
         illname();
+    }
+    else if (isreserved(ssname)) {
+        error("reserved keyword used as name");
+        nameIsValid = 0;
     }
     if (hasOpenParen && IsMatch(")")) {
         // unmatch paren
@@ -2369,7 +2392,7 @@ getRunArgs() {
     i = listfp = nxtlab = 0;
     output = stdout;
     optimize = YES;
-    alarm = monitor = pause = NO;
+    alarm = monitor = pause = nowarn = NO;
     line = mline;
     while (getarg(++i, line, LINESIZE, argcs, argvs) != EOF) {
         if (line[0] != '-' && line[0] != '/')
@@ -2396,8 +2419,12 @@ getRunArgs() {
                 pause = YES;
                 continue;
             }
+            if (toupper(line[1]) == 'W') {
+                nowarn = YES;
+                continue;
+            }
         }
-        fputs("usage: cc [file]... [-m] [-a] [-p] [-l#] [-no]\n", stderr);
+        fputs("usage: cc [file]... [-m] [-a] [-p] [-w] [-l#] [-no]\n", stderr);
         abort(ERRCODE);
     }
 }

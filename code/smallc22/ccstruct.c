@@ -73,6 +73,10 @@ doStruct() {
   int i, totalsize, typeSubIdx;
   blanks();
   if (symname(ssname)) {
+    if (isreserved(ssname)) {
+      error("reserved keyword used as name");
+      return -1;
+    }
     blanks();
   }
   else {

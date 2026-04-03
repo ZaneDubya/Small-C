@@ -1,5 +1,5 @@
 /******************************************************************************
-* ylink - a small dos linker (c) 2017 Zane Wagner. All rights reserved.
+* ylink - a small dos linker (c) 2017, 2026 Zane Wagner
 ******************************************************************************/
 #include "stdio.h"
 #include "notice.h"
@@ -43,7 +43,7 @@ int fileCount; // equal to the number of input files.
 #define FlgStart 0x0200
 #define FlgStack 0x0400
 #define FlgInclude 0x800
-int *modData; // each obj has name ptr, 2 fields for seg
+uint *modData; // each obj has name ptr, 2 fields for seg
               // origin, theadr offset in file, and flag.
               // flag is: 0x00ff file index (max 256 files), and 
               // 0x0f00 flags: 0x0100 in_lib, 0x0200 start, 0x0400 stack
@@ -346,14 +346,14 @@ P1_THEADR(uint fileIndex, uint length, uint fd) {
 AddModule(uint fileIndex, uint fd) {
   int length, i;
   char *path, *c;
-  uint offset[2];
+  unsigned long offset;
   // get offset to this THEADR record. We only handle files < 65kb in size.
-  btell(fd, offset);
-  if (offset[1] > 0) {
+  btell(fd, &offset);
+  if (offset > 65535L) {
     fatal("Could not load module from file; file larger than 65kb.");
   }
   // rewind offset 3 bytes to beginning of header file.
-  offset[0] -= 3;
+  offset -= 3;
   // copy the module name and set up data.
   length = readstrpre(line, fd);
   c = line;
@@ -365,7 +365,7 @@ AddModule(uint fileIndex, uint fd) {
   // set the module data.
   modData[modCount * MDAT_PER + MDAT_CSO] = 0;
   modData[modCount * MDAT_PER + MDAT_DSO] = 0;
-  modData[modCount * MDAT_PER + MDAT_THD] = offset[0];
+  modData[modCount * MDAT_PER + MDAT_THD] = (uint)offset;
   modData[modCount * MDAT_PER + MDAT_FLG] = fileIndex & 0x00ff;
   if (fileIndex > 0xff) { // sanity
     fatal("AddModule: MDAT_FLG cannot store file index greater than 255.");
@@ -592,9 +592,10 @@ P1_SEGDEF(uint length, uint fd, uint pass1) {
 // bseek.
 P1_LIBHDR(uint length, uint fd) {
   byte flags, nextRecord;
-  uint dictOffset[2], blockCount;
-  dictOffset[0] = read_u16(fd);
-  dictOffset[1] = read_u16(fd);
+  unsigned long dictOffset;
+  uint blockCount;
+  dictOffset = (unsigned long)(uint)read_u16(fd); // need (uint) because in small-c all functions return int.
+  dictOffset |= (unsigned long)(uint)read_u16(fd) << 16; // need (uint) because in small-c all functions return int.
   blockCount = read_u16(fd);
   flags = read_u8(fd); // 0x01 - is case sensitive. others 0.
   clearsilent(length - 8, fd); // rest of record is zeroes.
@@ -649,7 +650,7 @@ AlignSegments(int amount) {
 // If we are building a .lib file, then we can skip this step.
 Pass2() {
   uint i, fd, unresolved, extLast;
-  uint offset[2];
+  unsigned long offset;
   if (fdDebug != 0xffff) {
     fprintf(fdDebug, "Pass 2: Match all extdefs to pubdefs.\n");
   }
@@ -673,10 +674,9 @@ Pass2() {
           fprintf(fdDebug, "%s, ", modData[mdatBase + MDAT_NAM]);
         }
         fd = safefopen(filePaths[mdatFile], "r");
-        offset[0] = modData[mdatBase + MDAT_THD];
-        offset[1] = 0;
-        if (bseek(fd, offset, 0) == EOF) {
-          fatalf("Could not seek to position %u, file too short.", offset[0]);
+        offset = (unsigned long)modData[mdatBase + MDAT_THD];
+        if (bseek(fd, &offset, 0) == EOF) {
+          fatalf("Could not seek to position %u, file too short.", (uint)offset);
         }
         P2_DoMod(fd);
         safefclose(fd);
@@ -825,9 +825,10 @@ Pass3() {
 // FIXUPP records.
 Pass4() {
   uint i, fd, outfd, checksum;
-  uint modOffset[2]; // offset to object module that we are currently reading
-  uint codeBase[2]; // offset to code segment in output file.
-  uint dataBase[2]; // offset to data segment in output file.
+  unsigned long modOffset; // offset to object module that we are currently reading
+  unsigned long tmp4;      // scratch for computing codeBase/dataBase
+  uint codeBase[2];        // [0]=lo, [1]=hi — offset to code segment in output file
+  uint dataBase[2];        // [0]=lo, [1]=hi — offset to data segment in output file
   relocCount = 0;
   puts("  Pass 4");
   if (fdDebug != 0xffff) {
@@ -846,19 +847,16 @@ Pass4() {
       }
       fd = safefopen(filePaths[mdatFile], "r");
       // seek to module in input object file:
-      modOffset[0] = modData[mdatBase + MDAT_THD];
-      modOffset[1] = 0;
-      if (bseek(fd, modOffset, 0) == EOF) {
-        fatalf("Could not seek to position %u, file too short.", modOffset[0]);
+      modOffset = (unsigned long)modData[mdatBase + MDAT_THD];
+      if (bseek(fd, &modOffset, 0) == EOF) {
+        fatalf("Could not seek to position %u, file too short.", (uint)modOffset);
       }
       // get base code and base data offsets for the output file:
-      codeBase[0] = EXE_HDR_LEN;
-      codeBase[1] = 0;
-      Add1632(modData[mdatBase + MDAT_CSO], codeBase);
-      dataBase[0] = EXE_HDR_LEN;
-      dataBase[1] = 0;
-      Add1632(segLengths[SEG_CODE], dataBase);
-      Add1632(modData[mdatBase + MDAT_DSO], dataBase);
+      tmp4 = (unsigned long)EXE_HDR_LEN + (unsigned long)modData[mdatBase + MDAT_CSO];
+      codeBase[0] = (uint)tmp4; codeBase[1] = (uint)(tmp4 >> 16);
+      tmp4 = (unsigned long)EXE_HDR_LEN + (unsigned long)segLengths[SEG_CODE]
+           + (unsigned long)modData[mdatBase + MDAT_DSO];
+      dataBase[0] = (uint)tmp4; dataBase[1] = (uint)(tmp4 >> 16);
       // reset extdef buffer
       extNext = 0;
       extCount = 0;
@@ -894,25 +892,24 @@ CalcChecksum() {
 
 WriteExeHeader(uint checksum) {
   uint fd;
-  uint beginning[2], totalsize[2];
+  unsigned long beginning = 0L;
+  unsigned long totalsize = 0L;
   uint blockcount, lastblock, rvSS, i;
   fd = safefopen(pathOutput, "r+");
   if (exeStartAddress == 0xffff) {
     fatal("No start address specified.");
   }
-  beginning[0] = beginning[1] = 0;
-  totalsize[0] = totalsize[1] = 0;
-  Add1632(segLengths[0], totalsize);
-  Add1632(segLengths[1], totalsize);
-  Add1632(segLengths[2], totalsize);
-  Add1632(EXE_HDR_LEN, totalsize); // include header in total file size
-  lastblock = totalsize[0] % 512;
-  blockcount = totalsize[1] * 128 + totalsize[0] / 512;
+  totalsize += (unsigned long)segLengths[0];
+  totalsize += (unsigned long)segLengths[1];
+  totalsize += (unsigned long)segLengths[2];
+  totalsize += (unsigned long)EXE_HDR_LEN; // include header in total file size
+  lastblock = (uint)(totalsize % 512L);
+  blockcount = (uint)(totalsize / 512L);
   if (lastblock != 0) {
     blockcount += 1;
   }
   rvSS = (segLengths[SEG_CODE] / 16 + segLengths[SEG_DATA] / 16);
-  bseek(fd, beginning, 0);
+  bseek(fd, &beginning, 0);
   fputs("MZ", fd); // 00: "MZ"
   write_f16(fd, lastblock); // 02: count of bytes in last 512b block
   write_f16(fd, blockcount); // 04: count of 512b blocks in file
@@ -935,7 +932,7 @@ WriteExeHeader(uint checksum) {
   safefclose(fd);
 }
 
-P4_DoMod(uint fd, uint outfd, uint codeBase[], uint dataBase[]) {
+P4_DoMod(uint fd, uint outfd, uint *codeBase, uint *dataBase) {
   uint length, segOffset;
   byte recType, segType;
   ResetSegments();
@@ -1001,9 +998,10 @@ P4_EXTDEF(uint length, uint fd) {
   read_u8(fd); // checksum. assume correct.
 }
 
-P4_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
-  byte *segType, int *segOffset) {
+P4_LEDATA(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase,
+  byte *segType, uint *segOffset) {
   uint segBase[2];
+  unsigned long segBaseLong;
   uint i;
   length -= 4; // length includes segment type, offset, and checksum
   *segType = read_u8(fd);
@@ -1017,7 +1015,9 @@ P4_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   }
   *segType = locSegs[*segType - 1]; // transform to local segment index.
   P4_SetBase(*segType, codeBase, dataBase, segBase);
-  Add1632(*segOffset, segBase); // segBase[0] += *segOffset;
+  segBaseLong = (unsigned long)segBase[0] | ((unsigned long)segBase[1] << 16);
+  segBaseLong += (unsigned long)*segOffset;
+  segBase[0] = (uint)segBaseLong; segBase[1] = (uint)(segBaseLong >> 16);
   bseek(outfd, segBase, 0);
   for (i = 0; i < length; i++) {
     write_f8(outfd, read_u8(fd));
@@ -1031,9 +1031,10 @@ P4_LEDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
 // as a repeating pattern (iterated), rather than by explicit enumeration.
 // The data in an LIDATA record can be modified by the linker if the LIDATA
 // record is followed by a FIXUPP record, although this is not recommended.
-P4_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
-  byte *segType, int *segOffset) {
+P4_LIDATA(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase,
+  byte *segType, uint *segOffset) {
   uint segBase[2];
+  unsigned long segBaseLong;
   uint repeat, count;
   length -= 4; // length includes segment type, offset, and checksum
   *segType = read_u8(fd);
@@ -1047,7 +1048,9 @@ P4_LIDATA(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
   }
   *segType = locSegs[*segType - 1]; // transform to local segment index.
   P4_SetBase(*segType, codeBase, dataBase, segBase);
-  Add1632(*segOffset, segBase); // segBase[0] += *segOffset;
+  segBaseLong = (unsigned long)segBase[0] | ((unsigned long)segBase[1] << 16);
+  segBaseLong += (unsigned long)*segOffset;
+  segBase[0] = (uint)segBaseLong; segBase[1] = (uint)(segBaseLong >> 16);
   bseek(outfd, segBase, 0);
   while (length > 1) {
     repeat = read_u16(fd); // number of times the Content field will repeat. 
@@ -1131,8 +1134,8 @@ P4_LIINNER(uint fd, uint outfd, uint repeat, uint *length) {
 // target or frame. Because the same THREAD subrecord can be referenced in
 // several subsequent FIXUP subrecords, a FIXUPP object record that uses THREAD
 // subrecords may be smaller than one in which THREAD subrecords are not used.
-P4_FIXUPP(uint length, uint fd, uint outfd, uint codeBase[], uint dataBase[],
-  byte segType, int segOffset) {
+P4_FIXUPP(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase,
+  byte segType, uint segOffset) {
   byte lLocat;    // 0x80 set: this is a fixup (unset: a thread, not handled)
                   // 0x40 unset: Self-relative, set: segment-relative
   byte lRefType;  // type of reference
@@ -1225,8 +1228,8 @@ P4_FixCheckMatch(byte tFrame, byte tTarget) {
 }
 
 P4_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
-  uint fixOffset, uint codeBase[], uint dataBase[], byte segType,
-  int segOffset) {
+  uint fixOffset, uint *codeBase, uint *dataBase, byte segType,
+  uint segOffset) {
   int extName, pbdfIndex, modOrigin;
   byte segOfExt, modOfExt;
   if (lRefType != 1) {
@@ -1279,24 +1282,22 @@ P4_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
         extName);
     }
     P4_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR] + fixOffset, 1, 
-      codeBase[0], lOffset + segOffset);
+      codeBase, lOffset + segOffset);
   }
   else {
     // relative to beginning of segment.
     P4_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR] + fixOffset, 0, 
-      codeBase[0], lOffset + segOffset);
+      codeBase, lOffset + segOffset);
   }
 }
 
 P4_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
-  uint fixOffset, uint codeBase[], uint dataBase[], byte segType,
-  int segOffset) {
-  uint segBase[2];
+  uint fixOffset, uint *codeBase, uint *dataBase, byte segType,
+  uint segOffset) {
   if (fdDebug != 0xffff) {
     fprintf(fdDebug, "Tgt=Seg%u+0x%x\n", fixSeg, fixOffset);
   }
   fixSeg -= 1;
-  P4_SetBase(fixSeg, codeBase, dataBase, segBase);
   if ((lLocat & 0x40) == 0) {
     // IP-relative.
     if (fixSeg != segType) {
@@ -1308,7 +1309,7 @@ P4_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
     if (lRefType == 1) {
       // 16-bit offset
       P4_DoFixupp(outfd, fixOffset - segOffset - lOffset - 2, 0, 0,
-        codeBase[0], lOffset + segOffset);
+        codeBase, lOffset + segOffset);
     }
     else {
       // 16-bit logical segment base
@@ -1330,8 +1331,13 @@ P4_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
         default:
           fatalf("P4_FixSeg: Unhandled relative seg base index %u.", fixSeg);
       }
-      P4_DoFixupp(outfd, whereBase, fixOffset, 0,
-        codeBase[0], lOffset + segOffset);
+      if (segType == SEG_DATA) {
+        P4_DoFixupp(outfd, whereBase, fixOffset, 0,
+          dataBase, lOffset + segOffset);
+      } else {
+        P4_DoFixupp(outfd, whereBase, fixOffset, 0,
+          codeBase, lOffset + segOffset);
+      }
     }
     else if (lRefType == 2) {
       // 16-bit logical segment base
@@ -1350,77 +1356,65 @@ P4_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
           fatalf2("P4_FixSeg: Unhandled logical segment base index %u, %u",
             fixSeg, locSegs[fixSeg]);
       }
-      P4_DoFixupp(outfd, logBase, 0, 0, codeBase[0], lOffset + segOffset);
+      P4_DoFixupp(outfd, logBase, 0, 0, codeBase, lOffset + segOffset);
       relocData[relocCount++] = codeBase[0] + lOffset + segOffset - EXE_HDR_LEN;
     }
   }
 }
 
 P4_FixMix(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte frmSeg,
-  byte frmExt, uint fixOffset, uint codeBase[], uint dataBase[], byte segType,
-  int segOffset) {
+  byte frmExt, uint fixOffset, uint *codeBase, uint *dataBase, byte segType,
+  uint segOffset) {
   // adjust the fixOffset here.
   P4_FixExt(outfd, lLocat, lRefType, lOffset, frmExt, fixOffset,
         codeBase, dataBase, segType, segOffset);
 }
 
 P4_DoFixupp(uint fd, uint what, uint whatOff, uint whatRelative, 
-  uint where, uint whereOff) {
-  uint outAddr[2];
-  uint nowAddr[2];
+  uint *where, uint whereOff) {
+  unsigned long outAddr;
+  unsigned long nowAddr;
   uint offset;
+  outAddr = (unsigned long)where[0] | ((unsigned long)where[1] << 16);
+  outAddr += (unsigned long)whereOff;
   if (whatRelative == 1) {
-    offset = where + whereOff + 2 - EXE_HDR_LEN;
+    offset = where[0] + whereOff + 2 - EXE_HDR_LEN;
   }
   else {
     offset = 0;
   }
   if (fdDebug != 0xffff) {
-    fprintf(fdDebug, "    WRITE 0x%x at 0x%x\n", 
+    fprintf(fdDebug, "    WRITE 0x%x at 0x%x:%x\n", 
       what + whatOff - offset, 
-      where + whereOff);
+      (uint)(outAddr >> 16), (uint)outAddr);
   }
-  btell(fd, nowAddr);
-  outAddr[0] = where + whereOff;
-  outAddr[1] = 0;
-  bseek(fd, outAddr, 0);
+  btell(fd, &nowAddr);
+  bseek(fd, &outAddr, 0);
   write_f16(fd, what + whatOff - offset);
-  bseek(fd, nowAddr);
+  bseek(fd, &nowAddr, 0);
   if (what + whatOff - offset == 0xa84) {
     // abort(1);
   }
 }
 
-P4_SetBase(byte segType, uint codeBase[], uint dataBase[], uint segBase[]) {
+P4_SetBase(byte segType, uint *codeBase, uint *dataBase, uint *segBase) {
+  unsigned long tmp;
   if (segType == SEG_CODE) {
-    segBase[0] = codeBase[0];
-    segBase[1] = codeBase[1];
+    segBase[0] = codeBase[0]; segBase[1] = codeBase[1];
   }
   else if (segType == SEG_DATA) {
-    segBase[0] = dataBase[0];
-    segBase[1] = dataBase[1];
+    segBase[0] = dataBase[0]; segBase[1] = dataBase[1];
   }
   else if (segType == SEG_STACK) {
     // this is why we can only have one stack segment.
-    segBase[0] = EXE_HDR_LEN;
-    segBase[1] = 0;
-    Add1632(segLengths[SEG_CODE], segBase);
-    Add1632(segLengths[SEG_DATA], segBase);
+    tmp = (unsigned long)EXE_HDR_LEN;
+    tmp += (unsigned long)segLengths[SEG_CODE];
+    tmp += (unsigned long)segLengths[SEG_DATA];
+    segBase[0] = (uint)tmp; segBase[1] = (uint)(tmp >> 16);
   }
   else {
     fatalf("P4_XXDATA: Local SegType of %u, must be 0 or 1. ", segType);
   }
-}
-
-TestAdd() {
-  uint a, b[2];
-  a = 8000;
-  b[0] = 60000;
-  b[1] = 1;
-  printf("Add: %u + [%u %u]\n", a, b[0], b[1]);
-  Add1632(a, b);
-  printf("Add: %u + [%u %u]\n", a, b[0], b[1]);
-  abort(1);
 }
 
 Add1632(uint a, uint b[]) {
@@ -1436,7 +1430,7 @@ Add1632(uint a, uint b[]) {
 // If we are reading in a library file, then we just concat the library file!
 Pass2Lib() {
   uint fd, fdmod, i;
-  uint modOffset[2]; // offset to object module that we are currently reading
+  unsigned long modOffset; // offset to object module that we are currently reading
   if (fdDebug != 0) {
     fprintf(fdDebug, "Pass 2: Build library file.\n");
   }
@@ -1454,10 +1448,9 @@ Pass2Lib() {
       }
       fdmod = safefopen(filePaths[mdatFile], "r");
       // seek to module in input object file:
-      modOffset[0] = modData[mdatBase + MDAT_THD];
-      modOffset[1] = 0;
-      if (bseek(fdmod, modOffset, 0) == EOF) {
-        fatalf("Could not seek to position %u, file too short.", modOffset[0]);
+      modOffset = (unsigned long)modData[mdatBase + MDAT_THD];
+      if (bseek(fdmod, &modOffset, 0) == EOF) {
+        fatalf("Could not seek to position %u, file too short.", (uint)modOffset);
       }
       P2L_ADD(fd, fdmod);
       safefclose(fdmod);
@@ -1715,7 +1708,7 @@ read_u8(uint fd) {
   return ch;
 }
 
-read_u16(uint fd) {
+uint read_u16(uint fd) {
   uint i;
   i = (_read(fd) & 0x00ff);
   i += (_read(fd) & 0x00ff) << 8;
@@ -1783,10 +1776,8 @@ offsetfd(uint fd, uint base[], uint offset[]) {
 }
 
 forward(uint fd, uint offset) {
-  uint iOffset[2];
-  iOffset[0] = offset;
-  iOffset[1] = 0;
-  bseek(fd, iOffset, 1);
+  unsigned long iOffset = (unsigned long)offset;
+  bseek(fd, &iOffset, 1);
 }
 
 ClearPara(uint fd) {

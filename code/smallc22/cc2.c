@@ -28,7 +28,7 @@ char *keywords[] = {
 
 extern char
     *symtab, *macn, *macq, *pline, *mline, optimize,
-    alarm, *glbptr, *line, *lptr, *cptr, *cptr2, *cptr3,
+    alarm, nowarn, *glbptr, *line, *lptr, *cptr, *cptr2, *cptr3,
     *locptr, *dimdata, *dimdatptr, msname[NAMESIZE], pause,
     infn[30], inclfn[30];
 
@@ -36,7 +36,7 @@ extern int
     *wq, ccode, ch, csp, eof, errflag, iflevel,
     input, input2, listfp, macptr, nch,
     nxtlab, op[16], opindex, opsize, output, pptr,
-    skiplevel, *wqptr, lineno, inclno;
+    skiplevel, *wqptr, lineno, inclno, warncount;
 
 // === input functions ========================================================
 
@@ -259,10 +259,6 @@ symname(char *sname) {
         }
     }
     sname[k] = 0;
-    if (isreserved(sname)) {
-        error("reserved keyword used as name");
-        return 0;
-    }
     return 1;
 }
 
@@ -646,5 +642,18 @@ errout(char msg[], int fp) {
     lout("/\\", fp);
     fputs("Error: ", fp); 
     lout(msg, fp);
+}
+
+warning(char msg[]) {
+    if (nowarn) return;
+    warncount++;
+    if (input2 != EOF)
+        fprintf(stderr, "%s(%d) ", inclfn, inclno);
+    else
+        fprintf(stderr, "%s(%d) ", infn, lineno);
+    fputs("Warning: ", stderr);
+    fputs(msg, stderr);
+    fputc('\n', stderr);
+    if (alarm) fputc(7, stderr);
 }
 

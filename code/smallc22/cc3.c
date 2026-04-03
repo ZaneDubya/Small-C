@@ -33,10 +33,10 @@
 
 
 extern char *litq, *glbptr, *locptr, *lptr, *dimdata, *dimdatptr,
-    ssname[NAMESIZE];
+    nowarn, ssname[NAMESIZE];
 extern int ch, csp, litlab, litptr, nch, op[16], op2[16], opd[16], opd2[16],
     opindex, opsize, *snext, argtop, rettype, rettypeSubPtr,
-    lastNdim, lastStrides[MAX_DIMS];
+    lastNdim, lastStrides[MAX_DIMS], warncount;
     
 // ****************************************************************************
 // lead-in functions
@@ -592,10 +592,15 @@ level13(int is[]) {
         ptr = is[SYMTAB_ADR];
         is[TYP_ADR] = ptr[TYPE];
         if (is[TYP_OBJ]) {
+            // AX already has the address (POINT1s emitted by primary() for
+            // local variables). The result of & is always a 16-bit pointer,
+            // so clear TYP_OBJ — otherwise isLongVal() treats &(long) as a
+            // long value and emits PUSHd1 (two words) instead of PUSH1 (one).
+            is[TYP_OBJ] = 0;
             return 0;
         }
         gen(POINT1m, ptr);
-        is[TYP_OBJ] = ptr[TYPE];
+        // TYP_OBJ stays 0: same reasoning as above.
         return 0;
     }
     else {
@@ -910,7 +915,10 @@ applycast(int casttype, int is[]) {
 
     // Runtime path
     if (dstLong && !srcLong) {
-        // Widen based on SOURCE signedness
+        // Warn if widening signed value into unsigned long.
+        if ((casttype & IS_UNSIGNED) && !IsUnsigned(is)) {
+            warning("sign-conversion: widening signed value to unsigned long");
+        }
         widen_primary(is);
     }
     // Narrowing and same-size: no codegen needed
@@ -920,6 +928,7 @@ applycast(int casttype, int is[]) {
     is[SYMTAB_ADR] = 0;
     is[TYP_ADR] = 0;
     is[STG_ADR] = 0;
+    is[TYP_VAL] = casttype;
     if (dstLong)
         is[TYP_OBJ] = casttype;
     else
@@ -1914,6 +1923,7 @@ down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
 IsUnsigned(int is[]) {
     char *ptr;
     if (is[TYP_ADR] || is[TYP_CNST] == TYPE_UINT || is[TYP_CNST] == TYPE_ULONG ||
+        is[TYP_VAL] & IS_UNSIGNED ||
         ((ptr = is[SYMTAB_ADR]) && (ptr[TYPE] & IS_UNSIGNED)))
         return 1;
     return 0;

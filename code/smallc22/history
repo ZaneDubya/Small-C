@@ -121,7 +121,10 @@ Small-C Revision History
 119 Permit C89/C90 style argument lists, where types are inline with the 
     variable names. Adds support for 'static' global variables. Longer
     variable names permitted.
-120 Support added for structs, version bumped to 2.3.
+
+ -- included in version 2.3
+
+120 Support added for structs.
 121 Support added for multi-dimensional arrays of ints, chars, structs.
     Multi-dimensional arrays can be initialized (not structs, though).
     Function parameters accept int b[][C] syntax for passing multi-dimensional
@@ -198,3 +201,22 @@ Small-C Revision History
     POINT1m/GETw1m reference rather than a stack-relative access.
     emitStatLoc() handles constant-only initializers for scalars, arrays, and
     struct aggregates at declaration time.
+130 Added a warning() function (suppressible with new -w flag); if any warnings
+    are output, a summary prints at end of compilation.
+    Fixed a bug in the & operator (cc3.c) where taking the address of a long
+    variable left TYP_OBJ set, causing isLongVal() to emit PUSHd1 (two words:
+    PUSH DX + PUSH AX) for the resulting pointer instead of PUSH1 (one word).
+    This broke any pattern of the form btell(fd, &offset) where offset is a
+    long. Fixed in both the local-variable path (added is[TYP_OBJ] = 0) and
+    the global-variable path (removed the erroneous is[TYP_OBJ] = ptr[TYPE]).
+    Added is[TYP_VAL] to record type after explicit cast; IsUnsigned() now
+    checks is[TYP_VAL] & IS_UNSIGNED. Fixes fixing chained casts such as
+    (unsigned long)(uint)x. applycast() stores cast type in TYP_VAL and issues
+    a compile-time warning when widening a signed value to unsigned long.
+    Moved reserved-keyword checking out of symname() into all individual
+    declaration sites (globals, function args, local vars, struct names) so name
+    lookup is never suppressed by the check.
+    Replaced InitPtrArray() limit of 50 elements with MAXARRAYDIM define (200).
+    Converted the code[] p-code table in cc4.c from a runtime-populated int
+    array (setcodes()) to a static char* array with inline initializers, saving
+    3000 bytes of compiled EXE!
