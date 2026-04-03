@@ -20,7 +20,7 @@ Enhancements from Small-C Version 2.2:
 * Support for reserved keyword checking.
 * Support for C99 style comments (//).
 * Support for C89/C90 argument list types.
-* Support for 'static' access modifier for functions and globals.
+* Support for 'static' access modifier for functions, globals, and locals.
 * Support for longer variable names.
 * Support for structs.
 * Support for local variable initialization.
