@@ -117,7 +117,7 @@ preprocess() {
                 gch();
             }
             msname[k] = NULL;
-            if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0)) {
+            if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0, NAMEMAX)) {
                 k = getint(cptr + NAMESIZE, 2);
                 while (c = macq[k++]) {
                   keepch(c);
@@ -160,7 +160,7 @@ ifline() {
             if (skiplevel) 
                 continue;
             symname(msname);
-            if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0) == 0)
+            if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0, NAMEMAX) == 0)
                 skiplevel = iflevel;
             continue;
         }
@@ -168,7 +168,7 @@ ifline() {
             ++iflevel;
             if (skiplevel) continue;
             symname(msname);
-            if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0))
+            if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0, NAMEMAX))
                 skiplevel = iflevel;
             continue;
         }
@@ -486,13 +486,13 @@ AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int 
 // end: end of table of strings
 // max: max count of strings in table
 // off: ???
-FindSymbol(char *sname, char *buf, int len, char *end, int max, int off) {
+FindSymbol(char *sname, char *buf, int len, char *end, int max, int off, int namelen) {
     unsigned int ihash, imax;
     imax = (max - 1);
     ihash = hash(sname) % imax;
     cptr = cptr2 = buf + ihash * len;
     while (*cptr != NULL) {
-        if (astreq(sname, cptr + off, NAMEMAX)) 
+        if (astreq(sname, cptr + off, namelen)) 
             return 1;
         if ((cptr = cptr + len) >= end) 
             cptr = buf;
@@ -511,7 +511,7 @@ hash(char *sname) {
 }
 
 findglb(char *sname) {
-    if (FindSymbol(sname, STARTGLB, SYMMAX, ENDGLB, NUMGLBS, NAME))
+    if (FindSymbol(sname, STARTGLB, SYMMAX, ENDGLB, NUMGLBS, NAME, SYMMAX - NAME))
         return cptr;
     return 0;
 }

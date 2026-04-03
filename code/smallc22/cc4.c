@@ -67,219 +67,91 @@ extern int
 
 // === optimizer command lists ================================================
 
-int
-    seq00[] = { 0,ADD12,MOVE21,0,                       // ADD21
-                go | p1,ADD21,0 },
-
-    seq01[] = { 0,ADD1n,0,                              // rINC1 or rDEC1 ?
-               ifl | m2,0,ifl | 0,rDEC1,neg,0,ifl | p3,rINC1,0,0 },
-
-    seq02[] = { 0,ADD2n,0,                              // rINC2 or rDEC2 ?
-               ifl | m2,0,ifl | 0,rDEC2,neg,0,ifl | p3,rINC2,0,0 },
-
-    seq03[] = { 0,rDEC1,PUTbp1,rINC1,0,                 // SUBbpn or DECbp
-               go | p2,ife | p1,DECbp,0,SUBbpn,0 },
-
-    seq04[] = { 0,rDEC1,PUTwp1,rINC1,0,                 // SUBwpn or DECwp
-               go | p2,ife | p1,DECwp,0,SUBwpn,0 },
-
-    seq05[] = { 0,rDEC1,PUTbm1,rINC1,0,                 // SUB_m_ COMMAn
-               go | p1,SUB_m_,go | p1,COMMAn,go | m1,0 },
-
-    seq06[] = { 0,rDEC1,PUTwm1,rINC1,0,                 // SUB_m_ COMMAn
-               go | p1,SUB_m_,go | p1,COMMAn,go | m1,0 },
-
-    seq07[] = { 0,GETw1m,GETw2n,ADD12,MOVE21,GETb1p,0,  // GETw2m GETb1p
-               go | p4,gv | m3,go | m1,GETw2m,gv | m3,0 },
-
-    seq08[] = { 0,GETw1m,GETw2n,ADD12,MOVE21,GETb1pu,0, // GETw2m GETb1pu
-               go | p4,gv | m3,go | m1,GETw2m,gv | m3,0 },
-
-    seq09[] = { 0,GETw1m,GETw2n,ADD12,MOVE21,GETw1p,0,  // GETw2m GETw1p
-               go | p4,gv | m3,go | m1,GETw2m,gv | m3,0 },
-
-    seq10[] = { 0,GETw1m,GETw2m,SWAP12,0,               // GETw2m GETw1m
-               go | p2,GETw1m,gv | m1,go | m1,gv | m1,0 },
-
-    seq11[] = { 0,GETw1m,MOVE21,0,                      // GETw2m
-               go | p1,GETw2m,gv | m1,0 },
-
-    seq12[] = { 0,GETw1m,PUSH1,pfree,0,                 // PUSHm
-               go | p1,PUSHm,gv | m1,0 },
-
-    seq13[] = { 0,GETw1n,PUTbm1,pfree,0,                // PUT_m_ COMMAn
-               PUT_m_,go | p1,COMMAn,go | m1,swv | p1,0 },
-
-    seq14[] = { 0,GETw1n,PUTwm1,pfree,0,                // PUT_m_ COMMAn
-               PUT_m_,go | p1,COMMAn,go | m1,swv | p1,0 },
-
-    seq15[] = { 0,GETw1p,PUSH1,pfree,0,                 // PUSHp
-               go | p1,PUSHp,gv | m1,0 },
-
-    seq16[] = { 0,GETw1s,GETw2n,ADD12,MOVE21,0,         // GETw2s ADD2n
-               go | p3,ADD2n,gv | m2,go | m1,GETw2s,gv | m2,0 },
-
-    seq17[] = { 0,GETw1s,GETw2s,SWAP12,0,               // GETw2s GETw1s
-               go | p2,GETw1s,gv | m1,go | m1,GETw2s,gv | m1,0 },
-
-    seq18[] = { 0,GETw1s,MOVE21,0,                      // GETw2s
-               go | p1,GETw2s,gv | m1,0 },
-
-    seq19[] = { 0,GETw2m,GETw1n,SWAP12,SUB12,0,         // GETw1m SUB1n
-               go | p3,SUB1n,gv | m2,go | m1,GETw1m,gv | m2,0 },
-
-    seq20[] = { 0,GETw2n,ADD12,0,                       // ADD1n
-               go | p1,ADD1n,gv | m1,0 },
-
-    seq21[] = { 0,GETw2s,GETw1n,SWAP12,SUB12,0,         // GETw1s SUB1n
-               go | p3,SUB1n,gv | m2,go | m1,GETw1s,gv | m2,0 },
-
-    seq22[] = { 0,rINC1,PUTbm1,rDEC1,0,                 // ADDm_ COMMAn
-               go | p1,ADDm_,go | p1,COMMAn,go | m1,0 },
-
-    seq23[] = { 0,rINC1,PUTwm1,rDEC1,0,                 // ADDm_ COMMAn
-               go | p1,ADDm_,go | p1,COMMAn,go | m1,0 },
-
-    seq24[] = { 0,rINC1,PUTbp1,rDEC1,0,                 // ADDbpn or INCbp
-               go | p2,ife | p1,INCbp,0,ADDbpn,0 },
-
-    seq25[] = { 0,rINC1,PUTwp1,rDEC1,0,                 // ADDwpn or INCwp
-               go | p2,ife | p1,INCwp,0,ADDwpn,0 },
-
-    seq26[] = { 0,MOVE21,GETw1n,SWAP12,SUB12,0,         // SUB1n
-               go | p3,SUB1n,gv | m2,0 },
-
-    seq27[] = { 0,MOVE21,GETw1n,comm,0,                 // GETw2n comm
-               go | p1,GETw2n,0 },
-
-    seq28[] = { 0,POINT1m,GETw2n,ADD12,MOVE21,0,        // POINT2m_ PLUSn
-               go | p3,PLUSn,gv | m2,go | m1,POINT2m_,gv | m2,0 },
-
-    seq29[] = { 0,POINT1m,MOVE21,pfree,0,               // POINT2m
-               go | p1,POINT2m,gv | m1,0 },
-
-    seq30[] = { 0,POINT1m,PUSH1,pfree,_pop,0,           // ... POINT2m
-               topop | POINT2m,go | p2,0 },
-
-    seq31[] = { 0,POINT1s,GETw2n,ADD12,MOVE21,0,        // POINT2s
-               sum | p1,go | p3,POINT2s,gv | m3,0 },
-
-    seq32[] = { 0,POINT1s,PUSH1,MOVE21,0,               // POINT2s PUSH2
-               go | p1,POINT2s,gv | m1,go | p1,PUSH2,go | m1,0 },
-
-    seq33[] = { 0,POINT1s,PUSH1,pfree,_pop,0,           // ... POINT2s
-               topop | POINT2s,go | p2,0 },
-
-    seq34[] = { 0,POINT1s,MOVE21,0,                     // POINT2s
-               go | p1,POINT2s,gv | m1,0 },
-
-    seq35[] = { 0,POINT2m,GETb1p,sfree,0,               // GETb1m
-               go | p1,GETb1m,gv | m1,0 },
-
-    seq36[] = { 0,POINT2m,GETb1pu,sfree,0,              // GETb1mu
-               go | p1,GETb1mu,gv | m1,0 },
-
-    seq37[] = { 0,POINT2m,GETw1p,sfree,0,               // GETw1m
-               go | p1,GETw1m,gv | m1,0 },
-
-    seq38[] = { 0,POINT2m_,PLUSn,GETw1p,sfree,0,        // GETw1m_ PLUSn
-               go | p2,gc | m1,gv | m1,go | m1,GETw1m_,gv | m1,0 },
-
-    seq39[] = { 0,POINT2s,GETb1p,sfree,0,               // GETb1s
-               sum | p1,go | p1,GETb1s,gv | m1,0 },
-
-    seq40[] = { 0,POINT2s,GETb1pu,sfree,0,              // GETb1su
-               sum | p1,go | p1,GETb1su,gv | m1,0 },
-
-    seq41[] = { 0,POINT2s,GETw1p,PUSH1,pfree,0,         // PUSHs
-               sum | p1,go | p2,PUSHs,gv | m2,0 },
-
-    seq42[] = { 0,POINT2s,GETw1p,sfree,0,               // GETw1s
-               sum | p1,go | p1,GETw1s,gv | m1,0 },
-
-    seq43[] = { 0,PUSH1,any,POP2,0,                     // MOVE21 any
-               go | p2,gc | m1,gv | m1,go | m1,MOVE21,0 },
-
-    seq44[] = { 0,PUSHm,_pop,0,                         // ... GETw2m
-               topop | GETw2m,go | p1,0 },
-
-    seq45[] = { 0,PUSHp,any,POP2,0,                     // GETw2p ...
-               go | p2,gc | m1,gv | m1,go | m1,GETw2p,gv | m1,0 },
-
-    seq46[] = { 0,PUSHs,_pop,0,                         // ... GETw2s
-               topop | GETw2s,go | p1,0 },
-
-    seq47[] = { 0,SUB1n,0,                              // rDEC1 or rINC1 ?
-               ifl | m2,0,ifl | 0,rINC1,neg,0,ifl | p3,rDEC1,0,0 },
-
-    seq48[] = { 0,LNEG1,NE10f,0,                          // EQ10f
-               go | p1,EQ10f,0 },
-
-    seq49[] = { 0,LNEG1,EQ10f,0,                          // NE10f
-               go | p1,NE10f,0 },
-
-    seq50[] = { 0,EQ12,NE10f,0,                            // EQf
-               go | p1,EQf,0 },
-
-    seq51[] = { 0,NE12,NE10f,0,                            // NEf
-               go | p1,NEf,0 },
-
-    seq52[] = { 0,LT12,NE10f,0,                            // LTf
-               go | p1,LTf,0 },
-
-    seq53[] = { 0,GT12,NE10f,0,                            // GTf
-               go | p1,GTf,0 },
-
-    seq54[] = { 0,LE12,NE10f,0,                            // LEf
-               go | p1,LEf,0 },
-
-    seq55[] = { 0,GE12,NE10f,0,                            // GEf
-               go | p1,GEf,0 },
-
-    seq56[] = { 0,LT12u,NE10f,0,                           // LTuf
-               go | p1,LTuf,0 },
-
-    seq57[] = { 0,GT12u,NE10f,0,                           // GTuf
-               go | p1,GTuf,0 },
-
-    seq58[] = { 0,LE12u,NE10f,0,                           // LEuf
-               go | p1,LEuf,0 },
-
-    seq59[] = { 0,GE12u,NE10f,0,                           // GEuf
-               go | p1,GEuf,0 },
-
-    seq60[] = { 0,POINT2s,PUTwp1,sfree,0,                  // PUTws1
-               sum | p1,go | p1,PUTws1,gv | m1,0 },
-
-    seq61[] = { 0,POINT2s,PUTbp1,sfree,0,                  // PUTbs1
-               sum | p1,go | p1,PUTbs1,gv | m1,0 },
-
-    seq62[] = { 0,GETw1n,ASL12,0,                          // ASL1_1
-               ife | p1,go | p1,ASL1_1,0,0 },
-
-    seq63[] = { 0,GETw1n,ASR12,0,                          // ASR1_1
-               ife | p1,go | p1,ASR1_1,0,0 };
-
-#define HIGH_SEQ  63
-int seq[HIGH_SEQ + 1];
-setseq() {
-    seq[0] = seq00;  seq[1] = seq01;  seq[2] = seq02;  seq[3] = seq03;
-    seq[4] = seq04;  seq[5] = seq05;  seq[6] = seq06;  seq[7] = seq07;
-    seq[8] = seq08;  seq[9] = seq09;  seq[10] = seq10;  seq[11] = seq11;
-    seq[12] = seq12;  seq[13] = seq13;  seq[14] = seq14;  seq[15] = seq15;
-    seq[16] = seq16;  seq[17] = seq17;  seq[18] = seq18;  seq[19] = seq19;
-    seq[20] = seq20;  seq[21] = seq21;  seq[22] = seq22;  seq[23] = seq23;
-    seq[24] = seq24;  seq[25] = seq25;  seq[26] = seq26;  seq[27] = seq27;
-    seq[28] = seq28;  seq[29] = seq29;  seq[30] = seq30;  seq[31] = seq31;
-    seq[32] = seq32;  seq[33] = seq33;  seq[34] = seq34;  seq[35] = seq35;
-    seq[36] = seq36;  seq[37] = seq37;  seq[38] = seq38;  seq[39] = seq39;
-    seq[40] = seq40;  seq[41] = seq41;  seq[42] = seq42;  seq[43] = seq43;
-    seq[44] = seq44;  seq[45] = seq45;  seq[46] = seq46;  seq[47] = seq47;
-    seq[48] = seq48;  seq[49] = seq49;  seq[50] = seq50;  seq[51] = seq51;
-    seq[52] = seq52;  seq[53] = seq53;  seq[54] = seq54;  seq[55] = seq55;
-    seq[56] = seq56;  seq[57] = seq57;  seq[58] = seq58;  seq[59] = seq59;
-    seq[60] = seq60;  seq[61] = seq61;  seq[62] = seq62;  seq[63] = seq63;
-}
+#define HIGH_SEQ  73
+#define SEQLEN    13   // max elements in any sequence
+
+int seqdata[HIGH_SEQ + 1][SEQLEN] = {
+    { 0,ADD12,MOVE21,0,                      go|p1,ADD21,0 },                             // 00: ADD21
+    { 0,ADD1n,0,                             ifl|m2,0,ifl|0,rDEC1,neg,0,ifl|p3,rINC1,0,0 }, // 01: rINC1 or rDEC1 ?
+    { 0,ADD2n,0,                             ifl|m2,0,ifl|0,rDEC2,neg,0,ifl|p3,rINC2,0,0 }, // 02: rINC2 or rDEC2 ?
+    { 0,rDEC1,PUTbp1,rINC1,0,               go|p2,ife|p1,DECbp,0,SUBbpn,0 },            // 03: SUBbpn or DECbp
+    { 0,rDEC1,PUTwp1,rINC1,0,               go|p2,ife|p1,DECwp,0,SUBwpn,0 },            // 04: SUBwpn or DECwp
+    { 0,rDEC1,PUTbm1,rINC1,0,               go|p1,SUB_m_,go|p1,COMMAn,go|m1,0 },       // 05: SUB_m_ COMMAn
+    { 0,rDEC1,PUTwm1,rINC1,0,               go|p1,SUB_m_,go|p1,COMMAn,go|m1,0 },       // 06: SUB_m_ COMMAn
+    { 0,GETw1m,GETw2n,ADD12,MOVE21,GETb1p,0,  go|p4,gv|m3,go|m1,GETw2m,gv|m3,0 },     // 07: GETw2m GETb1p
+    { 0,GETw1m,GETw2n,ADD12,MOVE21,GETb1pu,0, go|p4,gv|m3,go|m1,GETw2m,gv|m3,0 },     // 08: GETw2m GETb1pu
+    { 0,GETw1m,GETw2n,ADD12,MOVE21,GETw1p,0,  go|p4,gv|m3,go|m1,GETw2m,gv|m3,0 },     // 09: GETw2m GETw1p
+    { 0,GETw1m,GETw2m,SWAP12,0,             go|p2,GETw1m,gv|m1,go|m1,gv|m1,0 },        // 10: GETw2m GETw1m
+    { 0,GETw1m,MOVE21,0,                    go|p1,GETw2m,gv|m1,0 },                     // 11: GETw2m
+    { 0,GETw1m,PUSH1,pfree,0,              go|p1,PUSHm,gv|m1,0 },                      // 12: PUSHm
+    { 0,GETw1n,PUTbm1,pfree,0,             PUT_m_,go|p1,COMMAn,go|m1,swv|p1,0 },       // 13: PUT_m_ COMMAn
+    { 0,GETw1n,PUTwm1,pfree,0,             PUT_m_,go|p1,COMMAn,go|m1,swv|p1,0 },       // 14: PUT_m_ COMMAn
+    { 0,GETw1p,PUSH1,pfree,0,              go|p1,PUSHp,gv|m1,0 },                      // 15: PUSHp
+    { 0,GETw1s,GETw2n,ADD12,MOVE21,0,      go|p3,ADD2n,gv|m2,go|m1,GETw2s,gv|m2,0 },  // 16: GETw2s ADD2n
+    { 0,GETw1s,GETw2s,SWAP12,0,            go|p2,GETw1s,gv|m1,go|m1,GETw2s,gv|m1,0 }, // 17: GETw2s GETw1s
+    { 0,GETw1s,MOVE21,0,                   go|p1,GETw2s,gv|m1,0 },                     // 18: GETw2s
+    { 0,GETw2m,GETw1n,SWAP12,SUB12,0,      go|p3,SUB1n,gv|m2,go|m1,GETw1m,gv|m2,0 },  // 19: GETw1m SUB1n
+    { 0,GETw2n,ADD12,0,                    go|p1,ADD1n,gv|m1,0 },                      // 20: ADD1n
+    { 0,GETw2s,GETw1n,SWAP12,SUB12,0,      go|p3,SUB1n,gv|m2,go|m1,GETw1s,gv|m2,0 },  // 21: GETw1s SUB1n
+    { 0,rINC1,PUTbm1,rDEC1,0,              go|p1,ADDm_,go|p1,COMMAn,go|m1,0 },         // 22: ADDm_ COMMAn
+    { 0,rINC1,PUTwm1,rDEC1,0,              go|p1,ADDm_,go|p1,COMMAn,go|m1,0 },         // 23: ADDm_ COMMAn
+    { 0,rINC1,PUTbp1,rDEC1,0,              go|p2,ife|p1,INCbp,0,ADDbpn,0 },            // 24: ADDbpn or INCbp
+    { 0,rINC1,PUTwp1,rDEC1,0,              go|p2,ife|p1,INCwp,0,ADDwpn,0 },            // 25: ADDwpn or INCwp
+    { 0,MOVE21,GETw1n,SWAP12,SUB12,0,      go|p3,SUB1n,gv|m2,0 },                      // 26: SUB1n
+    { 0,MOVE21,GETw1n,comm,0,              go|p1,GETw2n,0 },                            // 27: GETw2n comm
+    { 0,POINT1m,GETw2n,ADD12,MOVE21,0,     go|p3,PLUSn,gv|m2,go|m1,POINT2m_,gv|m2,0 }, // 28: POINT2m_ PLUSn
+    { 0,POINT1m,MOVE21,pfree,0,            go|p1,POINT2m,gv|m1,0 },                    // 29: POINT2m
+    { 0,POINT1m,PUSH1,pfree,_pop,0,        topop|POINT2m,go|p2,0 },                     // 30: ... POINT2m
+    { 0,POINT1s,GETw2n,ADD12,MOVE21,0,     sum|p1,go|p3,POINT2s,gv|m3,0 },             // 31: POINT2s
+    { 0,POINT1s,PUSH1,MOVE21,0,            go|p1,POINT2s,gv|m1,go|p1,PUSH2,go|m1,0 },  // 32: POINT2s PUSH2
+    { 0,POINT1s,PUSH1,pfree,_pop,0,        topop|POINT2s,go|p2,0 },                     // 33: ... POINT2s
+    { 0,POINT1s,MOVE21,0,                  go|p1,POINT2s,gv|m1,0 },                     // 34: POINT2s
+    { 0,POINT2m,GETb1p,sfree,0,            go|p1,GETb1m,gv|m1,0 },                     // 35: GETb1m
+    { 0,POINT2m,GETb1pu,sfree,0,           go|p1,GETb1mu,gv|m1,0 },                    // 36: GETb1mu
+    { 0,POINT2m,GETw1p,sfree,0,            go|p1,GETw1m,gv|m1,0 },                     // 37: GETw1m
+    { 0,POINT2m_,PLUSn,GETw1p,sfree,0,     go|p2,gc|m1,gv|m1,go|m1,GETw1m_,gv|m1,0 }, // 38: GETw1m_ PLUSn
+    { 0,POINT2s,GETb1p,sfree,0,            sum|p1,go|p1,GETb1s,gv|m1,0 },              // 39: GETb1s
+    { 0,POINT2s,GETb1pu,sfree,0,           sum|p1,go|p1,GETb1su,gv|m1,0 },             // 40: GETb1su
+    { 0,POINT2s,GETw1p,PUSH1,pfree,0,      sum|p1,go|p2,PUSHs,gv|m2,0 },               // 41: PUSHs
+    { 0,POINT2s,GETw1p,sfree,0,            sum|p1,go|p1,GETw1s,gv|m1,0 },              // 42: GETw1s
+    { 0,PUSH1,any,POP2,0,                  go|p2,gc|m1,gv|m1,go|m1,MOVE21,0 },         // 43: MOVE21 any
+    { 0,PUSHm,_pop,0,                      topop|GETw2m,go|p1,0 },                      // 44: ... GETw2m
+    { 0,PUSHp,any,POP2,0,                  go|p2,gc|m1,gv|m1,go|m1,GETw2p,gv|m1,0 },   // 45: GETw2p ...
+    { 0,PUSHs,_pop,0,                      topop|GETw2s,go|p1,0 },                      // 46: ... GETw2s
+    { 0,SUB1n,0,                           ifl|m2,0,ifl|0,rINC1,neg,0,ifl|p3,rDEC1,0,0 }, // 47: rDEC1 or rINC1 ?
+    { 0,LNEG1,NE10f,0,                     go|p1,EQ10f,0 },                              // 48: EQ10f
+    { 0,LNEG1,EQ10f,0,                     go|p1,NE10f,0 },                              // 49: NE10f
+    { 0,EQ12,NE10f,0,                      go|p1,EQf,0 },                                // 50: EQf
+    { 0,NE12,NE10f,0,                      go|p1,NEf,0 },                                // 51: NEf
+    { 0,LT12,NE10f,0,                      go|p1,LTf,0 },                                // 52: LTf
+    { 0,GT12,NE10f,0,                      go|p1,GTf,0 },                                // 53: GTf
+    { 0,LE12,NE10f,0,                      go|p1,LEf,0 },                                // 54: LEf
+    { 0,GE12,NE10f,0,                      go|p1,GEf,0 },                                // 55: GEf
+    { 0,LT12u,NE10f,0,                     go|p1,LTuf,0 },                               // 56: LTuf
+    { 0,GT12u,NE10f,0,                     go|p1,GTuf,0 },                               // 57: GTuf
+    { 0,LE12u,NE10f,0,                     go|p1,LEuf,0 },                               // 58: LEuf
+    { 0,GE12u,NE10f,0,                     go|p1,GEuf,0 },                               // 59: GEuf
+    { 0,POINT2s,PUTwp1,sfree,0,            sum|p1,go|p1,PUTws1,gv|m1,0 },               // 60: PUTws1
+    { 0,POINT2s,PUTbp1,sfree,0,            sum|p1,go|p1,PUTbs1,gv|m1,0 },               // 61: PUTbs1
+    { 0,GETw1n,ASL12,0,                    ife|p1,go|p1,ASL1_1,0,0 },                   // 62: ASL1_1
+    { 0,GETw1n,ASR12,0,                    ife|p1,go|p1,ASR1_1,0,0 },                   // 63: ASR1_1
+    // (5) comparison + EQ10f (jump-if-false): mirror of seq50-59 for !(expr)
+    // seq50-59 handle  COMPxx, NE10f -> COMPxxf  (jump if expr is TRUE)
+    // seq64-73 handle  COMPxx, EQ10f -> COMPxxf  (jump if expr is FALSE)
+    // i.e., the NOT-of-condition inverse.  When !(a==b) is tested, seq48
+    // converts LNEG1,NE10f -> EQ10f, leaving EQ12,EQ10f in the buffer.
+    // These seqs collapse that to a single inline CMP + inverted branch.
+    { 0,EQ12,EQ10f,0,                      go | p1,NEf,0 },      // NEf
+    { 0,NE12,EQ10f,0,                      go | p1,EQf,0 },      // EQf
+    { 0,LT12,EQ10f,0,                      go | p1,GEf,0 },      // GEf
+    { 0,GT12,EQ10f,0,                      go | p1,LEf,0 },      // LEf
+    { 0,LE12,EQ10f,0,                      go | p1,GTf,0 },        // GTf
+    { 0,GE12,EQ10f,0,                      go | p1,LTf,0 },         // LTf
+    { 0,LT12u,EQ10f,0,                     go | p1,GEuf,0 },         // GEuf
+    { 0,GT12u,EQ10f,0,                     go | p1,LEuf,0 },       // LEuf
+    { 0,LE12u,EQ10f,0,                     go | p1,GTuf,0 },        // GTuf
+    { 0,GE12u,EQ10f,0,                     go | p1,LTuf,0 }          // LTuf
+};
 
 // === assembly-code strings ==================================================
 
@@ -289,7 +161,6 @@ int code[PCODES];
 //    the value in ax is needed (010) or zapped (020)
 //    the value in bx is needed (001) or zapped (002)
 setcodes() {
-    setseq();
     code[ADD12] = "\211ADD AX,BX\n";
     code[ADD1n] = "\010?ADD AX,<n>\n??";
     code[ADD21] = "\211ADD BX,AX\n";
@@ -658,7 +529,7 @@ dumpstage() {
         if (optimize) {
         restart:
             i = -1;
-            while (++i <= HIGH_SEQ) if (peep(seq[i])) {
+            while (++i <= HIGH_SEQ) if (peep(seqdata[i])) {
 #ifdef DISOPT
                 if (isatty(output))
                     fprintf(stderr, "                   optimized %2u\n", i);
@@ -788,10 +659,10 @@ dumpzero(int size, int count) {
 
 // Try to optimize sequence at snext in the staging buffer.
 peep(int *seq) {
-    int *next, *count, *pop, n, skip, tmp, reply;
+    int *next, *pop, n, skip, tmp, reply;
     char c, *cp;
     next = snext;
-    count = seq++;
+    seq++;
     while (*seq) {
         switch (*seq) {
         case any:
@@ -823,7 +694,6 @@ peep(int *seq) {
 
     // === have a match, now optimize it ======================================
 
-    *count += 1;
     reply = skip = NO;
     while (*(++seq) || skip) {
         if (skip) {

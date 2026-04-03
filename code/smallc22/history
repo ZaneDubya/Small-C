@@ -175,3 +175,26 @@ Small-C Revision History
     preprocess() stops on CR or LF; doinclude() strips CR from filenames;
     fgetc() (FGETC.C) now treats standalone LF as a line terminator and
     consumes the LF in a CRLF pair.
+128 Added peephole optimizations seq64-73 (CC4.C) for the EQ10f (jump-if-true)
+    variants of the comparison-plus-conditional-jump sequences introduced in
+    revision 122. seq50-59 already handled COMPxx followed by NE10f, covering
+    comparisons used directly in boolean context. When a comparison is negated
+    with !, seq48 converts LNEG1,NE10f to EQ10f, but the resulting
+    COMPxx,EQ10f pair was not caught, causing the comparison library call and
+    OR AX,AX test to remain in the output. seq64-73 handle all ten comparisons
+    (signed and unsigned) paired with EQ10f by replacing them with a single
+    inline CMP AX,BX / Jcc $+5 / JMP using the inverted condition code.
+    Eliminates one CALL and one OR AX,AX (3 bytes each site) from every
+    negated comparison in boolean context. Raised HIGH_SEQ from 63 to 73.
+129 Added static local variables. The 'static' keyword on a local declaration
+    allocates storage in the DATA segment (zero-initialised by default) rather
+    than on the stack, giving the variable permanent lifetime across calls, but
+    is invisible outside the enclosing function, as each static local gets a
+    unique assembly label _L<N> (where N is the existing label counter) stored
+    in the global symbol table. The local symbol table entry for scoping holds
+    the short user-supplied name, with its OFFSET field pointing to the
+    global entry. primary() detects CLASS==STATIC and redirects through that
+    pointer to obtain the correct IDENT, TYPE, and NDIM fields and emit a
+    POINT1m/GETw1m reference rather than a stack-relative access.
+    emitStatLoc() handles constant-only initializers for scalars, arrays, and
+    struct aggregates at declaration time.

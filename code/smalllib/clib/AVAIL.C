@@ -10,7 +10,6 @@ avail(abort) int abort; {
   if(&x < _memptr) {
     if(abort) exit(1);
     return (0);
-    }
-  return (&x - _memptr);
   }
-
+  return ((unsigned)(&x - _memptr));
+}

@@ -199,7 +199,7 @@ getStructMember(char *basestruct, char *sname) {
 }
 
 // prints debug information about all struct definitions and all members
-printallstructs() {
+/*printallstructs() {
   char *istruct, *istructmem, *istructend;
   int ident, type, size, offset;
   istruct = STRDAT_START;
@@ -220,4 +220,4 @@ printallstructs() {
     }
     istruct += STRDAT_MAX;
   }
-}
+}*/

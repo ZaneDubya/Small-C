@@ -56,8 +56,6 @@ IsConstExpr(int *val) {
 
 ParseExpression(int *con, int *val) {
     int is[ISSIZE], savedlocptr;
-    // Referenced struct member info is stored in the local symbol table,
-    // thus we must restore the local symbol table ptr after each expression.
     savedlocptr = locptr;
     if (level1(is)) {
         fetch(is);
@@ -242,7 +240,7 @@ level1(int is[]) {
     }
     is3[SYMTAB_ADR] = is[SYMTAB_ADR];
     is3[TYP_OBJ] = is[TYP_OBJ];
-    // Struct-to-struct deep copy (simple = only)
+    // Struct-to-struct deep copy
     if (oper == 0) {
         lhsPtr = is[SYMTAB_ADR];
         isStructLhs = 0;
@@ -353,7 +351,7 @@ level1(int is[]) {
 
 // level2() parses the ternary operator Expression1 ? Expression2 : Expression3
 level2(int is1[]) {
-    int is2[ISSIZE], is3[ISSIZE], k, flab, endlab, *before, *after;
+    int is2[ISSIZE], is3[ISSIZE], k, flab, endlab;
     // Call level3() by way of down1() to parse the first expression.
     k = down1(level3, is1);
     // If next token is not ?, this is not a ternary operator, return to caller
@@ -997,6 +995,30 @@ primary(int *is) {
             if (ptr[IDENT] == IDENT_LABEL) {
                 experr();
                 return 0;
+            }
+            if (ptr[CLASS] == STATIC) {
+                // static local: redirect to the global symbol table entry
+                // stored in the OFFSET field of the local entry
+                ptr = getint(ptr + OFFSET, 2);
+                is[SYMTAB_ADR] = ptr;
+                if (ptr[IDENT] == IDENT_ARRAY) {
+                    gen(POINT1m, ptr);
+                    is[TYP_OBJ] = is[TYP_ADR] = ptr[TYPE];
+                    if (ptr[NDIM] > 1)
+                        is[DIM_LEFT] = ptr[NDIM];
+                    return 0;
+                }
+                if (ptr[IDENT] == IDENT_PTR_ARRAY) {
+                    gen(POINT1m, ptr);
+                    is[TYP_OBJ] = is[TYP_ADR] = TYPE_UINT;
+                    return 0;
+                }
+                if (ptr[IDENT] == IDENT_POINTER) {
+                    is[TYP_ADR] = ptr[TYPE];
+                    if (ptr[NDIM] > 1)
+                        is[DIM_LEFT] = ptr[NDIM];
+                }
+                return 1;
             }
             gen(POINT1s, getint(ptr + OFFSET, 2));
             is[SYMTAB_ADR] = ptr;
@@ -1673,7 +1695,7 @@ down1(int (*level)(), int is[]) {
 down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
     int *before, *start;
     char *ptr;
-    int leftLong, rightLong, eitherLong, loper;
+    int leftLong, rightLong, eitherLong, loper, sc;
     setstage(&before, &start);
     is[STG_ADR] = 0;                             // not "... op 0" syntax
     leftLong = isLongVal(is);
@@ -1693,7 +1715,8 @@ down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
         else {
             if (is[VAL_CNST] == 0)
                 is[STG_ADR] = snext;
-            gen(GETw2n, is[VAL_CNST] * (ptrScale(oper, is2, is) ? ptrScale(oper, is2, is) : 1));
+            sc = ptrScale(oper, is2, is); if (!sc) sc = 1;
+            gen(GETw2n, is[VAL_CNST] * sc);
         }
     }
     else {                                  // variable op unknown
@@ -1728,12 +1751,13 @@ down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
                 }
             }
             else {
+                sc = ptrScale(oper, is, is2); if (!sc) sc = 1;
                 if (oper == ADD12) {            // commutative
-                    gen(GETw2n, is2[VAL_CNST] * (ptrScale(oper, is, is2) ? ptrScale(oper, is, is2) : 1));
+                    gen(GETw2n, is2[VAL_CNST] * sc);
                 }
                 else {                          // non-commutative
                     gen(MOVE21, 0);
-                    gen(GETw1n, is2[VAL_CNST] * (ptrScale(oper, is, is2) ? ptrScale(oper, is, is2) : 1));
+                    gen(GETw1n, is2[VAL_CNST] * sc);
                 }
             }
         }
@@ -2046,40 +2070,24 @@ CalcUConst32(int lhi, int llo, int oper, int rhi, int rlo,
     *reshi = 0;
     switch (oper) {
         case LT12:
-            if (ulhi < urhi) *reslo = 1;
-            else if (ulhi > urhi) *reslo = 0;
-            else *reslo = (ullo < urlo) ? 1 : 0;
-            return;
-        case LE12:
-            if (ulhi < urhi) *reslo = 1;
-            else if (ulhi > urhi) *reslo = 0;
-            else *reslo = (ullo <= urlo) ? 1 : 0;
-            return;
-        case GT12:
-            if (ulhi > urhi) *reslo = 1;
-            else if (ulhi < urhi) *reslo = 0;
-            else *reslo = (ullo > urlo) ? 1 : 0;
-            return;
-        case GE12:
-            if (ulhi > urhi) *reslo = 1;
-            else if (ulhi < urhi) *reslo = 0;
-            else *reslo = (ullo >= urlo) ? 1 : 0;
-            return;
         case LT12u:
             if (ulhi < urhi) *reslo = 1;
             else if (ulhi > urhi) *reslo = 0;
             else *reslo = (ullo < urlo) ? 1 : 0;
             return;
+        case LE12:
         case LE12u:
             if (ulhi < urhi) *reslo = 1;
             else if (ulhi > urhi) *reslo = 0;
             else *reslo = (ullo <= urlo) ? 1 : 0;
             return;
+        case GT12:
         case GT12u:
             if (ulhi > urhi) *reslo = 1;
             else if (ulhi < urhi) *reslo = 0;
             else *reslo = (ullo > urlo) ? 1 : 0;
             return;
+        case GE12:
         case GE12u:
             if (ulhi > urhi) *reslo = 1;
             else if (ulhi < urhi) *reslo = 0;
