@@ -65,6 +65,11 @@
 #define STATIC    5   // only visible in this file ("internal linkage")
 #define ENUMCONST 6   // enum constant: integer value stored in OFFSET field
 
+// const qualifier flag packed into CLASS byte (high bit; CLASS values are <= 6).
+// To test: ptr[CLASS] & CONST_FLAG  (non-zero == const-qualified)
+// To strip: ptr[CLASS] & 0x7F      (yields the raw storage class)
+#define CONST_FLAG  0x80
+
 // segment types
 #define DATASEG 1
 #define CODESEG 2

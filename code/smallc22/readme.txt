@@ -492,3 +492,114 @@ maintainer AR.EXE.  To extract all of the modules out of the library
 archive, enter the command: 
 
                           AR -X CLIB.ARC
+
+
+C90 TYPE QUALIFIERS
+
+Version 2.3 adds support for the following C90 type qualifiers.
+
+
+signed
+------
+The keyword "signed" is now accepted as a type specifier.  Because the
+8086 integers in Small-C are signed by default, it produces no change
+in code generation or runtime behaviour.  The following forms are
+accepted and are exactly equivalent to the unqualified counterparts:
+
+    signed              -- same as int
+    signed int          -- same as int
+    signed char         -- same as char
+    signed long         -- same as long
+    signed long int     -- same as long
+    signed short        -- same as int (see "short" below)
+
+The signed qualifier is also accepted in cast expressions:
+    (signed)x, (signed int)x, (signed char)x, (signed long)x
+
+
+short
+-----
+The keyword "short" is accepted as a type specifier.  On the 8086 the
+natural word size is 16 bits, so "short" is identical to "int"; no
+separate type or storage class is introduced.  The following forms are
+all equivalent to plain "int" or "unsigned int":
+
+    short               -- same as int (16-bit signed)
+    short int           -- same as int
+    unsigned short      -- same as unsigned int
+    unsigned short int  -- same as unsigned int
+    signed short        -- same as int
+    signed short int    -- same as int
+
+The short qualifier is also accepted in cast expressions:
+    (short)x, (unsigned short)x
+
+
+const
+-----
+The "const" qualifier marks a variable as read-only.  Its behaviour
+follows C90: the variable is fully initializable at declaration but may
+not be the target of any assignment or increment/decrement after that
+point.  The compiler enforces this at compile time:
+
+    const int    x  = 5;    -- legal
+    x = 6;                  -- compile error: cannot assign to const
+    x++;                    -- compile error: cannot modify const
+    ++x;                    -- compile error: cannot modify const
+    x += 1;                 -- compile error: cannot assign to const
+
+"const" may appear before or after other type qualifiers in any
+combination: "const int", "unsigned const int", "const signed long",
+"const volatile int", etc.  It may also appear in function parameter
+lists -- a parameter declared const cannot be assigned inside the
+function body.
+
+Enforcement is purely a compile-time diagnostic.  The 8086 has no
+memory protection hardware, so there is no runtime write-protection.
+The variable occupies normal DATA or stack storage.  Code that reads
+a const variable is identical to code that reads an ordinary variable;
+"const" is a typing discipline, not an optimisation hint.
+
+"const" is also accepted -- and silently ignored -- inside cast
+expressions: (const int)x.  Constness cannot be meaningful in a cast
+because the result is a temporary rvalue that was never an lvalue.
+
+
+volatile
+--------
+The "volatile" qualifier is parsed and accepted in all declaration
+contexts but is treated as a no-op.  No error or warning is issued.
+
+Rationale: Small-C is a single-pass compiler that performs no register
+allocation.  Every read of a variable emits a memory load (MOV AX,[addr])
+and every write emits a memory store.  There are no cached register
+copies of variables to become stale.  The guarantee that "volatile"
+normally imposes -- that every access goes to actual memory -- is already
+structurally satisfied by the compiler on the 8086 target.  Making
+"volatile" a no-op is therefore correct by construction.
+
+The qualifier is accepted in all positions where it is legal in C90:
+global declarations, local declarations, function parameters, and cast
+expressions.  Programs that use "volatile" for portability or for
+documentation purposes will compile without modification.
+
+
+register
+--------
+The "register" qualifier is parsed and accepted in all declaration
+contexts but is treated exactly as "auto".  No storage difference, no
+error, and no warning is issued.
+
+Rationale: the 8086 general-purpose registers are fully consumed by the
+compiler for expression evaluation (AX, DX), address indirection (BX),
+and stack-frame management (BP, SP).  There are no free GPRs in which
+to hold user variables.  "register" is therefore a vacuous request
+on this target.
+
+C90 also forbids taking the address (&) of a register-qualified variable.
+This restriction is NOT enforced by Small-C.  Because no variable is
+actually placed in a register, the address of a "register" variable is
+always valid and &-taking is permitted.  Enforcing the restriction while
+providing no actual register storage would needlessly break portable code
+without delivering any benefit.
+

@@ -221,4 +221,20 @@ Small-C Revision History
     array (setcodes()) to a static char* array with inline initializers, saving
     3000 bytes of compiled EXE!
 131 Added C90 enum support. Enumerators are named constants backed by int.
+132 Added C90 type qualifiers: const, signed, short, volatile, and register.
+    const is enforced at compile time: assigning to or incrementing a const
+    variable is a compile error. CONST_FLAG (0x80) is packed into the high bit
+    of the CLASS byte in the symbol table. signed is accepted as an explicit
+    modifier (int is already signed). short maps to int/unsigned int, which
+    are 16-bit. volatile and register are silently accepted but have no effect
+    because the 8086 has no free GPRs for register allocation, and all
+    variables round-trip through memory in Small-C model.
+    Fixed genStore() and genStoreZero() for 32-bit (long) local initializers:
+    both previously stored the low word twice instead of using PUTdp1 to
+    write DX:AX as a dword.
+    Fixed down2() to call widen_primary() instead of hard-coding WIDENs when
+    widening a 16-bit left operand for a mixed-width binary operation, so
+    unsigned short values are zero-extended rather than sign-extended.
+    Fixed applycast() constant-folding to sign-extend 8-bit results for signed
+    char targets (was masking to 8 bits without extending).
 

@@ -98,7 +98,8 @@ char
 
 int
     lastNdim,            // ndim from last parseLocalDeclare call
-    lastStrides[MAX_DIMS]; // strides from last parseLocalDeclare call
+    lastStrides[MAX_DIMS], // strides from last parseLocalDeclare call
+    typeConstFlag;       // set by dotype(): 1 if const qualifier was seen
 
 int op[16] = {   // p-codes of signed binary operators
     OR12,                        // level5
@@ -236,9 +237,12 @@ dostatic() {
 
 // test for global declarations
 dodeclare(int class) {
-    int type, typeSubPtr;
+    int type, typeSubPtr, declclass;
     char *p;
     type = dotype(&typeSubPtr);
+    // Incorporate const qualifier into the storage class byte.
+    // Functions cannot be const; only variable declarations use this flag.
+    declclass = typeConstFlag ? (class | CONST_FLAG) : class;
     if (type != 0) {
         // Lookahead: if next tokens are "name(" this is a function
         // definition, not a variable declaration. Divert to dofunction().
@@ -250,13 +254,13 @@ dodeclare(int class) {
             if (*p == '(') {
                 rettype = type;
                 rettypeSubPtr = (type == TYPE_STRUCT) ? typeSubPtr : 0;
-                dofunction(class);
+                dofunction(class);   // functions are never const
                 rettype = TYPE_INT;
                 rettypeSubPtr = 0;
                 return 1;
             }
         }
-        declglb(type, class, typeSubPtr);
+        declglb(type, declclass, typeSubPtr);
     }
     else if (class == EXTERNAL) {
         declglb(TYPE_INT, class, typeSubPtr);
@@ -268,44 +272,62 @@ dodeclare(int class) {
     return 1;
 }
 
-// get type of declaration
+// get type of declaration.
+// Handles C90 type qualifiers: const, volatile, register, auto, signed,
+// unsigned, short.  On 8086 short == int (both 16-bit).
+// Sets global typeConstFlag = 1 when the const qualifier is present.
+// "volatile" and "register" are accepted and silently ignored.
+// "register" is treated as automatic storage (the default on 8086 where
+// there are no spare GPRs available for user variables).
 // @return type value of declaration, otherwise 0 if not a valid declaration.
 dotype(int *typeSubPtr) {
+    int isConst, isUnsigned, isShort, gotSignSize;
+    isConst = isUnsigned = isShort = gotSignSize = 0;
+    typeConstFlag = 0;
+    // Consume qualifier/modifier keywords in any order.  Only unsigned and
+    // short actually affect the returned type; the rest are accepted as
+    // no-ops (const sets a flag for callers, the others are discarded).
+    for (;;) {
+        if (amatch("const", 5))        { isConst    = 1; }
+        else if (amatch("volatile", 8)){ /* no-op on 8086  */       }
+        else if (amatch("register", 8)){ /* treat as auto on 8086 */ }
+        else if (amatch("auto", 4))    { /* default storage class  */ }
+        else if (amatch("signed", 6))  { gotSignSize = 1; }
+        else if (amatch("unsigned", 8)){ isUnsigned  = 1; gotSignSize = 1; }
+        else if (amatch("short", 5))   { isShort     = 1; gotSignSize = 1; }
+        else break;
+    }
+    typeConstFlag = isConst;
+    // short [int] -- on 8086 short == int (16-bit word)
+    if (isShort) {
+        amatch("int", 3);
+        return isUnsigned ? TYPE_UINT : TYPE_INT;
+    }
     if (amatch("char", 4)) {
-        return TYPE_CHR;
+        return isUnsigned ? TYPE_UCHR : TYPE_CHR;
     }
-    else if (amatch("unsigned", 8)) {
-        if (amatch("char", 4)) {
-            return TYPE_UCHR;
-        }
-        else if (amatch("long", 4)) {
-            amatch("int", 3);
-            return TYPE_ULONG;
-        }
-        else {
-            amatch("int", 3);
-            return TYPE_UINT;
-        }
-    }
-    else if (amatch("long", 4)) {
+    if (amatch("long", 4)) {
         if (amatch("long", 4)) {
             error("long long not supported");
-            return TYPE_LONG;
         }
         amatch("int", 3);
-        return TYPE_LONG;
+        return isUnsigned ? TYPE_ULONG : TYPE_LONG;
     }
-    else if (amatch("int", 3)) {
-        return TYPE_INT;
+    // "int" explicit, or implied by unsigned/signed alone
+    if (amatch("int", 3) || gotSignSize) {
+        return isUnsigned ? TYPE_UINT : TYPE_INT;
     }
-    else if (amatch("struct", 6)) {
+    if (amatch("struct", 6)) {
         if ((*typeSubPtr = getStructPtr()) == -1)
             error("unknown struct name");
         return TYPE_STRUCT;
     }
-    else if (amatch("enum", 4)) {
+    if (amatch("enum", 4)) {
         return doEnum(typeSubPtr);
     }
+    // If only const/volatile were seen with no base type, clear the flag
+    // so callers do not misinterpret a non-declaration as const.
+    typeConstFlag = 0;
     return 0;
 }
 
@@ -878,8 +900,9 @@ dofunction(int class) {
 // doArgsTyped: interpret a function argument list with declared types.
 // in type: the type of the first variable in the argument list.
 doArgsTyped(int type, int typeSubPtr) {
-    int id, sz, namelen, paren;
+    int id, sz, namelen, paren, argConst;
     char *ptr, *ddentry;
+    argConst = typeConstFlag;   // capture const flag for first argument
     // get a list of all arguments. Set the name, id (Variable or Pointer),
     // type (unsigned/signed int/char), size, and 'argstk' for each. argstk is
     // the 0-based index of the variable on the stack. We will next reverse 
@@ -958,7 +981,9 @@ doArgsTyped(int type, int typeSubPtr) {
                     id = IDENT_POINTER;
                     sz = BPW;
                 }
-                AddSymbol(ssname, id, type, sz, argstk, &locptr, AUTOMATIC);
+                // Preserve const qualifier on parameter (stored in CLASS byte).
+                AddSymbol(ssname, id, type, sz, argstk, &locptr,
+                    argConst ? (AUTOMATIC | CONST_FLAG) : AUTOMATIC);
                 if (lastNdim > 1) {
                     cptr[NDIM] = lastNdim;
                     ddentry = storeDimDat(typeSubPtr,
@@ -985,6 +1010,7 @@ doArgsTyped(int type, int typeSubPtr) {
                 error("untyped argument declaration");
                 break;
             }
+            argConst = typeConstFlag;  // capture const flag for this argument
         }
     }
     csp = 0;                       // preset stack ptr
@@ -1259,7 +1285,8 @@ statement() {
     if (ch == 0 && eof) return;
     if (amatch("static", 6)) isStatic = 1;
     if ((type = dotype(&typeSubPtr)) != 0) {
-        declareLocals(type, typeSubPtr, isStatic);
+        // Pass CONST_FLAG in the class so AddSymbol stores it in CLASS byte.
+        declareLocals(type, typeSubPtr, isStatic, typeConstFlag);
         ReqSemicolon();
     }
     else if (isStatic) {
@@ -1359,10 +1386,7 @@ allocPendLoc() {
 // BX has the destination address, AX has the value to store.
 genStore(int elemSz, int isPtr) {
     if (elemSz == BPD) {
-        gen(PUTwp1, 0);
-        gen(ADD2n, BPW);
-        gen(GETw1n, 0);
-        gen(PUTwp1, 0);
+        gen(PUTdp1, 0);
     }
     else if (isPtr || elemSz == BPW) {
         gen(PUTwp1, 0);
@@ -1376,9 +1400,8 @@ genStore(int elemSz, int isPtr) {
 // BX has the destination address, AX is already 0.
 genStoreZero(int elemSz) {
     if (elemSz == BPD) {
-        gen(PUTwp1, 0);
-        gen(ADD2n, BPW);
-        gen(PUTwp1, 0);
+        gen(GETdxn, 0);
+        gen(PUTdp1, 0);
     }
     else if (elemSz == BPW) {
         gen(PUTwp1, 0);
@@ -1926,11 +1949,13 @@ emitStatLoc(int type, int id, int sz) {
 
 // declare local variables
 // isStatic: 1 if the 'static' keyword preceded the type
-declareLocals(int type, int typeSubPtr, int isStatic) {
-    int id, sz, N;
+// isConst:  1 if the 'const' qualifier was on the type (stored in CLASS byte)
+declareLocals(int type, int typeSubPtr, int isStatic, int isConst) {
+    int id, sz, N, lclass;
     char *ddentry, *glbEntry;
     char localName[NAMESIZE];
     char *p, *q;
+    lclass = isConst ? (AUTOMATIC | CONST_FLAG) : AUTOMATIC;
     if (swactive) {
         error("not allowed in switch");
     }
@@ -1957,7 +1982,11 @@ declareLocals(int type, int typeSubPtr, int isStatic) {
             // emit DATA segment label + initializer (or zero-fill)
             emitStatLoc(type, id, sz);
             // add to global table under _L<N> name
-            glbEntry = AddSymbol(ssname, id, type, sz, 0, &glbptr, STATIC);
+            // CONST_FLAG goes on the global entry: after primary() redirects
+            // is[SYMTAB_ADR] to the global entry, the const check in level1()
+            // reads the flag from there.
+            glbEntry = AddSymbol(ssname, id, type, sz, 0, &glbptr,
+                isConst ? (STATIC | CONST_FLAG) : STATIC);
             if (lastNdim > 1) {
                 cptr[NDIM] = lastNdim;
                 ddentry = storeDimDat(typeSubPtr, lastNdim, lastStrides);
@@ -1968,6 +1997,8 @@ declareLocals(int type, int typeSubPtr, int isStatic) {
             }
             // restore short name; add local entry for scoping
             // OFFSET holds the global entry pointer for redirect in primary()
+            // Local entry uses plain STATIC (no CONST_FLAG) so that the
+            // ptr[CLASS]==STATIC redirect detection in primary() still works.
             p = ssname; q = localName;
             while (*q) *p++ = *q++;
             *p = 0;
@@ -1986,7 +2017,8 @@ declareLocals(int type, int typeSubPtr, int isStatic) {
             if ((type >> 2) >= BPD && (declared & 1))
                 declared++;
             declared += sz;
-            AddSymbol(ssname, id, type, sz, csp - declared, &locptr, AUTOMATIC);
+            // lclass carries CONST_FLAG when the variable is const-qualified.
+            AddSymbol(ssname, id, type, sz, csp - declared, &locptr, lclass);
             if (lastNdim > 1) {
                 cptr[NDIM] = lastNdim;
                 ddentry = storeDimDat(typeSubPtr, lastNdim,
