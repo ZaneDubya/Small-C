@@ -352,23 +352,6 @@ char* code[PCODES] = {
 
 //  === code generation functions =============================================
 
-setcodes() {
-    
-}
-
-// debug: dump the code[] array to stderr
-dumpCodes() {
-    int i;
-    i = 0;
-    while (i < PCODES) {
-        if (code[i])
-            fprintf(stderr, "code[%d]=%s\n", i, code[i] + 1);
-        else
-            fprintf(stderr, "code[%d]=(null)\n", i);
-        ++i;
-    }
-}
-
 // print all assembler info before any code is generated
 // and ensure that the segments appear in the correct order.
 header() {

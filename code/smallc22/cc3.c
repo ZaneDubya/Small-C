@@ -16,6 +16,7 @@
 #include "stdio.h"
 #include "cc.h"
 #include "ccstruct.h"
+#include "ccenum.h"
 
 // Starting with level1(), this code places information about the expression
 // under analysis into the is[] and is2[] arrays. These are local arrays of
@@ -568,6 +569,10 @@ level13(int is[]) {
             if (sp == -1) error("unknown struct name");
             else sz = getStructSize(sp);
         }
+        else if (amatch("enum", 4)) {
+            symname(sname);    // consume optional tag name
+            sz = BPW;          // sizeof(enum X) == sizeof(int) == 2
+        }
         else if (symname(sname) &&  
             ((ptr = findloc(sname)) || (ptr = findglb(sname))) &&
             ptr[IDENT] != IDENT_FUNCTION && ptr[IDENT] != IDENT_LABEL) {
@@ -967,6 +972,11 @@ trycast(int is[]) {
         casttype = TYPE_INT;
     else if (amatch("char", 4))
         casttype = TYPE_CHR;
+    else if (amatch("enum", 4)) {
+        char sname[NAMESIZE];
+        symname(sname);      // consume optional tag name
+        casttype = TYPE_INT;
+    }
 
     if (casttype == 0) {
         lptr = saved;
@@ -1052,6 +1062,13 @@ primary(int *is) {
         }
         if (ptr = findglb(sname)) {      // is global
             is[SYMTAB_ADR] = ptr;
+            if (ptr[CLASS] == ENUMCONST) {
+                // enum constant: fold as integer compile-time value
+                is[TYP_CNST] = TYPE_INT;
+                is[VAL_CNST] = getint(ptr + OFFSET, 2);
+                is[SYMTAB_ADR] = is[TYP_OBJ] = is[TYP_ADR] = 0;
+                return 0;
+            }
             if (ptr[IDENT] != IDENT_FUNCTION) {
                 if (ptr[IDENT] == IDENT_ARRAY) {
                     gen(POINT1m, ptr);

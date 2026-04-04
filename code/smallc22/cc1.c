@@ -166,6 +166,7 @@ main(int argc, int *argv) {
     glbptr = STARTGLB;
     dimdatptr = dimdata = calloc(DIMDATSZ, 1);
     initStructs();
+    initEnums();
     availMem = avail(0);
     fprintf(stderr, "  Memory available: %d b\n", availMem);
     if (availMem < 2000) {
@@ -179,7 +180,6 @@ main(int argc, int *argv) {
     openfile();     // and initial input file
     preprocess();   // fetch first line
     header();       // intro code
-    setcodes();     // initialize code pointer array
     parse();        // process ALL input
     trailer();      // follow-up code
     fclose(output); // explicitly close output
@@ -302,6 +302,9 @@ dotype(int *typeSubPtr) {
         if ((*typeSubPtr = getStructPtr()) == -1)
             error("unknown struct name");
         return TYPE_STRUCT;
+    }
+    else if (amatch("enum", 4)) {
+        return doEnum(typeSubPtr);
     }
     return 0;
 }

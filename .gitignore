@@ -11,3 +11,4 @@ emu/stderr.txt
 # Allow
 !/code/bin/*.EXE
 !/code/smalllib/clib/*.ASM
+code/smallc22/DEBUG.TXT

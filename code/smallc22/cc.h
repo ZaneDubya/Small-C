@@ -63,6 +63,7 @@
 #define EXTERNAL  3   // defined globally in another object file
 #define AUTOEXT   4   // function that is not declared but is referenced
 #define STATIC    5   // only visible in this file ("internal linkage")
+#define ENUMCONST 6   // enum constant: integer value stored in OFFSET field
 
 // segment types
 #define DATASEG 1

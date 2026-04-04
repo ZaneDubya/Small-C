@@ -43,10 +43,17 @@ if errorlevel 1 goto exit
 %BIN%\asm ccstruct /p
 if errorlevel 1 goto exit
 
+REM CCENUM
+ECHO === Compiling ccenum.c ===
+%BIN%\cc  ccenum -a -p
+if errorlevel 1 goto exit
+%BIN%\asm ccenum /p
+if errorlevel 1 goto exit
+
 REM LINK
 ECHO === Linking SmallC Compiler ===
 REM %BIN%\link cc1 cc2 cc3 cc4,cc,cc,..\smalllib\clib.lib
-%BIN%\ylink cc1.obj,cc2.obj,cc3.obj,cc4.obj,ccstruct.obj,%LIB%\clib.lib -e=cc.exe -d=debug.txt
+%BIN%\ylink cc1.obj,cc2.obj,cc3.obj,cc4.obj,ccstruct.obj,ccenum.obj,%LIB%\clib.lib -e=cc.exe -d=debug.txt
 if errorlevel 1 goto exit
 
 ECHO Copy cc.exe to %BIN%? [y/n]

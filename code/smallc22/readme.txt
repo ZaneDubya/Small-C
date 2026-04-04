@@ -13,10 +13,9 @@ All rights reserved.
 
 COMPILER VERSION 
 
-This repository contains version 2.3 (revision level 120) of the Small C
-compiler. This version differs from 2.2 primarily in adding support for
-structs, but also includes a number of other enhancements detailed in the
-readme file associated with this repository.
+This repository contains version 2.3 of the Small C compiler. This version
+includes many enhancements detailed in the readme file associated with this
+repository.
 
 This is an enhancement to version 2.2 (revision level 117) of the Small C
 compiler as implemented under DOS 2.1 (and later versions) by James E.

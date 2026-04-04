@@ -220,3 +220,5 @@ Small-C Revision History
     Converted the code[] p-code table in cc4.c from a runtime-populated int
     array (setcodes()) to a static char* array with inline initializers, saving
     3000 bytes of compiled EXE!
+131 Added C90 enum support. Enumerators are named constants backed by int.
+
