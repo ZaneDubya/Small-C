@@ -357,18 +357,18 @@ char* code[PCODES] = {
 void header() {
     needLong = 0;
     toseg(CODESEG);
-    outline("extrn __eq: near");
-    outline("extrn __ne: near");
-    outline("extrn __le: near");
-    outline("extrn __lt: near");
-    outline("extrn __ge: near");
-    outline("extrn __gt: near");
-    outline("extrn __ule: near");
-    outline("extrn __ult: near");
-    outline("extrn __uge: near");
-    outline("extrn __ugt: near");
-    outline("extrn __lneg: near");
-    outline("extrn __switch: near");
+    outlines("extrn __eq: near\n"
+             "extrn __ne: near\n"
+             "extrn __le: near\n"
+             "extrn __lt: near\n"
+             "extrn __ge: near\n"
+             "extrn __gt: near\n"
+             "extrn __ule: near\n"
+             "extrn __ult: near\n"
+             "extrn __uge: near\n"
+             "extrn __ugt: near\n"
+             "extrn __lneg: near\n"
+             "extrn __switch: near");
     outline("dw 0"); // force non-zero code pointers, word alignment
     toseg(DATASEG);
     outline("dw 0"); // force non-zero data pointers, word alignment
@@ -387,27 +387,27 @@ void trailer() {
         external("_main", 0, IDENT_FUNCTION);
     if (needLong) {
         toseg(CODESEG);
-        outline("extrn __lmul: near");
-        outline("extrn __ulmul: near");
-        outline("extrn __ldiv: near");
-        outline("extrn __uldiv: near");
-        outline("extrn __lmod: near");
-        outline("extrn __ulmod: near");
-        outline("extrn __lshl: near");
-        outline("extrn __lsar: near");
-        outline("extrn __lshr: near");
-        outline("extrn __leq: near");
-        outline("extrn __lne: near");
-        outline("extrn __llt: near");
-        outline("extrn __lle: near");
-        outline("extrn __lgt: near");
-        outline("extrn __lge: near");
-        outline("extrn __ullt: near");
-        outline("extrn __ulle: near");
-        outline("extrn __ulgt: near");
-        outline("extrn __ulge: near");
-        outline("extrn __llneg: near");
-        outline("extrn __lswitch: near");
+        outlines("extrn __lmul: near\n"
+                 "extrn __ulmul: near\n"
+                 "extrn __ldiv: near\n"
+                 "extrn __uldiv: near\n"
+                 "extrn __lmod: near\n"
+                 "extrn __ulmod: near\n"
+                 "extrn __lshl: near\n"
+                 "extrn __lsar: near\n"
+                 "extrn __lshr: near\n"
+                 "extrn __leq: near\n"
+                 "extrn __lne: near\n"
+                 "extrn __llt: near\n"
+                 "extrn __lle: near\n"
+                 "extrn __lgt: near\n"
+                 "extrn __lge: near\n"
+                 "extrn __ullt: near\n"
+                 "extrn __ulle: near\n"
+                 "extrn __ulgt: near\n"
+                 "extrn __ulge: near\n"
+                 "extrn __llneg: near\n"
+                 "extrn __lswitch: near");
     }
     toseg(NULL);
     outline("END");
@@ -844,6 +844,16 @@ void outdec(int number) {
 void outline(char ptr[]) {
     outstr(ptr);
     newline();
+}
+
+// output multiple lines from a single string; segments separated by '\n'
+void outlines(char *s) {
+    while (*s) {
+        outstr(s);
+        while (*s >= ' ') s++;
+        newline();
+        if (*s == '\n') s++;
+    }
 }
 
 void outname(char ptr[]) {
