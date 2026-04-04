@@ -430,5 +430,7 @@
 
 // 32-bit switch dispatch
 #define LSWITCHd 174  // CALL __lswitch
+#define POPCX   175   // POP CX           (replaces ADD SP,2)
+#define POPCX2  176   // POP CX / POP CX  (replaces ADD SP,4)
 
-#define PCODES  175   // size of code[]
+#define PCODES  177   // size of code[]

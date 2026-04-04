@@ -347,7 +347,10 @@ char* code[PCODES] = {
     /* 172 EQd10f     */ "\030OR AX,DX\nJE $+5\nJMP _<n>\n",
     /* 173 NEd10f     */ "\030OR AX,DX\nJNE $+5\nJMP _<n>\n",
     /* 32-bit switch dispatch */
-    /* 174 LSWITCHd   */ "\012CALL __lswitch\n"
+    /* 174 LSWITCHd   */ "\012CALL __lswitch\n",
+    /* stack cleanup via POPs */
+    /* 175 POPCX      */ "\000POP CX\n",
+    /* 176 POPCX2     */ "\000POP CX\nPOP CX\n"
 };
 
 //  === code generation functions =============================================
@@ -478,6 +481,10 @@ void gen(int pcode, int value) {
             newcsp = value;
             value -= csp;
             csp = newcsp;
+            if (pcode == ADDSP) {
+                if      (value == BPW) pcode = POPCX;
+                else if (value == BPD) pcode = POPCX2;
+            }
             break;
         case MULd12:  case MULd12u:
         case ASLd12:  case ASRd12:  case ASRd12u:
