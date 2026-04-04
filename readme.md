@@ -27,6 +27,7 @@ Enhancements from Small-C Version 2.2:
 * Support for pointer arrays.
 * Support for multi-dimensional arrays (and initialization).
 * New peephole optimizations.
+* Support for C90 type qualifiers: const (compile-time enforced), signed, short, volatile, register.
 
 ## Small-Assembler
 Version 1.2, Revision Level 14

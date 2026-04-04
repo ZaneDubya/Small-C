@@ -239,6 +239,12 @@ level1(int is[]) {
         error("lvalue cannot be assigned");
         return 0;
     }
+    // Reject assignment to a const-qualified variable.
+    lhsPtr = is[SYMTAB_ADR];
+    if (lhsPtr && lhsPtr[CLASS] & CONST_FLAG) {
+        error("cannot assign to const variable");
+        return 0;
+    }
     is3[SYMTAB_ADR] = is[SYMTAB_ADR];
     is3[TYP_OBJ] = is[TYP_OBJ];
     // Struct-to-struct deep copy
@@ -464,12 +470,22 @@ level13(int is[]) {
             needlval();
             return 0;
         }
+        ptr = is[SYMTAB_ADR];
+        if (ptr && ptr[CLASS] & CONST_FLAG) {
+            error("cannot modify const variable");
+            return 0;
+        }
         step(rINC1, is, 0);
         return 0;
     }
     else if (IsMatch("--")) {            // --lval
         if (level13(is) == 0) {
             needlval();
+            return 0;
+        }
+        ptr = is[SYMTAB_ADR];
+        if (ptr && ptr[CLASS] & CONST_FLAG) {
+            error("cannot modify const variable");
             return 0;
         }
         step(rDEC1, is, 0);
@@ -541,6 +557,10 @@ level13(int is[]) {
             p = 0;
         }
         sz = 0;
+        // Consume qualifiers that do not affect object size.
+        if (amatch("const", 5))    ;
+        if (amatch("volatile", 8)) ;
+        if (amatch("signed", 6))   { sz = BPW; }  // signed alone == int (2 bytes)
         if (amatch("unsigned", 8)) {
             sz = BPW;
             if (amatch("long", 4)) {
@@ -548,7 +568,12 @@ level13(int is[]) {
                 amatch("int", 3);
             }
         }
-        if (amatch("long", 4)) {
+        // short == int on 8086 (both 16-bit)
+        if (amatch("short", 5)) {
+            amatch("int", 3);
+            if (sz == 0) sz = BPW;  // unsigned short still BPW
+        }
+        else if (amatch("long", 4)) {
             sz = BPD;
             amatch("int", 3);
         }
@@ -615,12 +640,22 @@ level13(int is[]) {
                 needlval();
                 return 0;
             }
+            ptr = is[SYMTAB_ADR];
+            if (ptr && ptr[CLASS] & CONST_FLAG) {
+                error("cannot modify const variable");
+                return 0;
+            }
             step(rINC1, is, rDEC1);
             return 0;
         }
         else if (IsMatch("--")) {          // lval--
             if (k == 0) {
                 needlval();
+                return 0;
+            }
+            ptr = is[SYMTAB_ADR];
+            if (ptr && ptr[CLASS] & CONST_FLAG) {
+                error("cannot modify const variable");
                 return 0;
             }
             step(rDEC1, is, rINC1);
@@ -907,11 +942,17 @@ applycast(int casttype, int is[]) {
             && is[TYP_CNST] >> 2 == BPD) {
             // Narrow from 32-bit
             is[VAL_CNST_HI] = 0;
-            if (dstSize == 1)
+            if (dstSize == 1) {
                 is[VAL_CNST] = is[VAL_CNST] & 255;
+                if (!(casttype & IS_UNSIGNED) && (is[VAL_CNST] & 0x80))
+                    is[VAL_CNST] = is[VAL_CNST] | ~255;
+            }
         }
         else if (dstSize == 1) {
             is[VAL_CNST] = is[VAL_CNST] & 255;
+            // Sign-extend if target is signed char: e.g. (char)-1 == -1, not 255
+            if (!(casttype & IS_UNSIGNED) && (is[VAL_CNST] & 0x80))
+                is[VAL_CNST] = is[VAL_CNST] | ~255;
             is[VAL_CNST_HI] = 0;
         }
         is[TYP_CNST] = casttype;
@@ -945,14 +986,32 @@ applycast(int casttype, int is[]) {
 // treat '(' as start of parenthesized subexpression).
 trycast(int is[]) {
     char *saved;
-    int  sc, snc, casttype;
+    int  sc, snc, casttype, isUnsigned, isSigned, isShort;
 
     saved = lptr;
     sc = ch;
     snc = nch;
     casttype = 0;
+    isUnsigned = isSigned = isShort = 0;
 
-    if (amatch("unsigned", 8)) {
+    // Consume const/volatile qualifiers: they do not affect the cast value.
+    // "signed"/"unsigned"/"short" modify the target type.
+    // "register"/"auto" are accepted as no-ops (unusual in a cast but legal).
+    for (;;) {
+        if (amatch("const", 5))        { /* no-op in cast */ }
+        else if (amatch("volatile", 8)){ /* no-op in cast */ }
+        else if (amatch("signed", 6))  { isSigned   = 1; }
+        else if (amatch("unsigned", 8)){ isUnsigned  = 1; }
+        else if (amatch("short", 5))   { isShort     = 1; }
+        else break;
+    }
+
+    // short [int] -- on 8086 short == int
+    if (isShort) {
+        amatch("int", 3);
+        casttype = isUnsigned ? TYPE_UINT : TYPE_INT;
+    }
+    else if (isUnsigned) {
         if (amatch("long", 4)) {
             amatch("int", 3);
             casttype = TYPE_ULONG;
@@ -962,6 +1021,19 @@ trycast(int is[]) {
         else {
             amatch("int", 3);
             casttype = TYPE_UINT;
+        }
+    }
+    else if (isSigned) {
+        // signed is default; just determine the base type
+        if (amatch("char", 4))
+            casttype = TYPE_CHR;
+        else if (amatch("long", 4)) {
+            amatch("int", 3);
+            casttype = TYPE_LONG;
+        }
+        else {
+            amatch("int", 3);
+            casttype = TYPE_INT;
         }
     }
     else if (amatch("long", 4)) {
@@ -1015,7 +1087,7 @@ primary(int *is) {
                 experr();
                 return 0;
             }
-            if (ptr[CLASS] == STATIC) {
+            if ((ptr[CLASS] & 0x7F) == STATIC) {
                 // static local: redirect to the global symbol table entry
                 // stored in the OFFSET field of the local entry
                 ptr = getint(ptr + OFFSET, 2);
@@ -1062,7 +1134,7 @@ primary(int *is) {
         }
         if (ptr = findglb(sname)) {      // is global
             is[SYMTAB_ADR] = ptr;
-            if (ptr[CLASS] == ENUMCONST) {
+            if ((ptr[CLASS] & 0x7F) == ENUMCONST) {
                 // enum constant: fold as integer compile-time value
                 is[TYP_CNST] = TYPE_INT;
                 is[VAL_CNST] = getint(ptr + OFFSET, 2);
@@ -1763,7 +1835,7 @@ down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
             ClearStage(before, 0);          // discard the PUSH
             if (eitherLong) {
                 if (!leftLong)
-                    gen(WIDENs, 0);     // widen left in DX:AX
+                    widen_primary(is);  // widen left in DX:AX
                 if (oper == ADD12 || oper == ADDd12) {
                     // commutative: left stays in DX:AX
                     gen(GETw2n, is2[VAL_CNST]);
