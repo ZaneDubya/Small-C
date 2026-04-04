@@ -2134,13 +2134,14 @@ dowhile() {
 }
 
 dodo() {
-    int wq[4];
+    int wq[4], top;
     addwhile(wq);
-    gen(LABm, wq[WQLOOP]);
+    gen(LABm, top = getlabel());
     statement();
     Require("while");
+    gen(LABm, wq[WQLOOP]);
     GenTestAndJmp(wq[WQEXIT], YES);
-    gen(JMPm, wq[WQLOOP]);
+    gen(JMPm, top);
     gen(LABm, wq[WQEXIT]);
     delwhile();
     ReqSemicolon();
