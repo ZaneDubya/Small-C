@@ -3,7 +3,7 @@
 ** utoi -- convert unsigned decimal string to integer nbr
 **          returns field size, else ERR on error
 */
-utoi(decstr, nbr)  char *decstr;  int *nbr;  {
+int utoi(char *decstr, int *nbr) {
   int d,t; d=0;
   *nbr=0;
   while((*decstr>='0')&(*decstr<='9')) {

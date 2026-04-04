@@ -40,7 +40,7 @@ extern int
 
 // === input functions ========================================================
 
-preprocess() {
+void preprocess() {
     int k;
     char c;
     if (ccode) {
@@ -145,13 +145,13 @@ preprocess() {
     bump(0);
 }
 
-keepch(char c) {
+void keepch(char c) {
     if (pptr < LINEMAX) {
       pline[++pptr] = c;
     }
 }
 
-ifline() {
+void ifline() {
     while (1) {
         doInline();
         if (eof) return;
@@ -194,7 +194,7 @@ ifline() {
     }
 }
 
-doInline() {
+void doInline() {
     int k, unit;
     poll(1);           // allow operator interruption
     if (input == EOF)
@@ -203,6 +203,7 @@ doInline() {
         return;
     if ((unit = input2) == EOF)
         unit = input;
+    line[LINEMAX - 2] = '\n';  // sentinel: fgets overwrites only if buffer fills
     if (fgets(line, LINEMAX, unit) == NULL) {
         fclose(unit);
         if (input2 != EOF)
@@ -212,8 +213,20 @@ doInline() {
         *line = NULL;
     }
     else {
-        if (input2 != EOF) ++inclno;
-        else                ++lineno;
+        if (input2 != EOF) {
+            ++inclno;
+        }
+        else {
+            ++lineno;
+        }
+        // If the buffer filled without a newline the physical line was longer
+        // than LINEMAX-1.  Drain the remainder so the next read starts on a
+        // fresh line, then report the error exactly once.
+        if (line[LINEMAX - 2] != '\n' && line[LINEMAX - 2] != '\0') {
+            int c;
+            while ((c = fgetc(unit)) != '\n' && c != EOF) ;
+            error("line too long");
+        }
         if (listfp) {
             if (listfp == output)
                 fputc(';', output);
@@ -223,7 +236,7 @@ doInline() {
     bump(0);
 }
 
-inbyte() {
+int inbyte() {
     while (ch == 0) {
         if (eof) return 0;
         preprocess();
@@ -233,7 +246,7 @@ inbyte() {
 
 // === scanning functions =====================================================
 
-isreserved(char *name) {
+int isreserved(char *name) {
     int k;
     k = 0;
     while (keywords[k]) {
@@ -245,7 +258,7 @@ isreserved(char *name) {
 }
 
 // test if next input string is legal symbol name
-symname(char *sname) {
+int symname(char *sname) {
     int k;
     blanks();
     if (alpha(ch) == 0) {
@@ -262,13 +275,13 @@ symname(char *sname) {
     return 1;
 }
 
-Require(char *str)  {
+void Require(char *str)  {
     if (IsMatch(str) == 0) {
         error("missing token");
     }
 }
 
-ReqSemicolon() {
+void ReqSemicolon() {
     if (IsMatch(";") == 0) {
         error("no semicolon");
     }
@@ -277,7 +290,7 @@ ReqSemicolon() {
     }
 }
 
-IsMatch(char *lit) {
+int IsMatch(char *lit) {
     int k;
     blanks();
     if (k = streq(lptr, lit)) {
@@ -287,7 +300,7 @@ IsMatch(char *lit) {
     return 0;
 }
 
-streq(char str1[], char str2[]) {
+int streq(char str1[], char str2[]) {
     int k;
     k = 0;
     while (str2[k]) {
@@ -299,7 +312,7 @@ streq(char str1[], char str2[]) {
     return k;
 }
 
-amatch(char *lit, int len) {
+int amatch(char *lit, int len) {
     int k;
     blanks();
     if (k = astreq(lptr, lit, len)) {
@@ -309,7 +322,7 @@ amatch(char *lit, int len) {
     return 0;
 }
 
-astreq(char str1[], char str2[], int len) {
+int astreq(char str1[], char str2[], int len) {
     int k;
     k = 0;
     while (k < len) {
@@ -326,7 +339,7 @@ astreq(char str1[], char str2[], int len) {
     return k;
 }
 
-nextop(char *list) {
+int nextop(char *list) {
     char op[4];
     opindex = 0;
     blanks();
@@ -346,7 +359,7 @@ nextop(char *list) {
     }
 }
 
-blanks() {
+void blanks() {
     while (1) {
         while (ch) {
             if (white()) gch();
@@ -358,29 +371,29 @@ blanks() {
     }
 }
 
-white() {
+int white() {
     avail(YES);  // abort on stack/symbol table overflow
     return (*lptr <= ' ' && *lptr);
 }
 
-gch() {
+int gch() {
     int c;
     if (c = ch) bump(1);
     return c;
 }
 
-bump(n) int n; {
+void bump(int n) {
     if (n) lptr += n;
     else  lptr = line;
     if (ch = nch = *lptr) nch = *(lptr + 1);
 }
 
-kill() {
+void kill() {
     *line = 0;
     bump(0);
 }
 
-skip() {
+void skip() {
     if (an(inbyte()))
         while (an(ch)) gch();
     else while (an(ch) == 0) {
@@ -390,7 +403,7 @@ skip() {
     blanks();
 }
 
-endst() {
+int endst() {
     blanks();
     return (streq(lptr, ";") || ch == 0);
 }
@@ -400,7 +413,7 @@ endst() {
 // Store dimension metadata for a multi-dim array.
 // Entry format: [structPtr(2)] [stride_0(2)] ... [stride_{ndim-2}(2)]
 // Returns pointer to start of entry in dimdata[].
-storeDimDat(int sptr, int ndim, int strides[]) {
+int storeDimDat(int sptr, int ndim, int strides[]) {
     char *entry;
     int i, sz;
     sz = ndim * 2;
@@ -423,7 +436,7 @@ storeDimDat(int sptr, int ndim, int strides[]) {
 // Get struct def pointer from symbol, handling dimdata indirection.
 // If ndim > 1, first 2 bytes of dimdata entry hold struct def ptr.
 // Otherwise, CLASSPTR is the struct def ptr directly.
-getClsPtr(char *sym) {
+int getClsPtr(char *sym) {
     if (sym[NDIM] > 1)
         return getint(getint(sym + CLASSPTR, 2), 2);
     return getint(sym + CLASSPTR, 2);
@@ -431,7 +444,7 @@ getClsPtr(char *sym) {
 
 // Get stride for dimension idx from a multi-dim symbol's dimdata.
 // idx 0 = outermost stride (row size in bytes for 2D).
-getDimStride(char *sym, int idx) {
+int getDimStride(char *sym, int idx) {
     char *entry;
     entry = getint(sym + CLASSPTR, 2);
     return getint(entry + 2 + idx * 2, 2);
@@ -439,7 +452,7 @@ getDimStride(char *sym, int idx) {
 
 // === symbol table management functions ======================================
 
-AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class) {
+int AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class) {
     if (lgpp == &glbptr) {
         if (cptr2 = findglb(sname)) {
             return cptr2;
@@ -482,7 +495,7 @@ AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int 
 // end: end of table of strings
 // max: max count of strings in table
 // off: ???
-FindSymbol(char *sname, char *buf, int len, char *end, int max, int off, int namelen) {
+int FindSymbol(char *sname, char *buf, int len, char *end, int max, int off, int namelen) {
     unsigned int ihash, imax;
     imax = (max - 1);
     ihash = hash(sname) % imax;
@@ -498,7 +511,7 @@ FindSymbol(char *sname, char *buf, int len, char *end, int max, int off, int nam
     return 0;
 }
 
-hash(char *sname) {
+int hash(char *sname) {
     unsigned int i, c;
     i = 0;
     while (c = *sname++)
@@ -506,13 +519,13 @@ hash(char *sname) {
     return i;
 }
 
-findglb(char *sname) {
+int findglb(char *sname) {
     if (FindSymbol(sname, STARTGLB, SYMMAX, ENDGLB, NUMGLBS, NAME, SYMMAX - NAME))
         return cptr;
     return 0;
 }
 
-findloc(char *sname)  {
+int findloc(char *sname)  {
     cptr = locptr - 1;  // FindSymbol backward for block locals
     while (cptr > STARTLOC) {
         cptr = cptr - *cptr;
@@ -522,7 +535,7 @@ findloc(char *sname)  {
     return 0;
 }
 
-nextsym(char *entry) {
+int nextsym(char *entry) {
     entry = entry + NAME;
     while (*entry++ >= ' ');    // find length byte
     return entry;
@@ -530,7 +543,7 @@ nextsym(char *entry) {
 
 // === while queue management functions =======================================
 
-addwhile(int ptr[]) {
+void addwhile(int ptr[]) {
     int k;
     ptr[WQSP] = csp;         // and stk ptr
     ptr[WQLOOP] = getlabel();  // and looping label
@@ -543,7 +556,7 @@ addwhile(int ptr[]) {
     while (k < WQSIZ) *wqptr++ = ptr[k++];
 }
 
-readwhile(int *ptr) {
+int readwhile(int *ptr) {
     if (ptr <= wq) {
         error("out of context");
         return 0;
@@ -551,30 +564,30 @@ readwhile(int *ptr) {
     else return (ptr - WQSIZ);
 }
 
-delwhile() {
+void delwhile() {
     if (wqptr > wq) wqptr -= WQSIZ;
 }
 
 // === utility functions ======================================================
 
 // test if c is alphabetic
-alpha(char c) {
+int alpha(char c) {
     return (isalpha(c) || c == '_');
 }
 
 // test if given character is alphanumeric
-an(char c) {
+int an(char c) {
     return (alpha(c) || isdigit(c));
 }
 
 // return next avail internal label number
-getlabel() {
+int getlabel() {
     return(++nxtlab);
 }
 
 // get integer of length len from address addr
 // (byte sequence set by "putint")
-getint(char *addr, int len) {
+int getint(char *addr, int len) {
     int i;
     i = *(addr + --len);  // high order byte sign extended
     while (len--) i = (i << 8) | *(addr + len) & 255;
@@ -583,68 +596,69 @@ getint(char *addr, int len) {
 
 // put integer i of length len into address addr
 // (low byte first)
-putint(int i, char *addr, int len) {
+void putint(int i, char *addr, int len) {
     while (len--) {
         *addr++ = i;
         i = i >> 8;
     }
 }
 
-lout(char *line, int fd) {
+void lout(char *line, int fd) {
     fputs(line, fd);
     fputc(NEWLINE, fd);
 }
 
 // === error functions ========================================================
 
-illname() {
+void illname() {
     error("illegal symbol");
     skip();
 }
 
-multidef(char *sname) {
+void multidef(char *sname) {
     error("already defined");
 }
 
-needlval() {
+void needlval() {
     error("must be lvalue");
 }
 
-noiferr() {
+void noiferr() {
     error("no matching #if...");
     errflag = 0;
 }
 
-error(char msg[]) {
+void error(char msg[]) {
+    char *path;
+    int   ln;
     if (errflag) {
         return;
     }
     else {
         errflag = 1;
     }
-    if (input2 != EOF)
-        fprintf(stderr, "%s(%d) ", inclfn, inclno);
-    else
-        fprintf(stderr, "%s(%d) ", infn, lineno);
+    if (input2 != EOF) { path = inclfn; ln = inclno; }
+    else               { path = infn;   ln = lineno; }
     lout(line, stderr);
-    errout(msg, stderr);
+    errout(msg, stderr, path, ln);
     if (alarm) fputc(7, stderr);
     if (pause) while (fgetc(stderr) != NEWLINE);
-    if (listfp > 0) errout(msg, listfp);
+    if (listfp > 0) errout(msg, listfp, path, ln);
 }
 
-errout(char msg[], int fp) {
+void errout(char msg[], int fp, char *path, int ln) {
     int k;
     k = line + 2;
     while (k++ <= lptr) {
         fputc(' ', fp);
     }
     lout("/\\", fp);
-    fputs("Error: ", fp); 
+    fputs("Error at ", fp);
+    fprintf(fp, "%s(%d): ", path, ln);
     lout(msg, fp);
 }
 
-warning(char msg[]) {
+void warning(char msg[]) {
     if (nowarn) return;
     warncount++;
     if (input2 != EOF)

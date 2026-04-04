@@ -43,7 +43,7 @@ char
 **             25                     6
 **             50                     6
 */
-_main() {
+void _main() {
   int fd;
   _parse();
   for(fd = 0; fd < MAXFILES; ++fd) auxbuf(fd, 32);
@@ -57,7 +57,7 @@ _main() {
 ** Parse command line and setup argc and argv.
 ** Must be executed with es == psp
 */
-_parse() {
+void _parse() {
   char *ptr;
 #asm
   mov     cl,es:[80h]  ; get parameter string length
@@ -99,7 +99,7 @@ _parse() {
 /*
 ** Open file on specified fd.
 */
-_open(fn, mode, fd) char *fn, *mode; int *fd; {
+int _open(char *fn, char *mode, int *fd) {
   int rw, tfd;
   switch(mode[0]) {
     case 'r': {
@@ -135,7 +135,7 @@ _open(fn, mode, fd) char *fn, *mode; int *fd; {
 /*
 ** Binary-stream input of one byte from fd.
 */
-_read(fd) int fd; {
+int _read(int fd) {
   unsigned char ch;
   if(_nextc[fd] != EOF) {
     ch = _nextc[fd];
@@ -154,7 +154,7 @@ _read(fd) int fd; {
 /*
 ** Fill buffer if necessary, and return next byte.
 */
-_readbuf(fd) int fd; {
+int _readbuf(int fd) {
   int got, chunk;
   char *ptr, *max;
   if(_bufuse[fd] == OUT && _flush(fd)) return (EOF);
@@ -178,7 +178,7 @@ _readbuf(fd) int fd; {
 /*
 ** Binary-Stream output of one byte to fd.
 */
-_write(ch, fd) int ch, fd; {
+int _write(int ch, int fd) {
   if(_bufuse[fd]) return(_writebuf(ch, fd));
   if(_bdos2(WRITE<<8, fd, 1, &ch) != 1) {
     _seterr(fd);
@@ -190,7 +190,7 @@ _write(ch, fd) int ch, fd; {
 /*
 ** Empty buffer if necessary, and store ch in buffer.
 */
-_writebuf(ch, fd) int ch, fd; {
+int _writebuf(int ch, int fd) {
   char *ptr;
   if(_bufuse[fd] == IN && _backup(fd)) return (EOF);
   while(YES) {
@@ -209,7 +209,7 @@ _writebuf(ch, fd) int ch, fd; {
 ** Flush buffer to DOS if dirty buffer.
 ** Reset buffer pointers in any case.
 */
-_flush(fd) int fd; {
+int _flush(int fd) {
   int i, j, k, chunk;
   if(_bufuse[fd] == OUT) {
     i = _bufnxt[fd] - _bufptr[fd];
@@ -229,7 +229,7 @@ _flush(fd) int fd; {
 /*
 ** Adjust DOS file position to current point.
 */
-_adjust(fd) int fd; {
+int _adjust(int fd) {
   if(_bufuse[fd] == OUT) return (_flush(fd));
   if(_bufuse[fd] == IN ) return (_backup(fd));
   return (NULL);
@@ -238,7 +238,7 @@ _adjust(fd) int fd; {
 /*
 ** Backup DOS file position to current point.
 */
-_backup(fd) int fd; {
+int _backup(int fd) {
   int hi, lo;
   if(lo = _bufnxt[fd] - _bufend[fd]) {
     hi = -1;
@@ -254,7 +254,7 @@ _backup(fd) int fd; {
 /*
 ** Set buffer controls to empty status.
 */
-_empty(fd, mt) int fd, mt; {
+void _empty(int fd, int mt) {
   _bufnxt[fd] = _bufend[fd] = _bufptr[fd];
   _bufeof[fd] = NO;
   if(mt) _bufuse[fd] = EMPTY;
@@ -263,7 +263,7 @@ _empty(fd, mt) int fd, mt; {
 /*
 ** Return fd's open mode, else NULL.
 */
-_mode(fd) char *fd; {
+int _mode(char *fd) {
   if(fd < MAXFILES) return (_status[fd]);
   return (NULL);
   }
@@ -271,28 +271,28 @@ _mode(fd) char *fd; {
 /*
 ** Set eof status for fd and
 */
-_seteof(fd) int fd; {
+void _seteof(int fd) {
   _status[fd] |= EOFBIT;
   }
 
 /*
 ** Clear eof status for fd.
 */
-_clreof(fd) int fd; {
+void _clreof(int fd) {
   _status[fd] &= ~EOFBIT;
   }
 
 /*
 ** Set error status for fd.
 */
-_seterr(fd) int fd; {
+void _seterr(int fd) {
   _status[fd] |= ERRBIT;
   }
 
 /*
 ** Clear error status for fd.
 */
-_clrerr(fd) int fd; {
+void _clrerr(int fd) {
   _status[fd] &= ~ERRBIT;
   }
 
@@ -303,7 +303,7 @@ _clrerr(fd) int fd; {
 ** Returns the address of the allocated block of memory
 ** or NULL if the requested amount of space is not available.
 */
-_alloc(n, clear) unsigned n, clear; {
+int _alloc(unsigned n, unsigned clear) {
   char *oldptr;
   if(n < avail(YES)) {
     if(clear) pad(_memptr, NULL, n);
@@ -319,7 +319,7 @@ _alloc(n, clear) unsigned n, clear; {
 ** Entry: ax = function code and sub-function
 **        bx, cx, dx = other parameters
 */
-_bdos2(ax, bx, cx, dx) int ax, bx, cx, dx; {
+void _bdos2(int ax, int bx, int cx, int dx) {
 #asm
   push bx         ; preserve secondary register
   mov  dx,[bp+4]
@@ -337,7 +337,7 @@ __bdos21:
 /*
 ** Issue LSEEK call
 */
-_seek(org, fd, hi, lo) int org, fd, hi, lo; {
+int _seek(int org, int fd, int hi, int lo) {
 #asm
   push bx         ; preserve secondary register
   mov  bx,[bp+4]
@@ -365,7 +365,7 @@ __seek2:
 /*
 ** Test for keyboard input
 */
-_hitkey() {
+int _hitkey() {
 #asm
   mov  ah,1       ; sub-service = test keyboard
   int  16h        ; call bdos keyboard services
@@ -381,7 +381,7 @@ __hit2:
 /*
 ** Return next keyboard character
 */
-_getkey() {
+void _getkey() {
 #asm
   mov  ah,0       ; sub-service = read keyboard
   int  16h        ; call bdos keyboard services

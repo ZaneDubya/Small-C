@@ -7,7 +7,7 @@
 /*
 ** is ch at end of line?
 */
-atend(ch) int ch; {
+int atend(int ch) {
   switch(ch) {
     case COMMENT:
     case NULL:
@@ -21,7 +21,7 @@ atend(ch) int ch; {
 /*
 ** are fields s and t the same?
 */
-same(s, t) char *s, *t; {
+int same(char *s, char *t) {
   while(lexorder(*s, *t) == 0) {
     if(!isgraph(*s)) return (YES);
     ++s; ++t;
@@ -34,7 +34,7 @@ same(s, t) char *s, *t; {
 /*
 ** find nth white-space-separated field in str
 */
-skip(n, str) int n; char *str; {
+int skip(int n, char *str) {
   loop:
   while(*str && isspace(*str)) ++str;
   if(--n) {

@@ -3,7 +3,7 @@
 */
 #include <stdio.h>
 
-waiting() {
+void waiting() {
   fputs("\nWaiting...", stderr);
   fgetc(stderr);
   }

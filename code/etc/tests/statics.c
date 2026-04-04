@@ -21,7 +21,7 @@ int passed, failed;
 // Test helper
 // ============================================================================
 
-check(char *desc, int cond) {
+void check(char *desc, int cond) {
     if (cond) {
         printf("  PASS: %s\n", desc);
         passed++;
@@ -68,7 +68,7 @@ static long gs_long_arr_i[3] = {1, 2, 3};
 // Test: sizeof static global types
 // ============================================================================
 
-test_sizeof_static() {
+void test_sizeof_static() {
     printf("--- sizeof static global types ---\n");
 
     check("sizeof(gs_int) == 2",          sizeof(gs_int)  == 2);
@@ -91,7 +91,7 @@ test_sizeof_static() {
 // Test: global static zero initialization (uninitialized statics == 0)
 // ============================================================================
 
-test_g_zeroinit() {
+void test_g_zeroinit() {
     int i;
     int *p;
     printf("--- global static zero initialization ---\n");
@@ -138,7 +138,7 @@ test_g_zeroinit() {
 // Test: global static initialized scalars
 // ============================================================================
 
-test_g_initscalar() {
+void test_g_initscalar() {
     int *p;
     printf("--- global static initialized scalars ---\n");
 
@@ -163,7 +163,7 @@ test_g_initscalar() {
 // Test: global static initialized arrays
 // ============================================================================
 
-test_g_initarray() {
+void test_g_initarray() {
     int *p;
     printf("--- global static initialized arrays ---\n");
 
@@ -195,7 +195,7 @@ test_g_initarray() {
 // Test: global static mutation (write then read back)
 // ============================================================================
 
-test_g_mut() {
+void test_g_mut() {
     int *p;
     printf("--- global static mutation ---\n");
 
@@ -230,7 +230,7 @@ test_g_mut() {
 // Test: pointer to global static variable
 // ============================================================================
 
-test_g_ptr() {
+void test_g_ptr() {
     int *pi;
     char *pc;
     long *pl;
@@ -301,7 +301,7 @@ long long_init_once() {
 // Test: local static int -- persistence and zero initialization
 // ============================================================================
 
-test_l_int_persist() {
+void test_l_int_persist() {
     printf("--- local static int: persistence ---\n");
 
     check("count_int() call 1 == 1", count_int() == 1);
@@ -311,7 +311,7 @@ test_l_int_persist() {
     check("count_int() call 5 == 5", count_int() == 5);
 }
 
-test_l_int_zeroinit() {
+void test_l_int_zeroinit() {
     printf("--- local static int: zero initialization ---\n");
 
     // accum_int starts at 0 (no initializer), then accumulates
@@ -324,7 +324,7 @@ test_l_int_zeroinit() {
 // Test: local static char
 // ============================================================================
 
-test_l_ch_persist() {
+void test_l_ch_persist() {
     printf("--- local static char: persistence ---\n");
 
     // count_char starts at 10, increments each call
@@ -337,7 +337,7 @@ test_l_ch_persist() {
 // Test: local static unsigned int
 // ============================================================================
 
-test_l_uint_persist() {
+void test_l_uint_persist() {
     int *p;
     int v;
     printf("--- local static unsigned int: persistence ---\n");
@@ -355,7 +355,7 @@ test_l_uint_persist() {
 // Test: local static long -- persistence and initializer
 // ============================================================================
 
-test_l_l_persist() {
+void test_l_l_persist() {
     long r;
     int *p;
     printf("--- local static long: persistence ---\n");
@@ -380,7 +380,7 @@ test_l_l_persist() {
     check("count_long() call 3 hi == 3",     *(p + 1) == 3);
 }
 
-test_l_l_initonce() {
+int test_l_l_initonce() {
     long r;
     int *p;
     printf("--- local static long: initializer applied once ---\n");
@@ -420,7 +420,7 @@ long s_long_arr_read(int idx) {
     return larr[idx];
 }
 
-test_l_arr_init() {
+void test_l_arr_init() {
     printf("--- local static array: initialized ---\n");
 
     check("static arr[0] == 10", s_int_arr_read(0) == 10);
@@ -433,7 +433,7 @@ test_l_arr_init() {
     check("static arr[2] still 30", s_int_arr_read(2) == 30);
 }
 
-test_l_arr_zeroinit() {
+void test_l_arr_zeroinit() {
     printf("--- local static array: zero initialized ---\n");
 
     check("static arr2[0] == 0 (before write)", s_int_arr_write(0, 55) == 55);
@@ -441,7 +441,7 @@ test_l_arr_zeroinit() {
     check("static arr2[0] == 55 (after write, re-read)", s_int_arr_write(0, 55) == 55);
 }
 
-test_l_l_arr() {
+void test_l_l_arr() {
     long r;
     int *p;
     printf("--- local static long array ---\n");
@@ -462,7 +462,7 @@ test_l_l_arr() {
 // ============================================================================
 
 // Function with several static locals of different types
-multi_static_helper(int bump) {
+void multi_static_helper(int bump) {
     static int   si  = 100;
     static char  sc  = 10;
     static long  sl  = 70000;
@@ -472,7 +472,7 @@ multi_static_helper(int bump) {
     printf("  si=%d sc=%d\n", si, sc);
 }
 
-test_multi_static() {
+void test_multi_static() {
     int *p;
     printf("--- multiple static locals in one function ---\n");
 
@@ -504,7 +504,7 @@ int scope_b() {
     return count;
 }
 
-test_l_scope_independence() {
+void test_l_scope_independence() {
     printf("--- static local scope independence ---\n");
 
     check("scope_a() call 1 == 1",  scope_a() == 1);
@@ -526,7 +526,7 @@ long get_uninit_long() {
     return ul;
 }
 
-test_l_l_zeroinit() {
+void test_l_l_zeroinit() {
     long r;
     int *p;
     printf("--- local static long: zero initialization ---\n");
@@ -546,7 +546,7 @@ char get_static_char(int idx) {
     return ca[idx];
 }
 
-test_l_ch_arr_zeroinit() {
+void test_l_ch_arr_zeroinit() {
     int i;
     printf("--- local static char array: zero initialized ---\n");
 
@@ -567,7 +567,7 @@ unsigned char count_uchar() {
     return uc;
 }
 
-test_l_uchar_persist() {
+void test_l_uchar_persist() {
     printf("--- local static unsigned char: persistence ---\n");
 
     check("count_uchar() call 1 == 251", count_uchar() == 251);
@@ -581,7 +581,7 @@ test_l_uchar_persist() {
 // Test: global static sizeof in sizeof() expression
 // ============================================================================
 
-test_g_static_sizeof() {
+void test_g_static_sizeof() {
     static int  si;
     static char sc;
     static long sl;
@@ -598,12 +598,12 @@ test_g_static_sizeof() {
 
 int *g_static_addr_out;   // caller reads result here
 
-get_static_addr() {
+void get_static_addr() {
     static int sv = 0;
     g_static_addr_out = &sv;
 }
 
-test_static_addr_stable() {
+void test_static_addr_stable() {
     int *p1, *p2;
     printf("--- address of local static is stable ---\n");
 
@@ -621,7 +621,7 @@ test_static_addr_stable() {
 // Test: mutate initialized globals to large values, re-read both words
 // ============================================================================
 
-test_g_reinit() {
+void test_g_reinit() {
     int *p;
     printf("--- global static: re-assign large values and re-check ---\n");
 
@@ -703,7 +703,7 @@ test_g_reinit() {
 // Main
 // ============================================================================
 
-main() {
+void main() {
     passed = 0;
     failed = 0;
 

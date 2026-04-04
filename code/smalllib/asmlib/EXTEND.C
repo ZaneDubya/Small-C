@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include "asm.h"
 
-extend(fn, ext1, ext2) char *fn, *ext1, *ext2; {
+int extend(char *fn, char *ext1, char *ext2) {
   char *cp;
   for(cp = fn; *cp; cp++) *cp = toupper(*cp);
   if(cp = strchr(fn, '.')) {

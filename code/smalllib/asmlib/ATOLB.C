@@ -3,7 +3,7 @@
 **           to unsigned long at n
 ** highest base is 16
 */
-atolb(s, n, b) unsigned char *s; unsigned n[], b; {
+int atolb(unsigned char *s, unsigned n[], unsigned b) {
   int digit, base[2], len;
   base[0] = b;
   base[1] = len = n[0] = n[1] = 0;

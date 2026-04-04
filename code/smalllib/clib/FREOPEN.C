@@ -13,7 +13,7 @@
 ** Returns the original fd on success, else NULL.
 */
 extern int _status[];
-freopen(fn, mode, fd) char *fn, *mode; int fd; {
+int freopen(char *fn, char *mode, int fd) {
   int tfd;
   if(fclose(fd)) return (NULL);
   if(!_open(fn, mode, &tfd)) return (NULL);

@@ -146,7 +146,7 @@ int opd2[16] = { // p-codes of unsigned 32-bit binary operators
 };
 
 // execution begins here
-main(int argc, int *argv) {
+void main(int argc, int *argv) {
     unsigned int availMem;
     fputs(VERSION, stderr);
     fputs(CRIGHT1, stderr);
@@ -196,7 +196,7 @@ main(int argc, int *argv) {
 
 // Process all input text. At this level, only global declarations, defines,
 // includes, structs, and function definitions are legal.
-parse() {
+void parse() {
     while (eof == 0) {
         if (amatch("extern", 6))
             dodeclare(EXTERNAL);
@@ -226,7 +226,7 @@ parse() {
 }
 
 // do a static variable or function
-dostatic() {
+void dostatic() {
     if (dodeclare(STATIC)) {
         ;
     }
@@ -236,7 +236,7 @@ dostatic() {
 }
 
 // test for global declarations
-dodeclare(int class) {
+int dodeclare(int class) {
     int type, typeSubPtr, declclass;
     char *p;
     type = dotype(&typeSubPtr);
@@ -280,7 +280,7 @@ dodeclare(int class) {
 // "register" is treated as automatic storage (the default on 8086 where
 // there are no spare GPRs available for user variables).
 // @return type value of declaration, otherwise 0 if not a valid declaration.
-dotype(int *typeSubPtr) {
+int dotype(int *typeSubPtr) {
     int isConst, isUnsigned, isShort, gotSignSize;
     isConst = isUnsigned = isShort = gotSignSize = 0;
     typeConstFlag = 0;
@@ -332,7 +332,7 @@ dotype(int *typeSubPtr) {
 }
 
 // declare a global variable
-declglb(int type, int class, int typeSubPtr) {
+void declglb(int type, int class, int typeSubPtr) {
     int id, dim;
     int dims[MAX_DIMS], ndim, strides[MAX_DIMS];
     int totalSize, elemSz, k;
@@ -435,7 +435,7 @@ declglb(int type, int class, int typeSubPtr) {
 }
 
 // initialize global objects
-InitSize(int size, int ident, int dim, int class) {
+void InitSize(int size, int ident, int dim, int class) {
     int savedim;
     litptr = 0;
     if (dim == 0) {
@@ -468,7 +468,7 @@ InitSize(int size, int ident, int dim, int class) {
 }
 
 // evaluate one initializer
-EvalInitValue(int size, int ident, int *dim) {
+void EvalInitValue(int size, int ident, int *dim) {
     int value, value_hi;
     if (string(&value)) {
         if (ident == IDENT_VARIABLE || size != 1) {
@@ -505,7 +505,7 @@ EvalInitValue(int size, int ident, int *dim) {
 
 // initialize a global pointer array (e.g. char *arr[] = {"str", 0})
 // returns actual element count
-InitPtrArray(int type, int dim, int class) {
+int InitPtrArray(int type, int dim, int class) {
     int labels[MAXARRAYDIM];
     int values[MAXARRAYDIM];
     int isstr[MAXARRAYDIM];
@@ -594,7 +594,7 @@ InitPtrArray(int type, int dim, int class) {
 }
 
 // initialize a global struct variable with optional { ... } brace syntax
-InitStruct(int typeSubPtr, int class) {
+void InitStruct(int typeSubPtr, int class) {
     char *membercur, *memberend;
     int memberSize, structSize, dim, memberTotal;
     litptr = 0;
@@ -637,7 +637,7 @@ InitStruct(int typeSubPtr, int class) {
 // ndim: number of dimensions
 // dims[]: dimension sizes
 // class: GLOBAL or STATIC
-initGlMDArr(int type, int typeSubPtr, int ndim, int dims[], int class) {
+void initGlMDArr(int type, int typeSubPtr, int ndim, int dims[], int class) {
     int elemSz, totalElems, i;
     elemSz = type >> 2;
     if (type == TYPE_STRUCT)
@@ -671,7 +671,7 @@ initGlMDArr(int type, int typeSubPtr, int ndim, int dims[], int class) {
 
 // recursive helper for global multi-dim array init.
 // depth: current dimension index (0 = outermost)
-initGlMDSub(int elemSz, int ndim, int dims[], int depth) {
+int initGlMDSub(int elemSz, int ndim, int dims[], int depth) {
     int i, dim, innerTot, j;
     int savedLit;
     dim = dims[depth];
@@ -739,7 +739,7 @@ initGlMDSub(int elemSz, int ndim, int dims[], int depth) {
 }
 
 // get required array size
-getArraySz() {
+int getArraySz() {
     int val;
     if (IsMatch("]")) 
         return 0; // null size
@@ -754,7 +754,7 @@ getArraySz() {
 }
 
 // open an include file
-doinclude() {
+void doinclude() {
     int i; char str[30];
     blanks();       // skip over to name
     if (*lptr == '"' || *lptr == '<')  {
@@ -778,7 +778,7 @@ doinclude() {
 }
 
 // define a macro symbol
-dodefine() {
+void dodefine() {
     int k;
     if (symname(msname) == 0) {
         illname();
@@ -806,7 +806,7 @@ dodefine() {
     }
 }
 
-putmac(char c) {
+int putmac(char c) {
     macq[macptr] = c;
     if (macptr < MACMAX)
         ++macptr;
@@ -817,7 +817,7 @@ putmac(char c) {
 //
 // called from "parse" and tries to make a function
 // out of the following text
-dofunction(int class) {
+int dofunction(int class) {
     int firstType, typeSubPtr;
     char *pGlobal;
     // declared arguments have formal types
@@ -899,7 +899,7 @@ dofunction(int class) {
 
 // doArgsTyped: interpret a function argument list with declared types.
 // in type: the type of the first variable in the argument list.
-doArgsTyped(int type, int typeSubPtr) {
+void doArgsTyped(int type, int typeSubPtr) {
     int id, sz, namelen, paren, argConst;
     char *ptr, *ddentry;
     argConst = typeConstFlag;   // capture const flag for first argument
@@ -1043,7 +1043,7 @@ doArgsTyped(int type, int typeSubPtr) {
 // Recalculate argument offsets for K&R-style declarations after
 // all types are known. Needed because long params take 4 bytes
 // while the initial pass assumed all params were BPW (2 bytes).
-fixArgOffs() {
+void fixArgOffs() {
     int total, running, psz, namelen;
     char *ptr;
     // Pass 1: compute total argument bytes
@@ -1081,7 +1081,7 @@ fixArgOffs() {
 }
 
 // interpret a function argument list without declared types
-doArgsNonTyped() {
+void doArgsNonTyped() {
     // count args
     argstk = 0;
     while (IsMatch(")") == 0) {
@@ -1124,7 +1124,7 @@ doArgsNonTyped() {
 }
 
 // declare argument types
-doArgTypes(int type, int typeSubPtr) {
+void doArgTypes(int type, int typeSubPtr) {
     int id, sz;
     char *ptr, *ddentry;
     while (1) {
@@ -1169,7 +1169,7 @@ doArgTypes(int type, int typeSubPtr) {
 //                        if IDENT_ARRAY, then must have array size;
 //                        if IDENT_POINTER, then must be a pointer.
 // @return 1 is name is valid, 0 + error if invalid.
-parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
+int parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
     int nameIsValid, hasOpenParen;
     hasOpenParen = IsMatch("(") ? 1 : 0;
     if (IsMatch("*")) {
@@ -1279,7 +1279,7 @@ parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
 // If that fails, it looks for one of the tokens that introduces an executable
 // statement. If successful, the corresponding parsing function is called, and
 // the global lastst is set to a value indicating which statement was parsed.
-statement() {
+int statement() {
     int type, typeSubPtr, isStatic;
     isStatic = 0;
     if (ch == 0 && eof) return;
@@ -1372,7 +1372,7 @@ statement() {
 }
 
 // allocate pending local variable space on the stack
-allocPendLoc() {
+void allocPendLoc() {
     if (declared > 0) {
         if (ncmp > 1) {
             nogo = declared;
@@ -1384,7 +1384,7 @@ allocPendLoc() {
 
 // Helper: emit the store sequence after gen(POP2,0).
 // BX has the destination address, AX has the value to store.
-genStore(int elemSz, int isPtr) {
+void genStore(int elemSz, int isPtr) {
     if (elemSz == BPD) {
         gen(PUTdp1, 0);
     }
@@ -1398,7 +1398,7 @@ genStore(int elemSz, int isPtr) {
 
 // Helper: emit the zero-store sequence after gen(GETw1n,0) + gen(POP2,0).
 // BX has the destination address, AX is already 0.
-genStoreZero(int elemSz) {
+void genStoreZero(int elemSz) {
     if (elemSz == BPD) {
         gen(GETdxn, 0);
         gen(PUTdp1, 0);
@@ -1412,7 +1412,7 @@ genStoreZero(int elemSz) {
 }
 
 // Helper: emit POINT1s(off), PUSH1, GETw1n(val), POP2, PUTbp1.
-genStoreByte(int off, int val) {
+void genStoreByte(int off, int val) {
     gen(POINT1s, off);
     gen(PUSH1, 0);
     gen(GETw1n, val);
@@ -1422,7 +1422,7 @@ genStoreByte(int off, int val) {
 
 // initialize a local scalar variable (int, char, pointer)
 // cptr must point to the symbol table entry for the variable.
-initLocScalar(int type) {
+void initLocScalar(int type) {
     int isConst, val;
     int *before, *start;
     int offset, elemSize, isPtr;
@@ -1444,7 +1444,7 @@ initLocScalar(int type) {
 
 // initialize a local array variable with { expr, expr, ... }
 // cptr must point to the symbol table entry for the array.
-initLocArray(int type) {
+void initLocArray(int type) {
     int isConst, val;
     int *before, *start;
     int offset, elemSize, dim, count;
@@ -1482,7 +1482,7 @@ initLocArray(int type) {
 // initialize a local multi-dimensional array with { ... } syntax.
 // supports both nested braces and flat row-major form.
 // symptr must point to the symbol table entry for the array.
-initLcMDArr(int type, char *symptr) {
+void initLcMDArr(int type, char *symptr) {
     int offset, elemSz, totalElems, ndim;
     int dims[MAX_DIMS], strides[MAX_DIMS];
     int i, k;
@@ -1523,7 +1523,7 @@ initLcMDArr(int type, char *symptr) {
 
 // recursive helper for local multi-dim array init.
 // emits code to store each element at the correct stack offset.
-initLcMDSub(int type, int elemSz, int ndim, int dims[],
+void initLcMDSub(int type, int elemSz, int ndim, int dims[],
     int depth, int baseOff, int totalSlots) {
     int i, dim, innerTot, j, isConst, val;
     int *before, *start;
@@ -1665,7 +1665,7 @@ initLcMDSub(int type, int elemSz, int ndim, int dims[],
 // symbol table entry from the string length before allocating.
 // if infer is false, the array has an explicit size and
 // allocPendLoc() has already been called by the caller.
-initLocChrStr(int infer) {
+void initLocChrStr(int infer) {
     int strOffset, strLen;
     int offset, arrSize, i;
     char *savedcptr;
@@ -1698,7 +1698,7 @@ initLocChrStr(int infer) {
 // walk struct members and initialize each from expressions in current {...}.
 // typeSubPtr points to the struct definition.
 // baseOffset is the stack offset of the struct (or nested member) start.
-initLocStrMem(int typeSubPtr, int baseOffset) {
+void initLocStrMem(int typeSubPtr, int baseOffset) {
     char *membercur, *memberend;
     int memberSize, memberTotal, memberOffset;
     int nestedPtr;
@@ -1789,7 +1789,7 @@ initLocStrMem(int typeSubPtr, int baseOffset) {
 
 // initialize a local struct variable: struct tag v = { ... };
 // cptr must point to the symbol table entry for the variable.
-initLocStruct(int typeSubPtr) {
+void initLocStruct(int typeSubPtr) {
     char *savedcptr;
     int baseOffset;
     savedcptr = cptr;
@@ -1804,7 +1804,7 @@ initLocStruct(int typeSubPtr) {
 
 // initialize a local struct array: struct tag a[N] = {{...},{...},...};
 // cptr must point to the symbol table entry for the array.
-initLocStrArr(int typeSubPtr) {
+void initLocStrArr(int typeSubPtr) {
     char *savedcptr;
     int baseOffset, structSize, dim, idx, i;
     savedcptr = cptr;
@@ -1838,7 +1838,7 @@ initLocStrArr(int typeSubPtr) {
 // Build mangled name for a static local into dst.
 // Format: _L<N> where N is a unique label number (e.g. _L42).
 // dst must be at least NAMESIZE bytes.
-buildmangle(char *dst, int n) {
+void buildmangle(char *dst, int n) {
     char buf[8];
     int len;
     char *p, *q;
@@ -1860,7 +1860,7 @@ buildmangle(char *dst, int n) {
 // Consumes "= initializer" if present; otherwise zero-fills.
 // Flushes the staging buffer before switching segments.
 // Returns after switching back to CODE segment.
-emitStatLoc(int type, int id, int sz) {
+void emitStatLoc(int type, int id, int sz) {
     int esize, dim, count, val;
     // compute element size and element count
     if (id == IDENT_POINTER) {
@@ -1950,7 +1950,7 @@ emitStatLoc(int type, int id, int sz) {
 // declare local variables
 // isStatic: 1 if the 'static' keyword preceded the type
 // isConst:  1 if the 'const' qualifier was on the type (stored in CLASS byte)
-declareLocals(int type, int typeSubPtr, int isStatic, int isConst) {
+void declareLocals(int type, int typeSubPtr, int isStatic, int isConst) {
     int id, sz, N, lclass;
     char *ddentry, *glbEntry;
     char localName[NAMESIZE];
@@ -2069,7 +2069,7 @@ declareLocals(int type, int typeSubPtr, int isStatic, int isConst) {
     }
 }
 
-compound() {
+void compound() {
     int savcsp; 
     char *savloc;
     savcsp = csp;
@@ -2105,7 +2105,7 @@ compound() {
         declared = -1;          // may not declare variables
 }
 
-doif() {
+void doif() {
     int flab1, flab2;
     GenTestAndJmp(flab1 = getlabel(), YES);  // get expr, and branch false
     statement();                    // if true, do a statement
@@ -2122,7 +2122,7 @@ doif() {
     gen(LABm, flab2);    // print true label
 }
 
-dowhile() {
+void dowhile() {
     int wq[4];              // allocate local queue
     addwhile(wq);           // add entry to queue for "break"
     gen(LABm, wq[WQLOOP]);  // loop label
@@ -2133,7 +2133,7 @@ dowhile() {
     delwhile();             // delete queue entry
 }
 
-dodo() {
+void dodo() {
     int wq[4], top;
     addwhile(wq);
     gen(LABm, top = getlabel());
@@ -2147,7 +2147,7 @@ dodo() {
     ReqSemicolon();
 }
 
-dofor() {
+void dofor() {
     int wq[4], lab1, lab2;
     addwhile(wq);
     lab1 = getlabel();
@@ -2176,7 +2176,7 @@ dofor() {
     delwhile();
 }
 
-doswitch() {
+void doswitch() {
     int wq[4], endlab, swact, swdef, swilg, *swnex, *swptr;
     swact = swactive;
     swdef = swdefault;
@@ -2231,7 +2231,7 @@ doswitch() {
     swislong = swilg;
 }
 
-docase() {
+void docase() {
     if (swactive == 0) error("not in switch");
     if (swnext > swend - (swislong ? 1 : 0)) {
         error("too many cases");
@@ -2253,7 +2253,7 @@ docase() {
     Require(":");
 }
 
-dodefault() {
+void dodefault() {
     if (swactive) {
         if (swdefault)
             error("multiple defaults");
@@ -2264,7 +2264,7 @@ dodefault() {
     gen(LABm, swdefault = getlabel());
 }
 
-dogoto() {
+void dogoto() {
     if (nogo > 0)
         error("not allowed with block-locals");
     else noloc = 1;
@@ -2275,7 +2275,7 @@ dogoto() {
     ReqSemicolon();
 }
 
-dolabel() {
+int dolabel() {
     char *savelptr;
     blanks();
     savelptr = lptr;
@@ -2289,7 +2289,7 @@ dolabel() {
     return 0;
 }
 
-addlabel(int def) {
+int addlabel(int def) {
     if (cptr = findloc(ssname)) {
         if (cptr[IDENT] != IDENT_LABEL)
             error("not a label"); // same name used for variable
@@ -2306,7 +2306,7 @@ addlabel(int def) {
     return (getint(cptr + OFFSET, 2));
 }
 
-doreturn() {
+int doreturn() {
     int savcsp;
     if (endst() == 0) {
         if (rettype == TYPE_STRUCT) {
@@ -2368,7 +2368,7 @@ doreturn() {
     csp = savcsp;
 }
 
-dobreak() {
+void dobreak() {
     int *ptr;
     if ((ptr = readwhile(wqptr)) == 0)
         return;
@@ -2376,7 +2376,7 @@ dobreak() {
     gen(JMPm, ptr[WQEXIT]);
 }
 
-docont() {
+void docont() {
     int *ptr;
     ptr = wqptr;
     while (1) {
@@ -2389,7 +2389,7 @@ docont() {
     gen(JMPm, ptr[WQLOOP]);
 }
 
-doasm() {
+void doasm() {
     ccode = 0;           // mark mode as "asm"
     while (1) {
         doInline();
@@ -2403,7 +2403,7 @@ doasm() {
     ccode = 1;
 }
 
-doexpr(int use) {
+int doexpr(int use) {
     int isConst, val;
     int *before, *start;
     usexpr = use;        // tell isfree() whether expr value is used
@@ -2423,7 +2423,7 @@ doexpr(int use) {
 // ****************************************************************************
 
 // get run options
-getRunArgs() {
+void getRunArgs() {
     int i;
     i = listfp = nxtlab = 0;
     output = stdout;
@@ -2466,7 +2466,7 @@ getRunArgs() {
 }
 
 // input and output file opens
-openfile() {        // entire function revised
+void openfile() {        // entire function revised
     char outfn[15];
     int i, j, ext;
     input = EOF;
@@ -2502,7 +2502,7 @@ openfile() {        // entire function revised
 }
 
 // open a file with error checking
-mustopen(char *fn, char *mode) {
+int mustopen(char *fn, char *mode) {
     int fd;
     if (fd = fopen(fn, mode))
         return fd;

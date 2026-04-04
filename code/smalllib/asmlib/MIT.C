@@ -23,7 +23,7 @@ unsigned
 ** find mnemonic or operand
 ** return index of sought entry, else EOF
 */
-find(str, tbl, cnt) unsigned char *str; unsigned tbl[], cnt; {
+int find(unsigned char *str, unsigned tbl[], unsigned cnt) {
   unsigned h;
   h = hash(str, cnt);
   if(tbl[h << 1] == EOF) {
@@ -40,7 +40,7 @@ find(str, tbl, cnt) unsigned char *str; unsigned tbl[], cnt; {
 /*
 ** calculate hash value
 */
-hash(ptr, cnt) unsigned char *ptr; unsigned cnt; {
+int hash(unsigned char *ptr, unsigned cnt) {
   hashval = 0;
   while(*ptr > ' ') {
     hashval = (hashval << 1) + toupper(*ptr++);
@@ -52,7 +52,7 @@ hash(ptr, cnt) unsigned char *ptr; unsigned cnt; {
 ** find instruction
 ** return index of sought entry, else EOF
 */
-findi(instr) unsigned *instr; {
+int findi(unsigned *instr) {
   unsigned *ip, h;
   h = hashi(instr);
   if(mitbl[h << 1] == EOF) {
@@ -70,7 +70,7 @@ findi(instr) unsigned *instr; {
 /*
 ** calculate instruction hash value
 */
-hashi(inst) unsigned inst[]; {
+int hashi(unsigned inst[]) {
   return(((inst[1] << 4) + inst[0]) % micnt);
   }
 

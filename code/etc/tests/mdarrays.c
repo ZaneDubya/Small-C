@@ -64,7 +64,7 @@ struct cell cells[3][2];
 // Helpers
 // ============================================================================
 
-check(char *desc, int cond) {
+void check(char *desc, int cond) {
     if (cond) {
         printf("  PASS: %s\n", desc);
         passed++;
@@ -109,7 +109,7 @@ int sum2D(int b[][3], int rows) {
 // Tests
 // ============================================================================
 
-tGlb2DInt() {
+void tGlb2DInt() {
     printf("\n--- Global 2D int (nested init) ---\n");
     check("mat[0][0]==1", mat3x3[0][0] == 1);
     check("mat[0][2]==3", mat3x3[0][2] == 3);
@@ -118,7 +118,7 @@ tGlb2DInt() {
     check("mat[2][2]==9", mat3x3[2][2] == 9);
 }
 
-tGlb2DChar() {
+void tGlb2DChar() {
     printf("\n--- Global 2D char (string init) ---\n");
     check("names[0][0]=='h'", names[0][0] == 'h');
     check("names[1][0]=='w'", names[1][0] == 'w');
@@ -126,7 +126,7 @@ tGlb2DChar() {
     check("names[0][4]=='o'", names[0][4] == 'o');
 }
 
-tGlbFlat() {
+void tGlbFlat() {
     printf("\n--- Global 2D int (flat init) ---\n");
     check("flat[0][0]==1", flat2x3[0][0] == 1);
     check("flat[0][2]==3", flat2x3[0][2] == 3);
@@ -134,7 +134,7 @@ tGlbFlat() {
     check("flat[1][2]==6", flat2x3[1][2] == 6);
 }
 
-tGlbPartial() {
+void tGlbPartial() {
     printf("\n--- Global 2D int (partial init) ---\n");
     check("part[0][0]==10", part2x3[0][0] == 10);
     check("part[0][1]==20", part2x3[0][1] == 20);
@@ -144,7 +144,7 @@ tGlbPartial() {
     check("part[1][2]==0",  part2x3[1][2] == 0);
 }
 
-tGlb3D() {
+void tGlb3D() {
     printf("\n--- Global 3D int ---\n");
     check("cube[0][0][0]==1", cube[0][0][0] == 1);
     check("cube[0][0][1]==2", cube[0][0][1] == 2);
@@ -153,7 +153,7 @@ tGlb3D() {
     check("cube[1][1][1]==8", cube[1][1][1] == 8);
 }
 
-tLocal2D() {
+void tLocal2D() {
     int loc[2][3];
     printf("\n--- Local 2D int (uninitialized write/read) ---\n");
     loc[0][0] = 100;
@@ -168,7 +168,7 @@ tLocal2D() {
     check("loc[1][2]==600", loc[1][2] == 600);
 }
 
-tLocalInit() {
+void tLocalInit() {
     int li[2][2] = {{10, 20}, {30, 40}};
     printf("\n--- Local 2D int (brace init) ---\n");
     check("li[0][0]==10", li[0][0] == 10);
@@ -177,7 +177,7 @@ tLocalInit() {
     check("li[1][1]==40", li[1][1] == 40);
 }
 
-tGridZero() {
+void tGridZero() {
     int r, c, ok;
     printf("\n--- Global uninitialized 2D (should be 0) ---\n");
     ok = 1;
@@ -193,14 +193,14 @@ tGridZero() {
     check("all grid[r][c]==0", ok);
 }
 
-tRowParam() {
+void tRowParam() {
     printf("\n--- Row passed to function ---\n");
     check("sumRow(mat[0],3)==6",  sumRow(mat3x3[0], 3) == 6);
     check("sumRow(mat[1],3)==15", sumRow(mat3x3[1], 3) == 15);
     check("sumRow(mat[2],3)==24", sumRow(mat3x3[2], 3) == 24);
 }
 
-tSubExpr() {
+void tSubExpr() {
     int i, j;
     printf("\n--- Subscript with expressions ---\n");
     i = 1;
@@ -209,7 +209,7 @@ tSubExpr() {
     check("mat[i+1][j-2]==7", mat3x3[i + 1][j - 2] == 7);
 }
 
-tGlb2DStruc() {
+void tGlb2DStruc() {
     int r, c;
     printf("\n--- Global 2D struct point (assign + read) ---\n");
     // fill pts[2][3] with r*10+c pattern
@@ -233,7 +233,7 @@ tGlb2DStruc() {
     check("pts[1][2].y==120", pts[1][2].y == 120);
 }
 
-tGlb2DCell() {
+void tGlb2DCell() {
     printf("\n--- Global 2D struct cell (char+int) ---\n");
     cells[0][0].tag = 'A';
     cells[0][0].val = 100;
@@ -245,7 +245,7 @@ tGlb2DCell() {
     check("cells[2][1].val==999", cells[2][1].val == 999);
 }
 
-tLcl2DStruc() {
+void tLcl2DStruc() {
     struct point lp[2][2];
     printf("\n--- Local 2D struct point ---\n");
     lp[0][0].x = 1;  lp[0][0].y = 2;
@@ -258,7 +258,7 @@ tLcl2DStruc() {
     check("lp[1][1].y==8", lp[1][1].y == 8);
 }
 
-tStrucExpr() {
+void tStrucExpr() {
     int i, j;
     printf("\n--- 2D struct with expression subscripts ---\n");
     // pts was filled in tGlb2DStruc
@@ -269,7 +269,7 @@ tStrucExpr() {
     check("pts[i-1][j+1].x==2", pts[i - 1][j + 1].x == 2);
 }
 
-tLclFlat() {
+void tLclFlat() {
     int lf[2][3] = {10, 20, 30, 40, 50, 60};
     printf("\n--- Local 2D int (flat init) ---\n");
     check("lf[0][0]==10", lf[0][0] == 10);
@@ -278,7 +278,7 @@ tLclFlat() {
     check("lf[1][2]==60", lf[1][2] == 60);
 }
 
-tLclCharStr() {
+void tLclCharStr() {
     char n[2][6] = {{"hello"}, {"world"}};
     printf("\n--- Local 2D char (string init) ---\n");
     check("n[0][0]=='h'", n[0][0] == 'h');
@@ -288,7 +288,7 @@ tLclCharStr() {
     check("n[0][5]==0",   n[0][5] == 0);
 }
 
-tParam2D() {
+void tParam2D() {
     printf("\n--- 2D array function parameter ---\n");
     check("sum2D(mat,3)==45", sum2D(mat3x3, 3) == 45);
 }
@@ -297,7 +297,7 @@ tParam2D() {
 // Main
 // ============================================================================
 
-main() {
+void main() {
     passed = 0;
     failed = 0;
     printf("Multi-Dimensional Array Tests\n");

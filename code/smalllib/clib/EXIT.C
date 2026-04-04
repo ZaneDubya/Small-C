@@ -4,7 +4,7 @@
 ** Close all open files and exit to DOS. 
 ** Entry: ec = exit code.
 */
-exit(ec) int ec; {
+void exit(int ec) {
   int fd;  char str[4];
   ec &= 255;
   if(ec) {

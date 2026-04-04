@@ -7,7 +7,7 @@ extern int _status[];
 **        fd = File descriptor of perinent file.
 ** Returns character written on success, else EOF.
 */
-fputc(ch, fd) int ch, fd; {
+int fputc(int ch, int fd) {
   switch(ch) {
     case  EOF: _write(DOSEOF, fd); break;
     case '\n': _write(CR, fd); _write(LF, fd); break;

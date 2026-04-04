@@ -5,7 +5,7 @@ extern int _status[];
 ** Entry: fd = file descriptor
 ** Returns non-zero if fd is at eof, else zero.
 */
-feof(fd) int fd; {
+int feof(int fd) {
   return (_status[fd] & EOFBIT);
   }
 

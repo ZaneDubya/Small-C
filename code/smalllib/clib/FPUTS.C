@@ -5,7 +5,7 @@
 ** Entry: string = Pointer to null-terminated string.
 **        fd     = File descriptor of pertinent file.
 */
-fputs(string, fd) char *string; int fd; {
+void fputs(char *string, int fd) {
   while(*string) fputc(*string++, fd) ;
   }
 

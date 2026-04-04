@@ -7,7 +7,7 @@
 **        if sz = 0 find end of string
 **        if sz < 0 use last byte for data
 */
-itod(nbr, str, sz)  int nbr;  char str[];  int sz;  {
+int itod(int nbr, char str[], int sz) {
   char sgn;
   if(nbr<0) {nbr = -nbr; sgn='-';}
   else sgn=' ';

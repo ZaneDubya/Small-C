@@ -1,7 +1,7 @@
 /*
 ** Rewind file to beginning. 
 */
-rewind(fd) int fd; {
+int rewind(int fd) {
   return(cseek(fd, 0, 0));
   }
 

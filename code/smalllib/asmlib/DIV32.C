@@ -2,7 +2,7 @@
 ** 32 bit n / d -- quotient to n, remainder to d
 ** rewrote to get rid of rep cmpsw instruction, which smalla does not handle?
 */
-div32(unsigned n[], unsigned d[]) {
+void div32(unsigned n[], unsigned d[]) {
   unsigned q[2], r[2];
   unsigned i, b;
   if (d[1] == 0 && d[0] == 0) {
@@ -33,7 +33,7 @@ div32(unsigned n[], unsigned d[]) {
 }
 
 // 32 bit x - y to x
-dv32sub(unsigned x[], unsigned y[]) {
+void dv32sub(unsigned x[], unsigned y[]) {
   #asm
   MOV  BX,[BP+4]       ; locate y low
   MOV  AX,[BX]         ; fetch y low
@@ -48,7 +48,7 @@ dv32sub(unsigned x[], unsigned y[]) {
 }
 
 // 32 bit compare. returns 1 if a > b, 0 if a == b, -1 if a < b
-dv32cmp(unsigned a[], unsigned b[]) {
+int dv32cmp(unsigned a[], unsigned b[]) {
   if (a[1] > b[1]) {
     return 1;
   }
@@ -65,7 +65,7 @@ dv32cmp(unsigned a[], unsigned b[]) {
 }
 
 // 32 bit shift a left by 1 bit
-dv32shl(unsigned a[]) {
+void dv32shl(unsigned a[]) {
   a[1] = a[1] << 1;
   if (a[0] & 0x8000) {
     a[1] |= 0x0001;

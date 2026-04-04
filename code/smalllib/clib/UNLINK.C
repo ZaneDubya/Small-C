@@ -5,7 +5,7 @@
 ** Entry: fn = Null-terminated DOS file path\name.
 ** Returns NULL on success, else ERR.
 */
-unlink(fn) char *fn; {
+int unlink(char *fn) {
   fn;           /* load fn into ax */
 #asm
   mov dx,ax     ; put fn in its place

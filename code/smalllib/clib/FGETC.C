@@ -8,7 +8,7 @@ extern int _nextc[];
 ** Entry: fd = File descriptor of pertinent file.
 ** Returns the next character on success, else EOF.
 */
-fgetc(fd) int fd; {
+int fgetc(int fd) {
   int ch;                   /* must be int so EOF will flow through */
   if(_nextc[fd] != EOF) {   /* an ungotten byte pending? */
     ch = _nextc[fd];

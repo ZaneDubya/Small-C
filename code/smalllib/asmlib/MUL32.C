@@ -1,7 +1,7 @@
 /*
 ** 32 bit x * y to x
 */
-mul32(x, y) unsigned x[], y[]; {
+void mul32(unsigned x[], unsigned y[]) {
   int p[4];
   #asm
   MOV   SI,[BP+6]    ; locate x - 1st multiplicand

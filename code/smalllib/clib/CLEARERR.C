@@ -4,7 +4,7 @@ extern int _status[];
 /*
 ** Clear error status for fd.
 */
-clearerr(fd) int fd; {
+void clearerr(int fd) {
   if(_mode(fd)) _clrerr(fd);
   }
 

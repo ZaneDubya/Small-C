@@ -5,7 +5,7 @@
 ** b, c, d, o, s, u, and x specifications are supported.
 ** Note: b (binary) is a non-standard extension.
 */
-fprintf(argc) int argc; {
+int fprintf(int argc) {
   int *nxtarg;
   nxtarg = CCARGC() + &argc;
   return(_print(*(--nxtarg), --nxtarg));
@@ -17,7 +17,7 @@ fprintf(argc) int argc; {
 ** b, c, d, o, s, u, and x specifications are supported.
 ** Note: b (binary) is a non-standard extension.
 */
-printf(argc) int argc; {
+int printf(int argc) {
   return(_print(stdout, CCARGC() + &argc - 1));
   }
 
@@ -25,7 +25,7 @@ printf(argc) int argc; {
 ** _print(fd, ctlstring, arg, arg, ...)
 ** Called by fprintf() and printf().
 */
-_print(fd, nxtarg) int fd, *nxtarg; {
+int _print(int fd, int *nxtarg) {
   int  arg, left, pad, cc, len, maxchr, width;
   int  islong;
   long lval;

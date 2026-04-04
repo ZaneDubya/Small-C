@@ -1,7 +1,7 @@
 /*
 ** Return "true" if fd is a device, else "false"
 */
-isatty(fd) int fd; {
+void isatty(int fd) {
 fd;               /* fetch handle */
 #asm
   push bx         ; save 2nd reg

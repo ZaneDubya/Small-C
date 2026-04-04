@@ -44,7 +44,7 @@ struct point ginit = { 10, 20 };
 // Helper functions
 // ============================================================================
 
-check(char *desc, int cond) {
+void check(char *desc, int cond) {
     if (cond) {
         printf("  PASS: %s\n", desc);
         passed++;
@@ -104,7 +104,7 @@ struct point addPoints(struct point a, struct point b) {
 }
 
 // Helper: set a struct via pointer
-setPointViaPtr(struct point *pp, int x, int y) {
+void setPointViaPtr(struct point *pp, int x, int y) {
     pp->x = x;
     pp->y = y;
 }
@@ -122,7 +122,7 @@ int getPtrY(struct point *pp) {
 // Main test program
 // ============================================================================
 
-main() {
+int main() {
     passed = 0;
     failed = 0;
 

@@ -47,7 +47,7 @@ extern int
 /*
 ** write COMENT record to OBJ file
 */
-putCOMENT(com, np, nl, class) char *com; int np, nl, class; {
+void putCOMENT(char *com, int np, int nl, int class) {
   oopen(COMENT);
   obyte(((np << 1) | nl) << 6);
   obyte(class);
@@ -58,7 +58,7 @@ putCOMENT(com, np, nl, class) char *com; int np, nl, class; {
 /*
 ** write THEADR record to OBJ file
 */
-putTHEADR(title) char *title; {
+void putTHEADR(char *title) {
   if(obuf == 0) {
     if(!(obuf = malloc(OSIZE))
     || !(fbuf = malloc(FSIZE))) exit(1);
@@ -72,10 +72,10 @@ putTHEADR(title) char *title; {
 /*
 ** write LNAMES record to OBJ file
 */
-begLNAMES() {
+void begLNAMES() {
   oopen(LNAMES);
   }
-putLNAMES(name) char *name; {
+void putLNAMES(char *name) {
   ocheck(LNAMES);
   if(OFREE < 32) {  /* another won't fit */
     oclose();       /* so close this record */
@@ -83,15 +83,17 @@ putLNAMES(name) char *name; {
     }
   oname(name, YES);
   }
-endLNAMES() {
+
+void endLNAMES() {
   oclose();
   }
 
 /*
 ** write SEGDEF record to OBJ file
 */
-putSEGDEF(use, align, comb, big, frame, offset, len, snx, cnx, onx)
-  unsigned use, align, comb, big, frame, offset[], len[], snx, cnx, onx; {
+void putSEGDEF(unsigned use, unsigned align, unsigned comb, unsigned big,
+  unsigned frame, unsigned offset[], unsigned len[], unsigned snx,
+  unsigned cnx, unsigned onx) {
   oopen((use == 2) ? SEGDEF : SEG386);
   obyte((align << 5)      /* attributes */
       | ( comb << 2)
@@ -110,10 +112,10 @@ putSEGDEF(use, align, comb, big, frame, offset, len, snx, cnx, onx)
 /*
 ** write EXTDEF record to OBJ file
 */
-begEXTDEF() {
+void begEXTDEF() {
   oopen(EXTDEF);
   }
-putEXTDEF(name) char *name; {
+void putEXTDEF(char *name) {
   ocheck(EXTDEF);
   if(OFREE < 34) {  /* another won't fit */
     oclose();       /* so close this record */
@@ -122,18 +124,18 @@ putEXTDEF(name) char *name; {
   oname(name, NO);
   oindex(0);                      /* Type unspecified */
   }
-endEXTDEF() {
+void endEXTDEF() {
   oclose();
   }
 
 /*
 ** write GRPDEF record to OBJ file
 */
-begGRPDEF(gnx) int gnx; {
+void begGRPDEF(int gnx) {
   oopen(GRPDEF);
   oindex(o1 = gnx);
   }
-putGRPDEF(segx) int segx; {
+void putGRPDEF(int segx) {
   ocheck(GRPDEF);
   if(OFREE < 3) {   /* another won't fit */
     oclose();       /* so close this record */
@@ -142,14 +144,14 @@ putGRPDEF(segx) int segx; {
   obyte(0xFF);
   oindex(segx);
   }
-endGRPDEF() {
+void endGRPDEF() {
   oclose();
   }
 
 /*
 ** write PUBDEF record to OBJ file
 */
-begPUBDEF(use, grpx, segx, frame) unsigned use, grpx, segx, frame; {
+void begPUBDEF(unsigned use, unsigned grpx, unsigned segx, unsigned frame) {
   oopen((use == 2) ? PUBDEF : PUB386);
   o1 = use;
   oindex(o2 = grpx);
@@ -157,7 +159,7 @@ begPUBDEF(use, grpx, segx, frame) unsigned use, grpx, segx, frame; {
   o4 = frame;
   if(segx == 0) oword(&frame, 2);
   }
-putPUBDEF(name, offset) char *name; unsigned offset[]; {
+void putPUBDEF(char *name, unsigned offset[]) {
   ocheck((o1 == 2) ? PUBDEF : PUB386);
   if(OFREE < 38) {             /* another won't fit */
     oclose();                  /* so close this record */
@@ -167,17 +169,17 @@ putPUBDEF(name, offset) char *name; unsigned offset[]; {
   oword(offset, o1);
   oindex(0);
   }
-endPUBDEF() {
+void endPUBDEF() {
   oclose();
   }
 
 /*
 ** write LIDATA record to OBJ file
 */
-begLIDATA(duse, fuse, segx, offset) unsigned duse, fuse, segx, offset[]; {
+void begLIDATA(unsigned duse, unsigned fuse, unsigned segx, unsigned offset[]) {
   begDATA(duse, fuse, segx, offset, (duse == 2) ? LIDATA : LID386);
   }
-putLIDATA(rep, data, len) unsigned rep, len; char *data; {
+void putLIDATA(unsigned rep, char *data, unsigned len) {
   int zero; zero = 0;
   ocheck((o1 == 2) ? LIDATA : LID386);
   if(OFREE < (len + 5)) {          /* another won't fit */
@@ -190,17 +192,17 @@ putLIDATA(rep, data, len) unsigned rep, len; char *data; {
   while(len--) obyte(*data++);
   inc32(off, rep*len);      /* bump running offset */
   }
-endLIDATA() {
+void endLIDATA() {
   endDATA();
   }
 
 /*
 ** write LEDATA record to OBJ file
 */
-begLEDATA(duse, fuse, segx, offset) unsigned duse, fuse, segx, offset[]; {
+void begLEDATA(unsigned duse, unsigned fuse, unsigned segx, unsigned offset[]) {
   begDATA(duse, fuse, segx, offset, (duse == 2) ? LEDATA : LED386);
   }
-putLEDATA(data, len) char *data; unsigned len; {
+void putLEDATA(char *data, unsigned len) {
   ocheck((o1 == 2) ? LEDATA : LED386);
   if(OFREE < len && len <= o1) {      /* may FIXUP, so don't span records */
     endDATA();                             /* close this record */
@@ -215,15 +217,14 @@ putLEDATA(data, len) char *data; unsigned len; {
     inc32(off, 1);                          /* bump running offset */
     }
   }
-endLEDATA() {
+void endLEDATA() {
   endDATA();
   }
 
 /*
 ** begin either type DATA record
 */
-begDATA(duse, fuse, segx, offset, rec)
-  unsigned duse, fuse, segx, offset[], rec; {
+void begDATA(unsigned duse, unsigned fuse, unsigned segx, unsigned offset[], unsigned rec) {
   oopen(rec);
   o1 = duse;
   oindex(o2 = segx);
@@ -240,7 +241,7 @@ begDATA(duse, fuse, segx, offset, rec)
 /*
 ** end either type DATA record
 */
-endDATA() {
+void endDATA() {
   unsigned len, fix;
   unsigned char *f;
   oclose();
@@ -264,7 +265,7 @@ endDATA() {
 /*
 ** put a fixup TRHEAD entry in the fixup buffer
 */
-putTHREAD(thr, mth, ndx) int thr, mth, ndx; {
+void putTHREAD(int thr, int mth, int ndx) {
   unsigned char *len;
   if((fend - fnext) < 4) {        /* another may not fit */
     endDATA();                    /* so close & fixup current data rec */
@@ -279,9 +280,7 @@ putTHREAD(thr, mth, ndx) int thr, mth, ndx; {
 /*
 ** write LEDATA item and put a fixup FIXUPP entry in the fixup buffer
 */
-putLEDFIX(dat, len, use, mod, loc, fra, fdat, tar, tdat, tdis)
-  char dat[];
-  int len, use, mod, loc, fra, fdat, tar, tdat, tdis[]; {
+void putLEDFIX(char dat[], int len, int use, int mod, int loc, int fra, int fdat, int tar, int tdat, int tdis[]) {
   unsigned char *sz, *offset;
   if((fend - fnext) < 12) {       /* another may not fit */
     endDATA();                    /* so close & fixup this rec */
@@ -306,8 +305,7 @@ putLEDFIX(dat, len, use, mod, loc, fra, fdat, tar, tdat, tdis)
 ** write MODEND record to OBJ file
 ** (use FIXUPP parameters for "fra" and "tar")
 */
-putMODEND(use, attr, fra, fdat, tar, tdat, tdis)
-      int use, attr, fra, fdat, tar, tdat, tdis[]; {
+void putMODEND(int use, int attr, int fra, int fdat, int tar, int tdat, int tdis[]) {
   oopen((use == 2) ? MODEND : MOD386);
   obyte((attr << 6) | 1);
   if(attr & 1) {               /* give address */
@@ -322,7 +320,7 @@ putMODEND(use, attr, fra, fdat, tar, tdat, tdis)
 /*
 ** open an output OBJ record
 */
-oopen(type) unsigned type; {
+void oopen(unsigned type) {
   obuf[0] = type;              /* set record type */
   onext = opref = 3;           /* reset for new record */
   }
@@ -330,14 +328,14 @@ oopen(type) unsigned type; {
 /*
 ** check that the same type of OBJ record is open
 */
-ocheck(type) unsigned type; {
+void ocheck(unsigned type) {
   if(obuf[0] != type) error("+ OBJ Record Conflict");
   }
 
 /*
 ** close an output OBJ record
 */
-oclose() {
+void oclose() {
   unsigned i;
   unsigned char chksum;
   putint(obuf + 1, onext - 2); /* set record length */
@@ -351,7 +349,7 @@ oclose() {
 /*
 ** output a name field into the OBJ record
 */
-oname(name, up) char name[]; int up; {
+void oname(char name[], int up) {
   unsigned i, first;
   i = 0;
   first = onext++;                /* make room for length */
@@ -363,7 +361,7 @@ oname(name, up) char name[]; int up; {
 /*
 ** output an index field into the OBJ record
 */
-findex(ndx) unsigned ndx; {
+void findex(unsigned ndx) {
   if(ndx > 127)                 /* two byte index */
     fbyte((ndx >> 8) | 0x80);   /* high 7 bits first */
   fbyte(ndx);                   /* low (or only) 8 bits */
@@ -372,7 +370,7 @@ findex(ndx) unsigned ndx; {
 /*
 ** output a word field (of any length) into the OBJ record
 */
-fword(word, sz) char word[]; int sz; {
+void fword(char word[], int sz) {
   int i;  i = 0;
   while(i < sz) fbyte(word[i++]);
   }
@@ -380,7 +378,7 @@ fword(word, sz) char word[]; int sz; {
 /*
 ** output a byte field into the OBJ record
 */
-fbyte(byte) char byte; {
+void fbyte(char byte) {
   *fnext++ = byte;
   }
 
@@ -388,7 +386,7 @@ fbyte(byte) char byte; {
 ** output an index field into the OBJ record
 ** return index length
 */
-oindex(ndx) unsigned ndx; {
+void oindex(unsigned ndx) {
   if(ndx > 127)                 /* two byte index */
     obyte((ndx >> 8) | 0x80);   /* high 7 bits first */
   obyte(ndx);                   /* low (or only) 8 bits */
@@ -397,7 +395,7 @@ oindex(ndx) unsigned ndx; {
 /*
 ** output a word field (of any length) into the OBJ record
 */
-oword(word, sz) char word[]; int sz; {
+void oword(char word[], int sz) {
   int i;  i = 0;
   while(i < sz) obyte(word[i++]);
   }
@@ -405,7 +403,7 @@ oword(word, sz) char word[]; int sz; {
 /*
 ** output a byte field into the OBJ record
 */
-obyte(byte) char byte; {
+void obyte(char byte) {
   if(onext < OSIZE) obuf[onext++] = byte;
   else error("+ obuf[] overflow");
   }

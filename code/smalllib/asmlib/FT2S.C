@@ -19,7 +19,7 @@
 **     ------ ---------- -------------
 *                    <1>^.............
 */
-ft2s(s, t) unsigned *s, *t; {
+void ft2s(unsigned *s, unsigned *t) {
   unsigned exp;
   if(t[4]) exp = (t[4] & 0x7FFF) - 0x3FFF + 0x7F;
   else     exp = 0;

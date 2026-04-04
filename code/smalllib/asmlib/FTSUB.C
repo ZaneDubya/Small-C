@@ -12,7 +12,7 @@
 **     ------ ---------- -------------
 **                       1^...........
 */
-ftsub(d, s) unsigned *d, *s; {
+void ftsub(unsigned *d, unsigned *s) {
   unsigned t[5];
   mov80(t, s);      /* copy s */
   t[4] ^= 0x8000;   /* reverse its sign */

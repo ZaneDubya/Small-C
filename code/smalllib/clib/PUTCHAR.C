@@ -2,7 +2,7 @@
 /*
 ** Write character to standard output. 
 */
-putchar(ch) int ch; {
+int putchar(int ch) {
   return (fputc(ch, stdout));
   }
 

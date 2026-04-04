@@ -354,7 +354,7 @@ char* code[PCODES] = {
 
 // print all assembler info before any code is generated
 // and ensure that the segments appear in the correct order.
-header() {
+void header() {
     needLong = 0;
     toseg(CODESEG);
     outline("extrn __eq: near");
@@ -375,7 +375,7 @@ header() {
 }
 
 // print any assembler stuff needed at the end
-trailer() {
+void trailer() {
     char *cp;
     cptr = STARTGLB;
     while (cptr < ENDGLB) {
@@ -425,14 +425,14 @@ trailer() {
 }
 
 // remember where we are in the queue in case we have to back up.
-setstage(int *before, int *start) {
+void setstage(int *before, int *start) {
     if ((*before = snext) == 0)
         snext = stage;
     *start = snext;
 }
 
 // generate code in staging buffer.
-gen(int pcode, int value) {
+void gen(int pcode, int value) {
     int newcsp;
     switch (pcode) {
         case GETb1pu:
@@ -509,7 +509,7 @@ gen(int pcode, int value) {
 // to optimize the p-codes before it translates and writes them.
 // If start == 0, throw away contents.
 // If before != 0, don't dump queue yet.
-ClearStage(int *before, int *start) {
+void ClearStage(int *before, int *start) {
     if (before) {
         snext = before;
         return;
@@ -520,7 +520,7 @@ ClearStage(int *before, int *start) {
 }
 
 // dump the staging buffer
-dumpstage() {
+void dumpstage() {
     int i;
     stail = snext;
     snext = stage;
@@ -543,7 +543,7 @@ dumpstage() {
 
 // change to a new segment
 // may be called with NULL, CODESEG, or DATASEG
-toseg(int newseg) {
+void toseg(int newseg) {
     if (oldseg == newseg)
             return;
     if (oldseg == CODESEG)
@@ -560,7 +560,7 @@ toseg(int newseg) {
 }
 
 // declare variable, allowing global scope
-decGlobal(int ident, int isGlobal) {
+void decGlobal(int ident, int isGlobal) {
     if (ident == IDENT_FUNCTION)
         toseg(CODESEG);
     else
@@ -578,7 +578,7 @@ decGlobal(int ident, int isGlobal) {
 }
 
 // declare external reference
-external(char *name, int size, int ident) {
+void external(char *name, int size, int ident) {
     if (ident == IDENT_FUNCTION)
         toseg(CODESEG);
     else
@@ -591,7 +591,7 @@ external(char *name, int size, int ident) {
 }
 
 // output the size of the object pointed to.
-outsize(int size, int ident) {
+void outsize(int size, int ident) {
     if (size == 1 && ident != IDENT_POINTER && ident != IDENT_PTR_ARRAY
                   && ident != IDENT_FUNCTION)
         outstr("BYTE");
@@ -605,12 +605,12 @@ outsize(int size, int ident) {
 }
 
 // point to following object(s)
-point() {
+void point() {
     outline(" DW $+2");
 }
 
 // dump the literal pool
-dumplits(int size) {
+void dumplits(int size) {
     int j, k;
     k = 0;
     while (k < litptr) {
@@ -643,7 +643,7 @@ dumplits(int size) {
 }
 
 // dump zeroes for default initial values
-dumpzero(int size, int count) {
+void dumpzero(int size, int count) {
     if (count > 0) {
         if (size == 1)
             gen(BYTEr0, count);
@@ -657,7 +657,7 @@ dumpzero(int size, int count) {
 // === optimizer functions ====================================================
 
 // Try to optimize sequence at snext in the staging buffer.
-peep(int *seq) {
+int peep(int *seq) {
     int *next, *pop, n, skip, tmp, reply;
     char c, *cp;
     next = snext;
@@ -729,7 +729,7 @@ peep(int *seq) {
 // or a successor?  If the primary register is
 // unused by it still may not be free if the
 // context uses the value of the expression.
-isfree(int reg, int *pp) {
+int isfree(int reg, int *pp) {
     char *cp;
     while (pp < stail) {
         cp = code[*pp];
@@ -744,7 +744,7 @@ isfree(int reg, int *pp) {
 // Get place where the currently pushed value is popped?
 // NOTE: Function arguments are not popped, they are
 // wasted with an ADDSP.
-getpop(int *next) {
+int getpop(int *next) {
     char *cp;
     int level;  level = 0;
     while (YES) {
@@ -767,16 +767,16 @@ getpop(int *next) {
 
 // === output functions =======================================================
 
-colon() {
+void colon() {
     fputc(':', output);
 }
 
-newline() {
+void newline() {
     fputc(NEWLINE, output);
 }
 
 // output assembly code.
-outcode(int pcode, int value) {
+void outcode(int pcode, int value) {
     int part, skip, count;
     char *cp, *back;
     part = back = 0;
@@ -818,7 +818,7 @@ outcode(int pcode, int value) {
     }
 }
 
-outdec(int number) {
+void outdec(int number) {
     int k, zs;
     char c, *q, *r;
     zs = 0;
@@ -841,17 +841,17 @@ outdec(int number) {
     }
 }
 
-outline(char ptr[]) {
+void outline(char ptr[]) {
     outstr(ptr);
     newline();
 }
 
-outname(char ptr[]) {
+void outname(char ptr[]) {
     outstr("_");
     while (*ptr >= ' ') fputc(*ptr++, output);
 }
 
-outstr(char ptr[]) {
+void outstr(char ptr[]) {
     poll(1);           // allow program interruption
     while (*ptr >= ' ') fputc(*ptr++, output);
 }

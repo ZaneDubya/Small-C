@@ -35,15 +35,15 @@ int _is[128] = {
  0x073, 0x073, 0x073, 0x0D0, 0x0D0, 0x0D0, 0x0D0, 0x004
  };
 
-isalnum (c) int c; {return (_is[c] & ALNUM );} /* 'a'-'z', 'A'-'Z', '0'-'9' */
-isalpha (c) int c; {return (_is[c] & ALPHA );} /* 'a'-'z', 'A'-'Z' */
-iscntrl (c) int c; {return (_is[c] & CNTRL );} /* 0-31, 127 */
-isdigit (c) int c; {return (_is[c] & DIGIT );} /* '0'-'9' */
-isgraph (c) int c; {return (_is[c] & GRAPH );} /* '!'-'~' */
-islower (c) int c; {return (_is[c] & LOWER );} /* 'a'-'z' */
-isprint (c) int c; {return (_is[c] & PRINT );} /* ' '-'~' */
-ispunct (c) int c; {return (_is[c] & PUNCT );} /* !alnum && !cntrl && !space */
-isspace (c) int c; {return (_is[c] & BLANK );} /* HT, LF, VT, FF, CR, ' ' */
-isupper (c) int c; {return (_is[c] & UPPER );} /* 'A'-'Z' */
-isxdigit(c) int c; {return (_is[c] & XDIGIT);} /* '0'-'9', 'a'-'f', 'A'-'F' */
+int isalnum(int c) {return (_is[c] & ALNUM );} /* 'a'-'z', 'A'-'Z', '0'-'9' */
+int isalpha(int c) {return (_is[c] & ALPHA );} /* 'a'-'z', 'A'-'Z' */
+int iscntrl(int c) {return (_is[c] & CNTRL );} /* 0-31, 127 */
+int isdigit(int c) {return (_is[c] & DIGIT );} /* '0'-'9' */
+int isgraph(int c) {return (_is[c] & GRAPH );} /* '!'-'~' */
+int islower(int c) {return (_is[c] & LOWER );} /* 'a'-'z' */
+int isprint(int c) {return (_is[c] & PRINT );} /* ' '-'~' */
+int ispunct(int c) {return (_is[c] & PUNCT );} /* !alnum && !cntrl && !space */
+int isspace(int c) {return (_is[c] & BLANK );} /* HT, LF, VT, FF, CR, ' ' */
+int isupper(int c) {return (_is[c] & UPPER );} /* 'A'-'Z' */
+int isxdigit(int c) {return (_is[c] & XDIGIT);} /* '0'-'9', 'a'-'f', 'A'-'F' */
 

@@ -6,12 +6,12 @@
 **    to = address of new filename.
 **  Returns NULL on success, else ERR.
 */
-rename(from, to) char *from, *to; {
+int rename(char *from, char *to) {
   if(_rename(from, to)) return (NULL);
   return (ERR);
   }
 
-_rename(old, new) char *old, *new; {
+int _rename(char *old, char *new) {
 #asm
   push ds         ; ds:dx points to old name
   pop  es         ; es:di points to new name

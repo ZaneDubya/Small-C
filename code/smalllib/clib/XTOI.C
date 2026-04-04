@@ -3,7 +3,7 @@
 ** xtoi -- convert hex string to integer nbr
 **         returns field size, else ERR on error
 */
-xtoi(hexstr, nbr) char *hexstr; int *nbr; {
+int xtoi(char *hexstr, int *nbr) {
   int d, b;  char *cp;
   d = *nbr = 0; cp = hexstr;
   while(*cp == '0') ++cp;

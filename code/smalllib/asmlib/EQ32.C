@@ -1,7 +1,7 @@
 /*
 ** 32 bit x == y to x
 */
-eq32(x, y) unsigned x[], y[]; {
+void eq32(unsigned x[], unsigned y[]) {
   if(x[0] == y[0]
   && x[1] == y[1]) {
     x[0] = 1;

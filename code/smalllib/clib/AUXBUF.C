@@ -15,7 +15,7 @@ extern int
 **       Buffer stays allocated when fd is closed or new one is allocated.
 **       May be used on a closed fd.
 */
-auxbuf(fd, size) int fd; char *size; {   /* fake unsigned */
+int auxbuf(int fd, char *size) {   /* fake unsigned */
   if(!size || avail(NO) < size) return (ERR);
   _bufptr[fd] = malloc(size);
   _bufsiz[fd] = size;

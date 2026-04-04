@@ -6,7 +6,7 @@
 **        if sz = 0 find end of string
 **        if sz < 0 use last byte for data
 */
-ltox(nbr, str, sz) int nbr[]; char str[]; int sz;  {
+int ltox(int nbr[], char str[], int sz) {
   unsigned digit, offset, n[2];
   if(sz > 0) str[--sz] = 0;
   else if(sz < 0) sz = -sz;

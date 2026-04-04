@@ -2,7 +2,7 @@
 ** atoib(s,b) - Convert s to "unsigned" integer in base b.
 **              NOTE: This is a non-standard function.
 */
-atoib(s, b) char *s; int b; {
+int atoib(char *s, int b) {
   int n, digit;
   n = 0;
   while(isspace(*s)) ++s;

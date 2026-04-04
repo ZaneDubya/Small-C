@@ -8,7 +8,7 @@ int passed, failed;
 // Test helper
 // ============================================================================
 
-check(char *desc, int cond) {
+void check(char *desc, int cond) {
     if (cond) {
         printf("  PASS: %s\n", desc);
         passed++;
@@ -59,7 +59,7 @@ long *glp;
 // Test: sizeof
 // ============================================================================
 
-test_sizeof() {
+void test_sizeof() {
     printf("--- sizeof tests ---\n");
 
     check("sizeof(long) == 4", sizeof(long) == 4);
@@ -86,7 +86,7 @@ test_sizeof() {
 // Test: struct layout with long members
 // ============================================================================
 
-test_struct_sizeof() {
+void test_struct_sizeof() {
     printf("--- struct sizeof tests ---\n");
 
     // struct has_long: char(1) + long(4) + int(2) = 7 (no padding)
@@ -104,7 +104,7 @@ test_struct_sizeof() {
 // Test: local long declarations
 // ============================================================================
 
-test_local_decl() {
+void test_local_decl() {
     long loc;
     long larr[2];
     unsigned long uloc;
@@ -122,7 +122,7 @@ test_local_decl() {
 // Test: local struct with long members
 // ============================================================================
 
-test_local_struct() {
+void test_local_struct() {
     struct has_long ls;
     struct has_long_arr la;
 
@@ -136,7 +136,7 @@ test_local_struct() {
 // Test: global long initialization (small values that fit in 16 bits)
 // ============================================================================
 
-test_global_init() {
+void test_global_init() {
     int *p;
 
     printf("--- global long init tests ---\n");
@@ -179,7 +179,7 @@ long ret_long() {
     return 99;
 }
 
-test_long_func() {
+int test_long_func() {
     int r;
     printf("--- long function return type test ---\n");
 
@@ -196,7 +196,7 @@ test_long_func() {
 long gval;
 long gval2;
 
-test_ld_st_global() {
+void test_ld_st_global() {
     int *p;
     printf("--- Phase 3: global load/store ---\n");
 
@@ -217,7 +217,7 @@ test_ld_st_global() {
     check("gval2 high word == 0", *(p + 1) == 0);
 }
 
-test_ld_st_local() {
+void test_ld_st_local() {
     long loc;
     int *p;
     printf("--- Phase 3: local load/store ---\n");
@@ -234,7 +234,7 @@ test_ld_st_local() {
 
 long gadd1, gadd2, gresult;
 
-test_long_add() {
+void test_long_add() {
     int *p;
     printf("--- Phase 4: long addition ---\n");
 
@@ -247,7 +247,7 @@ test_long_add() {
     check("10L + 20L high == 0", *(p + 1) == 0);
 }
 
-test_long_sub() {
+void test_long_sub() {
     int *p;
     printf("--- Phase 4: long subtraction ---\n");
 
@@ -259,7 +259,7 @@ test_long_sub() {
     check("50L - 20L high == 0", *(p + 1) == 0);
 }
 
-test_long_bitwise() {
+void test_long_bitwise() {
     int *p;
     printf("--- Phase 4: long bitwise ops ---\n");
 
@@ -278,7 +278,7 @@ test_long_bitwise() {
     check("255L ^ 15L == 240", *p == 240);
 }
 
-test_long_unary() {
+void test_long_unary() {
     long val;
     int *p;
     int r;
@@ -305,7 +305,7 @@ test_long_unary() {
     printf("  DBG: after !val, r=%d\n", r);
 }
 
-test_long_comparison() {
+void test_long_comparison() {
     long a, b;
     int r;
     printf("--- Phase 4: long comparisons ---\n");
@@ -329,7 +329,7 @@ test_long_comparison() {
     check("10L != 20L is true", r == 1);
 }
 
-test_int_long_promotion() {
+void test_int_long_promotion() {
     long result;
     int x;
     int *p;
@@ -344,7 +344,7 @@ test_int_long_promotion() {
     check("int(100) + long(50) high == 0", *(p + 1) == 0);
 }
 
-test_long_assign_widen() {
+void test_long_assign_widen() {
     long lv;
     int iv;
     int *p;
@@ -364,7 +364,7 @@ test_long_assign_widen() {
     check("long = int(-1) high == -1", *(p + 1) == -1);
 }
 
-test_compound_assign() {
+void test_compound_assign() {
     long val;
     int *p;
     printf("--- Phase 4: compound assignment ---\n");
@@ -384,7 +384,7 @@ test_compound_assign() {
     check("20L -= 3 low == 17", *p == 17);
 }
 
-test_long_truthiness() {
+void test_long_truthiness() {
     long zero, nonzero;
     int r;
     printf("--- Phase 4: long truthiness ---\n");
@@ -409,7 +409,7 @@ test_long_truthiness() {
 
 long garr5[4];
 
-test_long_array_subscript() {
+void test_long_array_subscript() {
     long arr[3];
     int *p;
     printf("--- Phase 5: long array subscript ---\n");
@@ -426,7 +426,7 @@ test_long_array_subscript() {
     check("arr[2] low == 30", *p == 30);
 }
 
-test_long_ptr_inc() {
+void test_long_ptr_inc() {
     long *lp;
     int before, after;
     printf("--- Phase 5: long pointer increment ---\n");
@@ -442,7 +442,7 @@ test_long_ptr_inc() {
     check("long* -- decrements by 4", after == before);
 }
 
-test_long_val_inc() {
+void test_long_val_inc() {
     long val;
     int *p;
     printf("--- Phase 5: long value increment ---\n");
@@ -458,7 +458,7 @@ test_long_val_inc() {
     check("11L-- low == 10", *p == 10);
 }
 
-test_prefix_inc_long() {
+void test_prefix_inc_long() {
     long val;
     int *p;
     printf("--- Phase 5: prefix inc/dec long ---\n");
@@ -477,7 +477,7 @@ test_prefix_inc_long() {
 // Phase 6 tests: Constant Parsing, Suffixes, Folding
 // ============================================================================
 
-test_large_constants() {
+void test_large_constants() {
     long val;
     int *p;
     printf("--- Phase 6: large constants ---\n");
@@ -501,7 +501,7 @@ test_large_constants() {
     check("-70000 high == -2", *(p + 1) == -2);
 }
 
-test_suffix_parsing() {
+void test_suffix_parsing() {
     long val;
     int *p;
     printf("--- Phase 6: suffix parsing ---\n");
@@ -532,7 +532,7 @@ test_suffix_parsing() {
     check("70000U high == 1", *(p + 1) == 1);
 }
 
-test_hex_octal_large() {
+void test_hex_octal_large() {
     long val;
     int *p;
     printf("--- Phase 6: hex/octal large constants ---\n");
@@ -565,7 +565,7 @@ test_hex_octal_large() {
     check("0xFFFF high == 0", *(p + 1) == 0);
 }
 
-test_const_folding() {
+void test_const_folding() {
     long val;
     int *p;
     printf("--- Phase 6: constant folding ---\n");
@@ -608,7 +608,7 @@ test_const_folding() {
     check("70000==70001 is 0", val == 0);
 }
 
-test_const_unary() {
+void test_const_unary() {
     long val;
     int *p;
     int r;
@@ -641,7 +641,7 @@ test_const_unary() {
 // --- Phase 7a: Long function arguments ---
 
 // Helpers for test11_addr_arg: take int* like btell(fd, offset[])
-fill_long(int *p, int lo, int hi) { p[0] = lo; p[1] = hi; }
+void fill_long(int *p, int lo, int hi) { p[0] = lo; p[1] = hi; }
 int get_lo(p) int *p; { return p[0]; }
 int get_hi(p) int *p; { return p[1]; }
 
@@ -655,7 +655,7 @@ long second_arg(int a, long b) { return b; }
 
 long three_args(long a, int b, long c) { return a + b + c; }
 
-test7_args() {
+void test7_args() {
     long r;
     int *p;
     printf("--- Phase 7a: long function arguments ---\n");
@@ -696,7 +696,7 @@ long ret_expr(long a) { return a + 1; }
 
 long ret_neg() { return -1; }
 
-test7_return() {
+int test7_return() {
     long r;
     int *p;
     printf("--- Phase 7b: long return values ---\n");
@@ -726,7 +726,7 @@ test7_return() {
 
 long double_it(long x) { return x + x; }
 
-test7_retexpr() {
+void test7_retexpr() {
     long r;
     int *p;
     printf("--- Phase 7c: long result in expressions ---\n");
@@ -753,7 +753,7 @@ long sw_long(long x) {
     }
 }
 
-test8_switch() {
+void test8_switch() {
     printf("--- Phase 8a: switch on long values ---\n");
 
     check("sw_long(0L)==1", sw_long(0L) == 1);
@@ -791,7 +791,7 @@ int long_do() {
     return c;
 }
 
-test8_ctrlflow() {
+void test8_ctrlflow() {
     printf("--- Phase 8b: long in control flow ---\n");
 
     check("long_if(0L)==0", long_if(0L) == 0);
@@ -811,7 +811,7 @@ int sw_int(int x) {
     }
 }
 
-test8_intswitch() {
+void test8_intswitch() {
     printf("--- Phase 8c: 16-bit switch regression ---\n");
 
     check("sw_int(1)==10", sw_int(1) == 10);
@@ -823,7 +823,7 @@ test8_intswitch() {
 // Phase 9 tests: Cast Expressions
 // ============================================================================
 
-test9_basic() {
+void test9_basic() {
     long l;
     int i;
     char c;
@@ -870,7 +870,7 @@ test9_basic() {
     check("(char)0x4142", c == 0x42);
 }
 
-test9_unsign() {
+void test9_unsign() {
     long l;
     int i;
     unsigned u;
@@ -904,7 +904,7 @@ test9_unsign() {
     check("(int)70000UL==4464", i == 4464);
 }
 
-test9_const() {
+void test9_const() {
     long l;
     int i;
     int *p;
@@ -938,7 +938,7 @@ test9_const() {
     check("(long)70000 hi", *(p+1) == 1);
 }
 
-test9_expr() {
+void test9_expr() {
     long l;
     int i;
     int *p;
@@ -963,7 +963,7 @@ test9_expr() {
     check("(long)200+300 hi", *(p+1) == 0);
 }
 
-test9_edge() {
+void test9_edge() {
     long l;
     int *p;
 
@@ -994,7 +994,7 @@ test9_edge() {
     check("(long)(300) hi", *(p+1) == 0);
 }
 
-test9_regr() {
+void test9_regr() {
     int a, b;
     long l;
 
@@ -1016,7 +1016,7 @@ test9_regr() {
     check("70000 still works", l == 70000);
 }
 
-test9_uchar() {
+void test9_uchar() {
     char c;
     unsigned char uc;
     int i;
@@ -1055,7 +1055,7 @@ test9_uchar() {
     check("(ulong)uc255 hi", *(p+1) == 0);
 }
 
-test9_char() {
+void test9_char() {
     char c;
     int i;
     long l;
@@ -1095,7 +1095,7 @@ test9_char() {
     check("(ulong)c-1 hi", *(p+1) == -1);
 }
 
-test9_syntax() {
+void test9_syntax() {
     long l;
     int i;
     int *p;
@@ -1140,7 +1140,7 @@ test9_syntax() {
 
 // --- test10_muldv: long multiply, divide, modulo ---
 
-test10_muldv() {
+void test10_muldv() {
     long a, b, r;
     int *p;
     printf("--- Phase 10: long mul/div/mod ---\n");
@@ -1188,7 +1188,7 @@ test10_muldv() {
 
 // --- test10_shift: long shift operations ---
 
-test10_shift() {
+void test10_shift() {
     long a, r;
     int *p;
     printf("--- Phase 10: long shifts ---\n");
@@ -1226,7 +1226,7 @@ test10_shift() {
 
 // --- test10_ulcmp: unsigned long comparisons ---
 
-test10_ulcmp() {
+void test10_ulcmp() {
     long a, b;
     int r;
     printf("--- Phase 10: unsigned long cmp ---\n");
@@ -1262,7 +1262,7 @@ test10_ulcmp() {
 
 // --- test10_mdarr: multi-dimensional long array ---
 
-test10_mdarr() {
+void test10_mdarr() {
     long arr[2][3];
     int *p;
     printf("--- Phase 10: multi-dim long arr ---\n");
@@ -1288,7 +1288,7 @@ test10_mdarr() {
 
 // --- test10_postf: postfix inc/dec old value ---
 
-test10_postf() {
+void test10_postf() {
     long val, old;
     int *p;
     printf("--- Phase 10: postfix old value ---\n");
@@ -1312,7 +1312,7 @@ test10_postf() {
 
 // --- test10_ptdif: pointer-to-long difference ---
 
-test10_ptdif() {
+void test10_ptdif() {
     long arr[4];
     long *p1, *p2;
     int diff;
@@ -1330,7 +1330,7 @@ test10_ptdif() {
 
 // --- test10_strct: struct long member access ---
 
-test10_strct() {
+void test10_strct() {
     struct has_long s;
     int *p;
     printf("--- Phase 10: struct long member ---\n");
@@ -1358,7 +1358,7 @@ test10_strct() {
 
 // --- test10_chlng: char + long mixed arithmetic ---
 
-test10_chlng() {
+void test10_chlng() {
     char c;
     long lv, r;
     int *p;
@@ -1390,7 +1390,7 @@ test10_chlng() {
 
 // --- test10_logic: long in && || ternary ---
 
-test10_logic() {
+void test10_logic() {
     long a;
     int r;
     printf("--- Phase 10: long && || ternary ---\n");
@@ -1427,7 +1427,7 @@ test10_logic() {
 
 // --- test10_dec40: decimal 40000 auto-promotes ---
 
-test10_dec40() {
+void test10_dec40() {
     long val;
     int *p;
     printf("--- Phase 10: decimal 40000 ---\n");
@@ -1454,7 +1454,7 @@ test10_dec40() {
 // causing isLongVal() to emit PUSH DX + PUSH AX instead of just PUSH AX.
 // ============================================================================
 
-test11_addr_arg() {
+void test11_addr_arg() {
     unsigned long lv;
     long sl;
     int *p;
@@ -1503,7 +1503,7 @@ unsigned long widen_int(int arr[], int idx) {
     return (unsigned long)arr[idx];
 }
 
-test12_widen() {
+void test12_widen() {
     int tbl[4];
     unsigned long r;
 
@@ -1551,7 +1551,7 @@ test12_widen() {
 // Main
 // ============================================================================
 
-main() {
+void main() {
     passed = 0;
     failed = 0;
 

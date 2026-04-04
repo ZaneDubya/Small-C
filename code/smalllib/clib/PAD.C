@@ -1,7 +1,7 @@
 /*
 ** Place n occurrences of ch at dest.
 */
-pad(dest, ch, n) char *dest; unsigned n, ch; {
+void pad(char *dest, unsigned ch, unsigned n) {
   while(n--) *dest++ = ch;
   }
 

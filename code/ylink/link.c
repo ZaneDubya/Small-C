@@ -80,7 +80,7 @@ int extCount, extNext; // In Pass4, list of extdefs in this module.
 #define NOT_INCLUDED -2 // this extdef is defined but not included
 #define NOT_DEFINED -1 // this extdef is not defined
 
-main(int argc, int *argv) {
+int main(int argc, int *argv) {
   int i;
   puts(VERSION);
   AllocAll();
@@ -105,7 +105,7 @@ main(int argc, int *argv) {
   return 0;
 }
 
-AllocAll() {
+void AllocAll() {
   line = AllocMem(LINESIZE, 1);
   filePaths = AllocMem(FILE_MAX, 2);
   modData = AllocMem(MDAT_PER * MOD_MAX, 2);
@@ -122,14 +122,14 @@ AllocAll() {
   fdDebug = 0xffff;
 }
 
-DeAllocAll() {
+void DeAllocAll() {
   // need to write this.
   if (fdDebug != 0xffff) {
     safefclose(fdDebug);
   }
 }
 
-Initialize() {
+void Initialize() {
   int i, fd, length;
   char c;
   if (pathOutput == 0) {
@@ -163,7 +163,7 @@ Initialize() {
   exeStartAddress = 0xffff;
 }
 
-RdArgs(int argc, int *argv) {
+void RdArgs(int argc, int *argv) {
   int i;
   if (argc == 1) {
     fatal("No argments passed.");
@@ -211,7 +211,7 @@ RdArgs(int argc, int *argv) {
   }
 }
 
-RdArgObj(char *start, char *end) {
+void RdArgObj(char *start, char *end) {
   char *path;
   if (fileCount == FILE_MAX) {
     fatalf("max of %u input files.", FILE_MAX);
@@ -225,17 +225,17 @@ RdArgObj(char *start, char *end) {
   fileCount += 1;
 }
 
-RdArgExe(char *str) {
+void RdArgExe(char *str) {
   pathOutput = AllocMem(strlen(str) + 1, 1);
   strcpy(pathOutput, str);
 }
 
-RdArgDebug(char *str) {
+void RdArgDebug(char *str) {
   pathDebug = AllocMem(strlen(str) + 1, 1);
   strcpy(pathDebug, str);
 }
 
-RdArgLibrary(char *str) {
+void RdArgLibrary(char *str) {
   pathLibInput = AllocMem(strlen(str) + 1, 1);
   strcpy(pathLibInput, str);
 }
@@ -249,7 +249,7 @@ RdArgLibrary(char *str) {
 // 3. for each pubdef, add to pubdefs.
 byte libInLib; // if 1, we are reading a library obj.
 
-Pass1() {
+void Pass1() {
   uint i, fd;
   puts("  Pass 1");
   if (fdDebug != 0xffff) {
@@ -267,7 +267,7 @@ Pass1() {
   }
 }
 
-P1_RdFile(uint fileIndex, uint fd) {
+void P1_RdFile(uint fileIndex, uint fd) {
   uint length;
   byte recType;
   while (1) {
@@ -280,7 +280,7 @@ P1_RdFile(uint fileIndex, uint fd) {
   }
 }
 
-P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
+void P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
   int i;
   switch (recType) {
     case THEADR:
@@ -334,7 +334,7 @@ P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd) {
 // 82H is handled identically, but indicates the name of a module within a
 // library file, which has an internal organization different from that of an
 // object module.
-P1_THEADR(uint fileIndex, uint length, uint fd) {
+void P1_THEADR(uint fileIndex, uint length, uint fd) {
   int i;
   if (modCount == MOD_MAX) {
     fatalf("Error: max of %u object modules.", MOD_MAX);
@@ -343,7 +343,7 @@ P1_THEADR(uint fileIndex, uint length, uint fd) {
   read_u8(fd); // checksum. assume correct.
 }
 
-AddModule(uint fileIndex, uint fd) {
+void AddModule(uint fileIndex, uint fd) {
   int length, i;
   char *path, *c;
   unsigned long offset;
@@ -375,7 +375,7 @@ AddModule(uint fileIndex, uint fd) {
   }
 }
 
-ResetSegments() {
+void ResetSegments() {
   int i;
   // reset segments to not present, first segment index will be 0
   for (i = 0; i < SEGS_CNT; i++) {
@@ -390,7 +390,7 @@ ResetSegments() {
 // can optionally contain a reference to a program's entry point.
 // If moduletype & 0x80, the module is a main program module. I don't use this.
 // if moduletype & 0x40, the module contains a start address. I use this.
-P1_MODEND(uint length, uint fd) {
+void P1_MODEND(uint length, uint fd) {
   byte moduletype;
   moduletype = read_u8(fd);
   if (moduletype & 0x40) {
@@ -420,7 +420,7 @@ P1_MODEND(uint length, uint fd) {
 // occurrence and referenced by index from subsequent records.  More than one
 // LNAMES record may appear.  The names themselves are used as segment, class,
 // group, overlay, and selector names.
-P1_LNAMES(uint length, uint fd) {
+void P1_LNAMES(uint length, uint fd) {
   int nameIndex;
   char *c;
   nameIndex = 0;
@@ -457,7 +457,7 @@ P1_LNAMES(uint length, uint fd) {
 // in this object module available to satisfy external references in other
 // modules with which it is bound or linked. The symbols are also available
 // for export if so indicated in an EXPDEF comment record.
-P1_PUBDEF(uint length, uint fd) {  byte typeindex;
+void P1_PUBDEF(uint length, uint fd) {  byte typeindex;
   int i, puboffset;
   byte basegroup, basesegment, typeindex;
   char *pdbfname, *c;
@@ -524,7 +524,7 @@ P1_PUBDEF(uint length, uint fd) {  byte typeindex;
 // referenced by segment indexes (starting from 1) in subsequent records.
 // When 'pass1' is 1, this routine will set modData and segLengths. When
 //    1 or 0, this routine will set locSegs.
-P1_SEGDEF(uint length, uint fd, uint pass1) {
+void P1_SEGDEF(uint length, uint fd, uint pass1) {
   byte segattr, segname, classname;
   uint seglen;
   long lstk;
@@ -590,7 +590,7 @@ P1_SEGDEF(uint length, uint fd, uint pass1) {
 // if we were working with multiple libraries. For small programs, I am 
 // ignoring them. Code to load these is in the v4 codebase between btell and
 // bseek.
-P1_LIBHDR(uint length, uint fd) {
+int P1_LIBHDR(uint length, uint fd) {
   byte flags, nextRecord;
   unsigned long dictOffset;
   uint blockCount;
@@ -609,7 +609,7 @@ P1_LIBHDR(uint length, uint fd) {
 // did not have the memory to hold all the dependancy information.
 // In any case, library files generated by YLINK, for now, will end after the
 // LIBEND record, and will not contain dictionary or dependancy records.
-P1_LIBEND(uint length, uint fd) {
+void P1_LIBEND(uint length, uint fd) {
   if (!libInLib) {
     fatal("LIBEND: not a library!");
   }
@@ -618,7 +618,7 @@ P1_LIBEND(uint length, uint fd) {
   libInLib = 0;
 }
 
-AlignSegments(int amount) {
+int AlignSegments(int amount) {
   int i, next;
   long lval;
   long overflow;
@@ -648,7 +648,7 @@ AlignSegments(int amount) {
 // in an available LIBRARY file. If we can't, then error out. We will do this
 // recursively until all EXTDEFs are resolved.
 // If we are building a .lib file, then we can skip this step.
-Pass2() {
+void Pass2() {
   uint i, fd, unresolved, extLast;
   unsigned long offset;
   if (fdDebug != 0xffff) {
@@ -694,7 +694,7 @@ Pass2() {
   }
 }
 
-P2_DoMod(uint fd) {
+void P2_DoMod(uint fd) {
   uint length;
   byte recType;
   while (1) {
@@ -722,7 +722,7 @@ P2_DoMod(uint fd) {
 // references to symbols defined in other object modules. The linker resolves
 // external references by matching the symbols declared in EXTDEF records
 // with symbols declared in PUBDEF records.
-P2_EXTDEF(uint length, uint fd) {
+void P2_EXTDEF(uint length, uint fd) {
   byte deftype, strlength;
   int i, pbdfIdx;
   while (length > 1) {
@@ -748,7 +748,7 @@ P2_EXTDEF(uint length, uint fd) {
   read_u8(fd); // checksum. assume correct.
 }
 
-P2_Resolve() {
+void P2_Resolve() {
   int i, extName, pbdfIdx, modIndex;
   // for each unincluded extdef, find the matching module and include it!
   for (i = 0; i < extCount; i++) {
@@ -769,7 +769,7 @@ P2_Resolve() {
 // ============================================================================
 // Get segment lengths and code/data origins for each included module.
 // Then set exeStartAddress
-Pass3() {
+void Pass3() {
   // set code segment origins as in v5.P1_SEGDEF
   uint i, seglen;
   long lcode, ldata, lval;
@@ -823,7 +823,7 @@ Pass3() {
 // ============================================================================
 // In Pass4, we are copying in the DATA from the modules, and handling all
 // FIXUPP records.
-Pass4() {
+void Pass4() {
   uint i, fd, outfd, checksum;
   unsigned long modOffset; // offset to object module that we are currently reading
   unsigned long tmp4;      // scratch for computing codeBase/dataBase
@@ -871,7 +871,7 @@ Pass4() {
   WriteExeHeader(checksum);
 }
 
-CalcChecksum() {
+int CalcChecksum() {
   uint i, j, fd;
   i = 0;
   fd = safefopen(pathOutput, "r");
@@ -890,7 +890,7 @@ CalcChecksum() {
   return i;
 }
 
-WriteExeHeader(uint checksum) {
+void WriteExeHeader(uint checksum) {
   uint fd;
   unsigned long beginning = 0L;
   unsigned long totalsize = 0L;
@@ -932,7 +932,7 @@ WriteExeHeader(uint checksum) {
   safefclose(fd);
 }
 
-P4_DoMod(uint fd, uint outfd, uint *codeBase, uint *dataBase) {
+void P4_DoMod(uint fd, uint outfd, uint *codeBase, uint *dataBase) {
   uint length, segOffset;
   byte recType, segType;
   ResetSegments();
@@ -982,7 +982,7 @@ P4_DoMod(uint fd, uint outfd, uint *codeBase, uint *dataBase) {
 
 // Read all the extdefs for this module into a buffer.
 // extdef names are null-terminated.
-P4_EXTDEF(uint length, uint fd) {
+void P4_EXTDEF(uint length, uint fd) {
   byte deftype;
   uint strlength;
   if (fdDebug != 0xffff) {
@@ -998,7 +998,7 @@ P4_EXTDEF(uint length, uint fd) {
   read_u8(fd); // checksum. assume correct.
 }
 
-P4_LEDATA(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase,
+void P4_LEDATA(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase,
   byte *segType, uint *segOffset) {
   uint segBase[2];
   unsigned long segBaseLong;
@@ -1031,7 +1031,7 @@ P4_LEDATA(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase,
 // as a repeating pattern (iterated), rather than by explicit enumeration.
 // The data in an LIDATA record can be modified by the linker if the LIDATA
 // record is followed by a FIXUPP record, although this is not recommended.
-P4_LIDATA(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase,
+void P4_LIDATA(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase,
   byte *segType, uint *segOffset) {
   uint segBase[2];
   unsigned long segBaseLong;
@@ -1096,7 +1096,7 @@ P4_LIDATA(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase,
   read_u8(fd); // checksum. assume correct.
 }
 
-P4_LIINNER(uint fd, uint outfd, uint repeat, uint *length) {
+void P4_LIINNER(uint fd, uint outfd, uint repeat, uint *length) {
   int i, j;
   uint count;
   count = read_u8(fd);
@@ -1134,7 +1134,7 @@ P4_LIINNER(uint fd, uint outfd, uint repeat, uint *length) {
 // target or frame. Because the same THREAD subrecord can be referenced in
 // several subsequent FIXUP subrecords, a FIXUPP object record that uses THREAD
 // subrecords may be smaller than one in which THREAD subrecords are not used.
-P4_FIXUPP(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase,
+void P4_FIXUPP(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase,
   byte segType, uint segOffset) {
   byte lLocat;    // 0x80 set: this is a fixup (unset: a thread, not handled)
                   // 0x40 unset: Self-relative, set: segment-relative
@@ -1220,14 +1220,14 @@ P4_FIXUPP(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase,
   read_u8(fd); // checksum. assume correct.
 }
 
-P4_FixCheckMatch(byte tFrame, byte tTarget) {
+void P4_FixCheckMatch(byte tFrame, byte tTarget) {
   if (tFrame != tTarget) {
     fatalf2("P4_FIXUPP: Segment frame %x and target %x must match.",
       tFrame, tTarget);
   }
 }
 
-P4_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
+void P4_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
   uint fixOffset, uint *codeBase, uint *dataBase, byte segType,
   uint segOffset) {
   int extName, pbdfIndex, modOrigin;
@@ -1291,7 +1291,7 @@ P4_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
   }
 }
 
-P4_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
+void P4_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
   uint fixOffset, uint *codeBase, uint *dataBase, byte segType,
   uint segOffset) {
   if (fdDebug != 0xffff) {
@@ -1362,7 +1362,7 @@ P4_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
   }
 }
 
-P4_FixMix(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte frmSeg,
+void P4_FixMix(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte frmSeg,
   byte frmExt, uint fixOffset, uint *codeBase, uint *dataBase, byte segType,
   uint segOffset) {
   // adjust the fixOffset here.
@@ -1370,7 +1370,7 @@ P4_FixMix(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte frmSeg,
         codeBase, dataBase, segType, segOffset);
 }
 
-P4_DoFixupp(uint fd, uint what, uint whatOff, uint whatRelative, 
+void P4_DoFixupp(uint fd, uint what, uint whatOff, uint whatRelative, 
   uint *where, uint whereOff) {
   unsigned long outAddr;
   unsigned long nowAddr;
@@ -1397,7 +1397,7 @@ P4_DoFixupp(uint fd, uint what, uint whatOff, uint whatRelative,
   }
 }
 
-P4_SetBase(byte segType, uint *codeBase, uint *dataBase, uint *segBase) {
+void P4_SetBase(byte segType, uint *codeBase, uint *dataBase, uint *segBase) {
   unsigned long tmp;
   if (segType == SEG_CODE) {
     segBase[0] = codeBase[0]; segBase[1] = codeBase[1];
@@ -1417,7 +1417,7 @@ P4_SetBase(byte segType, uint *codeBase, uint *dataBase, uint *segBase) {
   }
 }
 
-Add1632(uint a, uint b[]) {
+void Add1632(uint a, uint b[]) {
   if ((a > 0) && (a > 0xffff - b[0])) { /* `a + x` would overflow */
     b[1] += 1;
   }
@@ -1428,7 +1428,7 @@ Add1632(uint a, uint b[]) {
 // === Pass2 (Library files) ==================================================
 // ============================================================================
 // If we are reading in a library file, then we just concat the library file!
-Pass2Lib() {
+void Pass2Lib() {
   uint fd, fdmod, i;
   unsigned long modOffset; // offset to object module that we are currently reading
   if (fdDebug != 0) {
@@ -1460,7 +1460,7 @@ Pass2Lib() {
   safefclose(fd);
 }
 
-P2L_LIBHDR(uint fd) {
+void P2L_LIBHDR(uint fd) {
   int i;
   write_f8(fd, LIBHDR);
   write_f16(fd, 0x000d); // length of record
@@ -1474,7 +1474,7 @@ P2L_LIBHDR(uint fd) {
   write_f8(fd, 0x00); // checksum
 }
 
-P2L_LIBEND(uint fd) {
+void P2L_LIBEND(uint fd) {
   int i;
   write_f8(fd, LIBEND);
   write_f16(fd, 0x000d); // length of record
@@ -1484,7 +1484,7 @@ P2L_LIBEND(uint fd) {
   write_f8(fd, 0x00); // checksum
 }
 
-P2L_ADD(uint fdout, uint fdmod) {
+void P2L_ADD(uint fdout, uint fdmod) {
   uint length, i;
   byte recType, c;
   while (1) {
@@ -1519,7 +1519,7 @@ P2L_ADD(uint fdout, uint fdmod) {
 // Returns index of pubdef with this name, error code for not defined/present.
 // if retAllDefined == 1, return the index regardless of whether it is 
 // included or not included
-FindPubDef(char* name, int retAllDefined) {
+int FindPubDef(char* name, int retAllDefined) {
   int i, j, length, modIndex;
   char* matching;
   length = strlen(name);
@@ -1549,7 +1549,7 @@ FindPubDef(char* name, int retAllDefined) {
 
 // rd_fix_target: Reads the target location of a fixupp.
 //    Returns the count of bytes remaining in the record.
-rd_fix_target(uint length, uint fd, uint *offset, byte *frmType, byte *tgtType,
+int rd_fix_target(uint length, uint fd, uint *offset, byte *frmType, byte *tgtType,
   byte *frame, byte *target) {
   // -----------------------------------------------------------------
   //  FRAME/TARGET METHODS is a byte which encodes the methods by which 
@@ -1622,7 +1622,7 @@ rd_fix_target(uint length, uint fd, uint *offset, byte *frmType, byte *tgtType,
 
 // rd_fix_locat: reads the place where the fixupp will be written.
 //    Returns the count of bytes remaining in the record.
-rd_fix_locat(uint length, uint fd, uint *offset, byte *locat, byte *lRefType) {
+int rd_fix_locat(uint length, uint fd, uint *offset, byte *locat, byte *lRefType) {
   // -----------------------------------------------------------------
   // The first bit (in the low byte) is always  one  to  indicate
   // that this block defines a "fixup" as opposed to a "thread."
@@ -1653,7 +1653,7 @@ rd_fix_locat(uint length, uint fd, uint *offset, byte *locat, byte *lRefType) {
 
 // === Program State ==========================================================
 // returns 1 if we are building a library file, 0 otherwise.
-IsLibrary() {
+int IsLibrary() {
   if (pathLibInput != 0) {
     return 1;
   }
@@ -1662,12 +1662,12 @@ IsLibrary() {
 
 // === Write Hexidecimal numbers ==============================================
 
-write_x16(uint fd, uint value) {
+void write_x16(uint fd, uint value) {
   write_x8(fd, value >> 8);
   write_x8(fd, value & 0x00ff);
 }
 
-write_x8(uint fd, byte value) {
+void write_x8(uint fd, byte value) {
   byte ch0;
   ch0 = (value & 0xf0) >> 4;
   if (ch0 < 10) {
@@ -1687,13 +1687,13 @@ write_x8(uint fd, byte value) {
   fputc(ch0, fd);
 }
 
-write_f8(uint fd, char value) {
+void write_f8(uint fd, char value) {
   int c0, c1;
   c0 = (value & 0x00ff);
   _write(c0, fd);
 }
 
-write_f16(uint fd, uint value) {
+void write_f16(uint fd, uint value) {
   int c0, c1;
   c0 = (value & 0x00ff);
   c1 = (value >> 8);
@@ -1702,7 +1702,7 @@ write_f16(uint fd, uint value) {
 }
 
 // === Binary Reading Routines ================================================
-read_u8(uint fd) {
+int read_u8(uint fd) {
   byte ch;
   ch = _read(fd);
   return ch;
@@ -1716,7 +1716,7 @@ uint read_u16(uint fd) {
 }
 
 // read string that is prefixed by length.
-readstrpre(char* str, uint fd) {
+int readstrpre(char* str, uint fd) {
   byte length, retval;
   char* next;
   next = str;
@@ -1730,7 +1730,7 @@ readstrpre(char* str, uint fd) {
 }
 
 // reimplementation of fgets. reads until eof, \n, or \r.
-readstr(char* str, uint size, uint fd) {
+int readstr(char* str, uint size, uint fd) {
   int backup; char *next;
   next = str;
   while(--size > 0) {
@@ -1756,7 +1756,7 @@ readstr(char* str, uint size, uint fd) {
 
 // === File Management ========================================================
 
-safefopen(char* path, char* opts) {
+int safefopen(char* path, char* opts) {
   uint fd;
   if (!(fd = fopen(path, opts))) {
     fatalf("Could not open %s.", path);
@@ -1764,23 +1764,23 @@ safefopen(char* path, char* opts) {
   return fd;
 }
 
-safefclose(uint fd) {
+void safefclose(uint fd) {
   if (fd != 0) {
     fclose(fd);
   }
 }
 
-offsetfd(uint fd, uint base[], uint offset[]) {
+void offsetfd(uint fd, uint base[], uint offset[]) {
     bseek(fd, base, 0);
     bseek(fd, offset, 1);
 }
 
-forward(uint fd, uint offset) {
+void forward(uint fd, uint offset) {
   unsigned long iOffset = (unsigned long)offset;
   bseek(fd, &iOffset, 1);
 }
 
-ClearPara(uint fd) {
+void ClearPara(uint fd) {
   if (!feof(fd)) {
     int remaining;
     remaining = 16 - (ctellc(fd) % 16);
@@ -1790,7 +1790,7 @@ ClearPara(uint fd) {
   }
 }
 
-clearsilent(uint length, uint fd) {
+void clearsilent(uint length, uint fd) {
   while (length-- > 0) {
     read_u8(fd);
   }
@@ -1798,28 +1798,28 @@ clearsilent(uint length, uint fd) {
 
 // === Error Routines =========================================================
 
-fatal(char *str) {
+void fatal(char *str) {
   fputs("  Error: ", stderr);
   fputs(str, stderr);
   fputc(NEWLINE, stderr);
   abort(1);
 }
 
-fatalf(char *format, char *arg) {
+void fatalf(char *format, char *arg) {
   fputs("  Error: ", stderr); 
   fprintf(stderr, format, arg);
   fputc(NEWLINE, stderr);
   abort(1);
 }
   
-fatalf2(char *format, char *arg0, char *arg1) {
+void fatalf2(char *format, char *arg0, char *arg1) {
   fputs("  Error: ", stderr); 
   fprintf(stderr, format, arg0, arg1);
   fputc(NEWLINE, stderr);
   abort(1);
 }
 
-fatalfl(char *msg, long arg) {
+void fatalfl(char *msg, long arg) {
   char buf[12];
   long lval;
   int *lp, *lq;
@@ -1838,7 +1838,7 @@ fatalfl(char *msg, long arg) {
 
 // === Memory Management ======================================================
 
-AllocMem(int nItems, int itemSize) {
+int AllocMem(int nItems, int itemSize) {
   int result;
   result = calloc(nItems, itemSize);
   if (result == 0) {
@@ -1850,7 +1850,7 @@ AllocMem(int nItems, int itemSize) {
 
 // AddName: adds a null-terminated string to a byte array. Returns ptr to
 // byte array where string was placed. Fails if string will not fit.
-AddName(char *name, char *names, uint *next, uint max) {
+int AddName(char *name, char *names, uint *next, uint max) {
   char* namesaved;
   uint nameat, i;
   nameat = i = *next;
@@ -1868,7 +1868,7 @@ AddName(char *name, char *names, uint *next, uint max) {
   return names + nameat;
 }
 
-GetName(int index, char *names, uint max) {
+int GetName(int index, char *names, uint max) {
   uint i, start, count;
   i = start = count = 0;
   while (i < max) {
@@ -1884,7 +1884,7 @@ GetName(int index, char *names, uint max) {
   return NOT_DEFINED;
 }
 
-MatchName(char* name, char *names, uint max) {
+int MatchName(char* name, char *names, uint max) {
   uint i, j;
   for (i = 0; i < max; i++) {
     if (names[i] != 0) {

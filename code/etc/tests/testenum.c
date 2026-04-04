@@ -8,7 +8,7 @@ int passed, failed;
 // Test helper
 // ============================================================================
 
-check(char *desc, int cond) {
+void check(char *desc, int cond) {
     if (cond) {
         printf("  PASS: %s\n", desc);
         passed++;
@@ -56,14 +56,14 @@ int gval_from_enum = GREEN;
 // Test: enumerator constant values
 // ============================================================================
 
-values_simple() {
+void values_simple() {
     printf("--- simple enum values (start from 0) ---\n");
     check("RED   == 0", RED   == 0);
     check("GREEN == 1", GREEN == 1);
     check("BLUE  == 2", BLUE  == 2);
 }
 
-values_explicit() {
+void values_explicit() {
     printf("--- explicit enum values ---\n");
     check("NORTH == 1", NORTH == 1);
     check("SOUTH == 2", SOUTH == 2);
@@ -71,7 +71,7 @@ values_explicit() {
     check("WEST  == 8", WEST  == 8);
 }
 
-values_nonzero_start() {
+void values_nonzero_start() {
     printf("--- auto-increment from non-zero start ---\n");
     check("MON == 1", MON == 1);
     check("TUE == 2", TUE == 2);
@@ -82,14 +82,14 @@ values_nonzero_start() {
     check("SUN == 7", SUN == 7);
 }
 
-values_negative() {
+void values_negative() {
     printf("--- negative enum values ---\n");
     check("NEG  == -1", NEG  == -1);
     check("ZERO ==  0", ZERO ==  0);
     check("POS  ==  1", POS  ==  1);
 }
 
-values_mixed() {
+void values_mixed() {
     printf("--- mixed explicit/auto values ---\n");
     check("A == 10", A == 10);
     check("B == 11", B == 11);
@@ -97,7 +97,7 @@ values_mixed() {
     check("D == 21", D == 21);
 }
 
-values_resets() {
+void values_resets() {
     printf("--- explicit value resets counter ---\n");
     check("X == 5", X == 5);
     check("Y == 6", Y == 6);
@@ -105,7 +105,7 @@ values_resets() {
     check("W == 1", W == 1);
 }
 
-values_dups() {
+void values_dups() {
     printf("--- duplicate values allowed ---\n");
     check("ALPHA == 1", ALPHA == 1);
     check("BETA  == 1", BETA  == 1);
@@ -116,7 +116,7 @@ values_dups() {
 // Test: sizeof
 // ============================================================================
 
-test_sizeof() {
+void test_sizeof() {
     printf("--- sizeof tests ---\n");
     check("sizeof(enum color) == 2",   sizeof(enum color) == 2);
     check("sizeof(enum direction) == 2", sizeof(enum direction) == 2);
@@ -130,7 +130,7 @@ test_sizeof() {
 // Test: enum as int (backed by int — same size, assignable to int)
 // ============================================================================
 
-enum_as_int() {
+void enum_as_int() {
     int i;
     printf("--- enum as int ---\n");
 
@@ -148,7 +148,7 @@ enum_as_int() {
 // Test: enum variable declaration and assignment
 // ============================================================================
 
-enum_var() {
+void enum_var() {
     enum color c;
     enum direction d;
     printf("--- enum variable decl and assign ---\n");
@@ -170,7 +170,7 @@ enum_var() {
 // Test: global enum variable
 // ============================================================================
 
-global_enum_var() {
+void global_enum_var() {
     printf("--- global enum variable ---\n");
 
     gcolor = RED;
@@ -194,7 +194,7 @@ global_enum_var() {
 int palette[BLUE + 1];               // BLUE==2, so size==3
 int compass[WEST + 1];               // WEST==8, so size==9
 
-const_array_size() {
+void const_array_size() {
     printf("--- enumerator as array size ---\n");
     check("sizeof(palette) == 3*2", sizeof(palette) == 6);
     check("sizeof(compass) == 9*2", sizeof(compass) == 18);
@@ -204,7 +204,7 @@ const_array_size() {
 // Test: enumerator in expressions
 // ============================================================================
 
-enum_expr() {
+void enum_expr() {
     int r;
     printf("--- enumerator in expressions ---\n");
 
@@ -237,7 +237,7 @@ enum_expr() {
 // Test: cast (enum tag)expr treated as (int)
 // ============================================================================
 
-enum_cast() {
+void enum_cast() {
     int x, r;
     printf("--- cast to enum type ---\n");
 
@@ -277,7 +277,7 @@ int decode_dir(int d) {
     }
 }
 
-switch_enum() {
+void switch_enum() {
     printf("--- switch on enum constants ---\n");
     check("decode_color(RED)   == 100", decode_color(RED)   == 100);
     check("decode_color(GREEN) == 200", decode_color(GREEN) == 200);
@@ -295,7 +295,7 @@ switch_enum() {
 // Test: enum in if / while / for
 // ============================================================================
 
-enum_control_flow() {
+void enum_control_flow() {
     int c, sum;
     printf("--- enum in control flow ---\n");
 
@@ -335,7 +335,7 @@ struct color_record {
     int value;
 };
 
-struct_with_enum() {
+void struct_with_enum() {
     struct color_record rec;
     printf("--- struct with enum field ---\n");
 
@@ -365,7 +365,7 @@ int is_primary(int d) {
     return (d == NORTH || d == SOUTH || d == EAST || d == WEST);
 }
 
-enum_func() {
+int enum_func() {
     printf("--- functions with enum args/returns ---\n");
     check("next_color(RED)  == GREEN", next_color(RED)  == GREEN);
     check("next_color(GREEN)== BLUE",  next_color(GREEN) == BLUE);
@@ -382,7 +382,7 @@ enum_func() {
 
 enum cross { CA = 3, CB = CA + 1, CC = CB * 2 };
 
-cross_ref() {
+void cross_ref() {
     printf("--- cross-reference within enum definition ---\n");
     check("CA == 3",  CA == 3);
     check("CB == 4",  CB == 4);
@@ -397,7 +397,7 @@ enum limits { MAXN = 5, MAXM = 3 };
 
 int grid[MAXN][MAXM];   // 5x3 array of int
 
-array_dim() {
+void array_dim() {
     int i, j;
     printf("--- enumerator as array dimension ---\n");
     check("sizeof(grid) == MAXN*MAXM*2", sizeof(grid) == 30);
@@ -416,7 +416,7 @@ array_dim() {
 // Test: local enum declaration (tag must be recognised via global tag table)
 // ============================================================================
 
-local_enum_var() {
+void local_enum_var() {
     enum color lc;
     enum direction ld;
     int x;
@@ -445,7 +445,7 @@ int gi_north = NORTH;
 int gi_west  = WEST;
 int gi_neg   = NEG;
 
-global_init() {
+void global_init() {
     printf("--- global init from enumerators ---\n");
     check("gi_red   == 0", gi_red   == 0);
     check("gi_green == 1", gi_green == 1);
@@ -459,7 +459,7 @@ global_init() {
 // Test: conditional compilation -- enumerators as #if-style comparisons
 // ============================================================================
 
-enum_relational() {
+void enum_relational() {
     int r;
     printf("--- enumerator relational / logical ---\n");
 
@@ -484,7 +484,7 @@ enum_relational() {
 // main
 // ============================================================================
 
-main() {
+int main() {
     passed = 0;
     failed = 0;
 

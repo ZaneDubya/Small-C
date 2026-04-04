@@ -3,7 +3,7 @@
 **                  characters and returns an integer
 **                  >0, =0, or <0 as s is >t, =t, or <t.
 */
-strncmp(s, t, n) char *s, *t; int n; {
+int strncmp(char *s, char *t, int n) {
   while(n && *s==*t) {
     if (*s == 0) return (0);
     ++s; ++t; --n;

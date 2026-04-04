@@ -9,8 +9,7 @@
 ** Returns number of characters moved on success,
 ** else EOF.
 */
-getarg(n, s, size, argc, argv)
-  int n; char *s; int size, argc, argv[]; {
+int getarg(int n, char *s, int size, int argc, int argv[]) {
   char *str;
   int i;
   if(n < 0 | n >= argc) {

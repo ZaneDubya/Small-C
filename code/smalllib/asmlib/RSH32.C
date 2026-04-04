@@ -1,7 +1,7 @@
 /*
 ** 32-bit x >> y to x
 */
-rsh32(x, y) unsigned x[], y[]; {
+void rsh32(unsigned x[], unsigned y[]) {
   if(y[1] || y[0] > 31) {
     x[1] = 0;
     x[0] = 0;

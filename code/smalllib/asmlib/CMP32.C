@@ -1,7 +1,7 @@
 /*
 ** compare signed 32-bit values x and y
 */
-cmp32(x, y) int x[], y[]; {
+int cmp32(int x[], int y[]) {
   if(x[1] == y[1])
        if(x[0] == y[0])   return ( 0);
        else {

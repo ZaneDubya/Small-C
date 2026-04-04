@@ -9,7 +9,7 @@ extern int _status[];
 ** Returns a count of the items actually read.
 ** Use feof() and ferror() to determine file status.
 */
-fread(buf, sz, n, fd) unsigned char *buf; unsigned sz, n, fd; {
+int fread(unsigned char *buf, unsigned sz, unsigned n, unsigned fd) {
   return (read(fd, buf, n*sz)/sz);
   }
 
@@ -21,7 +21,7 @@ fread(buf, sz, n, fd) unsigned char *buf; unsigned sz, n, fd; {
 ** Returns a count of the bytes actually read.
 ** Use feof() and ferror() to determine file status.
 */
-read(fd, buf, n) unsigned fd, n; unsigned char *buf; {
+int read(unsigned fd, unsigned char *buf, unsigned n) {
   unsigned cnt;
   cnt = 0;
   while(n--) {

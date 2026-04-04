@@ -1,7 +1,7 @@
 /*
 ** copy n characters from sour to dest (null padding)
 */
-strncpy(dest, sour, n) char *dest, *sour; int n; {
+int strncpy(char *dest, char *sour, int n) {
   char *d;
   d = dest;
   while(n-- > 0) {

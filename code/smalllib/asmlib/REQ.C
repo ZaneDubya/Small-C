@@ -6,7 +6,7 @@
 /*
 ** request number
 */
-reqnbr(prompt, nbr) char prompt[]; int *nbr; {
+int reqnbr(char prompt[], int *nbr) {
   char str[20];
   int sz;
   if(iscons(stdin)) {
@@ -21,7 +21,7 @@ reqnbr(prompt, nbr) char prompt[]; int *nbr; {
 /*
 ** request string
 */
-reqstr(prompt, str, sz) char prompt[], *str; int sz; {
+int reqstr(char prompt[], char *str, int sz) {
   if(iscons(stdin)) {
     puts("");
     fputs(prompt, stdout);
@@ -33,7 +33,7 @@ reqstr(prompt, str, sz) char prompt[], *str; int sz; {
 /*
 ** get string from user
 */
-getstr(str, sz) char *str; int sz; {
+void getstr(char *str, int sz) {
   char *cp;
   fgets(str, sz, stdin);
   if(iscons(stdin) && !iscons(stdout))  fputs(str, stdout);   /* echo */

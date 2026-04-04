@@ -1,7 +1,7 @@
 /*
 ** move 32 bit value at s to d
 */
-mov32(d, s) unsigned d[], s[]; {
+void mov32(unsigned d[], unsigned s[]) {
   d[0] = s[0];
   d[1] = s[1];
   }

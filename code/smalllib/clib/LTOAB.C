@@ -3,7 +3,7 @@
 ** Supports bases 2, 8, 10, 16.
 ** Returns pointer to s.
 */
-ltoab(long n, char *s, int b) {
+int ltoab(long n, char *s, int b) {
   int lo, hi, rem;
   char *ptr;
   int *p;

@@ -1,7 +1,7 @@
 /*
 ** increment 32 bit value at x with i
 */
-inc32(x, i) unsigned x[], i; {
+void inc32(unsigned x[], unsigned i) {
   #asm
   MOV BX,[BP+6]       ; locate x
   MOV AX,[BP+4]       ; fetch i

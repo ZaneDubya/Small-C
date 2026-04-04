@@ -8,7 +8,7 @@
 **     ------ ---------- -------------
 **                       1^...........
 */
-itoft(f, i) int *f, i; {
+void itoft(int *f, int i) {
   if(i < 0) {            /* i is negative (and non-zero), so */
     f[4] = 0x8000;       /* set sign negative */
     i = -i;              /* set i positive */

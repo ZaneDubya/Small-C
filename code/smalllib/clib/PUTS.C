@@ -2,7 +2,7 @@
 /*
 ** Write string to standard output. 
 */
-puts(string) char *string; {
+void puts(char *string) {
   fputs(string, stdout);
   fputc('\n', stdout);
   }

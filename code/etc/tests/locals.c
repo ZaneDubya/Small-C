@@ -29,7 +29,7 @@ struct mixed {
 // Helper functions
 // ============================================================================
 
-check(char *desc, int cond) {
+void check(char *desc, int cond) {
     if (cond) {
         printf("  PASS: %s\n", desc);
         passed++;
@@ -58,7 +58,7 @@ int double_it(int x) {
 // Main test program
 // ============================================================================
 
-main() {
+int main() {
     passed = 0;
     failed = 0;
     printf("=== Local Variable Initialization Tests ===\n");

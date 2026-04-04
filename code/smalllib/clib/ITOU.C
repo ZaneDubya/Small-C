@@ -7,7 +7,7 @@
 **        if sz = 0 find end of string
 **        if sz < 0 use last byte for data
 */
-itou(nbr, str, sz)  int nbr;  char str[];  int sz;  {
+int itou(int nbr, char str[], int sz) {
   int lowbit;
   if(sz>0) str[--sz]=NULL;
   else if(sz<0) sz = -sz;

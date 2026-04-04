@@ -5,14 +5,14 @@
 /*
 ** get integer from "a"
 */
-getint(a) int *a; {
+int getint(int *a) {
   return (*a);
   }
 
 /*
 ** put integer "i" at "a"
 */
-putint(a, i) int *a, i; {
+void putint(int *a, int i) {
   *a = i;
   }
 

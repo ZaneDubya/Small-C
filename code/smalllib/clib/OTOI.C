@@ -3,7 +3,7 @@
 ** otoi -- convert unsigned octal string to integer nbr
 **          returns field size, else ERR on error
 */
-otoi(octstr, nbr)  char *octstr;  int *nbr;  {
+int otoi(char *octstr, int *nbr) {
   int d,t; d=0;
   *nbr=0;
   while((*octstr>='0')&(*octstr<='7')) {

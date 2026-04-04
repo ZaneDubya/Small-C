@@ -3,7 +3,7 @@
 /*
 ** Poll for console input or interruption
 */
-poll(pause) int pause; {
+int poll(int pause) {
   int i;
   if(i = _hitkey())  i = _getkey();
   if(pause) {

@@ -13,7 +13,7 @@ extern int _nextc[], _bufuse[];
 **
 ** Returns NULL on success, else EOF.
 */
-bseek(fd, offset, base) int fd, offset[], base; {
+int bseek(int fd, int offset[], int base) {
   int hi, lo;
   if(!_mode(fd) || !_bufuse[fd]) return (EOF);
   if(_adjust(fd)) return (EOF);

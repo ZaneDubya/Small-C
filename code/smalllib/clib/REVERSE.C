@@ -1,7 +1,7 @@
 /*
 ** reverse string in place 
 */
-reverse(s) char *s; {
+void reverse(char *s) {
   char *j;
   int c;
   j = s + strlen(s) - 1;

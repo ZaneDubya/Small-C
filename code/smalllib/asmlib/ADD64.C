@@ -2,7 +2,7 @@
 ** 64-bit x + y to x
 ** return true if carried out of high order bit
 */
-add64(x, y) unsigned x[], y[]; {
+int add64(unsigned x[], unsigned y[]) {
   #asm
   MOV  BX,[BP+4]       ; locate y
   MOV  AX,[BX]         ; fetch y[0]

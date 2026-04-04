@@ -1,7 +1,7 @@
 /*
 ** 32 bit !x to x
 */
-lneg32(x) unsigned x[]; {
+void lneg32(unsigned x[]) {
   if(x[0] == 0
   && x[1] == 0) {
     x[0] = 1;

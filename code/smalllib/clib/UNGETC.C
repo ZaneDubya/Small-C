@@ -6,7 +6,7 @@ extern _nextc[];
 **        fd = file descriptor
 ** Returns c if successful, else EOF.
 */
-ungetc(c, fd) int c, fd; {
+int ungetc(int c, int fd) {
   if(!_mode(fd) || _nextc[fd]!=EOF || c==EOF) return (EOF);
   return (_nextc[fd] = c);
   }

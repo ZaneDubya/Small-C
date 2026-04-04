@@ -5,7 +5,7 @@ extern char *_memptr;
 ** is non-zero the program aborts with an 'S' clue,
 ** otherwise zero is returned.
 */
-avail(abort) int abort; {
+int avail(int abort) {
   char x;
   if(&x < _memptr) {
     if(abort) exit(1);

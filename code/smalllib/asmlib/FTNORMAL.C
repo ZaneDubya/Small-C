@@ -10,7 +10,7 @@
 **
 **
 */
-ftnormal(f) int *f; {
+void ftnormal(int *f) {
   if(f[3] || f[2] || f[1] || f[0])
     while((f[3] & 0x8000) == 0) { --f[4]; lsh64(f); }
   else f[4] = 0;

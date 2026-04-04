@@ -1,7 +1,7 @@
 /*
 ** itoa(n,s) - Convert n to characters in s 
 */
-itoa(n, s) char *s; int n; {
+void itoa(int n, char *s) {
   int sign;
   char *ptr;
   ptr = s;

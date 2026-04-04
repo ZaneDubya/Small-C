@@ -2,7 +2,7 @@
 ** 64-bit x - y to x
 ** return true if borrowed into high order bit
 */
-sub64(x, y) unsigned x[], y[]; {
+int sub64(unsigned x[], unsigned y[]) {
   #asm
   MOV  BX,[BP+4]       ; locate y
   MOV  AX,[BX]         ; fetch y[0]

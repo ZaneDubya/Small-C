@@ -43,7 +43,7 @@ extern int ch, csp, litlab, litptr, nch, op[16], op2[16], opd[16], opd2[16],
 // lead-in functions
 // ****************************************************************************
 
-IsConstExpr(int *val) {
+int IsConstExpr(int *val) {
     int isConst;
     int *before, *start;
     setstage(&before, &start);
@@ -55,7 +55,7 @@ IsConstExpr(int *val) {
     return isConst;
 }
 
-ParseExpression(int *con, int *val) {
+void ParseExpression(int *con, int *val) {
     int is[ISSIZE], savedlocptr;
     savedlocptr = locptr;
     if (level1(is)) {
@@ -66,7 +66,7 @@ ParseExpression(int *con, int *val) {
     locptr = savedlocptr;
 }
 
-ParseExpr32(int *con, int *val, int *val_hi) {
+void ParseExpr32(int *con, int *val, int *val_hi) {
     int is[ISSIZE], savedlocptr;
     savedlocptr = locptr;
     if (level1(is)) fetch(is);
@@ -76,7 +76,7 @@ ParseExpr32(int *con, int *val, int *val_hi) {
     locptr = savedlocptr;
 }
 
-IsCExpr32(int *val, int *val_hi) {
+int IsCExpr32(int *val, int *val_hi) {
     int isConst;
     int *before, *start;
     setstage(&before, &start);
@@ -87,7 +87,7 @@ IsCExpr32(int *val, int *val_hi) {
     return isConst;
 }
 
-GenTestAndJmp(int label, int reqParens) {
+void GenTestAndJmp(int label, int reqParens) {
     int is[ISSIZE];
     int *before, *start;
     if (reqParens) {
@@ -162,7 +162,7 @@ GenTestAndJmp(int label, int reqParens) {
 }
 
 // test primary register against zero and generate a jump instruction if false
-GenJmpIfZero(int oper, int label, int is[]) {
+void GenJmpIfZero(int oper, int label, int is[]) {
     ClearStage(is[STG_ADR], 0);       // purge conventional code
     gen(oper, label);
 }
@@ -187,7 +187,7 @@ GenJmpIfZero(int oper, int label, int is[]) {
 // control again returns to the prior instance. This continues until the
 // initial instance of level1() returns to one of the lead-in functions or to
 // primary() or level14() (by way of down1() and down2() ).
-level1(int is[]) {
+int level1(int is[]) {
     int k, is2[ISSIZE], is3[2], oper, oper2;
     char *lhsPtr, *rhsPtr;
     int isStructLhs, savedcsp, structSize;
@@ -357,7 +357,7 @@ level1(int is[]) {
 }
 
 // level2() parses the ternary operator Expression1 ? Expression2 : Expression3
-level2(int is1[]) {
+int level2(int is1[]) {
     int is2[ISSIZE], is3[ISSIZE], k, flab, endlab;
     // Call level3() by way of down1() to parse the first expression.
     k = down1(level3, is1);
@@ -421,48 +421,48 @@ level2(int is1[]) {
 // operator precedence rules. We have already seen the function that calls
 // them (down1()) and the ones which they call (skim() and down()).
 
-level3(int is[]) {
+int level3(int is[]) {
     return skim("||", EQ10f, 1, 0, level4, is); 
 }
 
-level4(int is[]) {
+int level4(int is[]) {
     return skim("&&", NE10f, 0, 1, level5, is); 
 }
 
-level5(int is[]) {
+int level5(int is[]) {
     return down("|", 0, level6, is); 
 }
 
-level6(int is[]) {
+int level6(int is[]) {
     return down("^", 1, level7, is); 
 }
 
-level7(int is[]) {
+int level7(int is[]) {
     return down("&", 2, level8, is); 
 }
 
-level8(int is[]) {
+int level8(int is[]) {
     return down("== !=", 3, level9, is); 
 }
 
-level9(int is[]) {
+int level9(int is[]) {
     return down("<= >= < >", 5, level10, is);
 }
 
-level10(int is[]) {
+int level10(int is[]) {
     return down(">> <<", 9, level11, is); 
 }
 
-level11(int is[]) {
+int level11(int is[]) {
     return down("+ -", 11, level12, is); 
 }
 
-level12(int is[]) {
+int level12(int is[]) {
     return down("* / %", 13, level13, is); 
 }
 
 // level13() parses the unary operators: ++, --, ~, !, -, *, &, and sizeof().
-level13(int is[]) {
+int level13(int is[]) {
     int k;
     char *ptr;
     if (IsMatch("++")) {                 // ++lval
@@ -671,7 +671,7 @@ level13(int is[]) {
 // recognizes only two operations, subscripting and calling functions. It also
 // handles the case where a function's address is invoked by naming the
 // function without a left parenthesis following.
-level14(int *is) {
+int level14(int *is) {
     int k, val;
     char *ptr, *before, *start;
     int is2[ISSIZE];
@@ -875,7 +875,7 @@ level14(int *is) {
 // Handle struct member lookup and address arithmetic for . and -> operators.
 // Assumes AX already contains the struct base address.
 // Returns 1 (result is an lvalue).
-structmember(char *ptr, int *is) {
+int structmember(char *ptr, int *is) {
     char memName[NAMESIZE], *member;
     int offset;
     if (!symname(memName)) {
@@ -921,7 +921,7 @@ structmember(char *ptr, int *is) {
 // Apply a type cast to the expression in is[].
 // Called after the operand has been parsed and fetched.
 // casttype: target TYPE_xxx constant.
-applycast(int casttype, int is[]) {
+void applycast(int casttype, int is[]) {
     int srcLong, dstLong, dstSize;
     dstSize = casttype >> 2;
     srcLong = isLongVal(is);
@@ -984,7 +984,7 @@ applycast(int casttype, int is[]) {
 // Try to parse a cast expression after '(' has been matched.
 // Returns 1 if a cast was parsed, 0 if not (caller should
 // treat '(' as start of parenthesized subexpression).
-trycast(int is[]) {
+int trycast(int is[]) {
     char *saved;
     int  sc, snc, casttype, isUnsigned, isSigned, isShort;
 
@@ -1069,7 +1069,7 @@ trycast(int is[]) {
     return 1;
 }
 
-primary(int *is) {
+int primary(int *is) {
     char *ptr, sname[NAMESIZE];
     int k;
     if (IsMatch("(")) {                  // (cast) or (subexpression)
@@ -1178,13 +1178,13 @@ primary(int *is) {
     return 0;
 }
 
-experr() {
+void experr() {
     error("invalid expression");
     gen(GETw1n, 0);
     skip();
 }
 
-callfunc(char *ptr) {      // symbol table entry or 0
+int callfunc(char *ptr) {      // symbol table entry or 0
     int nargs, nargcnt, is[ISSIZE];
     int savedlocptr, retStructSize;
     nargs = 0;
@@ -1277,7 +1277,7 @@ callfunc(char *ptr) {      // symbol table entry or 0
 // Return the pointer scale factor: number of bytes per element.
 // Returns 0 if no scaling needed (not a pointer context).
 // is1 is the pointer side, is2 is the non-pointer side.
-ptrScale(int oper, int is1[], int is2[]) {
+int ptrScale(int oper, int is1[], int is2[]) {
     if ((oper != ADD12 && oper != SUB12)
         || (is1[TYP_ADR] == 0)
         || (is2[TYP_ADR])) {
@@ -1287,11 +1287,11 @@ ptrScale(int oper, int is1[], int is2[]) {
 }
 
 // true if is2's operand should be doubled (word pointer scaling)
-isDouble(int oper, int is1[], int is2[]) {
+int isDouble(int oper, int is1[], int is2[]) {
     return (ptrScale(oper, is1, is2) == BPW);
 }
 
-step(int oper, int is[], int oper2) {
+void step(int oper, int is[], int oper2) {
     int longval, stepsize;
     longval = isLongVal(is);
     fetch(is);
@@ -1313,7 +1313,7 @@ step(int oper, int is[], int oper2) {
 
 // Return 1 if expression in is[] yields a 32-bit (long) value.
 // Pointers are always 16-bit, never long.
-isLongVal(int is[]) {
+int isLongVal(int is[]) {
     char *ptr;
     if (is[TYP_CNST] >> 2 == BPD)
         return 1;
@@ -1328,7 +1328,7 @@ isLongVal(int is[]) {
 }
 
 // Sign- or zero-extend AX to DX:AX based on signedness of is[].
-widen_primary(int is[]) {
+void widen_primary(int is[]) {
     if (IsUnsigned(is))
         gen(WIDENu, 0);
     else
@@ -1336,7 +1336,7 @@ widen_primary(int is[]) {
 }
 
 // Sign- or zero-extend BX to CX:BX based on signedness of is[].
-widen_secondary(int is[]) {
+void widen_secondary(int is[]) {
     if (IsUnsigned(is))
         gen(WIDENu2, 0);
     else
@@ -1344,7 +1344,7 @@ widen_secondary(int is[]) {
 }
 
 // Map a 16-bit signed operator to its 32-bit equivalent.
-toLongOp(int oper) {
+int toLongOp(int oper) {
     switch (oper) {
         case ADD12:  return ADDd12;
         case SUB12:  return SUBd12;
@@ -1375,7 +1375,7 @@ toLongOp(int oper) {
 }
 
 // Return 1 if oper is a comparison operator (result is always 16-bit).
-isCmpOp(int oper) {
+int isCmpOp(int oper) {
     switch (oper) {
         case EQd12:  case NEd12:
         case LTd12:  case LEd12:
@@ -1387,7 +1387,7 @@ isCmpOp(int oper) {
     return 0;
 }
 
-store(int is[]) {
+void store(int is[]) {
     char *ptr;
     if (is[TYP_OBJ]) {                    // putstk
         if (is[TYP_OBJ] >> 2 == BPD) {
@@ -1414,7 +1414,7 @@ store(int is[]) {
     }
 }
 
-fetch(int is[]) {
+void fetch(int is[]) {
     char *ptr;
     ptr = is[SYMTAB_ADR];
     if (is[TYP_OBJ]) {                                   // indirect
@@ -1447,7 +1447,7 @@ fetch(int is[]) {
     }
 }
 
-constant(int is[]) {
+int constant(int is[]) {
     int offset;
     if (is[TYP_CNST] = number(&is[VAL_CNST], &is[VAL_CNST_HI])) {
         if (is[TYP_CNST] >> 2 == BPD) {
@@ -1476,7 +1476,7 @@ constant(int is[]) {
 // These operate on hi:lo pairs for the 16-bit self-hosted compiler.
 
 // Multiply khi:klo by a small factor (8, 10, or 16). Result in *hi:*lo.
-mul32x16(int *hi, int *lo, int factor) {
+void mul32x16(int *hi, int *lo, int factor) {
     int ahi, bhi, carry;
     unsigned alo, blo, newalo;
     // Shift-and-add: multiply *hi:*lo by factor
@@ -1505,7 +1505,7 @@ mul32x16(int *hi, int *lo, int factor) {
 }
 
 // Add a small unsigned value (0-15) to khi:klo.
-add32x16(int *hi, int *lo, int addend) {
+void add32x16(int *hi, int *lo, int addend) {
     unsigned oldlo, newlo;
     oldlo = *lo;
     newlo = oldlo + addend;
@@ -1515,26 +1515,26 @@ add32x16(int *hi, int *lo, int addend) {
 }
 
 // Two's complement negate hi:lo.
-negate32(int *hi, int *lo) {
+void negate32(int *hi, int *lo) {
     *hi = ~(*hi);
     *lo = ~(*lo);
     add32x16(hi, lo, 1);
 }
 
 // Return 1 if hi:lo fits in signed 16-bit range (-32768..32767).
-fits16s(int hi, int lo) {
+int fits16s(int hi, int lo) {
     if (hi == 0 && !(lo & 0x8000)) return 1;   // 0..32767
     if (hi == -1 && (lo & 0x8000)) return 1;    // -32768..-1
     return 0;
 }
 
 // Return 1 if hi:lo fits in unsigned 16-bit range (0..65535).
-fits16u(int hi, int lo) {
+int fits16u(int hi, int lo) {
     if (hi == 0) return 1;
     return 0;
 }
 
-number(int *lo, int *hi) {
+int number(int *lo, int *hi) {
     int klo, khi, minus, hasL, hasU, base, digit;
     klo = khi = minus = hasL = hasU = 0;
     while (1) {
@@ -1640,7 +1640,7 @@ number(int *lo, int *hi) {
     }
 }
 
-chrcon(int *lo, int *hi) {
+int chrcon(int *lo, int *hi) {
     int klo, khi, carry;
     klo = khi = 0;
     if (IsMatch("'") == 0)
@@ -1658,7 +1658,7 @@ chrcon(int *lo, int *hi) {
     return TYPE_INT;
 }
 
-string(int *offset) {
+int string(int *offset) {
     char c;
     if (IsMatch("\"") == 0)
         return 0;
@@ -1673,7 +1673,7 @@ string(int *offset) {
     return 1;
 }
 
-stowlit(int value, int size) {
+void stowlit(int value, int size) {
     if ((litptr + size) >= LITMAX) {
         error("literal queue overflow");
         abort(ERRCODE);
@@ -1682,7 +1682,7 @@ stowlit(int value, int size) {
     litptr += size;
 }
 
-litchar() {
+int litchar() {
     int i, oct;
     if (ch != '\\' || nch == 0) 
         return gch();
@@ -1711,7 +1711,7 @@ litchar() {
 // === pipeline functions =====================================================
 
 // skim over terms adjoining || and && operators
-skim(char *opstr, int tcode, int dropval, int endval, int (*level)(), int is[]){
+int skim(char *opstr, int tcode, int dropval, int endval, int (*level)(), int is[]){
     int k, droplab, endlab;
     droplab = 0;
     while (1) {
@@ -1738,7 +1738,7 @@ skim(char *opstr, int tcode, int dropval, int endval, int (*level)(), int is[]){
 }
 
 // test for early dropout from || or && sequences
-dropout(int k, int tcode, int exit1, int is[]) {
+void dropout(int k, int tcode, int exit1, int is[]) {
     if (k)
         fetch(is);
     else if (is[TYP_CNST]) {
@@ -1760,7 +1760,7 @@ dropout(int k, int tcode, int exit1, int is[]) {
 }
 
 // drop to a lower level
-down(char *opstr, int opoff, int (*level)(), int is[]) {
+int down(char *opstr, int opoff, int (*level)(), int is[]) {
     int k;
     k = down1(level, is);
     if (nextop(opstr) == 0)
@@ -1779,7 +1779,7 @@ down(char *opstr, int opoff, int (*level)(), int is[]) {
 }
 
 // unary drop to a lower level
-down1(int (*level)(), int is[]) {
+int down1(int (*level)(), int is[]) {
     int k, *before, *start;
     setstage(&before, &start);
     k = (*level)(is);
@@ -1790,7 +1790,7 @@ down1(int (*level)(), int is[]) {
 }
 
 // binary drop to a lower level
-down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
+void down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
     int *before, *start;
     char *ptr;
     int leftLong, rightLong, eitherLong, loper, sc;
@@ -2009,7 +2009,7 @@ down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
 }
 
 // unsigned operand?
-IsUnsigned(int is[]) {
+int IsUnsigned(int is[]) {
     char *ptr;
     if (is[TYP_ADR] || is[TYP_CNST] == TYPE_UINT || is[TYP_CNST] == TYPE_ULONG ||
         is[TYP_VAL] & IS_UNSIGNED ||
@@ -2019,7 +2019,7 @@ IsUnsigned(int is[]) {
 }
 
 // calculate signed constant result
-CalcConst(int left, int oper, int right) {
+int CalcConst(int left, int oper, int right) {
     switch (oper) {
         case ADD12:
             return (left + right);
@@ -2058,7 +2058,7 @@ CalcConst(int left, int oper, int right) {
 }
 
 // calculate unsigned constant result
-CalcUConst(unsigned left, int oper, unsigned right) {
+int CalcUConst(unsigned left, int oper, unsigned right) {
     switch (oper) {
         case MUL12u:
             return (left  *  right);
@@ -2081,7 +2081,7 @@ CalcUConst(unsigned left, int oper, unsigned right) {
 // 32-bit signed constant folding.  Operates on hi:lo pairs.
 // Returns result type: TYPE_LONG or TYPE_ULONG.
 // Result stored via reshi/reslo pointers.
-CalcConst32(int lhi, int llo, int oper, int rhi, int rlo,
+void CalcConst32(int lhi, int llo, int oper, int rhi, int rlo,
             int *reshi, int *reslo) {
     unsigned alo, blo, newlo;
     int carry;
@@ -2162,7 +2162,7 @@ CalcConst32(int lhi, int llo, int oper, int rhi, int rlo,
 }
 
 // 32-bit unsigned constant folding for comparison operators.
-CalcUConst32(int lhi, int llo, int oper, int rhi, int rlo,
+void CalcUConst32(int lhi, int llo, int oper, int rhi, int rlo,
              int *reshi, int *reslo) {
     unsigned ulhi, ullo, urhi, urlo;
     ulhi = lhi; ullo = llo; urhi = rhi; urlo = rlo;
@@ -2207,7 +2207,7 @@ CalcUConst32(int lhi, int llo, int oper, int rhi, int rlo,
 }
 
 // Signed 32-bit comparison folding.
-CalcCmp32(int lhi, int llo, int oper, int rhi, int rlo,
+void CalcCmp32(int lhi, int llo, int oper, int rhi, int rlo,
           int *reshi, int *reslo) {
     unsigned ullo, urlo;
     ullo = llo; urlo = rlo;

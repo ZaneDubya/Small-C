@@ -3,7 +3,7 @@
 int global = 0;
 extern int data;
 
-main() {
+int main() {
   printf("code addr=%x value=%x\n", code, code());
   printf("code addr=%x value=%x\n", code, code());
   printf("code addr=%x value=%x\n", code, code());

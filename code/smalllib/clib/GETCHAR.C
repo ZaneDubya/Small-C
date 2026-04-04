@@ -2,7 +2,7 @@
 /*
 ** Get next character from standard input. 
 */
-getchar() {
+int getchar() {
   return (fgetc(stdin));
   }
 

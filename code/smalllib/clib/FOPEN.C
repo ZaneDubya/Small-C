@@ -11,7 +11,7 @@
 **               "w+" - write  update
 ** Returns a file descriptor on success, else NULL.
 */
-fopen(fn, mode) char *fn, *mode; {
+int fopen(char *fn, char *mode) {
   int fd;
   if(!_open(fn, mode, &fd)) return (NULL);
   return (fd);

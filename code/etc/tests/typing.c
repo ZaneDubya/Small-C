@@ -15,7 +15,7 @@ int passed, failed;
 // Test helper
 // ============================================================================
 
-check(char *desc, int cond) {
+void check(char *desc, int cond) {
     if (cond) {
         printf("  PASS: %s\n", desc);
         passed++;
@@ -68,7 +68,7 @@ struct qtest {
 // Test: sizeof for signed and short
 // ============================================================================
 
-test_sizeof() {
+void test_sizeof() {
     printf("--- sizeof: signed and short ---\n");
 
     check("sizeof(signed) == 2",        sizeof(signed) == 2);
@@ -88,7 +88,7 @@ test_sizeof() {
 // Test: signed arithmetic (same semantics as plain int)
 // ============================================================================
 
-signed_arith() {
+void signed_arith() {
     signed int a, b, c;
     signed char sc;
     signed long sl, sl2;
@@ -119,7 +119,7 @@ signed_arith() {
 // Test: signed vs unsigned comparison behaviour
 // ============================================================================
 
-signed_vs_unsigned() {
+void signed_vs_unsigned() {
     signed int   si;
     unsigned int ui;
 
@@ -143,7 +143,7 @@ signed_vs_unsigned() {
 // Test: short == int on 8086
 // ============================================================================
 
-test_short() {
+void test_short() {
     short s;
     unsigned short us;
     short int si;
@@ -175,7 +175,7 @@ test_short() {
 // Test: const qualifier -- read-only value, correct at runtime
 // ============================================================================
 
-test_const() {
+void test_const() {
     const int   ci  = 42;
     const char  cc  = 'A';
     const long  cl  = 100000L;
@@ -207,7 +207,7 @@ test_const() {
 // Test: volatile -- accepted, same runtime behaviour as int
 // ============================================================================
 
-test_volatile() {
+void test_volatile() {
     volatile int  vi;
     volatile long vl;
     volatile char vc;
@@ -231,7 +231,7 @@ test_volatile() {
 // Test: register -- treated as auto, same runtime behaviour
 // ============================================================================
 
-test_register() {
+void test_register() {
     register int  ri;
     register char rc;
 
@@ -255,7 +255,7 @@ test_register() {
 // Test: cast expressions with new type combinations
 // ============================================================================
 
-test_casts() {
+void test_casts() {
     int i;
     long l;
 
@@ -283,7 +283,7 @@ test_casts() {
 // Test: struct with signed / short members
 // ============================================================================
 
-test_struct() {
+void test_struct() {
     struct qtest q;
 
     printf("--- struct with signed/short members ---\n");
@@ -303,7 +303,7 @@ test_struct() {
 // Test: multi-qualifier combinations
 // ============================================================================
 
-multi_qual() {
+void multi_qual() {
     const volatile int  cvi  = 10;
     const signed int    csi  = -3;
     const unsigned int  cuii = 7;
@@ -325,19 +325,19 @@ multi_qual() {
 // Test: function parameters with qualifiers
 // ============================================================================
 
-sum_test_const(const int a, const int b) {
+int sum_test_const(const int a, const int b) {
     return a + b;
 }
 
-negate_signed(signed int x) {
+int negate_signed(signed int x) {
     return -x;
 }
 
-short_add(short x, short y) {
+int short_add(short x, short y) {
     return x + y;
 }
 
-func_params() {
+void func_params() {
     printf("--- qualified function parameters ---\n");
 
     check("const params: sum_test_const(3,4) == 7",   sum_test_const(3, 4) == 7);
@@ -387,7 +387,7 @@ func_params() {
 // Main
 // ============================================================================
 
-main() {
+int main() {
     passed = 0;
     failed = 0;
 

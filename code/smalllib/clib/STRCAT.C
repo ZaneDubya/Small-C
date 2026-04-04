@@ -2,7 +2,7 @@
 ** concatenate t to end of s 
 ** s must be large enough
 */
-strcat(s, t) char *s, *t; {
+int strcat(char *s, char *t) {
   char *d;
   d = s;
   --s;

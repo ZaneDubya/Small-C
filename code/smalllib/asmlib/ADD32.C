@@ -1,7 +1,7 @@
 /*
 ** 32 bit x + y to x
 */
-add32(x, y) unsigned x[], y[]; {
+void add32(unsigned x[], unsigned y[]) {
   #asm
   MOV  BX,[BP+4]       ; locate y low
   MOV  AX,[BX]         ; fetch y low

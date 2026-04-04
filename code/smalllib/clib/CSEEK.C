@@ -13,7 +13,7 @@ extern int _nextc[], _bufuse[];
 **
 ** Returns NULL on success, else EOF.
 */
-cseek(fd, offset, base) int fd, offset, base; {
+int cseek(int fd, int offset, int base) {
   int newrec, oldrec, hi, lo;
   if(!_mode(fd) || !_bufuse[fd]) return (EOF);
   if(_adjust(fd)) return (EOF);
@@ -45,7 +45,7 @@ cseek(fd, offset, base) int fd, offset, base; {
 **
 ** Returns NULL on success, else EOF.
 */
-cseekc(fd, offset) int fd, offset; {
+int cseekc(int fd, int offset) {
   int hi, lo;
   if(!_mode(fd) || isatty(fd) ||
      ctellc(fd) || offset < 0 || offset > 127) return (EOF);

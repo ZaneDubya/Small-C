@@ -12,7 +12,7 @@
 **     ------ ---------- -------------
 **                       1^...........
 */
-ftadd(d, s) unsigned *d, *s; {
+void ftadd(unsigned *d, unsigned *s) {
   unsigned i, t[5], x[5];  int diff;
   diff = (d[4] & 0x7FFF) - (s[4] & 0x7FFF);
   if(diff >  64) {             return;}

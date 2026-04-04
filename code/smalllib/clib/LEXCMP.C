@@ -21,7 +21,7 @@ char _lex[128] = {
 ** lexcmp(s, t) - Return a number <0, 0, or >0
 **                as s is <, =, or > t.
 */
-lexcmp(s, t) char *s, *t; {
+int lexcmp(char *s, char *t) {
   while(lexorder(*s, *t) == 0)
     if(*s++) ++t;
     else return (0);
@@ -37,7 +37,7 @@ lexcmp(s, t) char *s, *t; {
 ** colating sequence.
 **
 */
-lexorder(c1, c2) int c1, c2; {
+int lexorder(int c1, int c2) {
   return(_lex[c1] - _lex[c2]);
   }
 

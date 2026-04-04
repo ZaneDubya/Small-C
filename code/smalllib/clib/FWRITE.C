@@ -10,7 +10,7 @@ extern int _status[];
 ** zero if an error occurred.
 ** May use ferror(), as always, to detect errors.
 */
-fwrite(buf, sz, n, fd) unsigned char *buf; unsigned sz, n, fd; {
+int fwrite(unsigned char *buf, unsigned sz, unsigned n, unsigned fd) {
   if(write(fd, buf, n*sz) == -1) return (0);
   return (n);
   }
@@ -24,7 +24,7 @@ fwrite(buf, sz, n, fd) unsigned char *buf; unsigned sz, n, fd; {
 ** -1 if an error occurred.
 ** May use ferror(), as always, to detect errors.
 */
-write(fd, buf, n) unsigned fd, n; unsigned char *buf; {
+int write(unsigned fd, unsigned char *buf, unsigned n) {
   unsigned cnt;
   cnt = n;
   while(cnt--) {

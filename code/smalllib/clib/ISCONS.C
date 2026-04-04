@@ -4,7 +4,7 @@
 #include <stdio.h>
 extern int _cons[];
 
-iscons(fd) int fd; {
+int iscons(int fd) {
   if(_cons[fd] == NULL) {
     if(_iscons(fd)) _cons[fd] = 2;
     else            _cons[fd] = 1;
@@ -16,7 +16,7 @@ iscons(fd) int fd; {
 /*
 ** Call DOS only the first time for a file.
 */
-_iscons(fd) int fd; {
+int _iscons(int fd) {
   fd;             /* fetch handle */
 #asm
   push bx         ; save 2nd reg

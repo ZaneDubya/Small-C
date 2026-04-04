@@ -1,7 +1,7 @@
 /*
 ** atoi(s) - convert s to integer.
 */
-atoi(s) char *s; {
+int atoi(char *s) {
   int sign, n;
   while(isspace(*s)) ++s;
   sign = 1;

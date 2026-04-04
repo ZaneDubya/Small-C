@@ -4,7 +4,7 @@ extern int _bufuse[];
 /*
 ** Return offset to current 128-byte record.
 */
-ctell(fd) int fd; {
+int ctell(int fd) {
   int hi, lo;
   if(!_mode(fd) || !_bufuse[fd]) return (-1);
   if(_adjust(fd)) return (-1);
@@ -16,7 +16,7 @@ ctell(fd) int fd; {
 /*
 ** Return offset to next byte in current 128-byte record.
 */
-ctellc(fd) int fd; {
+int ctellc(int fd) {
   int hi, lo;
   if(!_mode(fd) || !_bufuse[fd]) return (-1);
   if(_adjust(fd)) return (-1);

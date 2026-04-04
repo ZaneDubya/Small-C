@@ -18,7 +18,7 @@
 */
 int round[5] = {1, 0, 0, 0, 0};
 
-atoft(f, s) int *f; char *s; {
+int atoft(int *f, char *s) {
   int t[5], exp, neg, i;
   char *s1;
   s1 = s;                       /* note 1st addr for length calc */
@@ -61,7 +61,7 @@ atoft(f, s) int *f; char *s; {
   return (s - s1);
   }
 
-ftmul10(f) int *f; {
+void ftmul10(int *f) {
   int t[5];
   mov80(t, f);                  /* save original value */
   f[4] += 3;                    /* multiply by 8 */
@@ -69,7 +69,7 @@ ftmul10(f) int *f; {
   ftadd(f, t);                  /* one more */
   }
 
-ftdiv10(f) int *f; {
+int ftdiv10(int *f) {
   #asm
   mov  di,[bp+4]        ; get pointer to f
   add  di,8             ; point beyond high word of significand

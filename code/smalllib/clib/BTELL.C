@@ -7,7 +7,7 @@ extern int _bufuse[];
 ** a 2-element int array.  The offset is placed in
 ** offset in low, high order.
 */
-btell(fd, offset) int fd, offset[]; {
+int btell(int fd, int offset[]) {
   if(!_mode(fd) || !_bufuse[fd]) return (EOF);
   if(_adjust(fd)) return (EOF);
   offset[0] = offset[1] = 0;

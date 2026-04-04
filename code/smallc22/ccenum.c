@@ -33,14 +33,14 @@ extern int  ch, eof;
 char *enumdata, *enumdatnext;
 
 // Allocate and zero the enum tag table.
-initEnums() {
+void initEnums() {
     enumdata = calloc(ENUMDATSZ, 1);
     enumdatnext = EDAT_START;
 }
 
 // Find a defined enum tag by name.
 // Returns pointer to its EDAT entry, or -1 if not found.
-findEnumTag(char *name) {
+int findEnumTag(char *name) {
     char *cur;
     cur = EDAT_START;
     while (cur < enumdatnext) {
@@ -53,7 +53,7 @@ findEnumTag(char *name) {
 
 // Register a new enum tag name.
 // Errors on duplicate tag or table overflow.
-addEnumTag(char *name) {
+void addEnumTag(char *name) {
     int i;
     if (findEnumTag(name) != -1) {
         error("enum tag already defined");
@@ -75,7 +75,7 @@ addEnumTag(char *name) {
 // Add an enum constant to the global symbol table.
 // The integer value is stored in the OFFSET field.
 // No code or data segment bytes are emitted.
-addEnumConst(char *name, int value) {
+void addEnumConst(char *name, int value) {
     if (findglb(name)) {
         error("enum constant already defined");
         return;
@@ -87,7 +87,7 @@ addEnumConst(char *name, int value) {
 // Defines enumerator constants and optionally registers a tag name.
 // Sets *typeSubPtr = 0 (enum variables carry no extra metadata).
 // Returns TYPE_INT (enums are backed by int).
-doEnum(int *typeSubPtr) {
+int doEnum(int *typeSubPtr) {
     char tagname[NAMESIZE];
     int  hasTag, nextVal, done;
 

@@ -1,7 +1,7 @@
 /*
 ** 32 bit x != y to x
 */
-ne32(x, y) unsigned x[], y[]; {
+void ne32(unsigned x[], unsigned y[]) {
   if(x[0] == y[0]
   && x[1] == y[1]) {
     x[0] = 0;

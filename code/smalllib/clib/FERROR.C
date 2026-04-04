@@ -4,7 +4,7 @@ extern _status[];
 /*
 ** Test for error status on fd.
 */
-ferror(fd) int fd; {
+int ferror(int fd) {
   return (_status[fd] & ERRBIT);
   }
 

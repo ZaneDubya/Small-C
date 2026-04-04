@@ -31,7 +31,7 @@ extern char *symtab, *locptr, *lptr, ssname[];
 extern int ch, eof, rettype, rettypeSubPtr;
 char *structdata, *structdatnext, *structmemnext;
 
-initStructs() {
+void initStructs() {
   structdata = calloc(STRUCTDATSZ, 1);
   structdatnext = STRDAT_START;
   structmemnext = STRMEM_START;
@@ -41,7 +41,7 @@ initStructs() {
 // declare variables of an existing struct type, or define a struct-returning
 // function.
 // Called from parse() after 'struct' has been matched.
-dostructblock() {
+int dostructblock() {
   int sp;
   char *p;
   sp = doStruct();
@@ -69,7 +69,7 @@ dostructblock() {
 // Define a single struct if '{' follows the tag name.
 // If no '{', look up existing struct by tag name.
 // @return pointer to struct definition, or -1 on error.
-doStruct() {
+int doStruct() {
   int i, totalsize, typeSubIdx;
   blanks();
   if (symname(ssname)) {
@@ -150,7 +150,7 @@ doStruct() {
 // Find a struct definition by name (direct string comparison).
 // @param sname the struct tag name to search for
 // @return pointer to struct data if found, else -1
-findStructByName(char *sname) {
+int findStructByName(char *sname) {
   char *current, *end;
   current = STRDAT_START;
   end = structdatnext;
@@ -166,7 +166,7 @@ findStructByName(char *sname) {
 // Determine if next token is the tag name of a struct definition.
 // Consumes the tag name from input if found.
 // @return pointer to struct data if found, else -1
-getStructPtr() {
+int getStructPtr() {
   char *current, *end;
   int i, len;
   current = STRDAT_START;
@@ -183,11 +183,11 @@ getStructPtr() {
   return -1;
 }
 
-getStructSize(char *basestruct) {
+int getStructSize(char *basestruct) {
   return getint(basestruct + STRDAT_SIZE, 2);
 }
 
-getStructMember(char *basestruct, char *sname) {
+int getStructMember(char *basestruct, char *sname) {
   char *current, *end;
   current = getint(basestruct + STRDAT_MBEG, 2);
   end = structmemnext;

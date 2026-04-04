@@ -17,7 +17,7 @@
 **    + = 00
 **    - = 80
 */
-atop(p, s) unsigned char *p, *s; {
+int atop(unsigned char *p, unsigned char *s) {
   unsigned char *s1, *s2, *s3;
   int i, odd;
   s1 = s;                         /* note beginning */

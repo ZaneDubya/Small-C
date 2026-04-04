@@ -1,7 +1,7 @@
 /*
 ** return ASCII equivalent of c
 */
-toascii(c) int c; {
+int toascii(int c) {
   return (c);
   }
 

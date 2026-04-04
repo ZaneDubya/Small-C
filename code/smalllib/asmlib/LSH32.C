@@ -1,7 +1,7 @@
 /*
 ** 32 bit x << y to x
 */
-lsh32(x, y) unsigned x[], y[]; {
+void lsh32(unsigned x[], unsigned y[]) {
   if(y[1] || y[0] > 31) {
     x[1] = 0;
     x[0] = 0;

@@ -19,7 +19,7 @@
 **     ------ ---------- -------------
 *                    <1>^.............
 */
-ft2d(d, t) unsigned *d, *t; {
+void ft2d(unsigned *d, unsigned *t) {
   unsigned exp;
   if(t[4]) exp = (t[4] & 0x7FFF) - 0x3FFF + 0x3FF;
   else     exp = 0;
