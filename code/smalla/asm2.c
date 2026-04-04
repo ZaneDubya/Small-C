@@ -339,13 +339,13 @@ self(ms) int ms; {
   if(dlen == 1) {                       /* 8-bit displacement */
     if(cmp32(disp, S8min ) >= 0
     && cmp32(disp, S8max ) <= 0) {
-      short:
+      shortDisp:
       mov32(eval, disp);
       return (ms);
       }
     if(etyp[0] & TSHO) {
       rngerr();
-      goto short;
+      goto shortDisp;
       }
     }
   else if(dlen == 2                     /* 16-bit displacement */
@@ -916,8 +916,8 @@ doassume() {
       }
       return;
     }
-    ep = stsym;                     /* set-up for register() */
-    if(gotcolon && (reg = register()) && (reg = sr2srpx(reg))) {
+    ep = stsym;                     /* set-up for scanRegister() */
+    if(gotcolon && (reg = scanRegister()) && (reg = sr2srpx(reg))) {
       /* map to srpx */
       if(srpref[reg]) {             /* sr is known to this CPU */
         i = 7;                      /* clear this assumed seg reg */

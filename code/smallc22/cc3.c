@@ -544,6 +544,10 @@ int level13(int is[]) {
         }
         else
             is[TYP_OBJ] = TYPE_INT;
+        if (is[TYP_OBJ] == TYPE_VOID) {
+            error("cannot dereference void pointer");
+            is[TYP_OBJ] = TYPE_INT;   // error recovery
+        }
         is[STG_ADR] = is[TYP_ADR] = is[TYP_CNST] = 0; // no op0 stage addr, not addr or const
         is[VAL_CNST] = 1;                   // omit fetch() on func call
         return 1;
@@ -588,6 +592,10 @@ int level13(int is[]) {
                 sz = BPW; 
             }
         }
+        else if (amatch("void", 4)) {
+            // sizeof(void*) == BPW (2); sizeof(void) == 0
+            sz = IsMatch("*") ? BPW : 0;
+        }
         else if (amatch("struct", 6)) {
             char *sp;
             sp = getStructPtr();
@@ -600,7 +608,8 @@ int level13(int is[]) {
         }
         else if (symname(sname) &&  
             ((ptr = findloc(sname)) || (ptr = findglb(sname))) &&
-            ptr[IDENT] != IDENT_FUNCTION && ptr[IDENT] != IDENT_LABEL) {
+            ptr[IDENT] != IDENT_FUNCTION && ptr[IDENT] != IDENT_PTR_FUNCTION
+            && ptr[IDENT] != IDENT_LABEL) {
             sz = getint(ptr + SIZE, 2);
         }
         else if (sz == 0) {
@@ -828,7 +837,7 @@ int level14(int *is) {
             if (ptr == 0) {
                 callfunc(0);
             }
-            else if (ptr[IDENT] != IDENT_FUNCTION) {
+            else if (ptr[IDENT] != IDENT_FUNCTION && ptr[IDENT] != IDENT_PTR_FUNCTION) {
                 if (k && !is[VAL_CNST]) {
                     fetch(is);
                 }
@@ -850,6 +859,15 @@ int level14(int *is) {
                 is[LAST_OP] = is[STG_ADR] = 0;
                 k = 1;
             }
+            else if (ptr && ptr[IDENT] == IDENT_PTR_FUNCTION) {
+                // pointer-returning function: propagate pointer type to caller
+                is[TYP_ADR]    = ptr[TYPE];
+                is[TYP_OBJ]    = 0;
+                is[TYP_CNST]   = is[VAL_CNST] = is[VAL_CNST_HI] = 0;
+                is[LAST_OP]    = is[STG_ADR]  = 0;
+                is[SYMTAB_ADR] = 0;
+                k = 0;
+            }
             else {
                 k = is[SYMTAB_ADR] = is[TYP_CNST] = is[VAL_CNST] = 0;
                 is[VAL_CNST_HI] = is[TYP_ADR] = is[LAST_OP] = is[STG_ADR] = 0;
@@ -864,7 +882,7 @@ int level14(int *is) {
         }
         ptr = is[SYMTAB_ADR];
     }
-    if (ptr && ptr[IDENT] == IDENT_FUNCTION) {
+    if (ptr && (ptr[IDENT] == IDENT_FUNCTION || ptr[IDENT] == IDENT_PTR_FUNCTION)) {
         gen(POINT1m, ptr);
         is[SYMTAB_ADR] = 0;
         return 0;
@@ -1044,10 +1062,18 @@ int trycast(int is[]) {
         casttype = TYPE_INT;
     else if (amatch("char", 4))
         casttype = TYPE_CHR;
+    else if (amatch("void", 4))
+        casttype = TYPE_VOID;
     else if (amatch("enum", 4)) {
         char sname[NAMESIZE];
         symname(sname);      // consume optional tag name
         casttype = TYPE_INT;
+    }
+    else if (amatch("struct", 6)) {
+        char *sp;
+        sp = getStructPtr();
+        if (sp == -1) error("unknown struct name");
+        casttype = TYPE_STRUCT;
     }
 
     if (casttype == 0) {
@@ -1058,7 +1084,16 @@ int trycast(int is[]) {
     }
 
     if (IsMatch("*")) {
-        error("pointer casts unsupported");
+        // Pointer cast: (type *)expr
+        // The value in AX is left unchanged; only expression metadata is
+        // updated to reflect "this is a pointer to casttype".
+        Require(")");
+        if (level13(is)) fetch(is);
+        is[TYP_ADR]  = casttype;
+        is[TYP_OBJ]  = 0;
+        is[TYP_VAL]  = 0;
+        is[TYP_CNST] = 0;
+        return 1;
     }
 
     Require(")");
@@ -1141,7 +1176,7 @@ int primary(int *is) {
                 is[SYMTAB_ADR] = is[TYP_OBJ] = is[TYP_ADR] = 0;
                 return 0;
             }
-            if (ptr[IDENT] != IDENT_FUNCTION) {
+            if (ptr[IDENT] != IDENT_FUNCTION && ptr[IDENT] != IDENT_PTR_FUNCTION) {
                 if (ptr[IDENT] == IDENT_ARRAY) {
                     gen(POINT1m, ptr);
                     is[TYP_OBJ] = is[TYP_ADR] = ptr[TYPE];
@@ -1215,7 +1250,8 @@ int callfunc(char *ptr) {      // symbol table entry or 0
                 }
                 else if (is[TYP_OBJ] == 0 && (argptr = is[SYMTAB_ADR])
                          && argptr[TYPE] == TYPE_STRUCT
-                         && argptr[IDENT] != IDENT_FUNCTION) {
+                         && argptr[IDENT] != IDENT_FUNCTION
+                         && argptr[IDENT] != IDENT_PTR_FUNCTION) {
                     gen(POINT1m, argptr);
                 }
                 else {
@@ -1242,7 +1278,8 @@ int callfunc(char *ptr) {      // symbol table entry or 0
                 }
                 else if (is[TYP_OBJ] == 0 && (argptr = is[SYMTAB_ADR])
                          && argptr[TYPE] == TYPE_STRUCT
-                         && argptr[IDENT] != IDENT_FUNCTION) {
+                         && argptr[IDENT] != IDENT_FUNCTION
+                         && argptr[IDENT] != IDENT_PTR_FUNCTION) {
                     gen(POINT1m, argptr);
                 }
                 else {
@@ -1281,6 +1318,10 @@ int ptrScale(int oper, int is1[], int is2[]) {
     if ((oper != ADD12 && oper != SUB12)
         || (is1[TYP_ADR] == 0)
         || (is2[TYP_ADR])) {
+        return 0;
+    }
+    if (is1[TYP_ADR] == TYPE_VOID) {
+        error("void pointer arithmetic not allowed");
         return 0;
     }
     return is1[TYP_ADR] >> 2;

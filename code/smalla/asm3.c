@@ -387,7 +387,7 @@ token(want) int want; {
   int len;
   if(ct)  return (match(want, ct));     /* already have a token */
   while(isspace(*ep))  ++ep;
-  if(register()) return (match(want, REG));
+  if(scanRegister()) return (match(want, REG));
   switch(*ep++) {
     case '[': return (match(want, LBR));
     case ']': return (match(want, RBR));
@@ -450,7 +450,7 @@ token(want) int want; {
 /*
 ** scan for a register name
 */
-register() {
+scanRegister() {
   char *op;
   op = ep;
   ep = getsym(ep, YES, YES);         /* xlate to upper case */

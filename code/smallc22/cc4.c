@@ -29,6 +29,11 @@ extern int
 *stage, litlab, litptr, csp, output, oldseg, usexpr,
 *snext, *stail, *slast;
 
+int *funcbuf;      // per-function p-code buffer (heap-allocated in header)
+int *fnext;        // next free slot in funcbuf
+int *fl_labnum;    // label numbers recorded by flushfunc (heap-allocated)
+int *fl_labpos;    // corresponding byte offsets
+
 
 // === optimizer command definitions ==========================================
 //              --      p-codes must not overlap these
@@ -350,15 +355,267 @@ char* code[PCODES] = {
     /* 174 LSWITCHd   */ "\012CALL __lswitch\n",
     /* stack cleanup via POPs */
     /* 175 POPCX      */ "\000POP CX\n",
-    /* 176 POPCX2     */ "\000POP CX\nPOP CX\n"
+    /* 176 POPCX2     */ "\000POP CX\nPOP CX\n",
+    /* short-branch variants: invert the skip condition to jump directly */
+    /* 177 EQ10fs     */ "\010OR AX,AX\nJNE _<n>\n",
+    /* 178 NE10fs     */ "\010OR AX,AX\nJE _<n>\n",
+    /* 179 GE10fs     */ "\010OR AX,AX\nJL _<n>\n",
+    /* 180 GT10fs     */ "\010OR AX,AX\nJLE _<n>\n",
+    /* 181 LE10fs     */ "\010OR AX,AX\nJG _<n>\n",
+    /* 182 LT10fs     */ "\010OR AX,AX\nJGE _<n>\n",
+    /* 183 EQfs       */ "\011CMP AX,BX\nJNE _<n>\n",
+    /* 184 NEfs       */ "\011CMP AX,BX\nJE _<n>\n",
+    /* 185 LTfs       */ "\011CMP AX,BX\nJLE _<n>\n",
+    /* 186 GTfs       */ "\011CMP AX,BX\nJGE _<n>\n",
+    /* 187 LEfs       */ "\011CMP AX,BX\nJL _<n>\n",
+    /* 188 GEfs       */ "\011CMP AX,BX\nJG _<n>\n",
+    /* 189 LTufs      */ "\011CMP AX,BX\nJBE _<n>\n",
+    /* 190 GTufs      */ "\011CMP AX,BX\nJAE _<n>\n",
+    /* 191 LEufs      */ "\011CMP AX,BX\nJB _<n>\n",
+    /* 192 GEufs      */ "\011CMP AX,BX\nJA _<n>\n",
+    /* 193 EQd10fs    */ "\030OR AX,DX\nJNE _<n>\n",
+    /* 194 NEd10fs    */ "\030OR AX,DX\nJE _<n>\n",
+    /* 195 JMPs       */ "\000JMP SHORT _<n>\n"
 };
 
 //  === code generation functions =============================================
+
+// Conservative machine-code byte count for each p-code.
+// Used by flushfunc() to estimate branch distances.
+// 255 = multi-part or data p-code: blocks optimization across it.
+// Values are worst-case (largest encoding) to ensure safety.
+int code_size[PCODES] = {
+    /*  0 unused   */  0,
+    /*  1 ADD12    */  2,  // ADD AX,BX
+    /*  2 ADDSP    */  4,  // ADD SP,nn (worst case imm16)
+    /*  3 AND12    */  2,  // AND AX,BX
+    /*  4 ANEG1    */  2,  // NEG AX
+    /*  5 ARGCNTn  */  2,  // MOV CL,n or XOR CL,CL
+    /*  6 ASL12    */  6,  // MOV CX,AX / MOV AX,BX / SAL AX,CL
+    /*  7 ASR12    */  6,  // MOV CX,AX / MOV AX,BX / SAR AX,CL
+    /*  8 CALL1    */  2,  // CALL AX
+    /*  9 CALLm    */  3,  // CALL _name (near)
+    /* 10 BYTE_    */255,  // data prefix
+    /* 11 BYTEn    */255,  // data
+    /* 12 BYTEr0   */255,  // data
+    /* 13 COM1     */  2,  // NOT AX
+    /* 14 DBL1     */  2,  // SHL AX,1
+    /* 15 DBL2     */  2,  // SHL BX,1
+    /* 16 DIV12    */  3,  // CWD / IDIV BX
+    /* 17 DIV12u   */  4,  // XOR DX,DX / DIV BX
+    /* 18 ENTER    */  3,  // PUSH BP / MOV BP,SP
+    /* 19 EQ10f    */  7,  // OR AX,AX / JE $+5 / JMP near
+    /* 20 EQ12     */  3,  // CALL __eq
+    /* 21 GE10f    */  7,
+    /* 22 GE12     */  3,
+    /* 23 GE12u    */  3,
+    /* 24 POINT1l  */  3,  // MOV AX,OFFSET _lit+n
+    /* 25 POINT1m  */  3,  // MOV AX,OFFSET _name
+    /* 26 GETb1m   */  4,  // MOV AL,[mem] / CBW
+    /* 27 GETb1mu  */  5,  // MOV AL,[mem] / XOR AH,AH
+    /* 28 GETb1p   */  5,  // MOV AL,[BX+disp16] / CBW
+    /* 29 GETb1pu  */  5,  // MOV AL,[BX+disp16] / XOR AH,AH
+    /* 30 GETw1m   */  3,  // MOV AX,[mem16]
+    /* 31 GETw1n   */  3,  // MOV AX,n or XOR AX,AX
+    /* 32 GETw1p   */  4,  // MOV AX,[BX+disp16]
+    /* 33 GETw2n   */  3,  // MOV BX,n or XOR BX,BX
+    /* 34 GT10f    */  7,
+    /* 35 GT12     */  3,
+    /* 36 GT12u    */  3,
+    /* 37 WORD_    */255,  // data prefix
+    /* 38 WORDn    */255,  // data
+    /* 39 WORDr0   */255,  // data
+    /* 40 JMPm     */  3,  // JMP near
+    /* 41 LABm     */  0,  // label definition
+    /* 42 LE10f    */  7,
+    /* 43 LE12     */  3,
+    /* 44 LE12u    */  3,
+    /* 45 LNEG1    */  3,  // CALL __lneg
+    /* 46 LT10f    */  7,
+    /* 47 LT12     */  3,
+    /* 48 LT12u    */  3,
+    /* 49 MOD12    */  5,  // CWD / IDIV BX / MOV AX,DX
+    /* 50 MOD12u   */  6,  // XOR DX,DX / DIV BX / MOV AX,DX
+    /* 51 MOVE21   */  2,  // MOV BX,AX
+    /* 52 MUL12    */  2,  // IMUL BX
+    /* 53 MUL12u   */  2,  // MUL BX
+    /* 54 NE10f    */  7,
+    /* 55 NE12     */  3,
+    /* 56 NEARm    */255,  // data DW
+    /* 57 OR12     */  2,  // OR AX,BX
+    /* 58 POINT1s  */  4,  // LEA AX,disp[BP]
+    /* 59 POP2     */  1,  // POP BX
+    /* 60 PUSH1    */  1,  // PUSH AX
+    /* 61 PUTbm1   */  3,  // MOV [mem],AL
+    /* 62 PUTbp1   */  2,  // MOV [BX],AL
+    /* 63 PUTwm1   */  3,  // MOV [mem],AX
+    /* 64 PUTwp1   */  2,  // MOV [BX],AX
+    /* 65 rDEC1    */  2,  // DEC AX repeated (max 2)
+    /* 66 REFm     */255,  // partial label reference
+    /* 67 RETURN   */  4,  // MOV SP,BP / POP BP / RET
+    /* 68 rINC1    */  2,  // INC AX repeated (max 2)
+    /* 69 SUB12    */  2,  // SUB AX,BX
+    /* 70 SWAP12   */  1,  // XCHG AX,BX
+    /* 71 SWAP1s   */  3,  // POP BX / XCHG AX,BX / PUSH BX
+    /* 72 SWITCH   */  3,  // CALL __switch
+    /* 73 XOR12    */  2,  // XOR AX,BX
+    /* 74 ADD1n    */  3,  // ADD AX,n or nothing
+    /* 75 ADD21    */  2,  // ADD BX,AX
+    /* 76 ADD2n    */  3,  // ADD BX,n
+    /* 77 ADDbpn   */  3,  // ADD BYTE PTR [BX],n
+    /* 78 ADDwpn   */  4,  // ADD WORD PTR [BX],n (imm16)
+    /* 79 ADDm_    */255,  // partial
+    /* 80 COMMAn   */255,  // partial
+    /* 81 DECbp    */  2,  // DEC BYTE PTR [BX]
+    /* 82 DECwp    */  2,  // DEC WORD PTR [BX]
+    /* 83 POINT2m  */  3,  // MOV BX,OFFSET _name
+    /* 84 POINT2m_ */255,  // partial
+    /* 85 GETb1s   */  5,  // MOV AL,disp[BP] / CBW
+    /* 86 GETb1su  */  5,  // MOV AL,disp[BP] / XOR AH,AH
+    /* 87 GETw1m_  */255,  // partial
+    /* 88 GETw1s   */  4,  // MOV AX,disp[BP]
+    /* 89 GETw2m   */  4,  // MOV BX,[mem16]
+    /* 90 GETw2p   */  4,  // MOV BX,[BX+disp16]
+    /* 91 GETw2s   */  4,  // MOV BX,disp[BP]
+    /* 92 INCbp    */  2,  // INC BYTE PTR [BX]
+    /* 93 INCwp    */  2,  // INC WORD PTR [BX]
+    /* 94 PLUSn    */255,  // partial
+    /* 95 POINT2s  */  4,  // LEA BX,disp[BP]
+    /* 96 PUSH2    */  1,  // PUSH BX
+    /* 97 PUSHm    */  4,  // PUSH WORD PTR [mem16]
+    /* 98 PUSHp    */  4,  // PUSH [BX+disp16]
+    /* 99 PUSHs    */  4,  // PUSH disp[BP]
+    /*100 PUT_m_   */255,  // partial
+    /*101 rDEC2    */  2,  // DEC BX repeated (max 2)
+    /*102 rINC2    */  2,  // INC BX repeated (max 2)
+    /*103 SUB_m_   */255,  // partial
+    /*104 SUB1n    */  3,  // SUB AX,n
+    /*105 SUBbpn   */  3,  // SUB BYTE PTR [BX],n
+    /*106 SUBwpn   */  4,  // SUB WORD PTR [BX],n
+    /*107 EQf      */  7,  // CMP AX,BX / JE $+5 / JMP near
+    /*108 NEf      */  7,
+    /*109 LTf      */  7,
+    /*110 GTf      */  7,
+    /*111 LEf      */  7,
+    /*112 GEf      */  7,
+    /*113 LTuf     */  7,
+    /*114 GTuf     */  7,
+    /*115 LEuf     */  7,
+    /*116 GEuf     */  7,
+    /*117 PUTws1   */  4,  // MOV disp[BP],AX
+    /*118 PUTbs1   */  4,  // MOV BYTE PTR disp[BP],AL
+    /*119 ASL1_1   */  4,  // MOV AX,BX / SHL AX,1
+    /*120 ASR1_1   */  4,  // MOV AX,BX / SAR AX,1
+    /*121 GETd1m   */  7,  // MOV AX,[mem] / MOV DX,[mem+2]
+    /*122 GETd1p   */  5,  // MOV AX,[BX] / MOV DX,2[BX]
+    /*123 GETd1s   */  8,  // MOV AX,n[BP] / MOV DX,n+2[BP]
+    /*124 GETdxn   */  3,  // MOV DX,n or XOR DX,DX
+    /*125 GETcxn   */  3,  // MOV CX,n or XOR CX,CX
+    /*126 GETd2m   */  8,  // MOV BX,[mem] / MOV CX,[mem+2]
+    /*127 GETd2s   */  8,  // MOV BX,n[BP] / MOV CX,n+2[BP]
+    /*128 PUTdm1   */  7,  // MOV [mem],AX / MOV [mem+2],DX
+    /*129 PUTdp1   */  7,  // PUSH BX / MOV [BX],AX / MOV 2[BX],DX / POP BX
+    /*130 PUTds1   */  8,  // MOV n[BP],AX / MOV n+2[BP],DX
+    /*131 PUSHd1   */  2,  // PUSH DX / PUSH AX
+    /*132 POPd2    */  2,  // POP BX / POP CX
+    /*133 PUSHdm   */  8,  // PUSH [mem+2] / PUSH [mem]
+    /*134 PUSHds   */  8,  // PUSH n+2[BP] / PUSH n[BP]
+    /*135 MOVEd21  */  4,  // MOV BX,AX / MOV CX,DX
+    /*136 SWAPd12  */  3,  // XCHG AX,BX / XCHG DX,CX
+    /*137 WIDENs   */  1,  // CWD
+    /*138 WIDENu   */  2,  // XOR DX,DX
+    /*139 WIDENs2  */  9,  // XOR CX,CX / TEST BX,8000h / JZ $+3 / DEC CX
+    /*140 WIDENu2  */  2,  // XOR CX,CX
+    /*141 ADDd12   */  4,  // ADD AX,BX / ADC DX,CX
+    /*142 SUBd12   */  4,  // SUB AX,BX / SBB DX,CX
+    /*143 ANDd12   */  4,  // AND AX,BX / AND DX,CX
+    /*144 ORd12    */  4,  // OR AX,BX / OR DX,CX
+    /*145 XORd12   */  4,  // XOR AX,BX / XOR DX,CX
+    /*146 COMd1    */  4,  // NOT AX / NOT DX
+    /*147 ANEGd1   */  7,  // NEG DX / NEG AX / SBB DX,0
+    /*148 rINCd1   */  6,  // ADD AX,n / ADC DX,0
+    /*149 rDECd1   */  6,  // SUB AX,n / SBB DX,0
+    /*150 DBLd1    */  4,  // SHL AX,1 / RCL DX,1
+    /*151 DBLd2    */  4,  // SHL BX,1 / RCL CX,1
+    /*152 MULd12   */  3,
+    /*153 MULd12u  */  3,
+    /*154 DIVd12   */  3,
+    /*155 DIVd12u  */  3,
+    /*156 MODd12   */  3,
+    /*157 MODd12u  */  3,
+    /*158 ASLd12   */  3,
+    /*159 ASRd12   */  3,
+    /*160 ASRd12u  */  3,
+    /*161 EQd12    */  3,
+    /*162 NEd12    */  3,
+    /*163 LTd12    */  3,
+    /*164 LEd12    */  3,
+    /*165 GTd12    */  3,
+    /*166 GEd12    */  3,
+    /*167 LTd12u   */  3,
+    /*168 LEd12u   */  3,
+    /*169 GTd12u   */  3,
+    /*170 GEd12u   */  3,
+    /*171 LNEGd1   */  3,
+    /*172 EQd10f   */  7,  // OR AX,DX / JE $+5 / JMP near
+    /*173 NEd10f   */  7,
+    /*174 LSWITCHd */  3,
+    /*175 POPCX    */  1,  // POP CX
+    /*176 POPCX2   */  2,  // POP CX / POP CX
+    /*177 EQ10fs   */  4,  // OR AX,AX / JNE _n  (short)
+    /*178 NE10fs   */  4,
+    /*179 GE10fs   */  4,
+    /*180 GT10fs   */  4,
+    /*181 LE10fs   */  4,
+    /*182 LT10fs   */  4,
+    /*183 EQfs     */  4,  // CMP AX,BX / JNE _n  (short)
+    /*184 NEfs     */  4,
+    /*185 LTfs     */  4,
+    /*186 GTfs     */  4,
+    /*187 LEfs     */  4,
+    /*188 GEfs     */  4,
+    /*189 LTufs    */  4,
+    /*190 GTufs    */  4,
+    /*191 LEufs    */  4,
+    /*192 GEufs    */  4,
+    /*193 EQd10fs  */  4,  // OR AX,DX / JNE _n  (short)
+    /*194 NEd10fs  */  4,
+    /*195 JMPs     */  2   // JMP SHORT _n
+};
+
+// Map a long-branch p-code to its short-branch equivalent, or 0 if not a branch.
+int shortbranch(int pc) {
+    switch (pc) {
+    case EQ10f:  return EQ10fs;
+    case NE10f:  return NE10fs;
+    case GE10f:  return GE10fs;
+    case GT10f:  return GT10fs;
+    case LE10f:  return LE10fs;
+    case LT10f:  return LT10fs;
+    case EQf:    return EQfs;
+    case NEf:    return NEfs;
+    case LTf:    return LTfs;
+    case GTf:    return GTfs;
+    case LEf:    return LEfs;
+    case GEf:    return GEfs;
+    case LTuf:   return LTufs;
+    case GTuf:   return GTufs;
+    case LEuf:   return LEufs;
+    case GEuf:   return GEufs;
+    case EQd10f: return EQd10fs;
+    case NEd10f: return NEd10fs;
+    default:     return 0;
+    }
+}
 
 // print all assembler info before any code is generated
 // and ensure that the segments appear in the correct order.
 void header() {
     needLong = 0;
+    funcbuf = calloc(FUNCBUFSIZE, BPW);
+    fl_labnum = calloc(256, BPW);
+    fl_labpos = calloc(256, BPW);
+    fnext = funcbuf;
     toseg(CODESEG);
     outlines("extrn __eq: near\n"
              "extrn __ne: near\n"
@@ -496,7 +753,7 @@ void gen(int pcode, int value) {
             needLong = 1;
     }
     if (snext == 0) {
-        outcode(pcode, value);
+        bufout(pcode, value);
         return;
     }
     if (snext >= slast) {
@@ -526,6 +783,84 @@ void ClearStage(int *before, int *start) {
     snext = 0;
 }
 
+// Route a p-code into funcbuf when in CODE segment, else emit directly.
+// Handles overflow by flushing without optimization.
+void bufout(int pcode, int value) {
+    int used;
+    used = fnext - funcbuf;
+    if (oldseg != CODESEG) {
+        outcode(pcode, value);
+        return;
+    }
+    if (fnext >= funcbuf + FUNCBUFSIZE) {
+        // overflow: emit buffer and new entry directly, skip optimization
+        int *p;
+        p = funcbuf;
+        while (p < fnext) { outcode(p[0], p[1]); p += 2; }
+        fnext = funcbuf;
+        outcode(pcode, value);
+        return;
+    }
+    fnext[0] = pcode;
+    fnext[1] = value;
+    fnext += 2;
+}
+
+// Two-pass short-branch optimizer over funcbuf.
+// Pass 1: record label byte positions.
+// Pass 2: substitute short-branch p-codes where target is within +-127 bytes.
+// Pass 3: emit via outcode().
+void flushfunc() {
+    int *p, pc, val, spc, pos, short_end, delta;
+    int i, lpos, nflab;
+    int pairs;
+    pairs = (fnext - funcbuf) / 2;
+    if (fnext == funcbuf) {
+        return;
+    }
+    // pass 1: record label positions
+    nflab = 0;
+    pos = 0;
+    p = funcbuf;
+    while (p < fnext) {
+        pc = p[0];
+        if (pc == LABm && nflab < 256) {
+            fl_labnum[nflab] = p[1];
+            fl_labpos[nflab] = pos;
+            ++nflab;
+        }
+        pos += code_size[pc];
+        p += 2;
+    }
+    // pass 2: substitute reachable long branches with short variants
+    pos = 0;
+    p = funcbuf;
+    while (p < fnext) {
+        pc = p[0];
+        spc = shortbranch(pc);
+        if (spc) {
+            val = p[1];
+            // find label position
+            lpos = -1;
+            for (i = 0; i < nflab; ++i) {
+                if (fl_labnum[i] == val) { lpos = fl_labpos[i]; break; }
+            }
+            if (lpos >= 0) {
+                short_end = pos + (spc == JMPs ? 2 : 4);
+                delta = lpos - short_end;
+                if (delta >= -128 && delta <= 127)
+                    p[0] = spc;
+            }
+        }
+        pos += code_size[pc];
+        p += 2;
+    }
+    // pass 3: emit
+    p = funcbuf;
+    while (p < fnext) { outcode(p[0], p[1]); p += 2; }
+    fnext = funcbuf;
+}
+
 // dump the staging buffer
 void dumpstage() {
     int i;
@@ -543,7 +878,7 @@ void dumpstage() {
                 goto restart;
             }
         }
-        outcode(snext[0], snext[1]);
+        bufout(snext[0], snext[1]);
         snext += 2;
     }
 }
@@ -551,10 +886,17 @@ void dumpstage() {
 // change to a new segment
 // may be called with NULL, CODESEG, or DATASEG
 void toseg(int newseg) {
-    if (oldseg == newseg)
-            return;
-    if (oldseg == CODESEG)
+    if (oldseg == newseg) {
+        // function-to-function boundary: flush previous function's body
+        // before the next function's labels are emitted directly to file
+        if (oldseg == CODESEG && funcbuf && fnext > funcbuf)
+            flushfunc();
+        return;
+    }
+    if (oldseg == CODESEG) {
+        flushfunc();
         outline("CODE ENDS");
+    }
     else if (oldseg == DATASEG)
         outline("DATA ENDS");
     if (newseg == CODESEG) {
@@ -568,7 +910,7 @@ void toseg(int newseg) {
 
 // declare variable, allowing global scope
 void decGlobal(int ident, int isGlobal) {
-    if (ident == IDENT_FUNCTION)
+    if (ident == IDENT_FUNCTION || ident == IDENT_PTR_FUNCTION)
         toseg(CODESEG);
     else
         toseg(DATASEG);
@@ -578,7 +920,7 @@ void decGlobal(int ident, int isGlobal) {
         newline();
     }
     outname(ssname);
-    if (ident == IDENT_FUNCTION) {
+    if (ident == IDENT_FUNCTION || ident == IDENT_PTR_FUNCTION) {
         colon();
         newline();
     }
@@ -586,7 +928,7 @@ void decGlobal(int ident, int isGlobal) {
 
 // declare external reference
 void external(char *name, int size, int ident) {
-    if (ident == IDENT_FUNCTION)
+    if (ident == IDENT_FUNCTION || ident == IDENT_PTR_FUNCTION)
         toseg(CODESEG);
     else
         toseg(DATASEG);
@@ -600,12 +942,12 @@ void external(char *name, int size, int ident) {
 // output the size of the object pointed to.
 void outsize(int size, int ident) {
     if (size == 1 && ident != IDENT_POINTER && ident != IDENT_PTR_ARRAY
-                  && ident != IDENT_FUNCTION)
+                  && ident != IDENT_FUNCTION && ident != IDENT_PTR_FUNCTION)
         outstr("BYTE");
     else if (size == BPD && ident != IDENT_POINTER && ident != IDENT_PTR_ARRAY
-                         && ident != IDENT_FUNCTION)
+                         && ident != IDENT_FUNCTION && ident != IDENT_PTR_FUNCTION)
         outstr("DWORD");
-    else if (ident != IDENT_FUNCTION)
+    else if (ident != IDENT_FUNCTION && ident != IDENT_PTR_FUNCTION)
         outstr("WORD");
     else
         outstr("NEAR");

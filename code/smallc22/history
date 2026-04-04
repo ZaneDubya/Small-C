@@ -240,4 +240,15 @@ Small-C Revision History
 133 Comprehensive use of C90 arg lists throughout Small-C, SmallLib, and Ylink.
 134 Add adjacent string concatenation.
 135 Size optimization: two new p-codes change ADD SP,{1,2} to POP CX,{1,2}.
-    
+136 Added void pointer support. void* is accepted as a type; pointer arithmetic
+    and dereferencing behave as for char*.
+137 Added a second optimization pass: a per-function buffer accumulates all
+    CODE-segment p-codes for a function. At the end of each function, a
+    two-pass optimizer (flushfunc) calculates label byte offsets, then
+    replaces any long branch triple (OR/CMP + Jcc $+5 + JMP near, 7 bytes)
+    with a short conditional jump (OR/CMP + Jcc label, 4 bytes) wherever the
+    target is within +-127 bytes. Nineteen new short-branch p-codes (177-195)
+    cover all signed, unsigned, and zero-test comparisons. Stack-overflow risk
+    from large static arrays was eliminated by heap-allocating the function
+    buffer. Inline #asm blocks appear are flushed before emitting assembly.
+

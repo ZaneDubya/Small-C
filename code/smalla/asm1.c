@@ -159,7 +159,7 @@ main(argc, argv) int argc, *argv; {
 */
 pass1(argc, argv) int argc, *argv; {
   unsigned max;
-  fputs("pass 1\n", stderr);
+  fputs("  Pass 1\n", stderr);
   st     = calloc(stmax*STENTRY, 1); /* allocate zeroed symbol table */ 
   stp    = calloc(stmax, 2);         /* allocate symbol table ptr array */
   stend  = st + stmax*STENTRY;       /* note end of table */
@@ -178,7 +178,7 @@ pass1(argc, argv) int argc, *argv; {
 */
 pass2(argc, argv) int argc, *argv; {
   int i;
-  fputs("pass 2\n", stderr);
+  fputs("  Pass 2\n", stderr);
   ofd   = open(ofn, "w");
   nosegs();           /* reset seg reg assumptions */
   putTHEADR(omt);

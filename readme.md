@@ -17,16 +17,16 @@ Version 2.3
 Copyright 1982, 1983, 1985, 1988 J. E. Hendrix
 
 Enhancements from Small-C Version 2.2:
-* Reserved keyword checking.
+* Reserved keyword checks.
 * C99 style comments (//).
 * C90 argument list types.
 * C90 type qualifiers: const, signed, short, volatile, register, static.
 * Structs.
-* Pointer arrays.
+* Pointers: Void pointers, Pointer arrays.
 * Local variable initialization.
 * Longer variable names.
 * Multi-dimensional arrays (and initialization).
-* New peephole optimizations.
+* New peephole optimizations and a second pass optimizer.
 
 ## Small-Assembler
 Version 1.2, Revision Level 14

@@ -49,6 +49,7 @@ int
     argtop,   // highest formal argument offset
     rettype,  // return type of current function (TYPE_INT default)
     rettypeSubPtr, // struct def ptr if rettype == TYPE_STRUCT
+    rettypeIsPtr,  // 1 when the current function returns a pointer
     ncmp,     // # open compound statements
     errflag,  // true after 1st error in statement
     eof,      // true on final input eof
@@ -260,6 +261,25 @@ int dodeclare(int class) {
                 return 1;
             }
         }
+        else if (*p == '*') {
+            char *q;
+            q = p + 1;
+            while (*q == ' ' || *q == '\t') q++;
+            if (alpha(*q)) {
+                while (an(*q)) q++;
+                while (*q == ' ' || *q == '\t') q++;
+                if (*q == '(') {
+                    rettype = type;
+                    rettypeSubPtr = (type == TYPE_STRUCT) ? typeSubPtr : 0;
+                    rettypeIsPtr = 1;
+                    dofunction(class);
+                    rettypeIsPtr = 0;
+                    rettype = TYPE_INT;
+                    rettypeSubPtr = 0;
+                    return 1;
+                }
+            }
+        }
         declglb(type, declclass, typeSubPtr);
     }
     else if (class == EXTERNAL) {
@@ -302,6 +322,9 @@ int dotype(int *typeSubPtr) {
     if (isShort) {
         amatch("int", 3);
         return isUnsigned ? TYPE_UINT : TYPE_INT;
+    }
+    if (amatch("void", 4)) {
+        return TYPE_VOID;
     }
     if (amatch("char", 4)) {
         return isUnsigned ? TYPE_UCHR : TYPE_CHR;
@@ -348,6 +371,10 @@ void declglb(int type, int class, int typeSubPtr) {
         else { 
             id = IDENT_VARIABLE; 
             dim = 1; 
+        }
+        if (id == IDENT_VARIABLE && type == TYPE_VOID) {
+            error("variable cannot have void type");
+            return;
         }
         ndim = 0;
         if (symname(ssname) == 0)
@@ -827,10 +854,7 @@ int dofunction(int class) {
     litptr = 0;                   // clear lit pool
     litlab = getlabel();          // label next lit pool
     locptr = STARTLOC;            // clear local variables
-    // skip "void" & locate header
-    if (IsMatch("void")) {
-        blanks();
-    }
+    if (rettypeIsPtr) IsMatch("*");
     if (monitor) {
         lout(line, stderr);
     }
@@ -854,6 +878,7 @@ int dofunction(int class) {
     // define it instead as a global function
     if (pGlobal = findglb(ssname)) {
         if (pGlobal[CLASS] == AUTOEXT) {
+            pGlobal[IDENT] = rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION;
             pGlobal[CLASS] = class;
             if (rettype == TYPE_STRUCT) {
                 pGlobal[TYPE] = TYPE_STRUCT;
@@ -866,11 +891,11 @@ int dofunction(int class) {
         }
     }
     else {
-        AddSymbol(ssname, IDENT_FUNCTION, rettype, 0, 0, &glbptr, class);
+        AddSymbol(ssname, rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION, rettype, 0, 0, &glbptr, class);
         if (rettype == TYPE_STRUCT)
             putint(rettypeSubPtr, cptr + CLASSPTR, 2);
     }
-    decGlobal(IDENT_FUNCTION, class == GLOBAL); // don't do public if class == STATIC
+    decGlobal(rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION, class == GLOBAL); // don't do public if class == STATIC
     if (IsMatch("(") == 0)
         error("no open paren");
     if ((firstType = dotype(&typeSubPtr)) != 0) {
@@ -922,7 +947,13 @@ void doArgsTyped(int type, int typeSubPtr) {
         }
         else {
             id = IDENT_VARIABLE;
-            sz = type >> 2;
+            if (type == TYPE_VOID) {
+                error("parameter cannot have void type");
+                sz = BPW;  // error recovery
+            }
+            else {
+                sz = type >> 2;
+            }
         }
         if (symname(ssname)) {
             if (isreserved(ssname)) {
@@ -1178,7 +1209,11 @@ int parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz)
     }
     else {
         *id = IDENT_VARIABLE;
-        if (type == TYPE_STRUCT) {
+        if (type == TYPE_VOID) {
+            error("variable cannot have void type");
+            *sz = BPW;  // error recovery
+        }
+        else if (type == TYPE_STRUCT) {
             *sz = getStructSize(typeSubPtr);
         }
         else {
@@ -2391,6 +2426,8 @@ void docont() {
 
 void doasm() {
     ccode = 0;           // mark mode as "asm"
+    ClearStage(0, snext);  // flush any pending staged p-codes
+    flushfunc();           // flush funcbuf so inline asm lands in order
     while (1) {
         doInline();
         if (IsMatch("#endasm"))
