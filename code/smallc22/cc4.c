@@ -750,7 +750,7 @@ int isfree(int reg, int *pp) {
 
 // Get place where the currently pushed value is popped?
 // NOTE: Function arguments are not popped, they are
-// wasted with an ADDSP.
+// wasted with an ADDSP, POPCX, or POPCX2.
 int getpop(int *next) {
     char *cp;
     int level;  level = 0;
@@ -760,7 +760,7 @@ int getpop(int *next) {
         if (*next == POP2)
             if (level) --level;
             else return next;                   // have a matching POP2
-        else if (*next == ADDSP) {             // after func call
+        else if (*next == ADDSP || *next == POPCX || *next == POPCX2) { // after func call
             if ((level -= (next[1] >> LBPW)) < 0)
                 return 0;
         }

@@ -239,5 +239,5 @@ Small-C Revision History
     char targets (was masking to 8 bits without extending).
 133 Comprehensive use of C90 arg lists throughout Small-C, SmallLib, and Ylink.
 134 Add adjacent string concatenation.
-135 Add void pointer support.
+135 Size optimization: two new p-codes change ADD SP,{1,2} to POP CX,{1,2}.
     
