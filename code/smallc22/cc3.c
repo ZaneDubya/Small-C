@@ -1658,17 +1658,24 @@ int chrcon(int *lo, int *hi) {
     return TYPE_INT;
 }
 
+// Parse a string literal, storing characters in litq[] and returning offset.
+// Returns 1 if a string was parsed, 0 if not.
+// Handles adjacent string literals by concatenatation. Macro-expanded string
+// literatals are supported: blanks() calls preprocess() which expands macros.
+// #define S "world" and then "hello " S will concatenate to "hello world".
 int string(int *offset) {
-    char c;
-    if (IsMatch("\"") == 0)
+    if (IsMatch("\"") == 0) {
         return 0;
-    *offset = litptr;
-    while (ch != '"') {
-        if (ch == 0)
-            break;
-        stowlit(litchar(), 1);
     }
-    gch();
+    *offset = litptr;
+    do {
+        while (ch != '"') {
+            if (ch == 0)
+                break;
+            stowlit(litchar(), 1);
+        }
+        gch();
+    } while (IsMatch("\""));
     litq[litptr++] = 0;
     return 1;
 }

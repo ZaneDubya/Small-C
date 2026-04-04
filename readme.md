@@ -17,17 +17,16 @@ Version 2.3
 Copyright 1982, 1983, 1985, 1988 J. E. Hendrix
 
 Enhancements from Small-C Version 2.2:
-* Support for reserved keyword checking.
-* Support for C99 style comments (//).
-* Support for C89/C90 argument list types.
-* Support for 'static' access modifier for functions, globals, and locals.
-* Support for longer variable names.
-* Support for structs.
-* Support for local variable initialization.
-* Support for pointer arrays.
-* Support for multi-dimensional arrays (and initialization).
+* Reserved keyword checking.
+* C99 style comments (//).
+* C90 argument list types.
+* C90 type qualifiers: const, signed, short, volatile, register, static.
+* Structs.
+* Pointer arrays.
+* Local variable initialization.
+* Longer variable names.
+* Multi-dimensional arrays (and initialization).
 * New peephole optimizations.
-* Support for C90 type qualifiers: const (compile-time enforced), signed, short, volatile, register.
 
 ## Small-Assembler
 Version 1.2, Revision Level 14
