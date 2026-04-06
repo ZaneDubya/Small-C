@@ -5,7 +5,7 @@ SET BIN=..\..\bin
 SET LIB=..\..\smalllib
 
 ECHO === Compiling prntest ===
-%BIN%\cc prntest -a -p
+%BIN%\cc prntest -a -p -w
 if errorlevel 1 goto exit
 
 ECHO === Assembling prntest ===
@@ -17,7 +17,7 @@ ECHO === Linking prntest ===
 if errorlevel 1 goto exit
 
 ECHO === Running prntest ===
-prntest.exe
+if exist prntest.exe prntest
 
 if exist *.obj del *.obj
 if exist *.map del *.map

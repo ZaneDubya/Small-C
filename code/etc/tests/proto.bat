@@ -6,7 +6,7 @@ SET BIN=..\..\bin
 SET LIB=..\..\smalllib
 
 ECHO === Compiling proto ===
-%BIN%\cc proto -a -p
+%BIN%\cc proto -a -p -w
 if errorlevel 1 goto exit
 
 ECHO === Assembling proto ===
@@ -25,3 +25,4 @@ if exist *.obj del *.obj
 if exist *.map del *.map
 
 :exit
+if exist proto.exe proto

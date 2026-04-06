@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM TESTENUM
 ECHO === Compiling testenum ===
-%BIN%\cc testenum -a -p
+%BIN%\cc testenum -a -p -w
 if errorlevel 1 goto exit
 %BIN%\asm testenum /p
 if errorlevel 1 goto exit

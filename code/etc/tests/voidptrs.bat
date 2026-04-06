@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM VOIDPTRS
 ECHO === Compiling voidptrs ===
-%BIN%\cc voidptrs -a -p
+%BIN%\cc voidptrs -a -p -w
 if errorlevel 1 goto exit
 %BIN%\asm voidptrs /p
 if errorlevel 1 goto exit

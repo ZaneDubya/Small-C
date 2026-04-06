@@ -5,7 +5,7 @@
 ** b, c, d, o, s, u, and x specifications are supported.
 ** Note: b (binary) is a non-standard extension.
 */
-int fscanf(int argc) {
+int fscanf(int argc, ...) {
   int *nxtarg;
   nxtarg = CCARGC() + &argc;
   return (_scan(*(--nxtarg), --nxtarg));
@@ -17,7 +17,7 @@ int fscanf(int argc) {
 ** b, c, d, o, s, u, and x specifications are supported.
 ** Note: b (binary) is a non-standard extension.
 */
-int scanf(int argc) {
+int scanf(int argc, ...) {
   return (_scan(stdin, CCARGC() + &argc - 1));
   }
 

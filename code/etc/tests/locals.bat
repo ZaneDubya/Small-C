@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM LOCALS
 ECHO === Compiling locals test ===
-%BIN%\cc locals -a -p
+%BIN%\cc locals -a -p -w
 if errorlevel 1 goto exit
 %BIN%\asm locals /p
 if errorlevel 1 goto exit
@@ -23,3 +23,4 @@ if exist *.map del *.map
 
 :exit
 @ECHO ON
+if exist locals.exe locals

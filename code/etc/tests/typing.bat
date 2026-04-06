@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM TYPING
 ECHO === Compiling typing ===
-%BIN%\cc typing -a -p
+%BIN%\cc typing -a -p -w
 if errorlevel 1 goto exit
 %BIN%\asm typing /p
 if errorlevel 1 goto exit
