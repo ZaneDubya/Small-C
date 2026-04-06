@@ -1392,9 +1392,6 @@ void P4_DoFixupp(uint fd, uint what, uint whatOff, uint whatRelative,
   bseek(fd, &outAddr, 0);
   write_f16(fd, what + whatOff - offset);
   bseek(fd, &nowAddr, 0);
-  if (what + whatOff - offset == 0xa84) {
-    // abort(1);
-  }
 }
 
 void P4_SetBase(byte segType, uint *codeBase, uint *dataBase, uint *segBase) {

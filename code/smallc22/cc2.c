@@ -30,13 +30,21 @@ extern char
     *symtab, *macn, *macq, *pline, *mline, optimize,
     alarm, nowarn, *glbptr, *line, *lptr, *cptr, *cptr2, *cptr3,
     *locptr, *dimdata, *dimdatptr, msname[NAMESIZE], pause,
-    infn[30], inclfn[30];
+    infn[30], inclfn[30], *paramTypes;
 
 extern int
     *wq, ccode, ch, csp, eof, errflag, iflevel,
     input, input2, listfp, macptr, nch,
     nxtlab, op[16], opindex, opsize, output, pptr,
     skiplevel, *wqptr, lineno, inclno, warncount;
+
+// forward declarations for this file:
+int astreq(char str1[], char str2[], int len);
+void errout(char msg[], int fp, char *path, int ln);
+int hash(char *sname);
+void ifline();
+void keepch(char c);
+void noiferr();
 
 // === input functions ========================================================
 
@@ -393,7 +401,7 @@ void kill() {
     bump(0);
 }
 
-void skip() {
+void skipToNextToken() {
     if (an(inbyte()))
         while (an(ch)) gch();
     else while (an(ch) == 0) {
@@ -612,7 +620,7 @@ void lout(char *line, int fd) {
 
 void illname() {
     error("illegal symbol");
-    skip();
+    skipToNextToken();
 }
 
 void multidef(char *sname) {
@@ -662,12 +670,57 @@ void warning(char msg[]) {
     if (nowarn) return;
     warncount++;
     if (input2 != EOF)
-        fprintf(stderr, "%s(%d) ", inclfn, inclno);
+        fprintf(stderr, "%s:%d ", inclfn, inclno);
     else
-        fprintf(stderr, "%s(%d) ", infn, lineno);
+        fprintf(stderr, "%s:%d ", infn, lineno);
     fputs("Warning: ", stderr);
     fputs(msg, stderr);
     fputc('\n', stderr);
     if (alarm) fputc(7, stderr);
+}
+
+void warningWithName(char msg[], char *name, char suffix[]) {
+    if (nowarn) return;
+    warncount++;
+    if (input2 != EOF)
+        fprintf(stderr, "%s:%d ", inclfn, inclno);
+    else
+        fprintf(stderr, "%s:%d ", infn, lineno);
+    fputs("Warning: ", stderr);
+    fputs(msg, stderr);
+    fputs(name, stderr);
+    fputs(suffix, stderr);
+    fputc('\n', stderr);
+    if (alarm) fputc(7, stderr);
+}
+
+// paramTypes[] -- function parameter-type records.
+// Each entry is laid out as:
+//   [0] nparams_byte: (variadic<<7) | fixed_param_count
+//   [1..n] per param: (isPointer<<7) | (TYPE_xxx & 0x7F)
+// Index 0 is the reserved "no prototype" sentinel; entries start at 1.
+// paramTypes is defined in cc1.c and allocated in main() via calloc(256,2).
+int paramTypesPtr = 1;   // next free index; 0 is reserved as sentinel
+
+// Store function parameter types into paramTypes[].
+// nparams_byte = (variadic<<7) | fixed_param_count
+// typebuf = array of (isPtr<<7)|(TYPE_xxx&0x7F), one per fixed param.
+// Returns the index of the stored entry (>= 1), or 0 on overflow.
+int storeParamTypes(char *typebuf, int nparams_byte) {
+    int idx, n, k;
+    n = nparams_byte & 0x7F;
+    if (paramTypesPtr + 1 + n > FNPARAMTS_SZ) {
+        error("function param table full");
+        return 0;
+    }
+    idx = paramTypesPtr;
+    paramTypes[idx] = (char)nparams_byte;
+    k = 0;
+    while (k < n) {
+        paramTypes[idx + 1 + k] = typebuf[k];
+        ++k;
+    }
+    paramTypesPtr += 1 + n;
+    return idx;
 }
 

@@ -10,7 +10,7 @@ SET LIB=..\smalllib
 
 REM CC1
 ECHO === Compiling cc1.c ===
-%BIN%\cc  cc1 -a -p
+%BIN%\cc  cc1 -a -p -w
 if errorlevel 1 goto exit
 %BIN%\asm cc1 /p
 if errorlevel 1 goto exit

@@ -1,5 +1,9 @@
 // CC.H -- Symbol Definitions for Small-C compiler.
 
+// #define DIAG_OUTPUT      // verbose compiler diagnostics
+#define WARN_IMPLICIT    // warn about implicit int and undeclared functions
+// #define WARN_ARGCOUNT    // warn about wrong number of arguments in function calls
+
 // machine dependent parameters
 #define BPW       2   // bytes per word
 #define LBPW      1   // log2(BPW)
@@ -8,17 +12,90 @@
 #define SBPC      1   // stack bytes per character
 #define ERRCODE   7   // op sys return code
 
-// symbol table format
+// === The Symbol Table =======================================================
+// ============================================================================
+// The symbol table is a single flat byte array. As the compiler processes the
+// source code, it adds entries for identifiers to this table.
+// Each entry in the table is a flat 24-byte record laid out as follows:
+//   [0]    IDENT    (1 byte)  — symbol kind (IDENT_VARIABLE, IDENT_ARRAY, ...)
+//   [1]    TYPE     (1 byte)  — element data type (TYPE_INT, TYPE_CHR, ...)
+//   [2]    CLASS    (1 byte)  — storage class (AUTOMATIC, GLOBAL, ...) + optional CONST_FLAG
+//   [3]    NDIM     (1 byte)  — dimension count for multi-dim arrays; else 0
+//   [4..5] CLASSPTR (2 bytes) — pointer to auxiliary metadata (struct def or dimdata)
+//   [6..7] SIZE     (2 bytes) — total object size in bytes
+//   [8..9] OFFSET   (2 bytes) — address offset (meaning depends on CLASS; see below)
+//   [10..22] NAME  (13 bytes) — null-terminated identifier (max NAMEMAX=12 chars + NUL)
+//   [23]  (1 pad byte)
+// IDENT: the kind/category of the symbol.
+//   IDENT_LABEL      — a goto label (local table only); TYPE is 1 if defined, 0 if forward ref
+//   IDENT_VARIABLE   — scalar variable of any type, or an enum constant
+//   IDENT_ARRAY      — array variable (any element type, any number of dimensions)
+//   IDENT_POINTER    — pointer variable, or an array parameter that has decayed to a pointer
+//   IDENT_FUNCTION   — function whose return value is a non-pointer type
+//   IDENT_PTR_ARRAY  — array of pointers (e.g. char *arr[])
+//   IDENT_PTR_FUNCTION — function that returns a pointer
+// TYPE: the TYPE_xxx constant for the element/base type of the symbol.
+//   For scalars and pointers, this is the declared type (TYPE_INT, TYPE_CHR, TYPE_LONG, etc.).
+//   For arrays, this is the element type (e.g. int arr[5] -> TYPE_INT).
+//   For functions, this is the return type (or the pointed-to type for IDENT_PTR_FUNCTION).
+//   For enum constants, always TYPE_INT.
+//   For goto labels, TYPE is REUSED: 1 = label is defined, 0 = forward reference only.
+//   Encoding: high 6 bits = element size in bytes (TYPE_xxx >> 2); low 2 bits = variant
+//     (bit 0 = IS_UNSIGNED flag; bit 1 used to distinguish TYPE_STRUCT and TYPE_VOID).
+// CLASS: storage class of the symbol.  High bit (CONST_FLAG = 0x80) may be OR'd in when the
+//   symbol was declared with the 'const' qualifier.  Strip it with (ptr[CLASS] & 0x7F).
+//   AUTOMATIC  — local variable or function argument; addressed via BP-relative OFFSET
+//   GLOBAL     — file-global with external linkage; emits PUBLIC directive
+//   EXTERNAL   — extern declaration; emits EXTRN directive
+//   AUTOEXT    — auto-declared (undeclared function call); upgraded to GLOBAL on definition
+//   PROTOEXT   — prototype declared but not yet called; upgraded to AUTOEXT on first call
+//   STATIC     — file-internal linkage (static global) or static local (OFFSET -> global entry)
+//   ENUMCONST  — enum constant; integer value is stored in OFFSET
+//   0          — used for goto label entries (TYPE_LABEL == 0)
+// NDIM: number of dimensions for multi-dimensional arrays (MAX_DIMS = 8 max).
+//   0 or 1 — scalar, pointer, or 1D array (normal case; single subscript uses element-size scaling)
+//   2..8   — multi-dimensional array; CLASSPTR points to a dimdata[] entry that holds
+//            per-dimension stride values.  primary() initialises is[DIM_LEFT]=NDIM and
+//            level14() decrements it for each consumed [index].
+// CLASSPTR: pointer to auxiliary type metadata; meaning depends on NDIM and TYPE.
+//   TYPE_STRUCT, NDIM <= 1 — direct pointer into structdata[] for this struct type; used to
+//     look up members (getStructMember) and struct size (getStructSize).
+//   NDIM > 1 (any element type) — pointer into dimdata[]; layout of that entry:
+//     [0..1] structPtr  — pointer to struct def (0 if element is not a struct)
+//     [2..3] stride_0   — byte stride for outermost dimension (e.g. N*elemSize for [M][N])
+//     [4..5] stride_1   — byte stride for next dimension (3D+ arrays)
+//     ... (one entry per intermediate dimension; final dimension uses element-size scaling)
+//   All other symbols — 0.
+// SIZE: total allocated size of the object in bytes (what sizeof() returns).
+//   Scalar char/uchar: 1.  Scalar int/uint: 2.  Scalar long/ulong: 4.
+//   Pointer (any type): BPW (2).  Pointer array *arr[N]: N * BPW.
+//   1D array: N * (TYPE >> 2).  Multi-dim array: product of all dimensions * element size.
+//   Struct variable or struct array: sum of member sizes (via getStructSize).
+//   Function, goto label, K&R placeholder: 0.
+// OFFSET: address offset; meaning is determined by CLASS.
+//   GLOBAL / EXTERNAL / STATIC (global entry) — always 0; symbol addressed by assembler label.
+//   AUTOMATIC (local variable) — negative BP-relative byte offset computed as (csp - declared).
+//     First int in a function gets -2, first long gets -4, etc.
+//   AUTOMATIC (function argument) — positive BP-relative byte offset after argument layout is
+//     finalised.  Small-C pushes args left-to-right, so the first arg has the highest offset:
+//     for f(a,b,c): a=[BP+8], b=[BP+6], c=[BP+4].  Long args occupy 4 bytes (BPD).
+//   STATIC (local entry) — raw char* pointer to the corresponding global table entry; primary()
+//     follows this indirection to map the local name to the global _L<N> label.
+//   ENUMCONST — the signed 16-bit integer value of the enum constant.
+//   IDENT_LABEL — the assembler label number (from getlabel()); passed to gen(LABm/JMPm, ...).
+
 #define IDENT     0
 #define TYPE      1
 #define CLASS     2
-#define NDIM      3    // number of dimensions (0 or 1 = normal)
-#define CLASSPTR  4    // e.g. ptr to struct data or dimdata entry
-#define SIZE      6
-#define OFFSET    8
+#define NDIM      3     // number of dimensions: 0/1 = scalar/pointer/1D array; 2+ = multi-dim
+#define CLASSPTR  4     // ptr to structdata[] (TYPE_STRUCT, NDIM<=1), dimdata[] (NDIM>1), or 0
+#define SIZE      6     // for objects, total object size in bytes (sizeof); for functions, this is FNPARAMPTR
+#define FNPARAMPTR SIZE // for IDENT_FUNCTION/IDENT_PTR_FUNCTION: index into paramTypes[]
+#define OFFSET    8     // GLOBAL=0; AUTO local=neg BP offset; AUTO arg=pos BP offset; ENUMCONST=value;
+                        // STATIC local=ptr to global entry; LABEL=label number
 #define NAME      10
-#define SYMAVG    24 // local entry stride: NAME(10)+NAMEMAX(12)+NUL(1)+1pad = 24
-#define SYMMAX    24 // global entry stride: NAME(10)+NAMEMAX(12)+NUL(1)+1pad = 24
+#define SYMAVG    24    // local entry stride: NAME(10)+NAMEMAX(12)+NUL(1)+1pad = 24
+#define SYMMAX    24    // global entry stride: NAME(10)+NAMEMAX(12)+NUL(1)+1pad = 24
 
 // symbol table parameters
 #define NUMLOCS   100
@@ -66,6 +143,7 @@
 #define AUTOEXT   4   // function that is not declared but is referenced
 #define STATIC    5   // only visible in this file ("internal linkage")
 #define ENUMCONST 6   // enum constant: integer value stored in OFFSET field
+#define PROTOEXT  7   // function prototype declared but not yet called or defined
 
 // const qualifier flag packed into CLASS byte (high bit; CLASS values are <= 6).
 // To test: ptr[CLASS] & CONST_FLAG  (non-zero == const-qualified)
@@ -97,6 +175,7 @@
 // multi-dimensional array metadata buffer
 #define DIMDATSZ  500  // dimdata buffer size
 #define MAX_DIMS    8  // max dimensions per array
+#define FNPARAMTS_SZ 768 // size of paramTypes[] function parameter-type buffer
 
 // is[] array -- expression state (8 ints)
 // Starting with level1(), this code places information about the expression
@@ -211,8 +290,12 @@
 #define STGOTO   13
 #define STLABEL  14
 
-// p-code symbols
-//
+#define FUNCBUFSIZE 2000  // int slots in per-function buffer (1000 p-code pairs, 4000 bytes)
+
+// === P-code definitions =====================================================
+// ============================================================================
+// The Small-C compiler generates code for a simple stack-based virtual machine
+// with the instruction set defined by the symbolic names below.
 // legend:
 //  1 = primary register (pr in comments)
 //  2 = secondary register (sr in comments)
@@ -227,7 +310,6 @@
 //  u = unsigned
 //  w = word
 //  _ (tail) = another p-code completes this one
-
 // compiler-generated
 #define ADD12     1   // add sr to pr
 #define ADDSP     2   // add to stack pointer
@@ -457,4 +539,58 @@
 
 #define PCODES  196   // size of code[]
 
-#define FUNCBUFSIZE 2000  // int slots in per-function buffer (1000 p-code pairs, 4000 bytes)
+// function prototypes for Small-C *.C files
+int AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class);
+int FindSymbol(char *sname, char *buf, int len, char *end, int max, int off, int namelen);
+int IsMatch(char *lit);
+int IsUnsigned(int is[]);
+int alpha(char c);
+int amatch(char *lit, int len);
+int an(char c);
+int callfunc(char *ptr);
+int dofunction(int class);
+int dotype(int *typeSubPtr);
+int endst();
+int findglb(char *sname);
+int findloc(char *sname);
+int gch();
+int getClsPtr(char *sym);
+int getDimStride(char *sym, int idx);
+int getStructMember(char *basestruct, char *sname);
+int getStructPtr();
+int getStructPtr();
+int getStructSize(char *basestruct);
+int getint(char *addr, int len);
+int getlabel();
+int inbyte();
+int IsConstExpr(int *val);
+int isLongVal(int is[]);
+int isreserved(char *name);
+int level1(int is[]);
+int nextop(char *list);
+int parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz);
+int primary(int *is);
+int streq(char str1[], char str2[]);
+int string(int *offset);
+int symname(char *sname);
+int white();
+void ClearStage(int *before, int *start);
+void ParseExpression(int *con, int *val);
+void ReqSemicolon();
+void Require(char *str);
+void blanks();
+void bump(int n);
+void declglb(int type, int class, int typeSubPtr);
+void doInline();
+void error(char msg[]);
+void fetch(int is[]);
+void gen(int pcode, int value);
+void illname();
+void needlval();
+void openfile();
+void putint(int i, char *addr, int len);
+void setstage(int *before, int *start);
+void skipToNextToken();
+void stowlit(int value, int size);
+void warning(char msg[]);
+void warningWithName(char msg[], char *name, char suffix[]);

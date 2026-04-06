@@ -118,7 +118,7 @@ Small-C Revision History
 118 Permit C99 style one-line comments, replaced Quote[] with inline string
     literal. Consolidated type recognition in dofunction() and move function
     argument parsing to its own function.
-119 Permit C89/C90 style argument lists, where types are inline with the 
+119 Permit C90 style argument lists, where types are inline with the 
     variable names. Adds support for 'static' global variables. Longer
     variable names permitted.
 
@@ -167,7 +167,7 @@ Small-C Revision History
     long arrays, long struct members, long function parameters and return
     values, explicit casts between long and narrower types, and switch on
     long expressions. printf/scanf recognize %ld, %lu, and %lx. Numeric
-    literals accept L, U, UL suffixes. C89 type promotion rules apply.
+    literals accept L, U, UL suffixes. C90 type promotion rules apply.
     Long values occupy 4 bytes. It is intended that local long variables
     are 2-byte aligned on the stack.
 127 Fixed // comment handler in preprocess() (CC2.C) to not read past end of
@@ -251,4 +251,14 @@ Small-C Revision History
     cover all signed, unsigned, and zero-test comparisons. Stack-overflow risk
     from large static arrays was eliminated by heap-allocating the function
     buffer. Inline #asm blocks appear are flushed before emitting assembly.
-
+138 Added C90 function prototype support. extern declarations and forward
+    declarations with typed parameter lists (including f(void) and f(...)) are
+    parsed and stored under a new PROTOEXT storage class. Parameter types are
+    recorded in a new paramTypes[] buffer (indexed via a repurposed
+    FNPARAMPTR/SIZE field).
+    Non-variadic prototyped functions no longer receive an ARGCNTn argument
+    count in CL at call sites; variadic and unknown functions still get it.
+    Added optional WARN_IMPLICIT and WARN_ARGCOUNT diagnostic flags.
+    Added function prototypes to cc.h and stdio.h.
+    Renamed internal skip() to skipToNextToken() to avoid conflict with the
+    stdlib skip() now declared in stdio.h. 

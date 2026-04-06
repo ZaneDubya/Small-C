@@ -31,6 +31,11 @@ extern char *symtab, *locptr, *lptr, ssname[];
 extern int ch, eof, rettype, rettypeSubPtr;
 char *structdata, *structdatnext, *structmemnext;
 
+// forward declarations for this file:
+int doStruct();
+int dostructblock();
+int findStructByName(char *sname);
+
 void initStructs() {
   structdata = calloc(STRUCTDATSZ, 1);
   structdatnext = STRDAT_START;

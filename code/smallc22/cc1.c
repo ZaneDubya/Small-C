@@ -91,6 +91,7 @@ char
     *cptr3,
     *dimdata,  // multi-dim array metadata buffer
     *dimdatptr, // next free entry in dimdata
+    *paramTypes, // function parameter-type records (allocated in main)
     msname[NAMESIZE],   // macro symbol name
     ssname[NAMESIZE],   // symbol name (static locals mangled to _L<N> form)
     curfn[NAMESIZE],    // name of function currently being compiled
@@ -100,7 +101,9 @@ char
 int
     lastNdim,            // ndim from last parseLocalDeclare call
     lastStrides[MAX_DIMS], // strides from last parseLocalDeclare call
-    typeConstFlag;       // set by dotype(): 1 if const qualifier was seen
+    typeConstFlag,       // set by dotype(): 1 if const qualifier was seen
+    protoVoidList,       // set by doArgsTyped when f(void) form is parsed
+    protoVariadic;       // set by doArgsTyped/doArgsNonTyped when ... is parsed
 
 int op[16] = {   // p-codes of signed binary operators
     OR12,                        // level5
@@ -167,10 +170,13 @@ void main(int argc, int *argv) {
     locptr = STARTLOC;
     glbptr = STARTGLB;
     dimdatptr = dimdata = calloc(DIMDATSZ, 1);
+    paramTypes = calloc(FNPARAMTS_SZ, 1);
     initStructs();
     initEnums();
     availMem = avail(0);
+#ifdef DIAG_OUTPUT
     fprintf(stderr, "  Memory available: %d b\n", availMem);
+#endif
     if (availMem < 2000) {
         fputs("out of memory\n", stderr);
         exit(1);
@@ -293,13 +299,13 @@ int dodeclare(int class) {
 }
 
 // get type of declaration.
-// Handles C90 type qualifiers: const, volatile, register, auto, signed,
-// unsigned, short.  On 8086 short == int (both 16-bit).
+// Handles type qualifiers: const, volatile, register, auto, signed,
+// unsigned, short. On 8086 short == int (both 16-bit).
 // Sets global typeConstFlag = 1 when the const qualifier is present.
 // "volatile" and "register" are accepted and silently ignored.
 // "register" is treated as automatic storage (the default on 8086 where
 // there are no spare GPRs available for user variables).
-// @return type value of declaration, otherwise 0 if not a valid declaration.
+// return type value of declaration, otherwise 0 if not a valid declaration.
 int dotype(int *typeSubPtr) {
     int isConst, isUnsigned, isShort, gotSignSize;
     isConst = isUnsigned = isShort = gotSignSize = 0;
@@ -408,7 +414,7 @@ void declglb(int type, int class, int typeSubPtr) {
                 dim = dims[0];
             }
         }
-        if (class == EXTERNAL) 
+        if (class == EXTERNAL && id != IDENT_FUNCTION && id != IDENT_PTR_FUNCTION)
             external(ssname, type >> 2, id);
         else if (id != IDENT_FUNCTION) {
             if (id == IDENT_PTR_ARRAY)
@@ -454,7 +460,10 @@ void declglb(int type, int class, int typeSubPtr) {
             putint(typeSubPtr, cptr + CLASSPTR, 2);
         }
         else {
-            AddSymbol(ssname, id, type, dim * (type >> 2), 0, &glbptr, class);
+            int symclass;
+            symclass = (id == IDENT_FUNCTION || id == IDENT_PTR_FUNCTION)
+                       ? PROTOEXT : class;
+            AddSymbol(ssname, id, type, dim * (type >> 2), 0, &glbptr, symclass);
         }
         if (IsMatch(",") == 0) 
             return;
@@ -840,13 +849,73 @@ int putmac(char c) {
     return c;
 }
 
+// Match a variadic ellipsis '...' in an argument list.
+// If requireNamed is true, emit an error if no named parameter precedes it.
+// On match: sets protoVariadic, consumes ')', returns 1.
+// Returns 0 if '...' is not present.
+int matchEllipsis(int requireNamed) {
+    if (IsMatch("...") == 0)
+        return 0;
+    if (requireNamed && argstk == 0)
+        error("'...' must follow named parameter");
+    protoVariadic = 1;
+    Require(")");
+    return 1;
+}
+
+// Record function parameter types into paramTypes[] and store the index
+// in the function symbol's FNPARAMPTR (SIZE) field.  Called from dofunction()
+// for both prototypes and definitions.  The local symbol table must still hold
+// the argument entries when called.  locptr is NOT reset here; callers manage
+// that.
+void recordParamTypes(char *funcSym) {
+    int nparams, nparams_byte, k;
+    char typebuf[32], *p;
+    // If param types are already recorded (e.g. a prior prototype), skip.
+    if (getint(funcSym + FNPARAMPTR, 2) != 0) {
+        protoVoidList = 0;
+        protoVariadic = 0;
+        return;
+    }
+    // Empty parens with no void/variadic means unspecified params; skip.
+    // Exception: for prototype declarations (CLASS == PROTOEXT), still store a
+    // minimal 0-param entry as a "had prototype" marker. Without it, the
+    // PROTOEXT->AUTOEXT upgrade in callfunc() leaves FNPARAMPTR==0, which is
+    // the sentinel for "never declared," causing a false implicit-declaration
+    // warning on every call after the first.
+    if (locptr == STARTLOC && !protoVoidList && !protoVariadic) {
+        if ((funcSym[CLASS] & 0x7F) != PROTOEXT) {
+            protoVoidList = 0;
+            protoVariadic = 0;
+            return;
+        }
+        // Fall through: store a 0-param entry so FNPARAMPTR != 0.
+    }
+    // Collect types from the local symbol table.
+    // Entries are fixed-width SYMAVG bytes; advance by SYMAVG each iteration.
+    nparams = 0;
+    p = STARTLOC;
+    while (p < locptr && nparams < 32) {
+        typebuf[nparams] = (p[IDENT] == IDENT_POINTER ? 0x80 : 0)
+                           | (p[TYPE] & 0x7F);
+        ++nparams;
+        p += SYMAVG;
+    }
+    nparams_byte = (protoVariadic ? 0x80 : 0) | (nparams & 0x7F);
+    k = storeParamTypes(typebuf, nparams_byte);
+    if (k != 0)
+        putint(k, funcSym + FNPARAMPTR, 2);
+    protoVoidList = 0;
+    protoVariadic = 0;
+}
+
 // begin a function
 //
 // called from "parse" and tries to make a function
 // out of the following text
 int dofunction(int class) {
     int firstType, typeSubPtr;
-    char *pGlobal;
+    char *pGlobal, *funcSym;
     // declared arguments have formal types
     nogo = 0;                     // enable goto statements
     noloc = 0;                    // enable block-local declarations
@@ -854,6 +923,8 @@ int dofunction(int class) {
     litptr = 0;                   // clear lit pool
     litlab = getlabel();          // label next lit pool
     locptr = STARTLOC;            // clear local variables
+    protoVoidList = 0;
+    protoVariadic = 0;
     if (rettypeIsPtr) IsMatch("*");
     if (monitor) {
         lout(line, stderr);
@@ -874,28 +945,30 @@ int dofunction(int class) {
     cptr3 = ssname;
     while (*cptr3) *cptr2++ = *cptr3++;
     *cptr2 = 0;
-    // If this name is already in the symbol table and is an autoext function,
-    // define it instead as a global function
+    // If this is in the symbol table as autoext or extern, update the entry.
+    // Any other pre-existing entry is an unpermitted duplicate definition.
     if (pGlobal = findglb(ssname)) {
-        if (pGlobal[CLASS] == AUTOEXT) {
+        if (pGlobal[CLASS] == AUTOEXT || pGlobal[CLASS] == PROTOEXT || pGlobal[CLASS] == EXTERNAL) {
             pGlobal[IDENT] = rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION;
             pGlobal[CLASS] = class;
             if (rettype == TYPE_STRUCT) {
                 pGlobal[TYPE] = TYPE_STRUCT;
                 putint(rettypeSubPtr, pGlobal + CLASSPTR, 2);
             }
+            funcSym = pGlobal;
         }
         else {
             // error: can't define something twice.
             multidef(ssname);
+            funcSym = pGlobal;
         }
     }
     else {
         AddSymbol(ssname, rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION, rettype, 0, 0, &glbptr, class);
         if (rettype == TYPE_STRUCT)
             putint(rettypeSubPtr, cptr + CLASSPTR, 2);
+        funcSym = cptr;
     }
-    decGlobal(rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION, class == GLOBAL); // don't do public if class == STATIC
     if (IsMatch("(") == 0)
         error("no open paren");
     if ((firstType = dotype(&typeSubPtr)) != 0) {
@@ -904,6 +977,22 @@ int dofunction(int class) {
     else {
         doArgsNonTyped();
     }
+    // Determine whether this is a prototype (';' follows) or a definition.
+    blanks();
+    if (*lptr == ';') {
+        // Prototype: record param types, mark as PROTOEXT.
+        // EXTRN will only be emitted by trailer() if the function is actually called.
+        funcSym[CLASS] = PROTOEXT;
+        recordParamTypes(funcSym);
+        locptr = STARTLOC;
+        ReqSemicolon();
+        return;
+    }
+    // Definition: record param types, emit PUBLIC label, generate body.
+    recordParamTypes(funcSym);
+    // Restore ssname from curfn: arg parsing overwrites ssname with param names.
+    cptr2 = ssname; cptr3 = curfn; while (*cptr3) *cptr2++ = *cptr3++; *cptr2 = 0;
+    decGlobal(rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION, class == GLOBAL); // don't do public if class == STATIC
     gen(ENTER, 0);
     statement();
     // Flush any code left in the staging buffer by doreturn() for struct-
@@ -928,6 +1017,16 @@ void doArgsTyped(int type, int typeSubPtr) {
     int id, sz, namelen, paren, argConst;
     char *ptr, *ddentry;
     argConst = typeConstFlag;   // capture const flag for first argument
+    // Handle f(void) -- explicit zero-parameter prototype or definition.
+    if (type == TYPE_VOID) {
+        if (IsMatch(")") == 0)
+            error("void must be only parameter");
+        argstk = 0;
+        argtop = BPW;
+        csp = 0;
+        protoVoidList = 1;
+        return;
+    }
     // get a list of all arguments. Set the name, id (Variable or Pointer),
     // type (unsigned/signed int/char), size, and 'argstk' for each. argstk is
     // the 0-based index of the variable on the stack. We will next reverse 
@@ -935,6 +1034,8 @@ void doArgsTyped(int type, int typeSubPtr) {
     // will also be on the stack.
     argstk = 0;
     while (IsMatch(")") == 0) {
+        // check for variadic ellipsis
+        if (matchEllipsis(1)) break;
         // match opening parent for function ptr: (*arg)()
         if (IsMatch("("))
             paren = 1;
@@ -1037,6 +1138,7 @@ void doArgsTyped(int type, int typeSubPtr) {
         }
         // advance to next arg or closing paren
         if (IsMatch(",")) {
+            if (matchEllipsis(0)) break;
             if ((type = dotype(&typeSubPtr)) == 0) {
                 error("untyped argument declaration");
                 break;
@@ -1116,6 +1218,7 @@ void doArgsNonTyped() {
     // count args
     argstk = 0;
     while (IsMatch(")") == 0) {
+        if (matchEllipsis(1)) break;
         if (symname(ssname)) {
             if (isreserved(ssname))
                 error("reserved keyword used as name");
@@ -1128,7 +1231,7 @@ void doArgsNonTyped() {
         }
         else {
             error("illegal argument name");
-            skip();
+            skipToNextToken();
         }
         blanks();
         if (streq(lptr, ")") == 0 && IsMatch(",") == 0)
@@ -2376,7 +2479,8 @@ int doreturn() {
             if (cpyfn == 0)
                 cpyfn = AddSymbol("structcp", IDENT_FUNCTION, TYPE_INT,
                     0, 0, &glbptr, AUTOEXT);
-            gen(ARGCNTn, 3);
+            else if ((cpyfn[CLASS] & 0x7F) == PROTOEXT)
+                cpyfn[CLASS] = AUTOEXT;  // ensure trailer() emits EXTRN
             gen(CALLm, cpyfn);
             gen(ADDSP, savcsp2);
             locptr = savedlocptr;
@@ -2503,7 +2607,7 @@ void getRunArgs() {
 }
 
 // input and output file opens
-void openfile() {        // entire function revised
+void openfile() {
     char outfn[15];
     int i, j, ext;
     input = EOF;

@@ -34,6 +34,24 @@ int *fnext;        // next free slot in funcbuf
 int *fl_labnum;    // label numbers recorded by flushfunc (heap-allocated)
 int *fl_labpos;    // corresponding byte offsets
 
+// forward declarations for this file:
+void outstr(char ptr[]);
+void outname(char ptr[]);
+void outlines(char *s);
+void outline(char ptr[]);
+void outdec(int number);
+void outcode(int pcode, int value);
+void newline();
+void colon();
+void toseg(int newseg);
+void external(char *name, int size, int ident);
+void bufout(int pcode, int value);
+void dumpstage();
+int peep(int *seq);
+void outsize(int size, int ident);
+int isfree(int reg, int *pp);
+int getpop(int *next);
+
 
 // === optimizer command definitions ==========================================
 //              --      p-codes must not overlap these
@@ -639,7 +657,7 @@ void trailer() {
     char *cp;
     cptr = STARTGLB;
     while (cptr < ENDGLB) {
-        if (cptr[IDENT] == IDENT_FUNCTION && cptr[CLASS] == AUTOEXT)
+        if ((cptr[IDENT] == IDENT_FUNCTION || cptr[IDENT] == IDENT_PTR_FUNCTION) && cptr[CLASS] == AUTOEXT)
             external(cptr + NAME, 0, IDENT_FUNCTION);
         cptr += SYMMAX;
     }

@@ -119,7 +119,7 @@ int doEnum(int *typeSubPtr) {
             }
             if (symname(ssname) == 0) {
                 error("expected enumerator name");
-                skip();
+                skipToNextToken();
                 break;
             }
             if (isreserved(ssname)) {

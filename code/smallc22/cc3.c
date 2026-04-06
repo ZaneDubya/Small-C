@@ -34,11 +34,36 @@
 
 
 extern char *litq, *glbptr, *locptr, *lptr, *dimdata, *dimdatptr,
-    nowarn, ssname[NAMESIZE];
+    nowarn, ssname[NAMESIZE], *paramTypes;
 extern int ch, csp, litlab, litptr, nch, op[16], op2[16], opd[16], opd2[16],
     opindex, opsize, *snext, argtop, rettype, rettypeSubPtr,
     lastNdim, lastStrides[MAX_DIMS], warncount;
-    
+
+// forward declarations for this file:
+void CalcCmp32(int lhi, int llo, int oper, int rhi, int rlo, int *reshi, int *reslo);
+void CalcConst32(int lhi, int llo, int oper, int rhi, int rlo, int *reshi, int *reslo);
+void CalcUConst32(int lhi, int llo, int oper, int rhi, int rlo, int *reshi, int *reslo);
+int CalcUConst(unsigned left, int oper, unsigned right);
+int CalcConst(int left, int oper, int right);
+int chrcon(int *lo, int *hi);
+int constant(int is[]);
+int down(char *opstr, int opoff, int (*level)(), int is[]);
+int down1(int (*level)(), int is[]);
+void down2(int oper, int oper2, int (*level)(), int is[], int is2[]);
+void dropout(int k, int tcode, int exit1, int is[]);
+void error(char msg[]);
+void experr();
+void GenJmpIfZero(int oper, int label, int is[]);
+int level14(int *is);
+int litchar();
+void negate32(int *hi, int *lo);
+int number(int *lo, int *hi);
+int skim(char *opstr, int tcode, int dropval, int endval, int (*level)(), int is[]);
+void step(int oper, int is[], int oper2);
+void store(int is[]);
+int structmember(char *ptr, int *is);
+void widen_primary(int is[]);
+
 // ****************************************************************************
 // lead-in functions
 // ****************************************************************************
@@ -315,8 +340,9 @@ int level1(int is[]) {
             if (cpyfn == 0) {
                 cpyfn = AddSymbol("structcp", IDENT_FUNCTION, TYPE_INT,
                     0, 0, &glbptr, AUTOEXT);
+            } else if ((cpyfn[CLASS] & 0x7F) == PROTOEXT) {
+                cpyfn[CLASS] = AUTOEXT;  // ensure trailer() emits EXTRN
             }
-            gen(ARGCNTn, 3);
             gen(CALLm, cpyfn);
             gen(ADDSP, savedcsp);
             return 0;
@@ -724,7 +750,7 @@ int level14(int *is) {
             // [subscript]
             if (ptr == 0) {
                 error("can't subscript");
-                skip();
+                skipToNextToken();
                 Require("]");
                 return 0;
             }
@@ -1216,16 +1242,25 @@ int primary(int *is) {
 void experr() {
     error("invalid expression");
     gen(GETw1n, 0);
-    skip();
+    skipToNextToken();
 }
 
 int callfunc(char *ptr) {      // symbol table entry or 0
     int nargs, nargcnt, is[ISSIZE];
-    int savedlocptr, retStructSize;
+    int savedlocptr, retStructSize, calleeIsVariadic;
     nargs = 0;
     nargcnt = 0;
     retStructSize = 0;
+    calleeIsVariadic = 1;  /* default: unknown/variadic; keep ARGCNTn (safe) */
     blanks();                      // already saw open paren
+#ifdef WARN_IMPLICIT
+    // Warn if the function was called without a prior prototype or declaration.
+    if (ptr && (ptr[CLASS] & 0x7F) == AUTOEXT && getint(ptr + FNPARAMPTR, 2) == 0)
+        warningWithName("implicit declaration of function '", ptr + NAME, "'");
+#endif
+    // Upgrade PROTOEXT -> AUTOEXT on first call so trailer() emits EXTRN.
+    if (ptr && (ptr[CLASS] & 0x7F) == PROTOEXT)
+        ptr[CLASS] = AUTOEXT;
     // For struct-returning functions, allocate return buffer
     // and push hidden first arg before user args.
     if (ptr && ptr[TYPE] == TYPE_STRUCT) {
@@ -1296,7 +1331,30 @@ int callfunc(char *ptr) {      // symbol table entry or 0
         }
     }
     Require(")");
-    if (streq(ptr + NAME, "CCARGC") == 0) {
+    // Check argument count against prototype if available.
+    // Also captures calleeIsVariadic for ARGCNTn suppression below.
+    if (ptr && getint(ptr + FNPARAMPTR, 2) != 0) {
+        int protoIdx, nbyte, isVariadic, nfixed, effectiveArgs;
+        protoIdx = getint(ptr + FNPARAMPTR, 2);
+        nbyte = (int)(paramTypes[protoIdx]) & 0xFF;
+        isVariadic = (nbyte >> 7) & 1;
+        calleeIsVariadic = isVariadic;
+        nfixed = nbyte & 0x7F;
+        effectiveArgs = nargcnt;
+        if (ptr[TYPE] == TYPE_STRUCT)
+            --effectiveArgs;
+#ifdef WARN_ARGCOUNT
+        if (isVariadic) {
+            if (effectiveArgs < nfixed)
+                warningWithName("too few arguments for variadic function '", ptr + NAME, "'");
+        }
+        else {
+            if (effectiveArgs != nfixed)
+                warningWithName("wrong number of arguments to '", ptr + NAME, "'");
+        }
+#endif
+    }
+    if (streq(ptr + NAME, "CCARGC") == 0 && calleeIsVariadic) {
         gen(ARGCNTn, nargcnt);
     }
     if (ptr) {
@@ -1759,7 +1817,7 @@ int litchar() {
 // === pipeline functions =====================================================
 
 // skim over terms adjoining || and && operators
-int skim(char *opstr, int tcode, int dropval, int endval, int (*level)(), int is[]){
+int skim(char *opstr, int tcode, int dropval, int endval, int (*level)(), int is[]) {
     int k, droplab, endlab;
     droplab = 0;
     while (1) {
