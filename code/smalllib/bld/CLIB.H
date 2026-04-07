@@ -5,15 +5,6 @@
 */
 
 /*
-** *** SMALL-C CALLING CONVENTION (left-to-right push) ***
-** Small-C pushes arguments LEFT-TO-RIGHT (first arg pushed first).
-** This is the OPPOSITE of standard C / cdecl (right-to-left).
-** For f(p1, p2, p3), stack on entry:
-**   [BP+4] = p3 (last arg)    [BP+6] = p2    [BP+8] = p1 (first arg)
-** Hand-written ASM routines with 3+ args must observe this order.
-*/
-
-/*
 ** Misc parameters
 */
 #define MAXFILES 20  /* maximum open files */
