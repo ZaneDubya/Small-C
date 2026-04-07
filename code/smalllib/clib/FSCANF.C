@@ -5,10 +5,8 @@
 ** b, c, d, o, s, u, and x specifications are supported.
 ** Note: b (binary) is a non-standard extension.
 */
-int fscanf(int argc, ...) {
-  int *nxtarg;
-  nxtarg = CCARGC() + &argc;
-  return (_scan(*(--nxtarg), --nxtarg));
+int fscanf(int fd, char *fmt, ...) {
+  return (_scan(fd, &fmt));
   }
 
 /*
@@ -17,8 +15,8 @@ int fscanf(int argc, ...) {
 ** b, c, d, o, s, u, and x specifications are supported.
 ** Note: b (binary) is a non-standard extension.
 */
-int scanf(int argc, ...) {
-  return (_scan(stdin, CCARGC() + &argc - 1));
+int scanf(char *fmt, ...) {
+  return (_scan(stdin, &fmt));
   }
 
 /*
@@ -30,12 +28,12 @@ int _scan(int fd, int *nxtarg) {
   unsigned u;
   int  *narg, wast, ac, width, ch, cnv, base, ovfl, sign;
   ac = 0;
-  ctl = *nxtarg--;
+  ctl = *nxtarg++;
   while(*ctl) {
     if(isspace(*ctl)) {++ctl; continue;}
     if(*ctl++ != '%') continue;
     if(*ctl == '*') {narg = carg = &wast; ++ctl;}
-    else             narg = carg = *nxtarg--;
+    else             narg = carg = *nxtarg++;
     ctl += utoi(ctl, &width);
     if(!width) width = 32767;
     if(!(cnv = *ctl++)) break;

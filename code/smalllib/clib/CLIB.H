@@ -5,11 +5,11 @@
 */
 
 /*
-** *** SMALL-C CALLING CONVENTION (left-to-right push) ***
-** Small-C pushes arguments LEFT-TO-RIGHT (first arg pushed first).
-** This is the OPPOSITE of standard C / cdecl (right-to-left).
+** *** CALLING CONVENTION (right-to-left push / cdecl) ***
+** Arguments are pushed RIGHT-TO-LEFT (last arg pushed first).
+** This matches standard C / cdecl convention.
 ** For f(p1, p2, p3), stack on entry:
-**   [BP+4] = p3 (last arg)    [BP+6] = p2    [BP+8] = p1 (first arg)
+**   [BP+4] = p1 (first arg)   [BP+6] = p2    [BP+8] = p3 (last arg)
 ** Hand-written ASM routines with 3+ args must observe this order.
 */
 

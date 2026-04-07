@@ -1,8 +1,11 @@
 // CC.H -- Symbol Definitions for Small-C compiler.
 
 // #define DIAG_OUTPUT      // verbose compiler diagnostics
+// #define ENABLE_WARNINGS  // enable optional compiler warnings
+#ifdef ENABLE_WARNINGS
 #define WARN_IMPLICIT    // warn about implicit int and undeclared functions
-// #define WARN_ARGCOUNT    // warn about wrong number of arguments in function calls
+#define WARN_ARGCOUNT    // warn about wrong number of arguments in function calls
+#endif
 
 // machine dependent parameters
 #define BPW       2   // bytes per word
@@ -77,8 +80,8 @@
 //   AUTOMATIC (local variable) — negative BP-relative byte offset computed as (csp - declared).
 //     First int in a function gets -2, first long gets -4, etc.
 //   AUTOMATIC (function argument) — positive BP-relative byte offset after argument layout is
-//     finalised.  Small-C pushes args left-to-right, so the first arg has the highest offset:
-//     for f(a,b,c): a=[BP+8], b=[BP+6], c=[BP+4].  Long args occupy 4 bytes (BPD).
+//     finalised.  Arguments are pushed right-to-left, so the first arg has the lowest
+//     offset: for f(a,b,c): a=[BP+4], b=[BP+6], c=[BP+8].  Long args occupy 4 bytes (BPD).
 //   STATIC (local entry) — raw char* pointer to the corresponding global table entry; primary()
 //     follows this indirection to map the local name to the global _L<N> label.
 //   ENUMCONST — the signed 16-bit integer value of the enum constant.
@@ -176,6 +179,13 @@
 #define DIMDATSZ  500  // dimdata buffer size
 #define MAX_DIMS    8  // max dimensions per array
 #define FNPARAMTS_SZ 768 // size of paramTypes[] function parameter-type buffer
+
+// argument buffer for two-pass right-to-left argument pushing
+// First pass collects each arg's p-codes here; second pass emits them reversed.
+// argbufcur is saved/restored per callfunc nesting level, so this only needs
+// to hold the peak concurrent usage across all active nesting levels at once.
+#define MAX_CALL_ARGS  12   // max arguments to any one function call
+#define ARGBUF_SIZE   400   // int slots (peak concurrent p-codes in flight)
 
 // is[] array -- expression state (8 ints)
 // Starting with level1(), this code places information about the expression
@@ -315,7 +325,7 @@
 #define ADDSP     2   // add to stack pointer
 #define AND12     3   // AND sr to pr
 #define ANEG1     4   // arith negate pr
-#define ARGCNTn   5   // pass arg count to function
+/* removed (rev 139): was pass arg count in CL; */
 #define ASL12     6   // arith shift left sr by pr into pr
 #define ASR12     7   // arith shift right sr by pr into pr
 #define CALL1     8   // call function thru pr
@@ -567,6 +577,7 @@ int IsConstExpr(int *val);
 int isLongVal(int is[]);
 int isreserved(char *name);
 int level1(int is[]);
+int nextsym(char *entry);
 int nextop(char *list);
 int parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz);
 int primary(int *is);
@@ -574,23 +585,51 @@ int streq(char str1[], char str2[]);
 int string(int *offset);
 int symname(char *sname);
 int white();
+void addwhile(int ptr[]);
 void ClearStage(int *before, int *start);
+void GenTestAndJmp(int label, int reqParens);
 void ParseExpression(int *con, int *val);
 void ReqSemicolon();
 void Require(char *str);
 void blanks();
 void bump(int n);
 void declglb(int type, int class, int typeSubPtr);
+void delwhile();
 void doInline();
 void error(char msg[]);
 void fetch(int is[]);
+void flushfunc();
 void gen(int pcode, int value);
 void illname();
+void kill();
+void lout(char *line, int fd);
 void needlval();
+void newline();
 void openfile();
+void outdec(int number);
 void putint(int i, char *addr, int len);
+int readwhile(int *ptr);
 void setstage(int *before, int *start);
 void skipToNextToken();
 void stowlit(int value, int size);
+#ifdef ENABLE_WARNINGS
 void warning(char msg[]);
 void warningWithName(char msg[], char *name, char suffix[]);
+#endif
+int storeDimDat(int sptr, int ndim, int strides[]);
+int IsCExpr32(int *val, int *val_hi);
+void toseg(int newseg);
+void dumpzero(int size, int count);
+void decGlobal(int ident, int isGlobal);
+void multidef(char *sname);
+int doEnum(int *typeSubPtr);
+void external(char *name, int size, int ident);
+void initStructs();
+void initEnums();
+void getRunArgs();
+void preprocess();
+void header();
+void trailer();
+int dostructblock();
+void point();
+int storeParamTypes(char *typebuf, int nparams_byte);

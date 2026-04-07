@@ -34,10 +34,10 @@
 
 
 extern char *litq, *glbptr, *locptr, *lptr, *dimdata, *dimdatptr,
-    nowarn, ssname[NAMESIZE], *paramTypes;
+    ssname[NAMESIZE], *paramTypes;
 extern int ch, csp, litlab, litptr, nch, op[16], op2[16], opd[16], opd2[16],
-    opindex, opsize, *snext, argtop, rettype, rettypeSubPtr,
-    lastNdim, lastStrides[MAX_DIMS], warncount;
+    opindex, opsize, *snext, *slast, *argbuf, argbufcur, argtop, rettype, rettypeSubPtr,
+    lastNdim, lastStrides[MAX_DIMS];
 
 // forward declarations for this file:
 void CalcCmp32(int lhi, int llo, int oper, int rhi, int rlo, int *reshi, int *reslo);
@@ -300,17 +300,16 @@ int level1(int is[]) {
                     gen(ADDSP, savedcsp);
                     return 0;
                 }
-                // AX = &src.  Build contiguous structcp(dst,src,n)
-                // args so callfunc's return buffer can't separate
-                // &dst (saved above) from the rest.
-                // N.B. use PUSH1 (not PUSH2) so gen() tracks csp.
-                gen(MOVE21, 0);
-                gen(GETw1s, savedcsp - BPW);
-                gen(PUSH1, 0);
-                gen(SWAP12, 0);
-                gen(PUSH1, 0);
-                gen(GETw1n, structSize);
-                gen(PUSH1, 0);
+                // AX = &src.  Build structcp(dst, src, n) args R-to-L:
+                // push n first ([BP+8]), &src second ([BP+6]),
+                // &dst last ([BP+4]).
+                gen(MOVE21, 0);                  // BX = &src
+                gen(GETw1n, structSize);         // AX = n
+                gen(PUSH1, 0);                   // push n
+                gen(SWAP12, 0);                  // AX = &src (from BX)
+                gen(PUSH1, 0);                   // push &src
+                gen(GETw1s, savedcsp - BPW);     // AX = &dst (from saved slot)
+                gen(PUSH1, 0);                   // push &dst (last [BP+4])
             }
             else {
                 // LHS from symbol table -- parse RHS first so that
@@ -328,13 +327,16 @@ int level1(int is[]) {
                     gen(ADDSP, savedcsp);
                     return 0;
                 }
-                // AX = &src.  Build structcp(dst, src, n) args.
-                gen(PUSH1, 0);
-                gen(POINT1m, lhsPtr);
-                gen(SWAP1s, 0);
-                gen(PUSH1, 0);
-                gen(GETw1n, structSize);
-                gen(PUSH1, 0);
+                // AX = &src.  Build structcp(dst, src, n) args R-to-L:
+                // push n first ([BP+8]), &src second ([BP+6]),
+                // &dst last ([BP+4]).
+                gen(MOVE21, 0);                  // BX = &src
+                gen(GETw1n, structSize);         // AX = n
+                gen(PUSH1, 0);                   // push n
+                gen(SWAP12, 0);                  // AX = &src (from BX)
+                gen(PUSH1, 0);                   // push &src
+                gen(POINT1m, lhsPtr);            // AX = &dst (global address)
+                gen(PUSH1, 0);                   // push &dst (last [BP+4])
             }
             cpyfn = findglb("structcp");
             if (cpyfn == 0) {
@@ -1005,10 +1007,12 @@ void applycast(int casttype, int is[]) {
 
     // Runtime path
     if (dstLong && !srcLong) {
+#ifdef ENABLE_WARNINGS
         // Warn if widening signed value into unsigned long.
         if ((casttype & IS_UNSIGNED) && !IsUnsigned(is)) {
             warning("sign-conversion: widening signed value to unsigned long");
         }
+#endif
         widen_primary(is);
     }
     // Narrowing and same-size: no codegen needed
@@ -1031,7 +1035,6 @@ void applycast(int casttype, int is[]) {
 int trycast(int is[]) {
     char *saved;
     int  sc, snc, casttype, isUnsigned, isSigned, isShort;
-
     saved = lptr;
     sc = ch;
     snc = nch;
@@ -1247,22 +1250,36 @@ void experr() {
 
 int callfunc(char *ptr) {      // symbol table entry or 0
     int nargs, nargcnt, is[ISSIZE];
-    int savedlocptr, retStructSize, calleeIsVariadic;
+    int savedlocptr, retStructSize;
+    int argLens[MAX_CALL_ARGS];  // ints stored in argbuf per user arg
+    int argSizes[MAX_CALL_ARGS]; // BPW or BPD per user arg
+    int argBufNext;              // absolute write cursor into argbuf
+    int argbufBase;              // argbufcur at entry to this callfunc level
+    int userArgCount;            // number of user (non-hidden) args collected
+    int indSaveCsp;              // BP offset of saved funcptr (indirect calls)
+    int *exprStart;
+    int i, alen;
     nargs = 0;
     nargcnt = 0;
     retStructSize = 0;
-    calleeIsVariadic = 1;  /* default: unknown/variadic; keep ARGCNTn (safe) */
+    argbufBase = argbufcur;   // save so nested calls start ABOVE our data
+    argBufNext = argbufcur;   // our local cursor starts at current global position
+    userArgCount = 0;
+    indSaveCsp = 0;
     blanks();                      // already saw open paren
+#ifdef ENABLE_WARNINGS
 #ifdef WARN_IMPLICIT
     // Warn if the function was called without a prior prototype or declaration.
     if (ptr && (ptr[CLASS] & 0x7F) == AUTOEXT && getint(ptr + FNPARAMPTR, 2) == 0)
         warningWithName("implicit declaration of function '", ptr + NAME, "'");
 #endif
+#endif
     // Upgrade PROTOEXT -> AUTOEXT on first call so trailer() emits EXTRN.
     if (ptr && (ptr[CLASS] & 0x7F) == PROTOEXT)
         ptr[CLASS] = AUTOEXT;
-    // For struct-returning functions, allocate return buffer
-    // and push hidden first arg before user args.
+    // For struct-returning functions, allocate the return buffer on the caller's
+    // stack and push a hidden pointer to it as the FIRST argument (highest BP
+    // offset). User arguments follow at lower BP offsets via R-to-L push.
     if (ptr && ptr[TYPE] == TYPE_STRUCT) {
         retStructSize = getStructSize(getClsPtr(ptr));
         gen(ADDSP, csp - retStructSize);
@@ -1271,60 +1288,59 @@ int callfunc(char *ptr) {      // symbol table entry or 0
         nargs += BPW;
         nargcnt++;
     }
+    // For indirect calls (function pointer): save funcptr from AX to a temp
+    // stack slot now, before arg evaluation clobbers AX.
+    if (ptr == 0) {
+        gen(ADDSP, csp - BPW);   // allocate one-word temp slot
+        indSaveCsp = csp;        // BP offset of the temp slot
+        gen(PUTws1, indSaveCsp); // [BP + indSaveCsp] = AX (save funcptr)
+        nargs += BPW;            // temp slot cleaned up by ADDSP after call
+    }
+    // FIRST PASS: evaluate each argument L-to-R, collect p-codes into argbuf,
+    // then restore snext to discard them from the staging buffer.
     while (streq(lptr, ")") == 0) {
         if (endst()) {
             break;
         }
+        if (userArgCount >= MAX_CALL_ARGS) {
+            error("too many arguments");
+            break;
+        }
         savedlocptr = locptr;
-        if (ptr) {
-            // Known function: evaluate arg, then push
-            if (level1(is)) {
-                char *argptr;
-                if (is[TYP_OBJ] == TYPE_STRUCT) {
-                    // struct lvalue: pass address, not value
-                }
-                else if (is[TYP_OBJ] == 0 && (argptr = is[SYMTAB_ADR])
-                         && argptr[TYPE] == TYPE_STRUCT
-                         && argptr[IDENT] != IDENT_FUNCTION
-                         && argptr[IDENT] != IDENT_PTR_FUNCTION) {
-                    gen(POINT1m, argptr);
-                }
-                else {
-                    fetch(is);
-                }
+        exprStart = snext;
+        // Evaluate the argument expression into the staging buffer.
+        if (level1(is)) {
+            char *argptr;
+            if (is[TYP_OBJ] == TYPE_STRUCT) {
+                // struct lvalue: address already in AX, no fetch needed
             }
-            locptr = savedlocptr;
-            if (isLongVal(is)) {
-                gen(PUSHd1, 0);
-                nargs += BPD;
+            else if (is[TYP_OBJ] == 0 && (argptr = is[SYMTAB_ADR])
+                     && argptr[TYPE] == TYPE_STRUCT
+                     && argptr[IDENT] != IDENT_FUNCTION
+                     && argptr[IDENT] != IDENT_PTR_FUNCTION) {
+                gen(POINT1m, argptr);
             }
             else {
-                gen(PUSH1, 0);
-                nargs += BPW;
+                fetch(is);
             }
         }
-        else {
-            // Indirect call: pre-push to save function addr, eval, swap
-            gen(PUSH1, 0);
-            if (level1(is)) {
-                char *argptr;
-                if (is[TYP_OBJ] == TYPE_STRUCT) {
-                    // struct lvalue: pass address
-                }
-                else if (is[TYP_OBJ] == 0 && (argptr = is[SYMTAB_ADR])
-                         && argptr[TYPE] == TYPE_STRUCT
-                         && argptr[IDENT] != IDENT_FUNCTION
-                         && argptr[IDENT] != IDENT_PTR_FUNCTION) {
-                    gen(POINT1m, argptr);
-                }
-                else {
-                    fetch(is);
-                }
-            }
-            locptr = savedlocptr;
-            gen(SWAP1s, 0);
-            nargs += BPW;
+        locptr = savedlocptr;
+        // Copy this arg's p-codes from stage[] into argbuf.
+        alen = (int)(snext - exprStart);
+        if (argBufNext + alen + 2 > ARGBUF_SIZE) {
+            error("argument buffer overflow");
+            break;
         }
+        for (i = 0; i < alen; i++)
+            argbuf[argBufNext + i] = exprStart[i];
+        argLens[userArgCount] = alen;
+        argSizes[userArgCount] = isLongVal(is) ? BPD : BPW;
+        argBufNext += alen;
+        argbufcur = argBufNext;   // advance global so next inner call starts here
+        nargs += argSizes[userArgCount];
+        // Discard this arg's p-codes from stage[]; next arg writes in same slot.
+        snext = exprStart;
+        userArgCount++;
         nargcnt++;
         if (IsMatch(",") == 0) {
             break;
@@ -1332,17 +1348,16 @@ int callfunc(char *ptr) {      // symbol table entry or 0
     }
     Require(")");
     // Check argument count against prototype if available.
-    // Also captures calleeIsVariadic for ARGCNTn suppression below.
     if (ptr && getint(ptr + FNPARAMPTR, 2) != 0) {
         int protoIdx, nbyte, isVariadic, nfixed, effectiveArgs;
         protoIdx = getint(ptr + FNPARAMPTR, 2);
         nbyte = (int)(paramTypes[protoIdx]) & 0xFF;
         isVariadic = (nbyte >> 7) & 1;
-        calleeIsVariadic = isVariadic;
         nfixed = nbyte & 0x7F;
         effectiveArgs = nargcnt;
         if (ptr[TYPE] == TYPE_STRUCT)
             --effectiveArgs;
+#ifdef ENABLE_WARNINGS
 #ifdef WARN_ARGCOUNT
         if (isVariadic) {
             if (effectiveArgs < nfixed)
@@ -1353,9 +1368,34 @@ int callfunc(char *ptr) {      // symbol table entry or 0
                 warningWithName("wrong number of arguments to '", ptr + NAME, "'");
         }
 #endif
+#endif
     }
-    if (streq(ptr + NAME, "CCARGC") == 0 && calleeIsVariadic) {
-        gen(ARGCNTn, nargcnt);
+    // SECOND PASS: emit user args in REVERSED order (last arg first).
+    // This produces right-to-left push order so the first arg lands at [BP+4].
+    // Walk backward through argbuf by subtracting lengths, avoiding a
+    // separate argBufStart[] array on the (tight) stack.
+    {
+        int pos = argBufNext;   // one-past-end of all collected arg p-codes
+        for (i = userArgCount - 1; i >= 0; i--) {
+            int j, len;
+            int *src;
+            pos -= argLens[i];  // start of arg i's p-codes in argbuf
+            len = argLens[i];
+            src = argbuf + pos;
+            if (snext + len + 2 > slast) {
+                error("staging buffer overflow");
+                break;
+            }
+            for (j = 0; j < len; j++)
+                snext[j] = src[j];
+            snext += len;
+            gen(argSizes[i] == BPD ? PUSHd1 : PUSH1, 0);
+        }
+        argbufcur = argbufBase;   // restore/free: inner calls may reuse this space
+    }
+    // For indirect calls: reload the saved funcptr into AX before CALL1.
+    if (ptr == 0) {
+        gen(GETw1s, indSaveCsp);
     }
     if (ptr) {
         gen(CALLm, ptr);
@@ -1889,7 +1929,7 @@ int down1(int (*level)(), int is[]) {
     int k, *before, *start;
     setstage(&before, &start);
     k = (*level)(is);
-    if (is[TYP_CNST])  {
+    if (is[TYP_CNST]) {
         ClearStage(before, 0);  // load constant later
     }
     return k;

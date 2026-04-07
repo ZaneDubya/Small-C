@@ -261,4 +261,28 @@ Small-C Revision History
     Added optional WARN_IMPLICIT and WARN_ARGCOUNT diagnostic flags.
     Added function prototypes to cc.h and stdio.h.
     Renamed internal skip() to skipToNextToken() to avoid conflict with the
-    stdlib skip() now declared in stdio.h. 
+    stdlib skip() now declared in stdio.h.
+
+ -- included in version 2.4
+
+139 Flipped calling convention to right-to-left (cdecl): arguments are now
+    pushed right-to-left so the first parameter always lands at [BP+4], the
+    second at [BP+6], etc.
+    callfunc() rewritten to two-pass scheme: first pass evaluates each argument
+    left-to-right into a scratch buffer (argbuf); second pass replays those
+    p-codes in reverse order, appending each with PUSH. Buffer cursor is saved/
+    restored per call nesting level.
+    doArgsTyped(): offsets now sequential from [BP+4], reversal loop removed.
+    ARGCNTn p-code 5 retired, and its place in the P-Code array replaced with
+    JMPs, which used to be 174. We continue to use nargcnt for WARN_ARGCOUNT
+    prototype checks.
+    Indirect call bug fix: the pointer is saved into a temp stack slot before
+    argument evaluation and reloaded afterward.
+    Struct assignment push order corrected to match R-to-L layout.
+    Four peephole optimizations that folded PUSH/POP pairs disabled because
+    they misfire when p-codes are replayed from argbuf.
+    Defines WARN_IMPLICIT, WARN_ARGCOUNT are guarded by ENABLE_WARNINGS.
+    SmallLib: _ccargc removed (relied on ARGCNTn / CL register handoff).
+    printf, fprintf, scanf, fscanf rewritten to take explicit fmt parameter
+    and walk arg stack upward from [BP+4]. Stack-frame offsets in assembly
+    routines changed to right-to-left. udiv3216 updated for same reason.

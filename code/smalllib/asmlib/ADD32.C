@@ -3,10 +3,10 @@
 */
 void add32(unsigned x[], unsigned y[]) {
   #asm
-  MOV  BX,[BP+4]       ; locate y low
+  MOV  BX,[BP+6]       ; locate y low
   MOV  AX,[BX]         ; fetch y low
   XCHG CX,BX           ; save address
-  MOV  BX,[BP+6]       ; locate x low
+  MOV  BX,[BP+4]       ; locate x low
   ADD  [BX],AX         ; add y low to x low
   XCHG CX,BX
   MOV  AX,[BX+2]       ; fetch y high

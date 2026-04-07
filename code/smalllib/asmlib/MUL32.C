@@ -4,8 +4,8 @@
 void mul32(unsigned x[], unsigned y[]) {
   int p[4];
   #asm
-  MOV   SI,[BP+6]    ; locate x - 1st multiplicand
-  MOV   DI,[BP+4]    ; locate y - 2nd multiplicand
+  MOV   SI,[BP+4]    ; locate x - 1st multiplicand
+  MOV   DI,[BP+6]    ; locate y - 2nd multiplicand
   LEA   BX,[BP-8]    ; locate p --> product
 ;
 ; algorithm from Christopher L. Morgan's "Bluebook ..."

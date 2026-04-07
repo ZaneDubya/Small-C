@@ -8,18 +8,16 @@
 ;
 ; Uses DB 0C3H for RET to match CALL.ASM convention.
 ;
-; *** SMALL-C CALLING CONVENTION (left-to-right push) ***
-; Small-C pushes arguments LEFT-TO-RIGHT (first arg pushed first).
-; This is the OPPOSITE of standard C / cdecl (which pushes right-to-left).
+; *** CALLING CONVENTION (right-to-left push / cdecl) ***
+; Arguments are pushed RIGHT-TO-LEFT (last arg pushed first).
+; This matches standard C / cdecl convention.
 ; For a function f(p1, p2, p3), the stack on entry looks like:
 ;
-;   [BP+4]  = p3  (last arg,   pushed last  -> lowest address)
+;   [BP+4]  = p1  (first arg,  pushed last  -> lowest address)
 ;   [BP+6]  = p2  (middle arg)
-;   [BP+8]  = p1  (first arg,  pushed first -> highest address)
+;   [BP+8]  = p3  (last arg,   pushed first -> highest address)
 ;
-; General: arg N (1-based of nargs total) is at [BP + 2*(nargs - N + 2)]
-;
-; For a 2-arg function the layout is symmetrical and matches cdecl.
+; General: arg N (1-based) is at [BP + 2*(N + 1)]
 ;
 
 CODE    SEGMENT PUBLIC
@@ -417,18 +415,18 @@ LDEF:   ADD  BX,6            ; skip terminator
 ; Updates *plo and *phi with quotient. Returns remainder in AX.
 ; Stack: [BP+4]=plo, [BP+6]=phi, [BP+8]=divisor
 ;======================================================================
-; Note: Small-C pushes arguments left-to-right, so for udiv3216(plo, phi, divisor):
-;   plo  pushed 1st -> [BP+8]
-;   phi  pushed 2nd -> [BP+6]
-;   divisor pushed 3rd (last) -> [BP+4]
+; Arguments for udiv3216(plo, phi, divisor):
+;   plo     1st arg -> [BP+4]
+;   phi     2nd arg -> [BP+6]
+;   divisor 3rd arg -> [BP+8]
         PUBLIC _udiv3216
 _udiv3216:
         PUSH BP
         MOV  BP,SP
         PUSH SI
+        MOV  BX,[BP+4]     ; BX = plo     (1st arg)
         MOV  SI,[BP+6]     ; SI = phi     (2nd arg)
-        MOV  BX,[BP+8]     ; BX = plo     (1st arg, was wrong: [BP+4])
-        MOV  CX,[BP+4]     ; CX = divisor (3rd arg, was wrong: [BP+8])
+        MOV  CX,[BP+8]     ; CX = divisor (3rd arg)
         ; Step 1: divide hi word by divisor
         XOR  DX,DX
         MOV  AX,[SI]       ; AX = *phi

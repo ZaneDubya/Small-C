@@ -56,13 +56,6 @@ start_2:
 ;
         jmp     __main          ; __main never returns
 
-        public  _ccargc
-_ccargc:
-        mov     al,cl
-        xor     ah,ah
-        ; ret (0C3h)
-        DB 0C3H
-
 ;
 ; Test if Secondary (BX) <oper> Primary (AX)
 ;-------------------------- MASM version

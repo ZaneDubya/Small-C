@@ -33,7 +33,6 @@ char *structdata, *structdatnext, *structmemnext;
 
 // forward declarations for this file:
 int doStruct();
-int dostructblock();
 int findStructByName(char *sname);
 
 void initStructs() {

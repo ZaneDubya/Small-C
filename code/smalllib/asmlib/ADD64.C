@@ -4,10 +4,10 @@
 */
 int add64(unsigned x[], unsigned y[]) {
   #asm
-  MOV  BX,[BP+4]       ; locate y
+  MOV  BX,[BP+6]       ; locate y
   MOV  AX,[BX]         ; fetch y[0]
   XCHG CX,BX           ; save address
-  MOV  BX,[BP+6]       ; locate x
+  MOV  BX,[BP+4]       ; locate x
   ADD  [BX],AX         ; add y[0] to x[0]
   XCHG CX,BX           ; locate y
   MOV  AX,[BX+2]       ; fetch y[1]

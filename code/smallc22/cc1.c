@@ -18,6 +18,46 @@
 #include "cc.h"
 #include "ccstruct.h"
 
+// forward declarations for this file:
+void doArgTypes(int type, int typeSubPtr);
+int initGlMDSub(int elemSz, int ndim, int dims[], int depth);
+void EvalInitValue(int size, int ident, int *dim);
+void InitSize(int size, int ident, int dim, int class);
+void initGlMDArr(int type, int typeSubPtr, int ndim, int dims[], int class);
+int addlabel(int def);
+void doasm();
+int doexpr(int use);
+int mustopen(char *fn, char *mode);
+void initLcMDSub(int type, int elemSz, int ndim, int dims[],
+    int depth, int baseOff, int totalSlots);
+void docont();
+void dobreak();
+int doreturn();
+void dumplits(int size);
+int dolabel();
+void dogoto();
+void dodefault();
+void docase();
+void doswitch();
+void dofor();
+void dodo();
+void dowhile();
+void doif();
+void compound();
+void declareLocals(int type, int typeSubPtr, int isStatic, int isConst);
+int dodeclare(int class);
+void dodefine();
+void parse();
+int getArraySz();
+void dostatic();
+void doinclude();
+int InitPtrArray(int type, int dim, int class);
+void InitStruct(int typeSubPtr, int class);
+int putmac(char c);
+void doArgsTyped(int type, int typeSubPtr);
+void doArgsNonTyped();
+int statement();
+
 // miscellaneous storage
 int
     nogo,     // disable goto statements?
@@ -30,6 +70,7 @@ int
     *swnext,   // address of next entry
     *swend,    // address of last entry
     *stage,    // staging buffer address
+    *argbuf,   // argument collect buffer for two-pass R-to-L push
     *wq,       // while queue
     argcs,     // local copy of argc
     *argvs,    // local copy of argv
@@ -66,16 +107,20 @@ int
     listfp,   // file pointer to list device
     lastst,   // last parsed statement type
     oldseg,   // current segment (0, DATASEG, CODESEG)
+#ifdef ENABLE_WARNINGS
+    warncount, // number of warnings emitted this compilation
+#endif
     lineno,   // current line number in input file
-    inclno,   // current line number in include file
-    warncount; // number of warnings emitted this compilation
+    inclno;   // current line number in include file
 
 char
     optimize, // optimize output of staging buffer?
     alarm,    // audible alarm on errors?
     monitor,  // monitor function headers?
     pause,    // pause for operator on errors?
+#ifdef ENABLE_WARNINGS
     nowarn,   // suppress warnings?
+#endif
     *symtab,   // symbol table
     *litq,     // literal pool
     *macn,     // macro name buffer
@@ -103,7 +148,8 @@ int
     lastStrides[MAX_DIMS], // strides from last parseLocalDeclare call
     typeConstFlag,       // set by dotype(): 1 if const qualifier was seen
     protoVoidList,       // set by doArgsTyped when f(void) form is parsed
-    protoVariadic;       // set by doArgsTyped/doArgsNonTyped when ... is parsed
+    protoVariadic,       // set by doArgsTyped/doArgsNonTyped when ... is parsed
+    argbufcur;           // global argbuf write cursor; saved/restored per callfunc level
 
 int op[16] = {   // p-codes of signed binary operators
     OR12,                        // level5
@@ -159,6 +205,8 @@ void main(int argc, int *argv) {
     swnext = calloc(SWTABSZ, 1);
     swend = swnext + (SWTABSZ - SWSIZ) / BPW;
     stage = calloc(STAGESIZE, 2 * BPW);
+    argbuf = calloc(ARGBUF_SIZE, sizeof(int));
+    argbufcur = 0;
     wqptr = wq = calloc(WQTABSZ, BPW);
     litq = calloc(LITABSZ, 1);
     macn = calloc(MACNSIZE, 1);
@@ -183,7 +231,9 @@ void main(int argc, int *argv) {
     }
     rettype = TYPE_INT;
     rettypeSubPtr = 0;
+#ifdef ENABLE_WARNINGS
     warncount = 0;
+#endif
     getRunArgs();   // get run options from command line arguments
     openfile();     // and initial input file
     preprocess();   // fetch first line
@@ -191,10 +241,12 @@ void main(int argc, int *argv) {
     parse();        // process ALL input
     trailer();      // follow-up code
     fclose(output); // explicitly close output
+#ifdef ENABLE_WARNINGS
     if (warncount > 0) {
         fprintf(stderr, "  %d warning(s). Press any key to continue...\n", warncount);
         fgetc(stderr);
     }
+#endif
 }
 
 // ****************************************************************************
@@ -214,7 +266,7 @@ void parse() {
             dostructblock();
         }
         else if (dodeclare(GLOBAL)) {
-            // do nothing - for now, we only support global variable declarations of the form "extern int x;"
+            ;
         }
         else if (IsMatch("#asm")) {
             doasm();
@@ -1114,7 +1166,9 @@ void doArgsTyped(int type, int typeSubPtr) {
                     sz = BPW;
                 }
                 // Preserve const qualifier on parameter (stored in CLASS byte).
-                AddSymbol(ssname, id, type, sz, argstk, &locptr,
+                // Offset argstk + 2*BPW gives sequential BP-relative offsets:
+                // first arg -> [BP+4], second -> [BP+6], etc. (cdecl R-to-L push).
+                AddSymbol(ssname, id, type, sz, argstk + 2*BPW, &locptr,
                     argConst ? (AUTOMATIC | CONST_FLAG) : AUTOMATIC);
                 if (lastNdim > 1) {
                     cptr[NDIM] = lastNdim;
@@ -1147,29 +1201,10 @@ void doArgsTyped(int type, int typeSubPtr) {
         }
     }
     csp = 0;                       // preset stack ptr
-    // incremenet argtop by one word (space for pushed BP), and reverse the
-    // placement of the arguments (per the SmallC specification, see Chapter 8
-    // and Fig 8-1.
+    // argtop = total arg bytes + one word for pushed BP.
+    // With cdecl (R-to-L push), offsets are already sequential starting at [BP+4];
+    // no reversal loop needed.
     argtop = argstk + BPW;
-    ptr = STARTLOC;
-    while (argstk) {
-        int psz;
-        if (ptr[IDENT] != IDENT_POINTER
-            && (ptr[TYPE] == TYPE_LONG || ptr[TYPE] == TYPE_ULONG))
-            psz = BPD;
-        else
-            psz = BPW;
-        putint(argtop - getint(ptr + OFFSET, 2) - psz + BPW,
-               ptr + OFFSET, 2);
-        argstk -= psz;            // count down
-        ptr += NAME;
-        namelen = 0;
-        while (*ptr != namelen) {
-            ptr += 1;
-            namelen++;
-        }
-        ptr++;
-    }
     return;
 }
 
@@ -1205,7 +1240,8 @@ void fixArgOffs() {
         else
             psz = BPW;
         running += psz;
-        putint(argtop + BPW - running, ptr + OFFSET, 2);
+        // Sequential cdecl offsets: first arg -> [BP+4], next -> [BP+4+psz], etc.
+        putint(running - psz + 2*BPW, ptr + OFFSET, 2);
         ptr += NAME;
         namelen = 0;
         while (*ptr != namelen) { ptr += 1; namelen++; }
@@ -2466,15 +2502,17 @@ int doreturn() {
                     error("must return a struct");
                 }
             }
-            // Emit structcp(dst, src, n) call.
-            // AX = src. Push src, load dst, swap so stack is [dst][src].
-            gen(PUSH1, 0);
-            gen(POINT1s, argtop + BPW);
-            gen(GETw1p, 0);
-            gen(SWAP1s, 0);
-            gen(PUSH1, 0);
-            gen(GETw1n, getStructSize(rettypeSubPtr));
-            gen(PUSH1, 0);
+            // Emit structcp(dst, src, n) R-to-L: push n first (deepest [BP+8]),
+            // then &src ([BP+6]), then dst (last [BP+4]).
+            // AX = &src at this point.
+            gen(MOVE21, 0);                             // BX = &src
+            gen(GETw1n, getStructSize(rettypeSubPtr));  // AX = n
+            gen(PUSH1, 0);                              // push n [BP+8]
+            gen(SWAP12, 0);                             // AX = &src (from BX)
+            gen(PUSH1, 0);                              // push &src [BP+6]
+            gen(POINT1s, argtop + BPW);                 // AX = addr of hidden-ptr slot
+            gen(GETw1p, 0);                             // AX = hidden_ptr (dst)
+            gen(PUSH1, 0);                              // push dst [BP+4]
             cpyfn = findglb("structcp");
             if (cpyfn == 0)
                 cpyfn = AddSymbol("structcp", IDENT_FUNCTION, TYPE_INT,
@@ -2569,7 +2607,10 @@ void getRunArgs() {
     i = listfp = nxtlab = 0;
     output = stdout;
     optimize = YES;
-    alarm = monitor = pause = nowarn = NO;
+    alarm = monitor = pause = NO;
+#ifdef ENABLE_WARNINGS
+    nowarn = NO;
+#endif
     line = mline;
     while (getarg(++i, line, LINESIZE, argcs, argvs) != EOF) {
         if (line[0] != '-' && line[0] != '/')
@@ -2597,7 +2638,9 @@ void getRunArgs() {
                 continue;
             }
             if (toupper(line[1]) == 'W') {
+#ifdef ENABLE_WARNINGS
                 nowarn = YES;
+#endif
                 continue;
             }
         }

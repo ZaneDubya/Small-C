@@ -5,10 +5,8 @@
 ** b, c, d, o, s, u, and x specifications are supported.
 ** Note: b (binary) is a non-standard extension.
 */
-int fprintf(int argc, ...) {
-  int *nxtarg;
-  nxtarg = CCARGC() + &argc;
-  return(_print(*(--nxtarg), --nxtarg));
+int fprintf(int fd, char *fmt, ...) {
+  return(_print(fd, &fmt));
   }
 
 /*
@@ -17,8 +15,8 @@ int fprintf(int argc, ...) {
 ** b, c, d, o, s, u, and x specifications are supported.
 ** Note: b (binary) is a non-standard extension.
 */
-int printf(int argc, ...) {
-  return(_print(stdout, CCARGC() + &argc - 1));
+int printf(char *fmt, ...) {
+  return(_print(stdout, &fmt));
   }
 
 /*
@@ -32,7 +30,7 @@ int _print(int fd, int *nxtarg) {
   int  *lp;
   char *ctl, *sptr, str[17];
   cc = 0;                                         
-  ctl = *nxtarg--;                          
+  ctl = *nxtarg++;                          
   while(*ctl) {
     if(*ctl!='%') {fputc(*ctl++, fd); ++cc; continue;}
     else ++ctl;
@@ -53,8 +51,8 @@ int _print(int fd, int *nxtarg) {
     sptr = str;
     if(islong) {
       lp = &lval;
-      *lp = *nxtarg--;
-      *(lp+1) = *nxtarg--;
+      *lp = *nxtarg++;
+      *(lp+1) = *nxtarg++;
       switch(*ctl++) {
         case 'd': ltoa(lval, str);      break;
         case 'u': ltoab(lval, str, 10); break;
@@ -64,7 +62,7 @@ int _print(int fd, int *nxtarg) {
         }
       }
     else {
-      arg = *nxtarg--;
+      arg = *nxtarg++;
       switch(*ctl++) {
         case 'c': str[0] = arg; str[1] = NULL; break;
         case 's': sptr = arg;        break;

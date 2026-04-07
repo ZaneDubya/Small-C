@@ -64,9 +64,9 @@ void _parse() {
   mov     ch,0       
   push    cx           ; save it
   inc     cx
-  push    cx           ; 1st __alloc() arg
   mov     ax,1
-  push    ax           ; 2nd __alloc() arg
+  push    ax           ; push clear (2nd arg) first for R-to-L
+  push    cx           ; push n (1st arg) last for R-to-L
   call    __alloc      ; allocate zeroed memory for args
   add     sp,4
   mov     [bp-2],ax    ; ptr = addr of allocated memory
@@ -322,10 +322,10 @@ int _alloc(unsigned n, unsigned clear) {
 void _bdos2(int ax, int bx, int cx, int dx) {
 #asm
   push bx         ; preserve secondary register
-  mov  dx,[bp+4]
-  mov  cx,[bp+6]
-  mov  bx,[bp+8]
-  mov  ax,[bp+10] ; load DOS function number
+  mov  dx,[bp+10] ; dx param = fourth arg
+  mov  cx,[bp+8]  ; cx param = third arg
+  mov  bx,[bp+6]  ; bx param = second arg
+  mov  ax,[bp+4]  ; ax param = first arg (DOS function number)
   int  21h        ; call bdos
   jnc  __bdos21   ; no error
   neg  ax         ; make error code negative  
@@ -340,21 +340,21 @@ __bdos21:
 int _seek(int org, int fd, int hi, int lo) {
 #asm
   push bx         ; preserve secondary register
-  mov  bx,[bp+4]
+  mov  bx,[bp+10] ; get address of lo (fourth arg)
   mov  dx,[bx]    ; get lo part of destination
-  mov  bx,[bp+6]
+  mov  bx,[bp+8]  ; get address of hi (third arg)
   mov  cx,[bx]    ; get hi part of destination
-  mov  bx,[bp+8]  ; get file descriptor
-  mov  al,[bp+10] ; get origin code for seek
+  mov  bx,[bp+6]  ; get file descriptor (second arg)
+  mov  al,[bp+4]  ; get origin code for seek (first arg)
   mov  ah,42h     ; move-file-pointer function
   int  21h        ; call bdos
   jnc  __seek1    ; error?
   xor  ax,ax      ; yes, return false
   jmp  __seek2 
 __seek1:          ; no, set hi and lo
-  mov  bx,[bp+4]  ; get address of lo
+  mov  bx,[bp+10] ; get address of lo
   mov  [bx],ax    ; store low part of new position
-  mov  bx,[bp+6]  ; get address of hi
+  mov  bx,[bp+8]  ; get address of hi
   mov  [bx],dx    ; store high part of new position
   mov  ax,1       ; return true
 __seek2:

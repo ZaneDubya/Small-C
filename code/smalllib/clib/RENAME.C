@@ -15,8 +15,8 @@ int _rename(char *old, char *new) {
 #asm
   push ds         ; ds:dx points to old name
   pop  es         ; es:di points to new name
-  mov  di,[bp+4]  ; get "new" offset
-  mov  dx,[bp+6]  ; get "old" offset
+  mov  dx,[bp+4]  ; get "old" offset
+  mov  di,[bp+6]  ; get "new" offset
   mov  ah,56h     ; rename function
   int  21h        ; call bdos
   jnc  __ren1     ; error?

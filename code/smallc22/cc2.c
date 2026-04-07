@@ -28,7 +28,7 @@ char *keywords[] = {
 
 extern char
     *symtab, *macn, *macq, *pline, *mline, optimize,
-    alarm, nowarn, *glbptr, *line, *lptr, *cptr, *cptr2, *cptr3,
+    alarm, *glbptr, *line, *lptr, *cptr, *cptr2, *cptr3,
     *locptr, *dimdata, *dimdatptr, msname[NAMESIZE], pause,
     infn[30], inclfn[30], *paramTypes;
 
@@ -36,7 +36,12 @@ extern int
     *wq, ccode, ch, csp, eof, errflag, iflevel,
     input, input2, listfp, macptr, nch,
     nxtlab, op[16], opindex, opsize, output, pptr,
-    skiplevel, *wqptr, lineno, inclno, warncount;
+    skiplevel, *wqptr, lineno, inclno;
+
+#ifdef ENABLE_WARNINGS
+extern char nowarn;
+extern int warncount;
+#endif
 
 // forward declarations for this file:
 int astreq(char str1[], char str2[], int len);
@@ -469,6 +474,7 @@ int AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, 
             error("global symbol table overflow");
             return 0;
         }
+        /* THIS IS WHERE WE WOULD COUNT GLOBALS!; */
     }
     else {
         if (locptr > (ENDLOC - SYMMAX)) {
@@ -666,6 +672,7 @@ void errout(char msg[], int fp, char *path, int ln) {
     lout(msg, fp);
 }
 
+#ifdef ENABLE_WARNINGS
 void warning(char msg[]) {
     if (nowarn) return;
     warncount++;
@@ -686,13 +693,11 @@ void warningWithName(char msg[], char *name, char suffix[]) {
         fprintf(stderr, "%s:%d ", inclfn, inclno);
     else
         fprintf(stderr, "%s:%d ", infn, lineno);
-    fputs("Warning: ", stderr);
-    fputs(msg, stderr);
-    fputs(name, stderr);
-    fputs(suffix, stderr);
-    fputc('\n', stderr);
-    if (alarm) fputc(7, stderr);
+    fprintf(stderr, "Warning: %s %s %s\n", msg, name, suffix);
+    if (alarm)
+        fputc(7, stderr);
 }
+#endif
 
 // paramTypes[] -- function parameter-type records.
 // Each entry is laid out as:

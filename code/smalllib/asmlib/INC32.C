@@ -3,8 +3,8 @@
 */
 void inc32(unsigned x[], unsigned i) {
   #asm
-  MOV BX,[BP+6]       ; locate x
-  MOV AX,[BP+4]       ; fetch i
+  MOV BX,[BP+4]       ; locate x
+  MOV AX,[BP+6]       ; fetch i
   ADD [BX],AX         ; add i to x low
   INC BX              ; bump to x high
   INC BX
