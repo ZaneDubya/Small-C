@@ -26,7 +26,7 @@
 #include "stdio.h"
 #include "cc.h"
 #include "ccenum.h"
-
+#ifdef ENABLE_ENUMS
 extern char ssname[], *glbptr;
 extern int  ch, eof;
 
@@ -148,3 +148,4 @@ int doEnum(int *typeSubPtr) {
 
     return TYPE_INT;
 }
+#endif

@@ -286,3 +286,13 @@ Small-C Revision History
     printf, fprintf, scanf, fscanf rewritten to take explicit fmt parameter
     and walk arg stack upward from [BP+4]. Stack-frame offsets in assembly
     routines changed to right-to-left. udiv3216 updated for same reason.
+140 Changed optimization table to permit more detailed optimization rules.
+    Refactored three switch statements in cc3.c into data-driven lookup tables
+    (toLongTab, reverseTab, cmpOpTab) plus a generic tableFind() helper, and
+    added reverseOp() to map a comparison operator to its operand-swapped
+    counterpart (LT<->GT, LE<->GE, etc.). Used reverseOp() in down2() to
+    enable two new code-generation shortcuts: (1) when a non-commutative
+    operator has a constant RHS, try reversing rather than emitting MOVE21
+    followed by GETw1n; (2) when a word-sized variable was just loaded as the
+    RHS, retract the load, reverse the operator, and emit GETw2m/GETw2s
+    directly so that the existing CMP-Memory/Stack peephole rules can fire.

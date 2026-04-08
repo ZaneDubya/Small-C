@@ -63,6 +63,7 @@ void step(int oper, int is[], int oper2);
 void store(int is[]);
 int structmember(char *ptr, int *is);
 void widen_primary(int is[]);
+int tableFind(int tab[], int key);
 
 // ****************************************************************************
 // lead-in functions
@@ -1482,48 +1483,55 @@ void widen_secondary(int is[]) {
         gen(WIDENs2, 0);
 }
 
+int toLongTab[] = {
+    ADD12, ADDd12,   SUB12, SUBd12,   MUL12, MULd12,   DIV12, DIVd12,
+    MOD12, MODd12,   AND12, ANDd12,   OR12,  ORd12,     XOR12, XORd12,
+    ASL12, ASLd12,   ASR12, ASRd12,   EQ12,  EQd12,     NE12,  NEd12,
+    LT12,  LTd12,    LE12,  LEd12,    GT12,  GTd12,     GE12,  GEd12,
+    MUL12u,MULd12u,  DIV12u,DIVd12u,  MOD12u,MODd12u,
+    LT12u, LTd12u,   LE12u, LEd12u,   GT12u, GTd12u,    GE12u, GEd12u,
+    0, 0
+};
+
+int reverseTab[] = {
+    LT12,  GT12,    GT12,  LT12,    LE12,  GE12,    GE12,  LE12,
+    LT12u, GT12u,   GT12u, LT12u,   LE12u, GE12u,   GE12u, LE12u,
+    EQ12,  EQ12,    NE12,  NE12,
+    0, 0
+};
+
+int cmpOpTab[] = {
+    EQd12,  1,  NEd12,  1,
+    LTd12,  1,  LEd12,  1,  GTd12,  1,  GEd12,  1,
+    LTd12u, 1,  LEd12u, 1,  GTd12u, 1,  GEd12u, 1,
+    0, 0
+};
+
+// Search a {find, replace, ..., 0} table for key; return replace or 0.
+int tableFind(int tab[], int key) {
+    while (*tab) {
+        if (*tab == key) return *(tab + 1);
+        tab += 2;
+    }
+    return 0;
+}
+
 // Map a 16-bit signed operator to its 32-bit equivalent.
 int toLongOp(int oper) {
-    switch (oper) {
-        case ADD12:  return ADDd12;
-        case SUB12:  return SUBd12;
-        case MUL12:  return MULd12;
-        case DIV12:  return DIVd12;
-        case MOD12:  return MODd12;
-        case AND12:  return ANDd12;
-        case OR12:   return ORd12;
-        case XOR12:  return XORd12;
-        case ASL12:  return ASLd12;
-        case ASR12:  return ASRd12;
-        case EQ12:   return EQd12;
-        case NE12:   return NEd12;
-        case LT12:   return LTd12;
-        case LE12:   return LEd12;
-        case GT12:   return GTd12;
-        case GE12:   return GEd12;
-        case MUL12u: return MULd12u;
-        case DIV12u: return DIVd12u;
-        case MOD12u: return MODd12u;
-        case LT12u:  return LTd12u;
-        case LE12u:  return LEd12u;
-        case GT12u:  return GTd12u;
-        case GE12u:  return GEd12u;
-        case ASRd12u: return ASRd12u;
-    }
-    return oper;
+    int r;
+    r = tableFind(toLongTab, oper);
+    return r ? r : oper;
+}
+
+// Reverse a comparison operator's operand sense (LT<->GT, LE<->GE).
+// Returns the reversed op, or 0 if the operator is not reversible.
+int reverseOp(int oper) {
+    return tableFind(reverseTab, oper);
 }
 
 // Return 1 if oper is a comparison operator (result is always 16-bit).
 int isCmpOp(int oper) {
-    switch (oper) {
-        case EQd12:  case NEd12:
-        case LTd12:  case LEd12:
-        case GTd12:  case GEd12:
-        case LTd12u: case LEd12u:
-        case GTd12u: case GEd12u:
-            return 1;
-    }
-    return 0;
+    return tableFind(cmpOpTab, oper);
 }
 
 void store(int is[]) {
@@ -2000,13 +2008,48 @@ void down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
                     gen(GETw2n, is2[VAL_CNST] * sc);
                 }
                 else {                          // non-commutative
-                    gen(MOVE21, 0);
-                    gen(GETw1n, is2[VAL_CNST] * sc);
+                    // If the operator pair can be reversed, swap operands and use GETw2n
+                    // like the commutative case, avoiding MOVE21+GETw1n overhead.
+                    int rev, rev2;
+                    rev = reverseOp(oper);
+                    rev2 = reverseOp(oper2);
+                    if (rev && rev2 && !is[STG_ADR]) {
+                        gen(GETw2n, is2[VAL_CNST] * sc);
+                        oper = rev;
+                        oper2 = rev2;
+                    }
+                    else {
+                        gen(MOVE21, 0);
+                        gen(GETw1n, is2[VAL_CNST] * sc);
+                    }
                 }
             }
         }
         else {                              // variable op variable
-            if (eitherLong) {
+            // If the RHS was just loaded as a simple word-sized variable, reverse the operator
+            // to emit GETw2m/GETw2s directly, enabling CMP-Memory/Stack peephole rules.
+            if (!eitherLong && before && snext == before + 4
+                && (before[2] == GETw1m || before[2] == GETw1s)) {
+                // RHS is a simple word-sized global or stack variable.
+                // Try to reverse the comparison so we can emit GETw2x
+                // directly, enabling CMP-Memory/Stack optimizer rules.
+                int rev, rev2, rhspc, rhsval;
+                rev = reverseOp(oper);
+                rev2 = reverseOp(oper2);
+                if (rev && rev2) {
+                    rhspc = before[2];
+                    rhsval = before[3];
+                    csp += BPW;
+                    ClearStage(before, 0);
+                    gen(rhspc == GETw1m ? GETw2m : GETw2s, rhsval);
+                    oper = rev;
+                    oper2 = rev2;
+                }
+                else {
+                    gen(POP2, 0);
+                }
+            }
+            else if (eitherLong) {
                 // widen right (in DX:AX) if not long
                 if (!rightLong) widen_primary(is2);
                 // pop left

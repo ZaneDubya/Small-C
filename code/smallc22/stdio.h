@@ -50,7 +50,7 @@ extern int getchar();
 extern int isalnum(int c);
 extern int isalpha(int c);
 extern int isascii(unsigned c);
-extern void isatty(int fd);
+extern int isatty(int fd);
 extern int iscntrl(int c);
 extern int iscons(int fd);
 extern int isdigit(int c);

@@ -4,28 +4,28 @@ SET LIB=..\smalllib
 %BIN%\cmit 80x86.mit -3 -o
 
 SET IN=asm1
-%BIN%\cc  %IN%.c -a -p
+%BIN%\cc  %IN%.c -a -p -w
 if errorlevel 1 goto exit
 %BIN%\asm %IN% /p
 if errorlevel 1 goto exit
 REM del %IN%.asm
 
 SET IN=asm2
-%BIN%\cc  %IN%.c -a -p
+%BIN%\cc  %IN%.c -a -p -w
 if errorlevel 1 goto exit
 %BIN%\asm %IN% /p
 if errorlevel 1 goto exit
 REM del %IN%.asm
 
 SET IN=asm3
-%BIN%\cc  %IN%.c -a -p
+%BIN%\cc  %IN%.c -a -p -w
 if errorlevel 1 goto exit
 %BIN%\asm %IN% /p
 if errorlevel 1 goto exit
 REM del %IN%.asm
 
 SET IN=asm4
-%BIN%\cc  %IN%.c -a -p
+%BIN%\cc  %IN%.c -a -p -w
 if errorlevel 1 goto exit
 %BIN%\asm %IN% /p
 if errorlevel 1 goto exit

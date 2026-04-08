@@ -1,6 +1,7 @@
 // CC.H -- Symbol Definitions for Small-C compiler.
 
 // #define DIAG_OUTPUT      // verbose compiler diagnostics
+#define ENABLE_ENUMS
 // #define ENABLE_WARNINGS  // enable optional compiler warnings
 #ifdef ENABLE_WARNINGS
 #define WARN_IMPLICIT    // warn about implicit int and undeclared functions
@@ -104,13 +105,15 @@
 #define NUMLOCS   100
 #define STARTLOC  symtab
 #define ENDLOC    (symtab+NUMLOCS*SYMAVG)
-#define NUMGLBS   400
+#define NUMGLBS   380
+
 #define STARTGLB  ENDLOC
 #define ENDGLB    (ENDLOC+(NUMGLBS-1)*SYMMAX)
 // Symbol table size == (NUMLOCS*SYMAVG + NUMGLBS*SYMMAX)
 
 // array initializer limit
-#define MAXARRAYDIM 200
+#define MAXARRAYDIM 256
+
 
 // system wide name size (for symbols)
 #define NAMESIZE 13
@@ -172,7 +175,8 @@
 #define WQEXIT  2
 
 // literal pool
-#define LITABSZ 4000
+#define LITABSZ 5000
+
 #define LITMAX  (LITABSZ-1)
 
 // multi-dimensional array metadata buffer
@@ -277,8 +281,10 @@
 // entries in staging buffer
 #define STAGESIZE   300
 
+
 // macro (#define) pool
 #define MACNBR   500
+
 #define MACNSIZE (MACNBR*(NAMESIZE+2))
 #define MACNEND  (macn+MACNSIZE)
 #define MACQSIZE (MACNBR*7)
@@ -430,124 +436,133 @@
 #define SUBbpn  105   // sub n from mem byte thru sr ptr
 #define SUBwpn  106   // sub n from mem word thru sr ptr
 
-// optimizer-generated: inline comparison + conditional jump
-#define EQf     107   // jump if (sr == pr) is false
-#define NEf     108   // jump if (sr != pr) is false
-#define LTf     109   // jump if (sr <  pr) is false (signed)
-#define GTf     110   // jump if (sr >  pr) is false (signed)
-#define LEf     111   // jump if (sr <= pr) is false (signed)
-#define GEf     112   // jump if (sr >= pr) is false (signed)
-#define LTuf    113   // jump if (sr <  pr) is false (unsigned)
-#define GTuf    114   // jump if (sr >  pr) is false (unsigned)
-#define LEuf    115   // jump if (sr <= pr) is false (unsigned)
-#define GEuf    116   // jump if (sr >= pr) is false (unsigned)
 
 // optimizer-generated: direct stack stores
-#define PUTws1  117   // put pr word into stack frame
-#define PUTbs1  118   // put pr byte into stack frame
+#define PUTws1  107   // put pr word into stack frame
+#define PUTbs1  108   // put pr byte into stack frame
 
 // optimizer-generated: constant shift by 1
-#define ASL1_1  119   // shift left sr by 1 into pr
-#define ASR1_1  120   // shift right sr by 1 into pr
+#define ASL1_1  109   // shift left sr by 1 into pr
+#define ASR1_1  110   // shift right sr by 1 into pr
 
 // 32-bit (long) p-codes -- load/store
 //  d = dword (32-bit), using DX:AX (primary) / CX:BX (secondary)
-#define GETd1m  121   // load dword into DX:AX from global label
-#define GETd1p  122   // load dword into DX:AX thru pointer in BX
-#define GETd1s  123   // load dword into DX:AX from stack frame
-#define GETdxn  124   // load constant into DX (high word of primary)
-#define GETcxn  125   // load constant into CX (high word of secondary)
-#define GETd2m  126   // load dword into CX:BX from global label
-#define GETd2s  127   // load dword into CX:BX from stack frame
-#define PUTdm1  128   // store DX:AX dword to global label
-#define PUTdp1  129   // store DX:AX dword thru pointer in BX
-#define PUTds1  130   // store DX:AX dword to stack frame
+#define GETd1m  111   // load dword into DX:AX from global label
+#define GETd1p  112   // load dword into DX:AX thru pointer in BX
+#define GETd1s  113   // load dword into DX:AX from stack frame
+#define GETdxn  114   // load constant into DX (high word of primary)
+#define GETcxn  115   // load constant into CX (high word of secondary)
+#define GETd2m  116   // load dword into CX:BX from global label
+#define GETd2s  117   // load dword into CX:BX from stack frame
+#define PUTdm1  118   // store DX:AX dword to global label
+#define PUTdp1  119   // store DX:AX dword thru pointer in BX
+#define PUTds1  120   // store DX:AX dword to stack frame
 
 // 32-bit stack operations
-#define PUSHd1  131   // push DX:AX (4 bytes)
-#define POPd2   132   // pop 4 bytes into CX:BX
-#define PUSHdm  133   // push dword from global label
-#define PUSHds  134   // push dword from stack frame
+#define PUSHd1  121   // push DX:AX (4 bytes)
+#define POPd2   122   // pop 4 bytes into CX:BX
+#define PUSHdm  123   // push dword from global label
+#define PUSHds  124   // push dword from stack frame
 
 // 32-bit move/swap
-#define MOVEd21 135   // move DX:AX to CX:BX
-#define SWAPd12 136   // swap DX:AX with CX:BX
+#define MOVEd21 125   // move DX:AX to CX:BX
+#define SWAPd12 126   // swap DX:AX with CX:BX
 
 // 32-bit widening
-#define WIDENs  137   // sign-extend AX to DX:AX (CWD)
-#define WIDENu  138   // zero-extend AX to DX:AX (XOR DX,DX)
-#define WIDENs2 139   // sign-extend BX to CX:BX
-#define WIDENu2 140   // zero-extend BX to CX:BX
+#define WIDENs  127   // sign-extend AX to DX:AX (CWD)
+#define WIDENu  128   // zero-extend AX to DX:AX (XOR DX,DX)
+#define WIDENs2 129   // sign-extend BX to CX:BX
+#define WIDENu2 130   // zero-extend BX to CX:BX
 
 // 32-bit inline arithmetic
-#define ADDd12  141   // DX:AX += CX:BX
-#define SUBd12  142   // DX:AX -= CX:BX  (auto-swap)
-#define ANDd12  143   // DX:AX &= CX:BX
-#define ORd12   144   // DX:AX |= CX:BX
-#define XORd12  145   // DX:AX ^= CX:BX
-#define COMd1   146   // ~DX:AX (ones complement)
-#define ANEGd1  147   // -DX:AX (arith negate)
-#define rINCd1  148   // DX:AX += n (32-bit increment)
-#define rDECd1  149   // DX:AX -= n (32-bit decrement)
-#define DBLd1   150   // DX:AX <<= 1
-#define DBLd2   151   // CX:BX <<= 1
+#define ADDd12  131   // DX:AX += CX:BX
+#define SUBd12  132   // DX:AX -= CX:BX  (auto-swap)
+#define ANDd12  133   // DX:AX &= CX:BX
+#define ORd12   134   // DX:AX |= CX:BX
+#define XORd12  135   // DX:AX ^= CX:BX
+#define COMd1   136   // ~DX:AX (ones complement)
+#define ANEGd1  137   // -DX:AX (arith negate)
+#define rINCd1  138   // DX:AX += n (32-bit increment)
+#define rDECd1  139   // DX:AX -= n (32-bit decrement)
+#define DBLd1   140   // DX:AX <<= 1
+#define DBLd2   141   // CX:BX <<= 1
 
 // 32-bit library-call arithmetic
-#define MULd12  152   // DX:AX *= CX:BX (signed)
-#define MULd12u 153   // DX:AX *= CX:BX (unsigned)
-#define DIVd12  154   // DX:AX /= CX:BX (signed, auto-swap)
-#define DIVd12u 155   // DX:AX /= CX:BX (unsigned, auto-swap)
-#define MODd12  156   // DX:AX %= CX:BX (signed, auto-swap)
-#define MODd12u 157   // DX:AX %= CX:BX (unsigned, auto-swap)
-#define ASLd12  158   // DX:AX <<= CL
-#define ASRd12  159   // DX:AX >>= CL (signed)
-#define ASRd12u 160   // DX:AX >>= CL (unsigned)
+#define MULd12  142   // DX:AX *= CX:BX (signed)
+#define MULd12u 143   // DX:AX *= CX:BX (unsigned)
+#define DIVd12  144   // DX:AX /= CX:BX (signed, auto-swap)
+#define DIVd12u 145   // DX:AX /= CX:BX (unsigned, auto-swap)
+#define MODd12  146   // DX:AX %= CX:BX (signed, auto-swap)
+#define MODd12u 147   // DX:AX %= CX:BX (unsigned, auto-swap)
+#define ASLd12  148   // DX:AX <<= CL
+#define ASRd12  149   // DX:AX >>= CL (signed)
+#define ASRd12u 150   // DX:AX >>= CL (unsigned)
 
 // 32-bit library-call comparisons (result: AX = 0 or 1, 16-bit)
-#define EQd12   161   // AX = (DX:AX == CX:BX)
-#define NEd12   162   // AX = (DX:AX != CX:BX)
-#define LTd12   163   // AX = (DX:AX <  CX:BX) signed
-#define LEd12   164   // AX = (DX:AX <= CX:BX) signed
-#define GTd12   165   // AX = (DX:AX >  CX:BX) signed
-#define GEd12   166   // AX = (DX:AX >= CX:BX) signed
-#define LTd12u  167   // AX = (DX:AX <  CX:BX) unsigned
-#define LEd12u  168   // AX = (DX:AX <= CX:BX) unsigned
-#define GTd12u  169   // AX = (DX:AX >  CX:BX) unsigned
-#define GEd12u  170   // AX = (DX:AX >= CX:BX) unsigned
+#define EQd12   151   // AX = (DX:AX == CX:BX)
+#define NEd12   152   // AX = (DX:AX != CX:BX)
+#define LTd12   153   // AX = (DX:AX <  CX:BX) signed
+#define LEd12   154   // AX = (DX:AX <= CX:BX) signed
+#define GTd12   155   // AX = (DX:AX >  CX:BX) signed
+#define GEd12   156   // AX = (DX:AX >= CX:BX) signed
+#define LTd12u  157   // AX = (DX:AX <  CX:BX) unsigned
+#define LEd12u  158   // AX = (DX:AX <= CX:BX) unsigned
+#define GTd12u  159   // AX = (DX:AX >  CX:BX) unsigned
+#define GEd12u  160   // AX = (DX:AX >= CX:BX) unsigned
 
 // 32-bit unary (library)
-#define LNEGd1  171   // AX = !DX:AX (result is 16-bit 0/1)
+#define LNEGd1  161   // AX = !DX:AX (result is 16-bit 0/1)
 
 // 32-bit truthiness (conditional jump)
-#define EQd10f  172   // jump if (DX:AX == 0) is false
-#define NEd10f  173   // jump if (DX:AX != 0) is false
+#define EQd10f  162   // jump if (DX:AX == 0) is false
+#define NEd10f  163   // jump if (DX:AX != 0) is false
 
 // 32-bit switch dispatch
-#define LSWITCHd 174  // CALL __lswitch
-#define POPCX   175   // POP CX           (replaces ADD SP,2)
-#define POPCX2  176   // POP CX / POP CX  (replaces ADD SP,4)
+#define LSWITCHd 164  // CALL __lswitch
+#define POPCX   165   // POP CX           (replaces ADD SP,2)
+#define POPCX2  166   // POP CX / POP CX  (replaces ADD SP,4)
 // short-branch variants (two-pass optimizer, generated by flushfunc)
-#define EQ10fs  177   // OR AX,AX / JNE SHORT _n  (replaces EQ10f)
-#define NE10fs  178   // OR AX,AX / JE  SHORT _n  (replaces NE10f)
-#define GE10fs  179   // OR AX,AX / JL  SHORT _n  (replaces GE10f)
-#define GT10fs  180   // OR AX,AX / JLE SHORT _n  (replaces GT10f)
-#define LE10fs  181   // OR AX,AX / JG  SHORT _n  (replaces LE10f)
-#define LT10fs  182   // OR AX,AX / JGE SHORT _n  (replaces LT10f)
-#define EQfs    183   // CMP AX,BX / JNE SHORT _n (replaces EQf)
-#define NEfs    184   // CMP AX,BX / JE  SHORT _n (replaces NEf)
-#define LTfs    185   // CMP AX,BX / JLE SHORT _n (replaces LTf)
-#define GTfs    186   // CMP AX,BX / JGE SHORT _n (replaces GTf)
-#define LEfs    187   // CMP AX,BX / JL  SHORT _n (replaces LEf)
-#define GEfs    188   // CMP AX,BX / JG  SHORT _n (replaces GEf)
-#define LTufs   189   // CMP AX,BX / JBE SHORT _n (replaces LTuf)
-#define GTufs   190   // CMP AX,BX / JAE SHORT _n (replaces GTuf)
-#define LEufs   191   // CMP AX,BX / JB  SHORT _n (replaces LEuf)
-#define GEufs   192   // CMP AX,BX / JA  SHORT _n (replaces GEuf)
-#define EQd10fs 193   // OR AX,DX  / JNE SHORT _n (replaces EQd10f)
-#define NEd10fs 194   // OR AX,DX  / JE  SHORT _n (replaces NEd10f)
-#define JMPs    195   // JMP SHORT _n             (replaces JMPm)
+#define EQ10fs  167   // OR AX,AX / JNE SHORT _n  (replaces EQ10f)
+#define NE10fs  168   // OR AX,AX / JE  SHORT _n  (replaces NE10f)
+#define GE10fs  169   // OR AX,AX / JL  SHORT _n  (replaces GE10f)
+#define GT10fs  170   // OR AX,AX / JLE SHORT _n  (replaces GT10f)
+#define LE10fs  171   // OR AX,AX / JG  SHORT _n  (replaces LE10f)
+#define LT10fs  172   // OR AX,AX / JGE SHORT _n  (replaces LT10f)
+#define EQd10fs 173   // OR AX,DX  / JNE SHORT _n (replaces EQd10f)
+#define NEd10fs 174   // OR AX,DX  / JE  SHORT _n (replaces NEd10f)
+#define JMPs    175   // JMP SHORT _n             (replaces JMPm)
+// factored comparison p-codes (optimizer-generated)
+#define NOP_    176   // no operation (optimizer padding, emits nothing)
+#define CMP1n   177   // CMP AX,<n>  (compare AX with immediate)
+// factored conditional jumps — named by the SKIP condition in "Jcc $+5 / JMP _n"
+#define JccE    178   // JE  $+5 / JMP _n         (skip if equal)
+#define JccNE   179   // JNE $+5 / JMP _n         (skip if not equal)
+#define JccG    180   // JG  $+5 / JMP _n         (skip if greater, signed)
+#define JccL    181   // JL  $+5 / JMP _n         (skip if less, signed)
+#define JccGE   182   // JGE $+5 / JMP _n         (skip if greater or equal, signed)
+#define JccLE   183   // JLE $+5 / JMP _n         (skip if less or equal, signed)
+#define JccA    184   // JA  $+5 / JMP _n         (skip if above, unsigned)
+#define JccB    185   // JB  $+5 / JMP _n         (skip if below, unsigned)
+#define JccAE   186   // JAE $+5 / JMP _n         (skip if above or equal, unsigned)
+#define JccBE   187   // JBE $+5 / JMP _n         (skip if below or equal, unsigned)
+// factored short-branch conditional jumps (inverted condition, direct jump)
+#define JccEs   188   // JNE SHORT _n             (replaces JccE)
+#define JccNEs  189   // JE  SHORT _n             (replaces JccNE)
+#define JccGs   190   // JLE SHORT _n             (replaces JccG)
+#define JccLs   191   // JGE SHORT _n             (replaces JccL)
+#define JccGEs  192   // JL  SHORT _n             (replaces JccGE)
+#define JccLEs  193   // JG  SHORT _n             (replaces JccLE)
+#define JccAs   194   // JBE SHORT _n             (replaces JccA)
+#define JccBs   195   // JAE SHORT _n             (replaces JccB)
+#define JccAEs  196   // JB  SHORT _n             (replaces JccAE)
+#define JccBEs  197   // JA  SHORT _n             (replaces JccBE)
+// factored register comparison
+#define CMP12   198   // CMP AX,BX (compare pr with sr, sets flags only)
+// factored memory/stack comparisons
+#define CMP1m   199   // CMP AX,WORD PTR [mem] (compare pr with global, sets flags only)
+#define CMP1s   200   // CMP AX,n[BP] (compare pr with stack var, sets flags only)
 
-#define PCODES  196   // size of code[]
+#define PCODES  201   // size of code[]
 
 // function prototypes for Small-C *.C files
 int AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class);
@@ -622,10 +637,8 @@ void toseg(int newseg);
 void dumpzero(int size, int count);
 void decGlobal(int ident, int isGlobal);
 void multidef(char *sname);
-int doEnum(int *typeSubPtr);
 void external(char *name, int size, int ident);
 void initStructs();
-void initEnums();
 void getRunArgs();
 void preprocess();
 void header();
@@ -633,3 +646,7 @@ void trailer();
 int dostructblock();
 void point();
 int storeParamTypes(char *typebuf, int nparams_byte);
+#ifdef ENABLE_ENUMS
+void initEnums();
+int doEnum(int *typeSubPtr);
+#endif

@@ -220,15 +220,17 @@ void main(int argc, int *argv) {
     dimdatptr = dimdata = calloc(DIMDATSZ, 1);
     paramTypes = calloc(FNPARAMTS_SZ, 1);
     initStructs();
+#ifdef ENABLE_ENUMS
     initEnums();
-    availMem = avail(0);
-#ifdef DIAG_OUTPUT
-    fprintf(stderr, "  Memory available: %d b\n", availMem);
 #endif
+#ifdef DIAG_OUTPUT
+    availMem = avail(0);
+    fprintf(stderr, "  Memory available: %d b\n", availMem);
     if (availMem < 2000) {
         fputs("out of memory\n", stderr);
         exit(1);
     }
+#endif
     rettype = TYPE_INT;
     rettypeSubPtr = 0;
 #ifdef ENABLE_WARNINGS
@@ -403,9 +405,11 @@ int dotype(int *typeSubPtr) {
             error("unknown struct name");
         return TYPE_STRUCT;
     }
+#ifdef ENABLE_ENUMS
     if (amatch("enum", 4)) {
         return doEnum(typeSubPtr);
     }
+#endif
     // If only const/volatile were seen with no base type, clear the flag
     // so callers do not misinterpret a non-declaration as const.
     typeConstFlag = 0;
@@ -944,14 +948,15 @@ void recordParamTypes(char *funcSym) {
         // Fall through: store a 0-param entry so FNPARAMPTR != 0.
     }
     // Collect types from the local symbol table.
-    // Entries are fixed-width SYMAVG bytes; advance by SYMAVG each iteration.
+    // Entries are variable-length (name field is only as wide as the name);
+    // use nextsym() to step to the next entry, matching findloc()/nextsym().
     nparams = 0;
     p = STARTLOC;
     while (p < locptr && nparams < 32) {
         typebuf[nparams] = (p[IDENT] == IDENT_POINTER ? 0x80 : 0)
                            | (p[TYPE] & 0x7F);
         ++nparams;
-        p += SYMAVG;
+        p = nextsym(p);
     }
     nparams_byte = (protoVariadic ? 0x80 : 0) | (nparams & 0x7F);
     k = storeParamTypes(typebuf, nparams_byte);
@@ -1044,7 +1049,8 @@ int dofunction(int class) {
     recordParamTypes(funcSym);
     // Restore ssname from curfn: arg parsing overwrites ssname with param names.
     cptr2 = ssname; cptr3 = curfn; while (*cptr3) *cptr2++ = *cptr3++; *cptr2 = 0;
-    decGlobal(rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION, class == GLOBAL); // don't do public if class == STATIC
+    // don't do public if class == STATIC
+    decGlobal(rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION, class == GLOBAL);
     gen(ENTER, 0);
     statement();
     // Flush any code left in the staging buffer by doreturn() for struct-
@@ -1066,7 +1072,7 @@ int dofunction(int class) {
 // doArgsTyped: interpret a function argument list with declared types.
 // in type: the type of the first variable in the argument list.
 void doArgsTyped(int type, int typeSubPtr) {
-    int id, sz, namelen, paren, argConst;
+    int id, sz, paren, argConst;
     char *ptr, *ddentry;
     argConst = typeConstFlag;   // capture const flag for first argument
     // Handle f(void) -- explicit zero-parameter prototype or definition.
@@ -1659,7 +1665,7 @@ void initLocArray(int type) {
 void initLcMDArr(int type, char *symptr) {
     int offset, elemSz, totalElems, ndim;
     int dims[MAX_DIMS], strides[MAX_DIMS];
-    int i, k;
+    int i;
     char *ddentry;
     offset = getint(symptr + OFFSET, 2);
     ndim = symptr[NDIM];
@@ -2694,4 +2700,3 @@ int mustopen(char *fn, char *mode) {
     lout(fn, stderr);
     abort(ERRCODE);
 }
-
