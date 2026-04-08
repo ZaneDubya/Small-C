@@ -6,14 +6,14 @@ REM     An ENTER (carriage return) keystroke resumes execution.
 SET BIN=..\..\bin
 SET LIB=..\..\smalllib
 
-REM TESTENUM
-ECHO === Compiling testenum ===
-%BIN%\cc testenum -a -p -w
+REM types
+ECHO === Compiling types ===
+%BIN%\cc types -a -p -w
 if errorlevel 1 goto exit
-%BIN%\asm testenum /p
+%BIN%\asm types /p
 if errorlevel 1 goto exit
-ECHO === Linking testenum ===
-%BIN%\ylink testenum.obj,%LIB%\clib.lib -e=testenum.exe
+ECHO === Linking types ===
+%BIN%\ylink types.obj,%LIB%\clib.lib -e=types.exe
 if errorlevel 1 goto exit
 
 REM CLEANUP
@@ -23,4 +23,4 @@ if exist *.map del *.map
 
 :exit
 @ECHO ON
-if exist testenum.exe testenum
+if exist types.exe types

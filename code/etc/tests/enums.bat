@@ -6,14 +6,14 @@ REM     An ENTER (carriage return) keystroke resumes execution.
 SET BIN=..\..\bin
 SET LIB=..\..\smalllib
 
-REM LONGTEST
-ECHO === Compiling longtest ===
-%BIN%\cc longtest -a -p -w
+REM enums
+ECHO === Compiling enums ===
+%BIN%\cc enums -a -p -w
 if errorlevel 1 goto exit
-%BIN%\asm longtest /p
+%BIN%\asm enums /p
 if errorlevel 1 goto exit
-ECHO === Linking longtest ===
-%BIN%\ylink longtest.obj,%LIB%\clib.lib -e=longtest.exe
+ECHO === Linking enums ===
+%BIN%\ylink enums.obj,%LIB%\clib.lib -e=enums.exe
 if errorlevel 1 goto exit
 
 REM CLEANUP
@@ -23,4 +23,4 @@ if exist *.map del *.map
 
 :exit
 @ECHO ON
-if exist longtest.exe longtest
+if exist enums.exe enums
