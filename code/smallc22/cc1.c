@@ -569,6 +569,8 @@ void declglb(int type, int class, int typeSubPtr) {
         }
         else if (id == IDENT_POINTER) {
             AddSymbol(ssname, id, type, BPW, 0, &glbptr, class);
+            if (type == TYPE_STRUCT)
+                putint(typeSubPtr, cptr + CLASSPTR, 2);
         }
         else if (ndim > 1) {
             // multi-dimensional array

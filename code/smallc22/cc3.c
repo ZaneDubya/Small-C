@@ -645,7 +645,18 @@ int level13(int is[]) {
             ((ptr = findloc(sname)) || (ptr = findglb(sname))) &&
             ptr[IDENT] != IDENT_FUNCTION && ptr[IDENT] != IDENT_PTR_FUNCTION
             && ptr[IDENT] != IDENT_LABEL) {
-            sz = getint(ptr + SIZE, 2);
+            if ((ptr[CLASS] & 0x7F) == TYPEDEF) {
+                // typedef name: derive size from type, not SIZE field (which is 0)
+                if (ptr[IDENT] == IDENT_POINTER)
+                    sz = BPW;
+                else if (ptr[TYPE] == TYPE_STRUCT)
+                    sz = getStructSize(getint(ptr + CLASSPTR, 2));
+                else
+                    sz = ptr[TYPE] >> 2;
+            }
+            else {
+                sz = getint(ptr + SIZE, 2);
+            }
         }
         else if (sz == 0) {
             error("must be object or type");
