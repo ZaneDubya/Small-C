@@ -53,6 +53,8 @@ void dostatic();
 void doinclude();
 int InitPtrArray(int type, int dim, int class);
 void InitStruct(int typeSubPtr, int class);
+void InitUnion(int typeSubPtr, int class);
+void initLocUnion(int typeSubPtr);
 int putmac(char c);
 void doArgsTyped(int type, int typeSubPtr);
 void doArgsNonTyped();
@@ -265,7 +267,10 @@ void parse() {
             dostatic();
         }
         else if (amatch("struct", 6)) {
-            dostructblock();
+            dotagblock(KIND_STRUCT);
+        }
+        else if (amatch("union", 5)) {
+            dotagblock(KIND_UNION);
         }
         else if (dodeclare(GLOBAL)) {
             ;
@@ -401,8 +406,13 @@ int dotype(int *typeSubPtr) {
         return isUnsigned ? TYPE_UINT : TYPE_INT;
     }
     if (amatch("struct", 6)) {
-        if ((*typeSubPtr = getStructPtr()) == -1)
+        if ((*typeSubPtr = getTagPtr(KIND_STRUCT)) == -1)
             error("unknown struct name");
+        return TYPE_STRUCT;
+    }
+    if (amatch("union", 5)) {
+        if ((*typeSubPtr = getTagPtr(KIND_UNION)) == -1)
+            error("unknown union name");
         return TYPE_STRUCT;
     }
 #ifdef ENABLE_ENUMS
@@ -475,8 +485,12 @@ void declglb(int type, int class, int typeSubPtr) {
         else if (id != IDENT_FUNCTION) {
             if (id == IDENT_PTR_ARRAY)
                 dim = InitPtrArray(type, dim, class);
-            else if (type == TYPE_STRUCT && id == IDENT_VARIABLE)
-                InitStruct(typeSubPtr, class);
+            else if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
+                if (typeSubPtr != -1 && ((char *)typeSubPtr)[STRDAT_KIND] == KIND_UNION)
+                    InitUnion(typeSubPtr, class);
+                else
+                    InitStruct(typeSubPtr, class);
+            }
             else if (ndim > 1)
                 initGlMDArr(type, typeSubPtr, ndim, dims, class);
             else {
@@ -720,6 +734,43 @@ void InitStruct(int typeSubPtr, int class) {
     }
     dumplits(1);
     dumpzero(1, structSize - litptr);
+}
+
+// Initialize a global union variable.
+// Only the first member may be supplied in the initializer; the rest of the
+// union storage is zero-filled.  Extra initializer values are an error.
+void InitUnion(int typeSubPtr, int class) {
+    char *firstMem;
+    int memberSize, memberTotal, unionSize;
+    litptr = 0;
+    unionSize = getStructSize(typeSubPtr);
+    decGlobal(IDENT_VARIABLE, class == GLOBAL);
+    if (IsMatch("=")) {
+        if (IsMatch("{")) {
+            firstMem = getint(typeSubPtr + STRDAT_MBEG, 2);
+            if (firstMem < getint(typeSubPtr + STRDAT_MEND, 2)) {
+                int dim;
+                memberSize = firstMem[STRMEM_TYPE] >> 2;
+                if (memberSize < 1) memberSize = 1;
+                memberTotal = getint(firstMem + STRMEM_SIZE, 2);
+                dim = 1;
+                EvalInitValue(memberSize, IDENT_VARIABLE, &dim);
+                // zero-fill remainder of first member (e.g. array member)
+                while (litptr < memberTotal) {
+                    stowlit(0, 1);
+                }
+                if (IsMatch(",")) {
+                    error("union initializer only allows one value");
+                }
+            }
+            Require("}");
+        }
+        else {
+            error("union initializer requires { }");
+        }
+    }
+    dumplits(1);
+    dumpzero(1, unionSize - litptr);
 }
 
 // initialize a global multi-dimensional array.
@@ -1982,7 +2033,62 @@ void initLocStruct(int typeSubPtr) {
     Require("}");
 }
 
+// Initialize a local union variable: union tag v = { expr };
+// Only the first member may be initialized; remaining union bytes are zeroed.
+// cptr must point to the symbol table entry for the variable.
+void initLocUnion(int typeSubPtr) {
+    char *savedcptr, *firstMem;
+    int baseOffset, unionSize, memberSize, memberTotal;
+    int isConst, val, i;
+    int *before, *start;
+    savedcptr = cptr;
+    baseOffset = getint(savedcptr + OFFSET, 2);
+    unionSize = getStructSize(typeSubPtr);
+    if (IsMatch("{") == 0) {
+        error("union initializer requires { }");
+        return;
+    }
+    firstMem = getint(typeSubPtr + STRDAT_MBEG, 2);
+    if (firstMem < getint(typeSubPtr + STRDAT_MEND, 2)) {
+        memberSize = firstMem[STRMEM_TYPE] >> 2;
+        if (memberSize < 1) memberSize = 1;
+        memberTotal = getint(firstMem + STRMEM_SIZE, 2);
+        // emit: &(baseOffset) on stack, then evaluate and store first member
+        gen(POINT1s, baseOffset);
+        gen(PUSH1, 0);
+        setstage(&before, &start);
+        ParseExpression(&isConst, &val);
+        ClearStage(before, start);
+        gen(POP2, 0);
+        if (memberSize == BPD
+            && firstMem[STRMEM_IDENT] != IDENT_POINTER) {
+            gen(PUTwp1, 0);
+            gen(ADD2n, BPW);
+            gen(GETw1n, 0);
+            gen(PUTwp1, 0);
+        }
+        else if (memberSize == BPW
+            || firstMem[STRMEM_IDENT] == IDENT_POINTER) {
+            gen(PUTwp1, 0);
+        }
+        else {
+            gen(PUTbp1, 0);
+        }
+        if (IsMatch(",")) {
+            error("union initializer only allows one value");
+        }
+        // zero-fill bytes after the first member up to union size
+        i = memberTotal;
+        while (i < unionSize) {
+            genStoreByte(baseOffset + i, 0);
+            i++;
+        }
+    }
+    Require("}");
+}
+
 // initialize a local struct array: struct tag a[N] = {{...},{...},...};
+// cptr must point to the symbol table entry for the array.
 // cptr must point to the symbol table entry for the array.
 void initLocStrArr(int typeSubPtr) {
     char *savedcptr;
@@ -2216,7 +2322,10 @@ void declareLocals(int type, int typeSubPtr, int isStatic, int isConst) {
                 else {
                     allocPendLoc();
                     if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
-                        initLocStruct(typeSubPtr);
+                        if (typeSubPtr != -1 && ((char *)typeSubPtr)[STRDAT_KIND] == KIND_UNION)
+                            initLocUnion(typeSubPtr);
+                        else
+                            initLocStruct(typeSubPtr);
                     }
                     else if (id == IDENT_ARRAY && lastNdim > 1
                         && IsMatch("{")) {

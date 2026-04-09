@@ -51,45 +51,13 @@ int findEnumTag(char *name) {
     return -1;
 }
 
-// Register a new enum tag name.
-// Errors on duplicate tag or table overflow.
-void addEnumTag(char *name) {
-    int i;
-    if (findEnumTag(name) != -1) {
-        error("enum tag already defined");
-        return;
-    }
-    if (enumdatnext >= EDAT_END) {
-        error("enum tag table overflow");
-        return;
-    }
-    i = 0;
-    while (name[i] && i < NAMEMAX) {
-        enumdatnext[EDAT_NAME + i] = name[i];
-        i++;
-    }
-    enumdatnext[EDAT_NAME + i] = 0;
-    enumdatnext += EDAT_MAX;
-}
-
-// Add an enum constant to the global symbol table.
-// The integer value is stored in the OFFSET field.
-// No code or data segment bytes are emitted.
-void addEnumConst(char *name, int value) {
-    if (findglb(name)) {
-        error("enum constant already defined");
-        return;
-    }
-    AddSymbol(name, IDENT_VARIABLE, TYPE_INT, BPW, value, &glbptr, ENUMCONST);
-}
-
 // Parse an enum specifier after the 'enum' keyword has been consumed.
 // Defines enumerator constants and optionally registers a tag name.
 // Sets *typeSubPtr = 0 (enum variables carry no extra metadata).
 // Returns TYPE_INT (enums are backed by int).
 int doEnum(int *typeSubPtr) {
     char tagname[NAMESIZE];
-    int  hasTag, nextVal, done;
+    int  hasTag, nextVal, i;
 
     *typeSubPtr = 0;
     blanks();
@@ -102,17 +70,30 @@ int doEnum(int *typeSubPtr) {
     }
 
     if (IsMatch("{")) {
-        // --- Definition with body ---
-        if (hasTag)
-            addEnumTag(tagname);
-
-        nextVal = 0;
-        done = 0;
-        while (!done) {
-            if (IsMatch("}")) {
-                done = 1;
-                break;
+        // --- Register tag name (was addEnumTag, inlined) ---
+        if (hasTag) {
+            if (findEnumTag(tagname) != -1) {
+                error("enum tag already defined");
             }
+            else if (enumdatnext >= EDAT_END) {
+                error("enum tag table overflow");
+            }
+            else {
+                i = 0;
+                while (tagname[i] && i < NAMEMAX) {
+                    enumdatnext[EDAT_NAME + i] = tagname[i];
+                    i++;
+                }
+                enumdatnext[EDAT_NAME + i] = 0;
+                enumdatnext += EDAT_MAX;
+            }
+        }
+
+        // --- Parse enumerator list ---
+        nextVal = 0;
+        for (;;) {
+            if (IsMatch("}"))
+                break;
             if (ch == 0 && eof) {
                 error("no final }");
                 return TYPE_INT;
@@ -122,28 +103,28 @@ int doEnum(int *typeSubPtr) {
                 skipToNextToken();
                 break;
             }
-            if (isreserved(ssname)) {
+            if (isreserved(ssname))
                 error("reserved keyword used as enumerator");
-            }
-            if (IsMatch("=")) {
+            if (IsMatch("="))
                 IsConstExpr(&nextVal);
-            }
-            addEnumConst(ssname, nextVal);
+            // addEnumConst inlined:
+            if (findglb(ssname))
+                error("enum constant already defined");
+            else
+                AddSymbol(ssname, IDENT_VARIABLE, TYPE_INT, BPW, nextVal, &glbptr, ENUMCONST);
             nextVal++;
             if (IsMatch(",") == 0) {
                 Require("}");
-                done = 1;
+                break;
             }
         }
     }
     else {
         // --- Tag-only reference (no body) ---
-        if (!hasTag) {
+        if (!hasTag)
             error("enum tag name required without body");
-        }
-        else if (findEnumTag(tagname) == -1) {
+        else if (findEnumTag(tagname) == -1)
             error("unknown enum tag");
-        }
     }
 
     return TYPE_INT;

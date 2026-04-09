@@ -1,9 +1,14 @@
-// struct data format
-#define STRDAT_SIZE   0     // size of data in struct
-#define STRDAT_MBEG   2     // ptr to beginning of struct member data
-#define STRDAT_MEND   4     // ptr to end of struct member data
+// struct/union tag data format
+#define STRDAT_SIZE   0     // size of data in struct/union
+#define STRDAT_MBEG   2     // ptr to beginning of struct/union member data
+#define STRDAT_MEND   4     // ptr to end of struct/union member data
 #define STRDAT_NAME   6     // name, length equal to NAMEMAX, null terminated
-#define STRDAT_MAX    20    // NAMEMAX is 12, 6+12=18, 1b null, 1b pad align
+#define STRDAT_KIND   18    // 0 = struct, 1 = union (occupies former pad byte)
+#define STRDAT_MAX    20    // NAMEMAX is 12, 6+12=18, 1b kind, 1b pad align
+
+// STRDAT_KIND values
+#define KIND_STRUCT  0
+#define KIND_UNION   1
 
 // struct member data format
 #define STRMEM_IDENT    0   // ident as in cc.h, type as in cc.h. struct

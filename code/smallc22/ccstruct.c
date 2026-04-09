@@ -32,8 +32,8 @@ extern int ch, eof, rettype, rettypeSubPtr;
 char *structdata, *structdatnext, *structmemnext;
 
 // forward declarations for this file:
-int doStruct();
-int findStructByName(char *sname);
+int doTag(int kind);
+int findTagByName(int kind, char *sname);
 
 void initStructs() {
   structdata = calloc(STRUCTDATSZ, 1);
@@ -41,16 +41,13 @@ void initStructs() {
   structmemnext = STRMEM_START;
 }
 
-// Handle a struct keyword at global scope: either define a new struct,
-// declare variables of an existing struct type, or define a struct-returning
-// function.
-// Called from parse() after 'struct' has been matched.
-int dostructblock() {
+// Handle a struct or union keyword at global scope.
+// Called from parse() after 'struct'/'union' has been matched.
+int dotagblock(int kind) {
   int sp;
   char *p;
-  sp = doStruct();
+  sp = doTag(kind);
   if (sp != -1 && !endst()) {
-    // Check if this is a struct-returning function: name(
     blanks();
     p = lptr;
     if (alpha(*p)) {
@@ -70,10 +67,11 @@ int dostructblock() {
   ReqSemicolon();
 }
 
-// Define a single struct if '{' follows the tag name.
-// If no '{', look up existing struct by tag name.
-// @return pointer to struct definition, or -1 on error.
-int doStruct() {
+// Define a single struct or union if '{' follows the tag name,
+// otherwise look up an existing definition by tag name.
+// kind: KIND_STRUCT or KIND_UNION
+// @return pointer to tag definition, or -1 on error.
+int doTag(int kind) {
   int i, totalsize, typeSubIdx;
   blanks();
   if (symname(ssname)) {
@@ -88,11 +86,9 @@ int doStruct() {
     return -1;
   }
   if (IsMatch("{") == 0) {
-    // No open brace: look up existing struct by tag name already in ssname.
-    return findStructByName(ssname);
+    return findTagByName(kind, ssname);
   }
   putint(structmemnext, structdatnext + STRDAT_MBEG, 2);
-  // copy name
   i = 0;
   while (an(ssname[i])) {
     structdatnext[STRDAT_NAME + i] = ssname[i++];
@@ -101,6 +97,7 @@ int doStruct() {
     }
   }
   structdatnext[STRDAT_NAME + i] = 0;
+  structdatnext[STRDAT_KIND] = kind;
   totalsize = 0;
   while (IsMatch("}") == 0) {
     int id, sz, type;
@@ -112,15 +109,20 @@ int doStruct() {
       while (1) {
         parseLocalDeclare(type, typeSubIdx, IDENT_ARRAY, &id, &sz);
         if (getStructMember(structdatnext, ssname)) {
-          error("duplicate struct member name");
+          error("duplicate member name");
           abort(1);
         }
-        putint(totalsize, structmemnext + STRMEM_OFFSET, 2);
+        if (kind == KIND_UNION) {
+          putint(0, structmemnext + STRMEM_OFFSET, 2);
+          if (sz > totalsize) totalsize = sz;
+        }
+        else {
+          putint(totalsize, structmemnext + STRMEM_OFFSET, 2);
+          totalsize += sz;
+        }
         structmemnext[STRMEM_IDENT] = id;
         structmemnext[STRMEM_TYPE] = type;
         putint(sz, structmemnext + STRMEM_SIZE, 2);
-        totalsize += sz;
-        // copy name
         i = 0;
         while (an(ssname[i])) {
           structmemnext[STRMEM_NAME + i] = ssname[i++];
@@ -135,13 +137,13 @@ int doStruct() {
         structmemnext += STRMEM_MAX;
         if (IsMatch(",") == 0)
           break;
-        if (endst()) 
+        if (endst())
           break;
       }
       ReqSemicolon();
     }
     else {
-      error("struct may only contain members");
+      error("tag may only contain members");
       abort(1);
     }
   }
@@ -151,15 +153,17 @@ int doStruct() {
   return structdatnext - STRDAT_MAX;
 }
 
-// Find a struct definition by name (direct string comparison).
-// @param sname the struct tag name to search for
-// @return pointer to struct data if found, else -1
-int findStructByName(char *sname) {
+// Find a tag definition by name and kind (KIND_STRUCT or KIND_UNION).
+// @param kind  KIND_STRUCT or KIND_UNION
+// @param sname the tag name to search for
+// @return pointer to tag data if found, else -1
+int findTagByName(int kind, char *sname) {
   char *current, *end;
   current = STRDAT_START;
   end = structdatnext;
   while (current < end) {
-    if (strcmp(current + STRDAT_NAME, sname) == 0) {
+    if (current[STRDAT_KIND] == kind
+        && strcmp(current + STRDAT_NAME, sname) == 0) {
       return current;
     }
     current += STRDAT_MAX;
@@ -167,22 +171,23 @@ int findStructByName(char *sname) {
   return -1;
 }
 
-// Determine if next token is the tag name of a struct definition.
+// Determine if the next token is a tag name matching the given kind.
 // Consumes the tag name from input if found.
-// @return pointer to struct data if found, else -1
-int getStructPtr() {
+// kind: KIND_STRUCT or KIND_UNION
+// @return pointer to tag data if found, else -1
+int getTagPtr(int kind) {
   char *current, *end;
-  int i, len;
+  int len;
   current = STRDAT_START;
   end = structdatnext;
-  i = 0;
   while (current < end) {
-    len = strlen(current + STRDAT_NAME);
-    if (amatch(current + STRDAT_NAME, len)) {
-      return current;
+    if (current[STRDAT_KIND] == kind) {
+      len = strlen(current + STRDAT_NAME);
+      if (amatch(current + STRDAT_NAME, len)) {
+        return current;
+      }
     }
     current += STRDAT_MAX;
-    i += 1;
   }
   return -1;
 }

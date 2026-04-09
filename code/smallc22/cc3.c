@@ -627,8 +627,14 @@ int level13(int is[]) {
         }
         else if (amatch("struct", 6)) {
             char *sp;
-            sp = getStructPtr();
+            sp = getTagPtr(KIND_STRUCT);
             if (sp == -1) error("unknown struct name");
+            else sz = getStructSize(sp);
+        }
+        else if (amatch("union", 5)) {
+            char *sp;
+            sp = getTagPtr(KIND_UNION);
+            if (sp == -1) error("unknown union name");
             else sz = getStructSize(sp);
         }
         else if (amatch("enum", 4)) {
@@ -1101,8 +1107,14 @@ int trycast(int is[]) {
     }
     else if (amatch("struct", 6)) {
         char *sp;
-        sp = getStructPtr();
+        sp = getTagPtr(KIND_STRUCT);
         if (sp == -1) error("unknown struct name");
+        casttype = TYPE_STRUCT;
+    }
+    else if (amatch("union", 5)) {
+        char *sp;
+        sp = getTagPtr(KIND_UNION);
+        if (sp == -1) error("unknown union name");
         casttype = TYPE_STRUCT;
     }
 
