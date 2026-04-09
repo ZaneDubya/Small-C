@@ -343,3 +343,8 @@ Small-C Revision History
     leaving ADD SP,-N with no matching restore, corrupting the return address.
     RETURN.value is the canonical "needs frame restoration" signal and is
     already computed by the time flushfunc() runs.
+146 Local struct initialization with = { ... } passes all tests.
+    Fixed a bug in initLocStrMem() and initLocUnion() where the 4-instruction
+    manual long-store sequence (PUTwp1 / ADD2n / GETw1n / PUTwp1) clobbered
+    AX with zero before storing the high word, corrupting any long value whose
+    upper 16 bits were non-zero. Replaced with genStore() / PUTdp1.

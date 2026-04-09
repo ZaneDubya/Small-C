@@ -32,6 +32,16 @@ struct tiny {
     int val;
 };
 
+struct withArr {
+    int vals[3];
+    int extra;
+};
+
+struct withLong {
+    long lo;
+    int hi;
+};
+
 // Global struct variables
 struct point gp1;
 struct point gp2;
@@ -51,6 +61,32 @@ void check(char *desc, int cond) {
     }
     else {
         printf("  FAIL: %s\n", desc);
+        printf("  Press Enter to continue...");
+        getchar();
+        failed++;
+    }
+}
+
+void checkVal(char *desc, int exp, int got) {
+    if (exp == got) {
+        printf("  PASS: %s\n", desc);
+        passed++;
+    }
+    else {
+        printf("  FAIL: %s (exp %d, got %d)\n", desc, exp, got);
+        printf("  Press Enter to continue...");
+        getchar();
+        failed++;
+    }
+}
+
+void checkLong(char *desc, long exp, long got) {
+    if (exp == got) {
+        printf("  PASS: %s\n", desc);
+        passed++;
+    }
+    else {
+        printf("  FAIL: %s (exp %ld, got %ld)\n", desc, exp, got);
         printf("  Press Enter to continue...");
         getchar();
         failed++;
@@ -480,6 +516,175 @@ int main() {
     gp1 = makePoint(111, 222);
     check("return to global .x", gp1.x == 111);
     check("return to global .y", gp1.y == 222);
+
+    // -------------------------------------------------------
+    printf("\n--- 29. Local struct brace init ---\n");
+    // -------------------------------------------------------
+    {
+        struct point lp = { 10, 20 };
+        check("lp.x init 10", lp.x == 10);
+        check("lp.y init 20", lp.y == 20);
+    }
+
+    // -------------------------------------------------------
+    printf("\n--- 30. Local partial init (fewer values) ---\n");
+    // -------------------------------------------------------
+    {
+        struct point lp = { 5 };
+        check("partial lp.x=5", lp.x == 5);
+        check("partial lp.y=0", lp.y == 0);
+    }
+
+    // -------------------------------------------------------
+    printf("\n--- 31. Local nested struct brace init ---\n");
+    // -------------------------------------------------------
+    {
+        struct rect r = { { 1, 2 }, { 3, 4 } };
+        check("nested r.tL.x=1", r.topLeft.x == 1);
+        check("nested r.tL.y=2", r.topLeft.y == 2);
+        check("nested r.bR.x=3", r.botRight.x == 3);
+        check("nested r.bR.y=4", r.botRight.y == 4);
+    }
+
+    // -------------------------------------------------------
+    printf("\n--- 32. Local partial nested init ---\n");
+    // -------------------------------------------------------
+    {
+        struct rect r = { { 7, 8 } };
+        check("pnested tL.x=7", r.topLeft.x == 7);
+        check("pnested tL.y=8", r.topLeft.y == 8);
+        check("pnested bR.x=0", r.botRight.x == 0);
+        check("pnested bR.y=0", r.botRight.y == 0);
+    }
+
+    // -------------------------------------------------------
+    printf("\n--- 33. Mixed (char+int) local brace init ---\n");
+    // -------------------------------------------------------
+    {
+        struct mixed m = { 'Z', 999 };
+        check("mixed m.c='Z'", m.c == 'Z');
+        check("mixed m.i=999", m.i == 999);
+    }
+
+    // -------------------------------------------------------
+    printf("\n--- 34. Local init with expression values ---\n");
+    // -------------------------------------------------------
+    {
+        int a, b;
+        struct point p;
+        a = 3;
+        b = 7;
+        {
+            struct point ep = { a + b, a * b };
+            check("expr init x=10", ep.x == 10);
+            check("expr init y=21", ep.y == 21);
+        }
+    }
+
+    // -------------------------------------------------------
+    printf("\n--- 35. Two initialized locals independent ---\n");
+    // -------------------------------------------------------
+    {
+        struct point p1 = { 11, 22 };
+        struct point p2 = { 33, 44 };
+        check("p1.x=11", p1.x == 11);
+        check("p1.y=22", p1.y == 22);
+        check("p2.x=33", p2.x == 33);
+        check("p2.y=44", p2.y == 44);
+        p1.x = 0;
+        check("p2 unaffected", p2.x == 33);
+    }
+
+    // -------------------------------------------------------
+    printf("\n--- 36. Init with zero values ---\n");
+    // -------------------------------------------------------
+    {
+        struct point p = { 0, 0 };
+        check("zero init x", p.x == 0);
+        check("zero init y", p.y == 0);
+    }
+
+    // -------------------------------------------------------
+    printf("\n--- 37. Init with negative values ---\n");
+    // -------------------------------------------------------
+    {
+        struct point p = { -5, -100 };
+        check("neg init x=-5", p.x == -5);
+        check("neg init y=-100", p.y == -100);
+    }
+
+    // -------------------------------------------------------
+    printf("\n--- 38. Init then overwrite member ---\n");
+    // -------------------------------------------------------
+    {
+        struct point p = { 1, 2 };
+        p.x = 99;
+        check("overwrite x=99", p.x == 99);
+        check("y unchanged=2", p.y == 2);
+    }
+
+    // -------------------------------------------------------
+    printf("\n--- 39. Tiny struct (single member) brace init ---\n");
+    // -------------------------------------------------------
+    {
+        struct tiny t = { 42 };
+        check("tiny t.val=42", t.val == 42);
+    }
+
+    // -------------------------------------------------------
+    printf("\n--- 40. Struct array member init ---\n");
+    // -------------------------------------------------------
+    {
+        struct withArr wa = { { 10, 20, 30 }, 99 };
+        check("arr vals[0]=10", wa.vals[0] == 10);
+        check("arr vals[1]=20", wa.vals[1] == 20);
+        check("arr vals[2]=30", wa.vals[2] == 30);
+        check("arr extra=99", wa.extra == 99);
+    }
+
+    // -------------------------------------------------------
+    printf("\n--- 41. Struct array member partial init ---\n");
+    // -------------------------------------------------------
+    {
+        struct withArr wa = { { 5, 6 }, 7 };
+        check("parr vals[0]=5", wa.vals[0] == 5);
+        check("parr vals[1]=6", wa.vals[1] == 6);
+        check("parr vals[2]=0", wa.vals[2] == 0);
+        check("parr extra=7", wa.extra == 7);
+    }
+
+    // -------------------------------------------------------
+    printf("\n--- 42. Struct long member init ---\n");
+    // -------------------------------------------------------
+    {
+        struct withLong wl = { 70000, 42 };
+        checkLong("long lo=70000", 70000, wl.lo);
+        checkVal("long hi=42", 42, wl.hi);
+    }
+
+    // -------------------------------------------------------
+    printf("\n--- 43. Init'd local passed to function ---\n");
+    // -------------------------------------------------------
+    {
+        struct point p = { 7, 8 };
+        check("init getX=7", getX(p) == 7);
+        check("init getY=8", getY(p) == 8);
+        check("init sum=15", sumPoint(p) == 15);
+    }
+
+    // -------------------------------------------------------
+    printf("\n--- 44. Multiple types init same scope ---\n");
+    // -------------------------------------------------------
+    {
+        struct point p = { 1, 2 };
+        struct tiny t = { 3 };
+        struct mixed m = { 'X', 4 };
+        check("multi p.x=1", p.x == 1);
+        check("multi p.y=2", p.y == 2);
+        check("multi t.val=3", t.val == 3);
+        check("multi m.c='X'", m.c == 'X');
+        check("multi m.i=4", m.i == 4);
+    }
 
     // -------------------------------------------------------
     // Summary

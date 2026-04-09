@@ -2064,20 +2064,8 @@ void initLocStrMem(int typeSubPtr, int baseOffset) {
             ParseExpression(&isConst, &val);
             ClearStage(before, start);
             gen(POP2, 0);
-            if (memberSize == BPD
-                && membercur[STRMEM_IDENT] != IDENT_POINTER) {
-                gen(PUTwp1, 0);
-                gen(ADD2n, BPW);
-                gen(GETw1n, 0);
-                gen(PUTwp1, 0);
-            }
-            else if (memberSize == BPW
-                || membercur[STRMEM_IDENT] == IDENT_POINTER) {
-                gen(PUTwp1, 0);
-            }
-            else {
-                gen(PUTbp1, 0);
-            }
+            genStore(memberSize,
+                membercur[STRMEM_IDENT] == IDENT_POINTER);
         }
         membercur += STRMEM_MAX;
         if (membercur < memberend) {
@@ -2139,20 +2127,8 @@ void initLocUnion(int typeSubPtr) {
         ParseExpression(&isConst, &val);
         ClearStage(before, start);
         gen(POP2, 0);
-        if (memberSize == BPD
-            && firstMem[STRMEM_IDENT] != IDENT_POINTER) {
-            gen(PUTwp1, 0);
-            gen(ADD2n, BPW);
-            gen(GETw1n, 0);
-            gen(PUTwp1, 0);
-        }
-        else if (memberSize == BPW
-            || firstMem[STRMEM_IDENT] == IDENT_POINTER) {
-            gen(PUTwp1, 0);
-        }
-        else {
-            gen(PUTbp1, 0);
-        }
+        genStore(memberSize,
+            firstMem[STRMEM_IDENT] == IDENT_POINTER);
         if (IsMatch(",")) {
             error("union initializer only allows one value");
         }
