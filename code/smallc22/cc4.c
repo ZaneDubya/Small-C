@@ -1236,32 +1236,32 @@ int code_size[PCODES] = {
 };
 
 // Map a long-branch p-code to its short-branch equivalent, or 0 if not a branch.
-int shortbranch(int pc) {
-    switch (pc) {
-    case EQ10f:  return EQ10fs;
-    case NE10f:  return NE10fs;
-    case EQ10fp: return EQ10fps;
-    case NE10fp: return NE10fps;
-    case GE10f:  return GE10fs;
-    case GT10f:  return GT10fs;
-    case LE10f:  return LE10fs;
-    case LT10f:  return LT10fs;
-    // EQf..GEuf retired (p-codes removed): now using CMP12 + JccXX
-    case EQd10f: return EQd10fs;
-    case NEd10f: return NEd10fs;
-    case JccE:   return JccEs;
-    case JccNE:  return JccNEs;
-    case JccG:   return JccGs;
-    case JccL:   return JccLs;
-    case JccGE:  return JccGEs;
-    case JccLE:  return JccLEs;
-    case JccA:   return JccAs;
-    case JccB:   return JccBs;
-    case JccAE:  return JccAEs;
-    case JccBE:  return JccBEs;
-    case JMPm:   return JMPs;
-    default:     return 0;
-    }
+int shortbranchTab[] = {
+    EQ10f,  EQ10fs,   
+    NE10f,  NE10fs,   
+    EQ10fp, EQ10fps,  
+    NE10fp, NE10fps,
+    GE10f,  GE10fs,   
+    GT10f,  GT10fs,   
+    LE10f,  LE10fs,   
+    LT10f,  LT10fs,
+    EQd10f, EQd10fs,  
+    NEd10f, NEd10fs,
+    JccE,   JccEs,
+    JccNE,  JccNEs,
+    JccG,   JccGs,
+    JccL,   JccLs,
+    JccGE,  JccGEs,
+    JccLE,  JccLEs,
+    JccA,   JccAs,
+    JccB,   JccBs,
+    JccAE,  JccAEs,
+    JccBE,  JccBEs,
+    JMPm,   JMPs,
+    0,      0
+};
+int shortbranch(int pc) { 
+    return tableFind(shortbranchTab, pc); 
 }
 
 // print all assembler info before any code is generated
