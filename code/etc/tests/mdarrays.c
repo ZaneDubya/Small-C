@@ -326,4 +326,5 @@ void main() {
         printf("*** SOME TESTS FAILED ***\n");
     else
         printf("All tests passed!\n");
+    if (failed) getchar();
 }

@@ -16,11 +16,6 @@ ECHO === Linking unions test ===
 %BIN%\ylink unions.obj,%LIB%\clib.lib -e=unions.exe
 if errorlevel 1 goto exit
 
-REM CLEANUP
-if exist *.asm del *.asm
-if exist *.obj del *.obj
-if exist *.map del *.map
-
 :exit
 @ECHO ON
 if exist unions.exe unions

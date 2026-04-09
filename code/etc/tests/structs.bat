@@ -18,11 +18,6 @@ REM %BIN%\link cc1 cc2 cc3 cc4,cc,cc,..\smalllib\clib.lib
 %BIN%\ylink structs.obj,%LIB%\clib.lib -e=structs.exe
 if errorlevel 1 goto exit
 
-REM CLEANUP
-if exist *.asm del *.asm
-if exist *.obj del *.obj
-if exist *.map del *.map
-
 :exit
 @ECHO ON
 if exist structs.exe structs

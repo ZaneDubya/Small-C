@@ -743,4 +743,5 @@ void main() {
     test_static_addr_stable();
 
     printf("\n=== Results: %d passed, %d failed ===\n", passed, failed);
+    if (failed) getchar();
 }

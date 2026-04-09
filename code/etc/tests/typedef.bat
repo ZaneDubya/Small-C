@@ -16,11 +16,6 @@ ECHO === Linking typedef ===
 %BIN%\ylink typedef.obj,%LIB%\clib.lib -e=typedef.exe
 if errorlevel 1 goto exit
 
-REM CLEANUP
-REM if exist *.asm del *.asm
-if exist *.obj del *.obj
-if exist *.map del *.map
-
 :exit
 @ECHO ON
 if exist typedef.exe typedef

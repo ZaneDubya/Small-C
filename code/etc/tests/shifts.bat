@@ -16,10 +16,6 @@ ECHO === Linking shifts ===
 %BIN%\ylink shifts.obj,%LIB%\clib.lib -e=shifts.exe
 if errorlevel 1 goto exit
 
-REM CLEANUP
-if exist *.obj del *.obj
-if exist *.map del *.map
-
 :exit
 @ECHO ON
 if exist shifts.exe shifts

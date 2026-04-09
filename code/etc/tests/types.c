@@ -406,5 +406,6 @@ int main() {
     func_params();
 
     printf("\n=== Results: %d passed, %d failed ===\n", passed, failed);
+    if (failed) getchar();
     return failed;
 }

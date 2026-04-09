@@ -828,14 +828,19 @@ int isnullp(void *p) {
 
 void test_nullarg() {
     void *vp;
+    int   probe;    // local: BP-relative address, guaranteed non-null.
+                    // _passed lands at data offset 0 (voidptrs.obj is linked
+                    // before clib, so CALL.ASM's sentinel 'dw 1' comes after),
+                    // making &passed == 0 and unsuitable as a non-null address.
 
     printf("--- null arg ---\n");
 
+    probe = 1;
     check("lit 0 null",     isnullp(0));
-    check("nonzero !null",  !isnullp(&passed));
+    check("nonzero !null",  !isnullp(&probe));
     vp = 0;
     check("void* 0 null",   isnullp(vp));
-    vp = &passed;
+    vp = &probe;
     check("void* ptr !null",!isnullp(vp));
 }
 

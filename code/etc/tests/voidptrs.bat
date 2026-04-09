@@ -16,10 +16,6 @@ ECHO === Linking voidptrs ===
 %BIN%\ylink voidptrs.obj,%LIB%\clib.lib -e=voidptrs.exe
 if errorlevel 1 goto exit
 
-REM CLEANUP
-if exist *.obj del *.obj
-if exist *.map del *.map
-
 :exit
 @ECHO ON
 if exist voidptrs.exe voidptrs

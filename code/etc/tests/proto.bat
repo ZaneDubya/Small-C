@@ -17,12 +17,5 @@ ECHO === Linking proto ===
 %BIN%\ylink proto.obj,%LIB%\clib.lib -e=proto.exe
 if errorlevel 1 goto exit
 
-ECHO === Running proto ===
-proto.exe
-
-REM CLEANUP
-if exist *.obj del *.obj
-if exist *.map del *.map
-
 :exit
 if exist proto.exe proto

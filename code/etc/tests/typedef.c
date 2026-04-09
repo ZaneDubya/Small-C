@@ -357,4 +357,5 @@ void main() {
     printf("\n");
     printf("passed: %d\n", passed);
     printf("failed: %d\n", failed);
+    if (failed) getchar();
 }

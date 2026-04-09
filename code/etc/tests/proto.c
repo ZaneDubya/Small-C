@@ -53,6 +53,7 @@ void check(char *desc, int val, int expected) {
     else {
         printf("  FAIL: %s  (got %d, expected %d)\n", desc, val, expected);
         failed++;
+        getchar();
     }
 }
 
@@ -65,6 +66,7 @@ void checkptr(char *desc, char *val, char *expected) {
         printf("  FAIL: %s  (got \"%s\", expected \"%s\")\n",
                desc, val, expected);
         failed++;
+        getchar();
     }
 }
 
@@ -115,6 +117,7 @@ void main() {
 
     // -----------------------------------------------------------------------
     printf("\nResults: %d passed, %d failed\n", passed, failed);
+    if (failed) getchar();
 }
 
 // ============================================================================

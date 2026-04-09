@@ -180,4 +180,5 @@ void main() {
     check("shr(0,1)==0", !test_shr(0, 1));    // 0>>1=0 falsy
 
     printf("\nPassed: %d  Failed: %d\n", passed, failed);
+    if (failed) getchar();
 }

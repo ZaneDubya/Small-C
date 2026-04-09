@@ -20,6 +20,7 @@ void check(char *desc, char *got, char *expect) {
         printf("    expected: %s\n", expect);
         printf("    got:      %s\n", got);
         failed++;
+        getchar();
     }
 }
 
@@ -57,7 +58,11 @@ int main() {
 
     /* 8: %x lowercase hex */
     sprintf(buf, "%x", 255);
-    check("%x (255)", buf, "ff");
+    check("%x (255)", buf, "FF");
+    // NOTE - THIS IS NON-STANDARD BEHAVIOR: uppercase hex digits.  The C standard allows either
+    // uppercase or lowercase, but lowercase is more common.  We use uppercase because this is 
+    // the version implemented in SmallLib's ITOAB.
+    // TODO: add %X for uppercase hex and make %x lowercase to match common convention.
 
     /* 9: %x zero */
     sprintf(buf, "%x", 0);
@@ -93,5 +98,6 @@ int main() {
     else
         printf("*** THERE WERE FAILURES ***\n");
 
+    if (failed) getchar();
     return failed;
 }

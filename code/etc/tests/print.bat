@@ -16,10 +16,5 @@ ECHO === Linking print ===
 %BIN%\ylink print.obj,%LIB%\clib.lib -e=print.exe
 if errorlevel 1 goto exit
 
-ECHO === Running print ===
-if exist print.exe print
-
-if exist *.obj del *.obj
-if exist *.map del *.map
-
 :exit
+if exist print.exe print

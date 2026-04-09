@@ -16,11 +16,6 @@ ECHO === Linking mdarrays test ===
 %BIN%\ylink mdarrays.obj,%LIB%\clib.lib -e=mdarrays.exe
 if errorlevel 1 goto exit
 
-REM CLEANUP
-if exist *.asm del *.asm
-if exist *.obj del *.obj
-if exist *.map del *.map
-
 :exit
 @ECHO ON
 if exist mdarrays.exe mdarrays

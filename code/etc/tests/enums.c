@@ -515,5 +515,6 @@ int main() {
     enum_relational();
 
     printf("\n=== Results: %d passed, %d failed ===\n", passed, failed);
+    if (failed) getchar();
     return failed;
 }

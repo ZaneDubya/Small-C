@@ -1640,4 +1640,5 @@ void main() {
         printf("*** FAILURES DETECTED ***\n");
     else
         printf("All tests passed.\n");
+    if (failed) getchar();
 }

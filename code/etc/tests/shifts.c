@@ -101,4 +101,5 @@ void main() {
     test_u16_asgn();
     test_cnst16();
     printf("--- %d passed, %d failed ---\n", passed, failed);
+    if (failed) getchar();
 }

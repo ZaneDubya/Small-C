@@ -16,11 +16,6 @@ ECHO === Linking types ===
 %BIN%\ylink types.obj,%LIB%\clib.lib -e=types.exe
 if errorlevel 1 goto exit
 
-REM CLEANUP
-REM if exist *.asm del *.asm
-if exist *.obj del *.obj
-if exist *.map del *.map
-
 :exit
 @ECHO ON
 if exist types.exe types

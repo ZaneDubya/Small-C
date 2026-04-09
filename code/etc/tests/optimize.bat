@@ -1,4 +1,8 @@
 @ECHO OFF
+REM The -A switch causes the alarm to sound whenever an error is reported.
+REM The -P switch causes the compiler to pause after reporting each error.
+REM     An ENTER (carriage return) keystroke resumes execution.
+
 SET BIN=..\..\bin
 SET LIB=..\..\smalllib
 

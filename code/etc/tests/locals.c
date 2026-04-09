@@ -373,5 +373,6 @@ int main() {
     else
         printf("*** THERE WERE FAILURES ***\n");
 
+    if (failed) getchar();
     return failed;
 }

@@ -16,11 +16,6 @@ ECHO === Linking enums ===
 %BIN%\ylink enums.obj,%LIB%\clib.lib -e=enums.exe
 if errorlevel 1 goto exit
 
-REM CLEANUP
-REM if exist *.asm del *.asm
-if exist *.obj del *.obj
-if exist *.map del *.map
-
 :exit
 @ECHO ON
 if exist enums.exe enums

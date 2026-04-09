@@ -16,11 +16,6 @@ ECHO === Linking longs ===
 %BIN%\ylink longs.obj,%LIB%\clib.lib -e=longs.exe
 if errorlevel 1 goto exit
 
-REM CLEANUP
-REM if exist *.asm del *.asm
-if exist *.obj del *.obj
-if exist *.map del *.map
-
 :exit
 @ECHO ON
 if exist longs.exe longs
