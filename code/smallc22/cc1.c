@@ -148,7 +148,8 @@ char
 int
     lastNdim,            // ndim from last parseLocalDeclare call
     lastStrides[MAX_DIMS], // strides from last parseLocalDeclare call
-    typeConstFlag,       // set by dotype(): 1 if const qualifier was seen
+    typeIsConst,       // set by dotype(): 1 if const qualifier was seen
+    typeIsPtr,           // set by dotype(): 1 if typedef resolved to a pointer type
     protoVoidList,       // set by doArgsTyped when f(void) form is parsed
     protoVariadic,       // set by doArgsTyped/doArgsNonTyped when ... is parsed
     argbufcur;           // global argbuf write cursor; saved/restored per callfunc level
@@ -305,10 +306,15 @@ void dostatic() {
 int dodeclare(int class) {
     int type, typeSubPtr, declclass;
     char *p;
+#ifdef ENABLE_TYPEDEF
+    if (amatch("typedef", 7)) {
+        return doTypedef();
+    }
+#endif
     type = dotype(&typeSubPtr);
     // Incorporate const qualifier into the storage class byte.
     // Functions cannot be const; only variable declarations use this flag.
-    declclass = typeConstFlag ? (class | CONST_FLAG) : class;
+    declclass = typeIsConst ? (class | CONST_FLAG) : class;
     if (type != 0) {
         // Lookahead: if next tokens are "name(" this is a function
         // definition, not a variable declaration. Divert to dofunction().
@@ -320,7 +326,9 @@ int dodeclare(int class) {
             if (*p == '(') {
                 rettype = type;
                 rettypeSubPtr = (type == TYPE_STRUCT) ? typeSubPtr : 0;
+                rettypeIsPtr = typeIsPtr;    // pointer typedef → pointer-returning fn
                 dofunction(class);   // functions are never const
+                rettypeIsPtr = 0;
                 rettype = TYPE_INT;
                 rettypeSubPtr = 0;
                 return 1;
@@ -357,10 +365,49 @@ int dodeclare(int class) {
     return 1;
 }
 
+#ifdef ENABLE_TYPEDEF
+// parse a typedef declaration: typedef <type> [*] <name> ;
+// Called from dodeclare() after "typedef" has been consumed.
+// Stores a TYPEDEF entry in the global symbol table.
+// IDENT == IDENT_POINTER if the alias is a pointer type, else IDENT_VARIABLE.
+// TYPE  == aliased base type (TYPE_INT, TYPE_CHR, TYPE_STRUCT, etc.)
+// CLASSPTR == struct/union def pointer when TYPE == TYPE_STRUCT, else 0.
+int doTypedef() {
+    int tdType, tdSubPtr, tdIsPtr;
+    char *sym;
+    tdType = dotype(&tdSubPtr);
+    tdIsPtr = typeIsPtr;
+    if (IsMatch("*")) tdIsPtr = 1;
+    if (tdType == 0) {
+        error("bad typedef type");
+        return 1;
+    }
+    if (symname(ssname) == 0) {
+        illname();
+        return 1;
+    }
+    if (isreserved(ssname)) {
+        error("reserved keyword used as typedef name");
+        return 1;
+    }
+    if (findglb(ssname)) {
+        multidef(ssname);
+        return 1;
+    }
+    sym = AddSymbol(ssname,
+        tdIsPtr ? IDENT_POINTER : IDENT_VARIABLE,
+        tdType, 0, 0, &glbptr, TYPEDEF);
+    if (sym && tdType == TYPE_STRUCT)
+        putint(tdSubPtr, sym + CLASSPTR, 2);
+    ReqSemicolon();
+    return 1;
+}
+#endif
+
 // get type of declaration.
 // Handles type qualifiers: const, volatile, register, auto, signed,
 // unsigned, short. On 8086 short == int (both 16-bit).
-// Sets global typeConstFlag = 1 when the const qualifier is present.
+// Sets global typeIsConst = 1 when the const qualifier is present.
 // "volatile" and "register" are accepted and silently ignored.
 // "register" is treated as automatic storage (the default on 8086 where
 // there are no spare GPRs available for user variables).
@@ -368,7 +415,8 @@ int dodeclare(int class) {
 int dotype(int *typeSubPtr) {
     int isConst, isUnsigned, isShort, gotSignSize;
     isConst = isUnsigned = isShort = gotSignSize = 0;
-    typeConstFlag = 0;
+    typeIsConst = 0;
+    typeIsPtr = 0;
     // Consume qualifier/modifier keywords in any order.  Only unsigned and
     // short actually affect the returned type; the rest are accepted as
     // no-ops (const sets a flag for callers, the others are discarded).
@@ -382,7 +430,7 @@ int dotype(int *typeSubPtr) {
         else if (amatch("short", 5))   { isShort     = 1; gotSignSize = 1; }
         else break;
     }
-    typeConstFlag = isConst;
+    typeIsConst = isConst;
     // short [int] -- on 8086 short == int (16-bit word)
     if (isShort) {
         amatch("int", 3);
@@ -420,9 +468,27 @@ int dotype(int *typeSubPtr) {
         return doEnum(typeSubPtr);
     }
 #endif
+#ifdef ENABLE_TYPEDEF
+    {
+        char *savedLptr, *p;
+        int savedCh, savedIsConst;
+        savedLptr = lptr;
+        savedCh = ch;
+        savedIsConst = typeIsConst;
+        if (symname(ssname) && (p = findglb(ssname))
+                && ((p[CLASS] & 0x7F) == TYPEDEF)) {
+            *typeSubPtr = getint(p + CLASSPTR, 2);
+            typeIsPtr = (p[IDENT] == IDENT_POINTER);
+            return p[TYPE];
+        }
+        lptr = savedLptr;
+        ch = savedCh;
+        typeIsConst = savedIsConst;
+    }
+#endif
     // If only const/volatile were seen with no base type, clear the flag
     // so callers do not misinterpret a non-declaration as const.
-    typeConstFlag = 0;
+    typeIsConst = 0;
     return 0;
 }
 
@@ -436,7 +502,8 @@ void declglb(int type, int class, int typeSubPtr) {
         if (endst()) {
             return;  // do line
         }
-        if (IsMatch("*")) { 
+        if (typeIsPtr || IsMatch("*")) {
+            typeIsPtr = 0;
             id = IDENT_POINTER; 
             dim = 0;
         }
@@ -1033,7 +1100,7 @@ int dofunction(int class) {
     locptr = STARTLOC;            // clear local variables
     protoVoidList = 0;
     protoVariadic = 0;
-    if (rettypeIsPtr) IsMatch("*");
+    if (rettypeIsPtr && !typeIsPtr) IsMatch("*");
     if (monitor) {
         lout(line, stderr);
     }
@@ -1125,7 +1192,7 @@ int dofunction(int class) {
 void doArgsTyped(int type, int typeSubPtr) {
     int id, sz, paren, argConst;
     char *ptr, *ddentry;
-    argConst = typeConstFlag;   // capture const flag for first argument
+    argConst = typeIsConst;   // capture const flag for first argument
     // Handle f(void) -- explicit zero-parameter prototype or definition.
     if (type == TYPE_VOID) {
         if (IsMatch(")") == 0)
@@ -1254,7 +1321,7 @@ void doArgsTyped(int type, int typeSubPtr) {
                 error("untyped argument declaration");
                 break;
             }
-            argConst = typeConstFlag;  // capture const flag for this argument
+            argConst = typeIsConst;  // capture const flag for this argument
         }
     }
     csp = 0;                       // preset stack ptr
@@ -1399,7 +1466,8 @@ void doArgTypes(int type, int typeSubPtr) {
 int parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
     int nameIsValid, hasOpenParen;
     hasOpenParen = IsMatch("(") ? 1 : 0;
-    if (IsMatch("*")) {
+    if (typeIsPtr || IsMatch("*")) {
+        typeIsPtr = 0;
         *id = IDENT_POINTER;
         *sz = BPW;
     }
@@ -1517,7 +1585,7 @@ int statement() {
     if (amatch("static", 6)) isStatic = 1;
     if ((type = dotype(&typeSubPtr)) != 0) {
         // Pass CONST_FLAG in the class so AddSymbol stores it in CLASS byte.
-        declareLocals(type, typeSubPtr, isStatic, typeConstFlag);
+        declareLocals(type, typeSubPtr, isStatic, typeIsConst);
         ReqSemicolon();
     }
     else if (isStatic) {
