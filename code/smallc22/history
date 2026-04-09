@@ -301,3 +301,20 @@ Small-C Revision History
     I reused most of the struct code.
 142 Optimization: don't emit or ax, ax where not necessary.
 143 Add typedef
+144 Added SHORT qualifier to all short-branch p-codes. Previously these
+    emitted bare conditional jumps (e.g. "JNE _<n>") which the assembler
+    assembles as near jumps; now they are forced to correct 2-byte encoding.
+    Frame Pointer Omission (FPO) optimization. BP can be dropped when it is
+    never read inside a function. A new pass in flushfunc() scans the function
+    p-code buffer for any BP-relative p-code; if none is found AND the function
+    contains no inline #asm block, ENTER is replaced with NOP_ (emits nothing)
+    and every RETURN with RETNOFP, which emits a one-byte RET. Functions with
+    #asm blocks are unconditionally excluded because inline assembly is flushed
+    directly to the output file and may reference BP outside the p-code view.
+    Epilogue Consolidation optimization.  When a function has two or more RETURN
+    p-codes and frame-pointer omission did not apply, all RETURN p-codes except
+    the last are replaced with JMPm to a shared epilogue label, and the last
+    RETURN slot is repurposed as that label followed by a single RETURN.
+    Each eliminated duplicate epilogue saves 2 bytes (5-byte JMP to  2-byte JMP
+    short, vs. the 4-byte POP BP / RET it replaces). Functions where FP was
+    omitted are not eligible, as we can just RETNOFP (1 byte).

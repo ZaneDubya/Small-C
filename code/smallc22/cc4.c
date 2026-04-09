@@ -19,6 +19,7 @@
 // #define DISOPT           // display optimizations values
 
 char needLong;
+char hasInlineAsm;   // function contains #asm block(s): must not omit frame pointer
 
 // === externals ==============================================================
 
@@ -969,14 +970,14 @@ char* code[PCODES] = {
     /* 165 POPCX      */ "\000POP CX\n",
     /* 166 POPCX2     */ "\000POP CX\nPOP CX\n",
     /* short-branch variants: invert skip condition to jump directly */
-    /* 167 EQ10fs     */ "\010OR AX,AX\nJNE _<n>\n",
-    /* 168 NE10fs     */ "\010OR AX,AX\nJE _<n>\n",
-    /* 169 GE10fs     */ "\010OR AX,AX\nJL _<n>\n",
-    /* 170 GT10fs     */ "\010OR AX,AX\nJLE _<n>\n",
-    /* 171 LE10fs     */ "\010OR AX,AX\nJG _<n>\n",
-    /* 172 LT10fs     */ "\010OR AX,AX\nJGE _<n>\n",
-    /* 173 EQd10fs    */ "\030OR AX,DX\nJNE _<n>\n",
-    /* 174 NEd10fs    */ "\030OR AX,DX\nJE _<n>\n",
+    /* 167 EQ10fs     */ "\010OR AX,AX\nJNE SHORT _<n>\n",
+    /* 168 NE10fs     */ "\010OR AX,AX\nJE SHORT _<n>\n",
+    /* 169 GE10fs     */ "\010OR AX,AX\nJL SHORT _<n>\n",
+    /* 170 GT10fs     */ "\010OR AX,AX\nJLE SHORT _<n>\n",
+    /* 171 LE10fs     */ "\010OR AX,AX\nJG SHORT _<n>\n",
+    /* 172 LT10fs     */ "\010OR AX,AX\nJGE SHORT _<n>\n",
+    /* 173 EQd10fs    */ "\030OR AX,DX\nJNE SHORT _<n>\n",
+    /* 174 NEd10fs    */ "\030OR AX,DX\nJE SHORT _<n>\n",
     /* 175 JMPs       */ "\000JMP SHORT _<n>\n",
     // factored comparison p-codes
     /* 176 NOP_       */ "\000",
@@ -993,16 +994,16 @@ char* code[PCODES] = {
     /* 186 JccAE      */ "\000JAE $+5\nJMP _<n>\n",
     /* 187 JccBE      */ "\000JBE $+5\nJMP _<n>\n",
     // factored conditional jumps (short: inverted Jcc SHORT _n)
-    /* 188 JccEs      */ "\000JNE _<n>\n",
-    /* 189 JccNEs     */ "\000JE _<n>\n",
-    /* 190 JccGs      */ "\000JLE _<n>\n",
-    /* 191 JccLs      */ "\000JGE _<n>\n",
-    /* 192 JccGEs     */ "\000JL _<n>\n",
-    /* 193 JccLEs     */ "\000JG _<n>\n",
-    /* 194 JccAs      */ "\000JBE _<n>\n",
-    /* 195 JccBs      */ "\000JAE _<n>\n",
-    /* 196 JccAEs     */ "\000JB _<n>\n",
-    /* 197 JccBEs     */ "\000JA _<n>\n",
+    /* 188 JccEs      */ "\000JNE SHORT _<n>\n",
+    /* 189 JccNEs     */ "\000JE SHORT _<n>\n",
+    /* 190 JccGs      */ "\000JLE SHORT _<n>\n",
+    /* 191 JccLs      */ "\000JGE SHORT _<n>\n",
+    /* 192 JccGEs     */ "\000JL SHORT _<n>\n",
+    /* 193 JccLEs     */ "\000JG SHORT _<n>\n",
+    /* 194 JccAs      */ "\000JBE SHORT _<n>\n",
+    /* 195 JccBs      */ "\000JAE SHORT _<n>\n",
+    /* 196 JccAEs     */ "\000JB SHORT _<n>\n",
+    /* 197 JccBEs     */ "\000JA SHORT _<n>\n",
     // factored register comparison
     /* 198 CMP12      */ "\011CMP AX,BX\n",
     // factored memory/stack comparisons
@@ -1011,8 +1012,9 @@ char* code[PCODES] = {
     // zero-test branches without redundant OR AX,AX (predecessor must have SETSFLG)
     /* 201 NE10fp     */ "\010JNE $+5\nJMP _<n>\n",   // NE10f without OR AX,AX (5 bytes)
     /* 202 EQ10fp     */ "\010JE $+5\nJMP _<n>\n",    // EQ10f without OR AX,AX (5 bytes)
-    /* 203 NE10fps    */ "\010JE _<n>\n",              // short form of NE10fp (2 bytes)
-    /* 204 EQ10fps    */ "\010JNE _<n>\n"              // short form of EQ10fp (2 bytes)
+    /* 203 NE10fps    */ "\010JE SHORT _<n>\n",              // short form of NE10fp (2 bytes)
+    /* 204 EQ10fps    */ "\010JNE SHORT _<n>\n",             // short form of EQ10fp (2 bytes)
+    /* 205 RETNOFP    */ "\000RET\n"                    // bare RET (frame pointer omitted)
 };
 
 //  === code generation functions =============================================
@@ -1232,7 +1234,8 @@ int code_size[PCODES] = {
     /*201 NE10fp   */  5,  // JNE $+5 / JMP _n
     /*202 EQ10fp   */  5,  // JE $+5 / JMP _n
     /*203 NE10fps  */  2,  // JE SHORT _n
-    /*204 EQ10fps  */  2   // JNE SHORT _n
+    /*204 EQ10fps  */  2,  // JNE SHORT _n
+    /*205 RETNOFP  */  1   // near RET
 };
 
 // Map a long-branch p-code to its short-branch equivalent, or 0 if not a branch.
@@ -1268,6 +1271,7 @@ int shortbranch(int pc) {
 // and ensure that segments appear in correct order.
 void header() {
     needLong = 0;
+    hasInlineAsm = 0;
     funcbuf = calloc(FUNCBUFSIZE, BPW);
     fl_labnum = calloc(256, BPW);
     fl_labpos = calloc(256, BPW);
@@ -1470,6 +1474,74 @@ void flushfunc() {
     pairs = (fnext - funcbuf) / 2;
     if (fnext == funcbuf) {
         return;
+    }
+    // Frame Pointer Omission pass:
+    // On 8086, [SP+N] addressing is illegal, so BP may only be dropped when
+    // it is never read within the function.  Scan for any BP-relative p-code;
+    // if none is found, replace ENTER with NOP_ (emits nothing) and RETURN
+    // with RETNOFP (emits bare RET), eliminating the 4-instruction frame
+    // overhead for leaf and no-local functions.
+    // Functions with inline #asm blocks are unconditionally excluded: inline
+    // asm is emitted directly to the output file (bypassing funcbuf) and may
+    // reference BP without any corresponding p-code being visible here.
+    {
+        int can_omit = !hasInlineAsm;
+        for (p = funcbuf; p < fnext; p += 2) {
+            pc = p[0];
+            if (pc == POINT1s || pc == POINT2s  ||
+                pc == GETb1s  || pc == GETb1su  ||
+                pc == GETw1s  || pc == GETw2s   ||
+                pc == PUSHs   || pc == PUSHds   ||
+                pc == PUTws1  || pc == PUTbs1   ||
+                pc == GETd1s  || pc == GETd2s   ||
+                pc == PUTds1  || pc == CMP1s) {
+                can_omit = 0;
+                break;
+            }
+        }
+        if (can_omit) {
+            for (p = funcbuf; p < fnext; p += 2) {
+                if (p[0] == ENTER)  p[0] = NOP_;
+                if (p[0] == RETURN) p[0] = RETNOFP;
+            }
+        }
+    }
+    // Epilogue Consolidation pass:
+    // When a function has 2+ RETURN p-codes (frame pointer NOT omitted), replace
+    // all but the last with JMP to a shared epilogue label, saving up to 2 bytes
+    // per eliminated copy after short-branch optimization converts JMPm to JMPs.
+    // Trigger: nret >= 2 AND at least one RETURN has nonzero value (i.e. at least
+    // one return point actually frees locals via MOV SP,BP), so the consolidation
+    // is never vacuous.  Functions where FP was omitted have RETNOFP (1 byte) and
+    // are never eligible: a JMP would cost more than the RET it replaces.
+    {
+        int *pp, *lastRet, nret, nretN, epiLabel;
+        nret = 0; nretN = 0; lastRet = 0;
+        for (pp = funcbuf; pp < fnext; pp += 2) {
+            if (pp[0] == RETURN) {
+                nret++;
+                if (pp[1] != 0) nretN++;
+                lastRet = pp;
+            }
+        }
+        if (nret >= 2 && nretN >= 1 && fnext + 2 <= funcbuf + FUNCBUFSIZE) {
+            epiLabel = getlabel();
+            for (pp = funcbuf; pp < fnext; pp += 2) {
+                if (pp[0] == RETURN && pp != lastRet) {
+                    pp[0] = JMPm;
+                    pp[1] = epiLabel;
+                }
+            }
+            // Repurpose the last RETURN slot as the epilogue label,
+            // then append the single shared RETURN(1) at the new tail.
+            // value=1 is nonzero so RETURN always emits MOV SP,BP / POP BP / RET,
+            // which is correct since BP is guaranteed set up (FP not omitted).
+            lastRet[0] = LABm;
+            lastRet[1] = epiLabel;
+            fnext[0] = RETURN;
+            fnext[1] = 1;
+            fnext += 2;
+        }
     }
     // iterate: each pass may shrink branches, bringing more targets within range
     do {

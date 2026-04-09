@@ -198,6 +198,8 @@ int opd2[16] = { // p-codes of unsigned 32-bit binary operators
     MULd12u, DIVd12u, MODd12u       // level12
 };
 
+extern char hasInlineAsm; // set by doasm() where there is inline assembly; disables optimizing frame teardown
+
 // execution begins here
 void main(int argc, int *argv) {
     unsigned int availMem;
@@ -2753,6 +2755,7 @@ void docont() {
 
 void doasm() {
     ccode = 0;           // mark mode as "asm"
+    hasInlineAsm = 1;    // suppress FP omission: inline asm may reference BP outside p-code view
     ClearStage(0, snext);  // flush any pending staged p-codes
     flushfunc();           // flush funcbuf so inline asm lands in order
     while (1) {
