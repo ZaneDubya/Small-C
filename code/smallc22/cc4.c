@@ -56,6 +56,7 @@ int getpop(int *next);
 #define pfree   0x00FD   // matches if pri register free
 #define sfree   0x00FC   // matches if sec register free
 #define comm    0x00FB   // matches if registers are commutative
+#define fset    0x00FA   // matches if current slot's p-code has SETSFLG set (sets ZF on result)
 
 //              --      these digits are reserved for n
 #define go      0x0100   // go n entries
@@ -83,10 +84,11 @@ int getpop(int *next);
 #define ZAPS     0022    // zap register contents
 #define PUSHES   0100    // pushes onto the stack
 #define COMMUTES 0200    // commutative p-code
+#define SETSFLG  0004    // instruction leaves ZF = (result == 0), so OR AX,AX can be skipped
 
 // === optimizer command lists ================================================
 
-#define HIGH_SEQ  129
+#define HIGH_SEQ   90
 
 #ifdef DISOPT
 int optcount[HIGH_SEQ + 1];   // per-rule optimization hit counts
@@ -755,6 +757,12 @@ int seqdata[] = {
     // 088 GE12u+EQ10f -> CMP12+JccA (branch when sr >= pr unsigned)
     GE12u,EQ10f,0,CMP12,go|p1,JccA,go|m1,0, 0,
 
+    // Eliminate OR AX,AX when preceding ALU op already sets ZF correctly
+    // 089 ALU-with-SETSFLG + NE10f -> NE10fp (remove redundant OR AX,AX)
+    fset,NE10f,0,go|p1,NE10fp,go|m1,0, 0,
+    // 090 ALU-with-SETSFLG + EQ10f -> EQ10fp (remove redundant OR AX,AX)
+    fset,EQ10f,0,go|p1,EQ10fp,go|m1,0, 0,
+
     // These four _pop/topop rules eliminate PUSH/POP round-trips by reloading
     // at the pop site.  Disabled because the compiler crashes when they are
     // included in seqdata.
@@ -780,10 +788,10 @@ int seqdata[] = {
 //    value in bx is needed (001) or zapped (002)
 char* code[PCODES] = {
     /* 0   (unused)   */ 0,
-    /* 1   ADD12      */ "\211ADD AX,BX\n",
+    /* 1   ADD12      */ "\215ADD AX,BX\n",
     /* 2   ADDSP      */ "\000?ADD SP,<n>\n??",
-    /* 3   AND12      */ "\211AND AX,BX\n",
-    /* 4   ANEG1      */ "\010NEG AX\n",
+    /* 3   AND12      */ "\215AND AX,BX\n",
+    /* 4   ANEG1      */ "\014NEG AX\n",
     /* 5   (removed)  */ "",  /* ARGCNTn: slot reserved; no longer emitted (rev 139) */
     /* 6   ASL12      */ "\011MOV CX,AX\nMOV AX,BX\nSAL AX,CL\n",
     /* 7   ASR12      */ "\011MOV CX,AX\nMOV AX,BX\nSAR AX,CL\n",
@@ -793,7 +801,7 @@ char* code[PCODES] = {
     /* 11  BYTEn      */ "\000 DB <n>\n",
     /* 12  BYTEr0     */ "\000 DB <n> DUP(0)\n",
     /* 13  COM1       */ "\010NOT AX\n",
-    /* 14  DBL1       */ "\010SHL AX,1\n",
+    /* 14  DBL1       */ "\014SHL AX,1\n",
     /* 15  DBL2       */ "\001SHL BX,1\n",
     /* 16  DIV12      */ "\011CWD\nIDIV BX\n",                 /* see gen() */
     /* 17  DIV12u     */ "\011XOR DX,DX\nDIV BX\n",            /* see gen() */
@@ -836,7 +844,7 @@ char* code[PCODES] = {
     /* 54  NE10f      */ "\010OR AX,AX\nJNE $+5\nJMP _<n>\n",
     /* 55  NE12       */ "\211CALL __ne\n",
     /* 56  NEARm      */ "\000 DW _<n>\n",
-    /* 57  OR12       */ "\211OR AX,BX\n",
+    /* 57  OR12       */ "\215OR AX,BX\n",
     /* 58  POINT1s    */ "\020LEA AX,<n>[BP]\n",
     /* 59  POP2       */ "\002POP BX\n",
     /* 60  PUSH1      */ "\110PUSH AX\n",
@@ -848,13 +856,13 @@ char* code[PCODES] = {
     /* 66  REFm       */ "\000_<n>",
     /* 67  RETURN     */ "\000?MOV SP,BP\n??POP BP\nRET\n",
     /* 68  rINC1      */ "\010#INC AX\n#",
-    /* 69  SUB12      */ "\011SUB AX,BX\n",                    /* see gen() */
+    /* 69  SUB12      */ "\015SUB AX,BX\n",                    /* see gen() */
     /* 70  SWAP12     */ "\011XCHG AX,BX\n",
     /* 71  SWAP1s     */ "\012POP BX\nXCHG AX,BX\nPUSH BX\n",
     /* 72  SWITCH     */ "\012CALL __switch\n",
-    /* 73  XOR12      */ "\211XOR AX,BX\n",
+    /* 73  XOR12      */ "\215XOR AX,BX\n",
     /* optimizer-generated */
-    /* 74  ADD1n      */ "\010?ADD AX,<n>\n??",
+    /* 74  ADD1n      */ "\014?ADD AX,<n>\n??",
     /* 75  ADD21      */ "\211ADD BX,AX\n",
     /* 76  ADD2n      */ "\010?ADD BX,<n>\n??",
     /* 77  ADDbpn     */ "\001ADD BYTE PTR [BX],<n>\n",
@@ -884,15 +892,15 @@ char* code[PCODES] = {
     /* 101 rDEC2      */ "\010#DEC BX\n#",
     /* 102 rINC2      */ "\010#INC BX\n#",
     /* 103 SUB_m_     */ "\000SUB <m>",
-    /* 104 SUB1n      */ "\010?SUB AX,<n>\n??",
+    /* 104 SUB1n      */ "\014?SUB AX,<n>\n??",
     /* 105 SUBbpn     */ "\001SUB BYTE PTR [BX],<n>\n",
     /* 106 SUBwpn     */ "\001SUB WORD PTR [BX],<n>\n",
     /* optimizer-generated: direct stack stores */
     /* 107 PUTws1     */ "\010MOV <n>[BP],AX\n",
     /* 108 PUTbs1     */ "\010MOV BYTE PTR <n>[BP],AL\n",
     /* optimizer-generated: constant shift by 1 */
-    /* 109 ASL1_1     */ "\001MOV AX,BX\nSHL AX,1\n",
-    /* 110 ASR1_1     */ "\001MOV AX,BX\nSAR AX,1\n",
+    /* 109 ASL1_1     */ "\005MOV AX,BX\nSHL AX,1\n",
+    /* 110 ASR1_1     */ "\005MOV AX,BX\nSAR AX,1\n",
     /* 32-bit load/store */
     /* 111 GETd1m     */ "\020MOV AX,WORD PTR <m>\nMOV DX,WORD PTR <m>+2\n",
     /* 112 GETd1p     */ "\033MOV AX,[BX]\nMOV DX,2[BX]\n",       /* see gen() */
@@ -999,7 +1007,12 @@ char* code[PCODES] = {
     /* 198 CMP12      */ "\011CMP AX,BX\n",
     // factored memory/stack comparisons
     /* 199 CMP1m      */ "\010CMP AX,WORD PTR <m>\n",
-    /* 200 CMP1s      */ "\010CMP AX,<n>[BP]\n"
+    /* 200 CMP1s      */ "\010CMP AX,<n>[BP]\n",
+    // zero-test branches without redundant OR AX,AX (predecessor must have SETSFLG)
+    /* 201 NE10fp     */ "\010JNE $+5\nJMP _<n>\n",   // NE10f without OR AX,AX (5 bytes)
+    /* 202 EQ10fp     */ "\010JE $+5\nJMP _<n>\n",    // EQ10f without OR AX,AX (5 bytes)
+    /* 203 NE10fps    */ "\010JE _<n>\n",              // short form of NE10fp (2 bytes)
+    /* 204 EQ10fps    */ "\010JNE _<n>\n"              // short form of EQ10fp (2 bytes)
 };
 
 //  === code generation functions =============================================
@@ -1214,7 +1227,12 @@ int code_size[PCODES] = {
     /*198 CMP12    */  2,  // CMP AX,BX
     // factored memory/stack comparisons
     /*199 CMP1m    */  4,  // CMP AX,WORD PTR [mem16]
-    /*200 CMP1s    */  4   // CMP AX,n[BP]
+    /*200 CMP1s    */  4,  // CMP AX,n[BP]
+    // zero-test branches without OR AX,AX prefix
+    /*201 NE10fp   */  5,  // JNE $+5 / JMP _n
+    /*202 EQ10fp   */  5,  // JE $+5 / JMP _n
+    /*203 NE10fps  */  2,  // JE SHORT _n
+    /*204 EQ10fps  */  2   // JNE SHORT _n
 };
 
 // Map a long-branch p-code to its short-branch equivalent, or 0 if not a branch.
@@ -1222,6 +1240,8 @@ int shortbranch(int pc) {
     switch (pc) {
     case EQ10f:  return EQ10fs;
     case NE10f:  return NE10fs;
+    case EQ10fp: return EQ10fps;
+    case NE10fp: return NE10fps;
     case GE10f:  return GE10fs;
     case GT10f:  return GT10fs;
     case LE10f:  return LE10fs;
@@ -1673,6 +1693,10 @@ int peep(int *seq) {
             return (NO);
         case comm: 
             if (*(cp = code[*next]) & COMMUTES)
+                break;
+            return (NO);
+        case fset:
+            if (next < stail && code[*next] && (*(code[*next]) & SETSFLG))
                 break;
             return (NO);
         case _pop:

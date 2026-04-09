@@ -561,8 +561,13 @@
 // factored memory/stack comparisons
 #define CMP1m   199   // CMP AX,WORD PTR [mem] (compare pr with global, sets flags only)
 #define CMP1s   200   // CMP AX,n[BP] (compare pr with stack var, sets flags only)
+// zero-test branch p-codes without redundant OR AX,AX prefix (requires SETSFLG on predecessor)
+#define NE10fp  201   // JNE $+5 / JMP _n  (NE10f without OR AX,AX)
+#define EQ10fp  202   // JE $+5 / JMP _n   (EQ10f without OR AX,AX)
+#define NE10fps 203   // JE SHORT _n       (short form of NE10fp)
+#define EQ10fps 204   // JNE SHORT _n      (short form of EQ10fp)
 
-#define PCODES  201   // size of code[]
+#define PCODES  205   // size of code[]
 
 // function prototypes for Small-C *.C files
 int AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class);
