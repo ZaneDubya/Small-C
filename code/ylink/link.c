@@ -141,6 +141,11 @@ void Initialize() {
   for (i = 0; i < SEGS_CNT; i++) {
     segLengths[i] = 0;
   }
+  // Reserve 2 bytes at offset 0 of CODE and DATA for the null-pointer sentinel
+  // (dw 0). This guarantees all real symbols have nonzero offsets without
+  // emitting the sentinel in every compiled object file.
+  segLengths[SEG_CODE] = 2;
+  segLengths[SEG_DATA] = 2;
   // pathDebug = "debug.txt";
   if (pathDebug != 0) {
     unlink(pathDebug);
@@ -835,6 +840,21 @@ void Pass4() {
     fprintf(fdDebug, "Pass 4:\n");
   }
   outfd = safefopen(pathOutput, "a");
+  // Write null-pointer sentinels: one dw 0 at offset 0 of CODE and DATA.
+  // These ensure that no real symbol lives at offset 0 in either segment.
+  // Pass3 has already reserved 2 bytes at the base of each segment for this.
+  {
+    uint sentinel[2];
+    unsigned long sentinelPos;
+    sentinelPos = (unsigned long)EXE_HDR_LEN;
+    sentinel[0] = (uint)sentinelPos; sentinel[1] = (uint)(sentinelPos >> 16);
+    bseek(outfd, sentinel, 0);
+    write_f16(outfd, 0x0000); // CODE segment dw 0
+    sentinelPos = (unsigned long)EXE_HDR_LEN + (unsigned long)segLengths[SEG_CODE];
+    sentinel[0] = (uint)sentinelPos; sentinel[1] = (uint)(sentinelPos >> 16);
+    bseek(outfd, sentinel, 0);
+    write_f16(outfd, 0x0000); // DATA segment dw 0
+  }
   for (i = 0; i < modCount; i++) {
     int mdatBase, mdatFile;
     mdatBase = i * MDAT_PER;

@@ -1285,9 +1285,7 @@ void header() {
              "extrn __ugt: near\n"
              "extrn __lneg: near\n"
              "extrn __switch: near");
-    outline("dw 0"); // force non-zero code pointers, word alignment
     toseg(DATASEG);
-    outline("dw 0"); // force non-zero data pointers, word alignment
 }
 
 // print assembler stuff needed at the end
