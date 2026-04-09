@@ -296,3 +296,6 @@ Small-C Revision History
     followed by GETw1n; (2) when a word-sized variable was just loaded as the
     RHS, retract the load, reverse the operator, and emit GETw2m/GETw2s
     directly so that the existing CMP-Memory/Stack peephole rules can fire.
+141 Add unions, which are like structs, except all of their members start
+    at base address 0 for a union struct. Because they are like structs,
+    I reused most of the struct code.
