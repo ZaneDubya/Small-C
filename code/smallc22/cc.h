@@ -437,16 +437,12 @@
 #define SUB1n   104   // sub n from pr
 #define SUBbpn  105   // sub n from mem byte thru sr ptr
 #define SUBwpn  106   // sub n from mem word thru sr ptr
-
-
 // optimizer-generated: direct stack stores
 #define PUTws1  107   // put pr word into stack frame
 #define PUTbs1  108   // put pr byte into stack frame
-
 // optimizer-generated: constant shift by 1
 #define ASL1_1  109   // shift left sr by 1 into pr
 #define ASR1_1  110   // shift right sr by 1 into pr
-
 // 32-bit (long) p-codes -- load/store
 //  d = dword (32-bit), using DX:AX (primary) / CX:BX (secondary)
 #define GETd1m  111   // load dword into DX:AX from global label
@@ -459,23 +455,19 @@
 #define PUTdm1  118   // store DX:AX dword to global label
 #define PUTdp1  119   // store DX:AX dword thru pointer in BX
 #define PUTds1  120   // store DX:AX dword to stack frame
-
 // 32-bit stack operations
 #define PUSHd1  121   // push DX:AX (4 bytes)
 #define POPd2   122   // pop 4 bytes into CX:BX
 #define PUSHdm  123   // push dword from global label
 #define PUSHds  124   // push dword from stack frame
-
 // 32-bit move/swap
 #define MOVEd21 125   // move DX:AX to CX:BX
 #define SWAPd12 126   // swap DX:AX with CX:BX
-
 // 32-bit widening
 #define WIDENs  127   // sign-extend AX to DX:AX (CWD)
 #define WIDENu  128   // zero-extend AX to DX:AX (XOR DX,DX)
 #define WIDENs2 129   // sign-extend BX to CX:BX
 #define WIDENu2 130   // zero-extend BX to CX:BX
-
 // 32-bit inline arithmetic
 #define ADDd12  131   // DX:AX += CX:BX
 #define SUBd12  132   // DX:AX -= CX:BX  (auto-swap)
@@ -488,7 +480,6 @@
 #define rDECd1  139   // DX:AX -= n (32-bit decrement)
 #define DBLd1   140   // DX:AX <<= 1
 #define DBLd2   141   // CX:BX <<= 1
-
 // 32-bit library-call arithmetic
 #define MULd12  142   // DX:AX *= CX:BX (signed)
 #define MULd12u 143   // DX:AX *= CX:BX (unsigned)
@@ -499,7 +490,6 @@
 #define ASLd12  148   // DX:AX <<= CL
 #define ASRd12  149   // DX:AX >>= CL (signed)
 #define ASRd12u 150   // DX:AX >>= CL (unsigned)
-
 // 32-bit library-call comparisons (result: AX = 0 or 1, 16-bit)
 #define EQd12   151   // AX = (DX:AX == CX:BX)
 #define NEd12   152   // AX = (DX:AX != CX:BX)
@@ -511,14 +501,11 @@
 #define LEd12u  158   // AX = (DX:AX <= CX:BX) unsigned
 #define GTd12u  159   // AX = (DX:AX >  CX:BX) unsigned
 #define GEd12u  160   // AX = (DX:AX >= CX:BX) unsigned
-
 // 32-bit unary (library)
 #define LNEGd1  161   // AX = !DX:AX (result is 16-bit 0/1)
-
 // 32-bit truthiness (conditional jump)
 #define EQd10f  162   // jump if (DX:AX == 0) is false
 #define NEd10f  163   // jump if (DX:AX != 0) is false
-
 // 32-bit switch dispatch
 #define LSWITCHd 164  // CALL __lswitch
 #define POPCX   165   // POP CX           (replaces ADD SP,2)
@@ -569,10 +556,14 @@
 #define NE10fps 203   // JE SHORT _n       (short form of NE10fp)
 #define EQ10fps 204   // JNE SHORT _n      (short form of EQ10fp)
 #define RETNOFP 205   // RET only (frame pointer omitted — no BP setup/teardown)
+// logical (unsigned) shift right
+#define LSR12   206   // logical shift right sr by pr into pr (unsigned >> unsigned)
+#define LSR1_1  207   // logical shift right sr by 1 into pr (optimizer-generated)
+#define PCODES  208   // size of code[]
 
-#define PCODES  206   // size of code[]
+// === function prototypes for Small-C ========================================
+// ============================================================================
 
-// function prototypes for Small-C *.C files
 int AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class);
 int FindSymbol(char *sname, char *buf, int len, char *end, int max, int off, int namelen);
 int IsMatch(char *lit);

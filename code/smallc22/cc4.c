@@ -763,6 +763,15 @@ int seqdata[] = {
     fset,NE10f,0,go|p1,NE10fp,go|m1,0, 0,
     // 090 ALU-with-SETSFLG + EQ10f -> EQ10fp (remove redundant OR AX,AX)
     fset,EQ10f,0,go|p1,EQ10fp,go|m1,0, 0,
+    // 091 Constant-1 Logical Right Shift to Single-Bit Logical Shift
+    // Same as Constant-1 Right Shift but for unsigned: replace GETw1n(1)+LSR12 with LSR1_1.
+    //     IN:  GETw1n(1)  LSR12
+    //          AX=1       AX = BX >> AX  (unsigned; MOV CX,AX / MOV AX,BX / SHR AX,CL)
+    //     NET: AX = BX >> 1  (logical)
+    //     WHY: Same as Constant-1 Right Shift; LSR1_1 emits MOV AX,BX / SHR AX,1 (4 bytes)
+    //          vs LSR12's MOV CX,AX / MOV AX,BX / SHR AX,CL (6 bytes).
+    //     OUT: LSR1_1  ->  MOV AX,BX / SHR AX,1
+    GETw1n,LSR12,0,ife|p1,go|p1,LSR1_1,0, 0,
 
     // These four _pop/topop rules eliminate PUSH/POP round-trips by reloading
     // at the pop site.  Disabled because the compiler crashes when they are
@@ -1012,9 +1021,13 @@ char* code[PCODES] = {
     // zero-test branches without redundant OR AX,AX (predecessor must have SETSFLG)
     /* 201 NE10fp     */ "\010JNE $+5\nJMP _<n>\n",   // NE10f without OR AX,AX (5 bytes)
     /* 202 EQ10fp     */ "\010JE $+5\nJMP _<n>\n",    // EQ10f without OR AX,AX (5 bytes)
-    /* 203 NE10fps    */ "\010JE SHORT _<n>\n",              // short form of NE10fp (2 bytes)
-    /* 204 EQ10fps    */ "\010JNE SHORT _<n>\n",             // short form of EQ10fp (2 bytes)
-    /* 205 RETNOFP    */ "\000RET\n"                    // bare RET (frame pointer omitted)
+    /* 203 NE10fps    */ "\010JE SHORT _<n>\n",       // short form of NE10fp (2 bytes)
+    /* 204 EQ10fps    */ "\010JNE SHORT _<n>\n",      // short form of EQ10fp (2 bytes)
+    /* 205 RETNOFP    */ "\000RET\n",                 // bare RET (frame pointer omitted)
+    // logical (unsigned) right shift
+    /* 206 LSR12      */ "\011MOV CX,AX\nMOV AX,BX\nSHR AX,CL\n",
+    /* 207 LSR1_1     */ "\001MOV AX,BX\nSHR AX,1\n"
+
 };
 
 //  === code generation functions =============================================
@@ -1235,7 +1248,9 @@ int code_size[PCODES] = {
     /*202 EQ10fp   */  5,  // JE $+5 / JMP _n
     /*203 NE10fps  */  2,  // JE SHORT _n
     /*204 EQ10fps  */  2,  // JNE SHORT _n
-    /*205 RETNOFP  */  1   // near RET
+    /*205 RETNOFP  */  1,   // near RET
+    /*206 LSR12    */  6,  // MOV CX,AX / MOV AX,BX / SHR AX,CL
+    /*207 LSR1_1   */  4   // MOV AX,BX / SHR AX,1
 };
 
 // Map a long-branch p-code to its short-branch equivalent, or 0 if not a branch.

@@ -250,7 +250,7 @@ int level1(int is[]) {
         oper = MOD12; oper2 = MOD12u;
     }
     else if (IsMatch(">>=")) {
-        oper = oper2 = ASR12;
+        oper = ASR12; oper2 = LSR12;
     }
     else if (IsMatch("<<=")) {
         oper = oper2 = ASL12;
@@ -1513,6 +1513,7 @@ int toLongTab[] = {
     LT12,  LTd12,    LE12,  LEd12,    GT12,  GTd12,     GE12,  GEd12,
     MUL12u,MULd12u,  DIV12u,DIVd12u,  MOD12u,MODd12u,
     LT12u, LTd12u,   LE12u, LEd12u,   GT12u, GTd12u,    GE12u, GEd12u,
+    LSR12, ASRd12u,
     0, 0
 };
 
@@ -2286,6 +2287,8 @@ int CalcUConst(unsigned left, int oper, unsigned right) {
             return (left < right);
         case GT12u:
             return (left > right);
+        case LSR12:
+            return (left >> right);
     }
     return (0);
 }
@@ -2361,6 +2364,18 @@ void CalcConst32(int lhi, int llo, int oper, int rhi, int rlo,
                     *reshi = (*reshi >> 1) | 0x8000;
                 else
                     *reshi = (*reshi >> 1) & 0x7FFF;
+                carry--;
+            }
+            return;
+        case LSR12:
+            // 32-bit logical (unsigned) right shift
+            *reshi = lhi;
+            *reslo = llo;
+            carry = rlo & 31;
+            while (carry > 0) {
+                *reslo = (*reslo >> 1) & 0x7FFF;
+                if (*reshi & 1) *reslo = *reslo | 0x8000;
+                *reshi = (*reshi >> 1) & 0x7FFF;  // zero-fill (logical)
                 carry--;
             }
             return;

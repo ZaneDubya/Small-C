@@ -171,7 +171,7 @@ int op2[16] = {  // p-codes of unsigned binary operators
     AND12,                       // level7
     EQ12,   NE12,                // level8
     LE12u,  GE12u, LT12u, GT12u, // level9
-    ASR12,  ASL12,               // level10
+    LSR12,  ASL12,               // level10
     ADD12,  SUB12,               // level11
     MUL12u, DIV12u, MOD12u       // level12
 };
