@@ -299,3 +299,4 @@ Small-C Revision History
 141 Add unions, which are like structs, except all of their members start
     at base address 0 for a union struct. Because they are like structs,
     I reused most of the struct code.
+142 Optimization: don't emit or ax, ax where not necessary.
