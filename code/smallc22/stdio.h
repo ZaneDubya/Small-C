@@ -77,6 +77,7 @@ extern void pad(char *dest, unsigned ch, unsigned n);
 extern int poll(int pause);
 extern int printf(char *fmt, ...);
 extern int scanf(char *fmt, ...);
+extern int sprintf(char *buf, char *fmt, ...);
 extern int putchar(int ch);
 extern void puts(char *string);
 extern int read(unsigned fd, char *buf, unsigned n);

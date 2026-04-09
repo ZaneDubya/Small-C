@@ -198,7 +198,8 @@ int opd2[16] = { // p-codes of unsigned 32-bit binary operators
     MULd12u, DIVd12u, MODd12u       // level12
 };
 
-extern char hasInlineAsm; // set by doasm() where there is inline assembly; disables optimizing frame teardown
+extern char hasInlineAsm;    // set by doasm() where there is inline assembly; disables optimizing frame teardown
+extern char hasStaticLocal;  // set by emitStatLoc() when a local static is declared; disables FPO mid-function flush
 
 // execution begins here
 void main(int argc, int *argv) {
@@ -1173,6 +1174,7 @@ int dofunction(int class) {
     cptr2 = ssname; cptr3 = curfn; while (*cptr3) *cptr2++ = *cptr3++; *cptr2 = 0;
     // don't do public if class == STATIC
     decGlobal(rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION, class == GLOBAL);
+    hasStaticLocal = 0;  // reset per-function before generating body
     gen(ENTER, 0);
     statement();
     // Flush any code left in the staging buffer by doreturn() for struct-
@@ -1198,14 +1200,19 @@ void doArgsTyped(int type, int typeSubPtr) {
     char *ptr, *ddentry;
     argConst = typeIsConst;   // capture const flag for first argument
     // Handle f(void) -- explicit zero-parameter prototype or definition.
+    // But only when 'void' is NOT followed by '*': void* is a valid param type.
     if (type == TYPE_VOID) {
-        if (IsMatch(")") == 0)
-            error("void must be only parameter");
-        argstk = 0;
-        argtop = BPW;
-        csp = 0;
-        protoVoidList = 1;
-        return;
+        blanks();
+        if (ch != '*') {
+            if (IsMatch(")") == 0)
+                error("void must be only parameter");
+            argstk = 0;
+            argtop = BPW;
+            csp = 0;
+            protoVoidList = 1;
+            return;
+        }
+        // Fall through: 'void *' -- pointer-to-void parameter.
     }
     // get a list of all arguments. Set the name, id (Variable or Pointer),
     // type (unsigned/signed int/char), size, and 'argstk' for each. argstk is
@@ -2233,6 +2240,7 @@ void emitStatLoc(int type, int id, int sz) {
     // flush any pending stack allocations and staged code before switching segments
     allocPendLoc();
     ClearStage(0, snext);
+    hasStaticLocal = 1;  // prevent FPO from stripping ENTER during mid-function flushfunc()
     // emit label in DATA segment — no PUBLIC since CLASS == STATIC
     decGlobal(id, 0);
     if (IsMatch("=")) {

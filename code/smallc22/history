@@ -318,3 +318,28 @@ Small-C Revision History
     Each eliminated duplicate epilogue saves 2 bytes (5-byte JMP to  2-byte JMP
     short, vs. the 4-byte POP BP / RET it replaces). Functions where FP was
     omitted are not eligible, as we can just RETNOFP (1 byte).
+145 Many fixes, add add sprintf to SmallLib's C library.
+    Three C90 fixes for pointer cast expressions (type *):
+    Fix A (cc3.c level13): unary * now checks is[TYP_ADR] before SYMTAB_ADR
+    when setting TYP_OBJ, so *(unsigned char *)voidptr does not trigger the
+    "cannot dereference void pointer" error and *(T *)p respects the cast type.
+    Fix B (cc3.c fetch): indirect byte load uses is[TYP_OBJ] & IS_UNSIGNED
+    instead of ptr[TYPE] & IS_UNSIGNED, so (unsigned char *) casts generate
+    GETb1pu (zero-extend) rather than GETb1p (sign-extend).
+    Fix C (cc3.c level14): subscript element-scale uses a local elemType =
+    is[TYP_ADR] ? is[TYP_ADR] : ptr[TYPE], so ((char *)intptr)[n] scales the
+    index by 1 byte, not 2.
+    Fix D (cc1.c doArgsTyped): void* is now a valid function parameter type.
+    Previously, seeing TYPE_VOID as the first parameter triggered the f(void)
+    zero-parameter path before the loop had a chance to match '*'. Now a peek
+    at ch after blanks() distinguishes 'void)' (zero params) from 'void *'
+    (pointer-to-void param). All combinations (void* alone, void* + typed
+    params, multiple void* params) now compile correctly.
+    Fix E (cc4.c flushfunc FPO pass): the Frame Pointer Omission pass now
+    correctly blocks omission when RETURN.value != 0, i.e. when the callee
+    needs MOV SP,BP to restore the stack pointer before RET. Previously, a
+    local variable only used in sizeof() would emit ADDSP(-N) but no
+    BP-relative p-code; the FPO pass saw no BP use and eliminated ENTER/RETURN,
+    leaving ADD SP,-N with no matching restore, corrupting the return address.
+    RETURN.value is the canonical "needs frame restoration" signal and is
+    already computed by the time flushfunc() runs.

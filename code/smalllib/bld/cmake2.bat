@@ -56,6 +56,7 @@ SET BIN=..\..\bin
 %BIN%\asm REVERSE.ASM /p
 %BIN%\asm REWIND.ASM /p
 %BIN%\asm SIGN.ASM /p
+%BIN%\asm SPRINTF.ASM /p
 %BIN%\asm STRCAT.ASM /p
 %BIN%\asm STRCHR.ASM /p
 %BIN%\asm STRCMP.ASM /p

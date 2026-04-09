@@ -20,6 +20,7 @@
 
 char needLong;
 char hasInlineAsm;   // function contains #asm block(s): must not omit frame pointer
+char hasStaticLocal; // function contains local static variable(s): mid-function flushfunc() must not omit ENTER
 
 // === externals ==============================================================
 
@@ -1287,6 +1288,7 @@ int shortbranch(int pc) {
 void header() {
     needLong = 0;
     hasInlineAsm = 0;
+    hasStaticLocal = 0;
     funcbuf = calloc(FUNCBUFSIZE, BPW);
     fl_labnum = calloc(256, BPW);
     fl_labpos = calloc(256, BPW);
@@ -1490,17 +1492,16 @@ void flushfunc() {
     if (fnext == funcbuf) {
         return;
     }
-    // Frame Pointer Omission pass:
-    // On 8086, [SP+N] addressing is illegal, so BP may only be dropped when
-    // it is never read within the function.  Scan for any BP-relative p-code;
-    // if none is found, replace ENTER with NOP_ (emits nothing) and RETURN
-    // with RETNOFP (emits bare RET), eliminating the 4-instruction frame
-    // overhead for leaf and no-local functions.
-    // Functions with inline #asm blocks are unconditionally excluded: inline
-    // asm is emitted directly to the output file (bypassing funcbuf) and may
-    // reference BP without any corresponding p-code being visible here.
+    // Frame Pointer Omission (FPO) pass:
+    // BP can be dropped when it is never needed inside the function.  BP is
+    // needed for two independent reasons:
+    //   1. Any stack suffix p-code reads or writes [BP+/-N] (params or locals).
+    //   2. RETURN.value != 0 means SP must be restored via MOV SP,BP before
+    //      RET.  This catches locals declared but never accessed (e.g. a local
+    //      used only in sizeof): they emit ADDSP but no BP-relative p-code.
+    // Inline #asm blocks are excluded; they bypass funcbuf and may use BP.
     {
-        int can_omit = !hasInlineAsm;
+        int can_omit = !hasInlineAsm && !hasStaticLocal;
         for (p = funcbuf; p < fnext; p += 2) {
             pc = p[0];
             if (pc == POINT1s || pc == POINT2s  ||
@@ -1509,7 +1510,8 @@ void flushfunc() {
                 pc == PUSHs   || pc == PUSHds   ||
                 pc == PUTws1  || pc == PUTbs1   ||
                 pc == GETd1s  || pc == GETd2s   ||
-                pc == PUTds1  || pc == CMP1s) {
+                pc == PUTds1  || pc == CMP1s    ||
+                (pc == RETURN && p[1] != 0)) {
                 can_omit = 0;
                 break;
             }

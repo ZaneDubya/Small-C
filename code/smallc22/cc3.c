@@ -565,7 +565,12 @@ int level13(int is[]) {
     }
     else if (IsMatch("*")) {             // unary *
         if (level13(is)) fetch(is);
-        if (ptr = is[SYMTAB_ADR]) {
+        if (is[TYP_ADR]) {
+            // Pointer cast in effect: use the cast's target type directly.
+            // This lets *(unsigned char *)voidptr and similar work correctly.
+            is[TYP_OBJ] = is[TYP_ADR];
+        }
+        else if (ptr = is[SYMTAB_ADR]) {
             if (ptr[IDENT] == IDENT_PTR_ARRAY)
                 is[TYP_OBJ] = TYPE_UINT;
             else
@@ -727,7 +732,7 @@ int level13(int is[]) {
 // handles the case where a function's address is invoked by naming the
 // function without a left parenthesis following.
 int level14(int *is) {
-    int k, val;
+    int k, val, elemType;
     char *ptr, *before, *start;
     int is2[ISSIZE];
     k = primary(is);
@@ -833,19 +838,21 @@ int level14(int *is) {
                     k = 1;
                 }
                 else {
+                    // Use cast type if present, else the symbol's declared type.
+                    elemType = is[TYP_ADR] ? is[TYP_ADR] : ptr[TYPE];
                     if (is2[TYP_CNST]) {
                         ClearStage(before, 0);
                         if (is2[VAL_CNST]) {
-                            if (ptr[TYPE] == TYPE_STRUCT) {
+                            if (elemType == TYPE_STRUCT) {
                                 gen(GETw2n, is2[VAL_CNST]
                                     * getStructSize(
                                         getClsPtr(ptr)));
                             }
-                            else if (ptr[TYPE] >> 2 == BPD) {
+                            else if (elemType >> 2 == BPD) {
                                 gen(GETw2n,
                                     is2[VAL_CNST] << LBPD);
                             }
-                            else if (ptr[TYPE] >> 2 == BPW) {
+                            else if (elemType >> 2 == BPW) {
                                 gen(GETw2n,
                                     is2[VAL_CNST] << LBPW);
                             }
@@ -856,25 +863,25 @@ int level14(int *is) {
                         }
                     }
                     else {
-                        if (ptr[TYPE] == TYPE_STRUCT) {
+                        if (elemType == TYPE_STRUCT) {
                             gen(PUSH2, 0);
                             gen(GETw2n, getStructSize(
                                 getClsPtr(ptr)));
                             gen(MUL12, 0);
                             gen(POP2, 0);
                         }
-                        else if (ptr[TYPE] >> 2 == BPD) {
+                        else if (elemType >> 2 == BPD) {
                             gen(DBL1, 0);
                             gen(DBL1, 0);
                         }
-                        else if (ptr[TYPE] >> 2 == BPW) {
+                        else if (elemType >> 2 == BPW) {
                             gen(DBL1, 0);
                         }
                         gen(ADD12, 0);
                     }
                     is[DIM_LEFT] = 0;
                     is[TYP_ADR] = 0;
-                    is[TYP_OBJ] = ptr[TYPE];
+                    is[TYP_OBJ] = elemType;
                     k = 1;
                 }
             }
@@ -1596,7 +1603,8 @@ void fetch(int is[]) {
             gen(GETw1p, 0);
         }
         else {
-            if (ptr[TYPE] & IS_UNSIGNED)
+            // Use TYP_OBJ (not ptr[TYPE]) so that pointer casts are respected.
+            if (is[TYP_OBJ] & IS_UNSIGNED)
                 gen(GETb1pu, 0);
             else
                 gen(GETb1p, 0);
