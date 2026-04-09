@@ -2,6 +2,7 @@
 
 // #define DIAG_OUTPUT      // verbose compiler diagnostics
 #define ENABLE_ENUMS
+#define ENABLE_TYPEDEF
 // #define ENABLE_WARNINGS  // enable optional compiler warnings
 #ifdef ENABLE_WARNINGS
 #define WARN_IMPLICIT    // warn about implicit int and undeclared functions
@@ -150,6 +151,7 @@
 #define STATIC    5   // only visible in this file ("internal linkage")
 #define ENUMCONST 6   // enum constant: integer value stored in OFFSET field
 #define PROTOEXT  7   // function prototype declared but not yet called or defined
+#define TYPEDEF   8   // typedef alias: IDENT=IDENT_VARIABLE or IDENT_POINTER, TYPE=aliased type
 
 // const qualifier flag packed into CLASS byte (high bit; CLASS values are <= 6).
 // To test: ptr[CLASS] & CONST_FLAG  (non-zero == const-qualified)
@@ -654,4 +656,7 @@ int storeParamTypes(char *typebuf, int nparams_byte);
 #ifdef ENABLE_ENUMS
 void initEnums();
 int doEnum(int *typeSubPtr);
+#endif
+#ifdef ENABLE_TYPEDEF
+int doTypedef();
 #endif
