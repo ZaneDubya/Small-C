@@ -1,3 +1,24 @@
+// print.c -- printf/sprintf smoke test for Small-C stdio library.
+//
+// Purpose:
+//   Verify that the printf and sprintf functions in the Small-C standard
+//   library produce correct formatted output for all supported format
+//   specifiers and edge cases.
+//
+// Functionality covered:
+//   - Plain string with no conversion specifiers
+//   - %d: positive integer, negative integer, zero
+//   - %d: multiple arguments in one format string
+//   - %s: string argument, empty string argument
+//   - Mixed %d and %s in the same format string
+//   - %x: hexadecimal output (implementation emits uppercase digits)
+//   - %x: zero value
+//   - %c: single character from integer code point
+//   - %%: literal percent sign escape
+//   - Literal text surrounding a conversion specifier
+//   - %u: unsigned decimal integer (including max 16-bit value 65535)
+//   - sprintf writes to a caller-supplied buffer (not stdout)
+//
 /* print.c -- printf/sprintf smoke test with PASS/FAIL reporting.
 ** Each case formats into a buffer with sprintf, then compares
 ** against the expected string.  A summary is printed at the end.

@@ -1,4 +1,24 @@
-// testenum.c -- Test program for enum support in Small-C 2.3.
+// enums.c -- Test program for enum support in Small-C 2.3.
+//
+// Purpose:
+//   Verify that the compiler correctly handles C-style enumeration types,
+//   including enumerator constant values, enum-typed variables, and use of
+//   enum constants in expressions, function calls, and switch statements.
+//
+// Functionality covered:
+//   - Simple enum with auto-increment from 0 (RED, GREEN, BLUE)
+//   - Enum with explicit integer values (NORTH=1, SOUTH=2, EAST=4, WEST=8)
+//   - Enum starting at non-zero and then auto-incrementing (MON=1 .. SUN=7)
+//   - Enum with negative values (NEG=-1, ZERO=0, POS=1)
+//   - Mixed explicit and auto-incremented enumerators (A=10, B, C=20, D)
+//   - Enum where an explicit value resets the counter mid-list
+//   - Duplicate enumerator values (C90 allows this)
+//   - Global variables declared with an enum type tag
+//   - Global int initialized from an enumerator constant
+//   - Local enum variables
+//   - Enumerators used in arithmetic and comparison expressions
+//   - Enum in switch/case statements
+//   - Enum as function parameter and return type
 
 #include "../../smallc22/stdio.h"
 

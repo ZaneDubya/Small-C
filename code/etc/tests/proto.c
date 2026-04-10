@@ -1,6 +1,12 @@
 // proto.c -- Runtime tests for C90 function prototype support.
 //
-// What is tested:
+// Purpose:
+//   Verify that the compiler correctly handles forward function prototypes,
+//   including call-before-definition, pointer return types, void parameter
+//   lists, variadic prototypes, re-declarations, and that the compiler
+//   issues appropriate diagnostics for prototype violations.
+//
+// Functionality covered:
 //   1. Forward prototype (same file): call before definition; prototype
 //      suppresses "implicit declaration" warning.
 //   2. Forward prototype with pointer return type.

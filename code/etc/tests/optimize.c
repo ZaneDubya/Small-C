@@ -1,8 +1,23 @@
 // optimize.c -- Test program for SETSFLG/fset peephole optimization.
-// Each function exercises an ALU op (AND12, OR12, XOR12, ADD12, SUB12,
-// ANEG1, DBL1, ASL12, ASR12) immediately before a zero-test conditional
-// branch (NE10f/EQ10f).  After optimization the redundant OR AX,AX that
-// precedes the branch should be eliminated.
+//
+// Purpose:
+//   Verify that the compiler's peephole optimizer correctly eliminates the
+//   redundant "OR AX,AX" flag-setting instruction that precedes a zero-test
+//   conditional branch when the preceding ALU operation already sets the
+//   flags.  The tests confirm correct runtime behavior after optimization.
+//
+// Functionality covered:
+//   - AND12 (bitwise AND) directly followed by NE10f and EQ10f branches
+//   - OR12  (bitwise OR)  directly followed by NE10f and EQ10f branches
+//   - XOR12 (bitwise XOR) directly followed by NE10f branch
+//   - ADD12 (addition)    directly followed by NE10f branch
+//   - SUB12 (subtraction) directly followed by NE10f branch
+//   - ANEG1 (arithmetic negate) directly followed by NE10f branch
+//   - DBL1  (double / left shift by 1) directly followed by NE10f branch
+//   - ASL12 (arithmetic shift left)  directly followed by NE10f branch
+//   - ASR12 (arithmetic shift right) directly followed by NE10f branch
+//   - SETSFLG flag propagation: each optimized op emits NE10fp/EQ10fp
+//     instead of NE10f/EQ10f, removing the intervening OR AX,AX
 
 #include "../../smallc22/stdio.h"
 

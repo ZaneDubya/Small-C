@@ -1,11 +1,24 @@
 // unions.c -- Test program for union support in Small-C 2.2.
-// Tests: definition, variable declaration (global/local), member access,
-//        sizeof, union assignment, brace initialization (global and local),
-//        union containing struct, pointer to union, union array,
-//        union as function parameter (by pointer), union-returning function.
 //
-// Each test prints PASS or FAIL with a description.
-// Summary of passed/failed/total is printed at end.
+// Purpose:
+//   Verify that the compiler correctly handles union type definitions,
+//   variable declarations, member access, sizeof (largest member), brace
+//   initialization, type punning, nested struct-in-union, pointer-to-union,
+//   union arrays, and passing and returning unions through functions.
+//
+// Functionality covered:
+//   - Union definition and global/local variable declarations
+//   - Member access: reading and writing individual union members
+//   - sizeof: equals the size of the largest member (not the sum)
+//   - Global union with brace initializer (initializes first member)
+//   - Local union with brace initializer
+//   - Union assignment (copying the entire union object)
+//   - Type punning: write one member, read another (e.g., int/char[2])
+//   - Union containing a struct member (struct point inside union geovar)
+//   - Pointer to union: declaration, member access via ->
+//   - Array of union variables
+//   - Union as function parameter (passed by pointer)
+//   - Union-returning function
 
 #include "../../smallc22/stdio.h"
 

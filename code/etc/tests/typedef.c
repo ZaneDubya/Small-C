@@ -1,4 +1,24 @@
 // typedef.c -- Test program for typedef support in Small-C.
+//
+// Purpose:
+//   Verify that the compiler correctly handles typedef declarations,
+//   resolves typedef'd names as aliases for their underlying types, and
+//   produces correct sizeof values and runtime behavior for variables
+//   declared using typedef'd type names.
+//
+// Functionality covered:
+//   - typedef for primitive types: int, char, long, unsigned long,
+//     unsigned int, long int, unsigned long int
+//   - typedef for pointer type (char *)
+//   - typedef for struct type (typedef struct pt Point)
+//   - typedef of a typedef (typedef Point *PtPtr)
+//   - Global variables declared using typedef'd names
+//   - sizeof on typedef'd type names and typedef'd variables
+//   - Runtime value correctness through typedef'd variables
+//   - Pointer assignment and dereference through typedef'd pointer types
+//   - Struct member access through a typedef'd struct type
+//   - Typedef interaction with arrays (array of typedef'd type)
+//   - Typedef used in function parameter and return type positions
 
 #include "../../smallc22/stdio.h"
 

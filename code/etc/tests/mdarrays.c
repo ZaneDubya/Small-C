@@ -1,7 +1,23 @@
 // mdarrays.c -- Test program for multi-dimensional array support.
-// Tests: 2D int, 2D char, 3D int, nested brace init, flat init,
-//        local multi-dim arrays, partial init (zero fill),
-//        function parameters, subscript expressions.
+//
+// Purpose:
+//   Verify that the compiler correctly handles multi-dimensional array
+//   declarations, initializers, element access, and pointer decay for
+//   2D and 3D arrays of both scalar and struct types.
+//
+// Functionality covered:
+//   - 2D int array with nested brace initializer
+//   - 2D char array initialized with string literals
+//   - 2D int array with flat (non-nested) brace initializer
+//   - Partial 2D array initializer (remaining elements zero-filled)
+//   - 3D int array with nested brace initializer
+//   - Uninitialized global 2D int array (implicitly zero)
+//   - Global 2D struct arrays (struct point, struct cell)
+//   - Local 2D and 3D array declarations and access
+//   - Subscript expressions: correct row/column index calculation
+//   - Function accepting a 1D row pointer (int row[], int cols)
+//   - Function accepting a full 2D array parameter (int b[][3], int rows)
+//   - sizeof for 2D and 3D arrays (total byte count)
 
 #include "../../smallc22/stdio.h"
 

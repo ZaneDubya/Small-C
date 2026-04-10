@@ -1,3 +1,18 @@
+// shifts.c -- Test unsigned vs signed right shift correctness in Small-C.
+//
+// Purpose:
+//   Verify that the compiler emits the correct machine instruction for right
+//   shift depending on the signedness of the operand: SHR (logical zero-fill)
+//   for unsigned types and SAR (arithmetic sign-fill) for signed types.
+//
+// Functionality covered:
+//   - Signed   16-bit right shift (>>) using SAR: sign-fill for negative values
+//   - Unsigned 16-bit right shift (>>) using SHR: zero-fill for all values
+//   - Unsigned 16-bit compound right-shift assignment (>>=)
+//   - Constant-folding of >> on unsigned 16-bit expressions at compile time
+//   - Shift amounts 1, 4, 8, and 15 (full-width)
+//   - Verification that unsigned >> never produces a sign-filled result
+
 // shifts.c -- Test unsigned vs signed right shift correctness.
 // Verifies that >> on unsigned types emits SHR (logical, zero-fill)
 // and >> on signed types emits SAR (arithmetic, sign-fill).

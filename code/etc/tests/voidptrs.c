@@ -1,5 +1,25 @@
 // voidptrs.c -- Test program for void * (generic pointer) support in Small-C.
 //
+// Purpose:
+//   Verify that the compiler correctly implements void * as a generic pointer
+//   type that can hold any data address, can be assigned from any typed
+//   pointer without a cast, and can be cast to any specific pointer type for
+//   dereferencing.
+//
+// Functionality covered:
+//   - sizeof(void *) equals the machine pointer width (2 bytes on 8086)
+//   - sizeof(void) equals 0 (implementation-defined)
+//   - Global and local void * variable declarations
+//   - Assignment from a typed pointer to void * without a cast
+//   - Copying void * to another void * variable
+//   - Comparison of two void * values (equality)
+//   - Cast of void * to int * and subsequent dereference
+//   - Cast of void * to char * and subsequent dereference
+//   - Write-through a void * cast (storing via typed pointer obtained from void *)
+//   - void * used as a function parameter (generic buffer pointer)
+//   - void * used in array-indexing contexts via cast
+//   - All identifiers are at most 12 characters (Small-C identifier limit)
+
 // All variable and function names are at most 12 characters (Small-C limit).
 
 #include "../../smallc22/stdio.h"

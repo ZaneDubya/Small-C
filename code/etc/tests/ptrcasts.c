@@ -1,9 +1,20 @@
 // ptrcasts.c -- Test (type *) pointer cast expressions in Small-C.
 //
-// Tests: unary * through cast, subscript element scale, arithmetic scale,
-// byte signed vs unsigned fetch, write-through cast, void* cast.
+// Purpose:
+//   Verify that explicit pointer casts to typed pointer types produce
+//   correct code for dereferencing, subscripting, arithmetic scaling,
+//   signed vs. unsigned byte fetches, and write-through operations.
 //
-// All identifiers are <= 12 characters (Small-C limit).
+// Functionality covered:
+//   - Unary dereference through a cast pointer: *(char *)&intvar reads low byte
+//   - Reverse cast: *(int *)charbuf reads a 16-bit word from a byte buffer
+//   - Signed byte fetch: (char *)ptr dereference sign-extends (GETb1p)
+//   - Unsigned byte fetch: (unsigned char *)ptr dereference zero-extends (GETb1pu)
+//   - Subscript element scaling: ((char *)intarr)[n] scales index by 1
+//   - Subscript element scaling: ((int *)charbuf)[n] scales index by 2
+//   - Write-through cast: assigning via a (char *) cast to an int variable
+//   - void * cast compatibility with other typed casts
+//   - All identifiers are at most 12 characters (Small-C identifier limit)
 
 #include "../../smallc22/stdio.h"
 
@@ -175,6 +186,155 @@ void test_voidcast() {
     check("(chr*)vp[0]",  cp[0] == 100);
 }
 
+// ============================================================================
+// Phase 7: (long *) and (unsigned long *) cast mechanics
+// Dereference, subscript element-scale, pointer arithmetic, write-through.
+// ============================================================================
+void test_lngcast() {
+    long          larr[2];
+    long          lv;
+    unsigned long ulv;
+    long          *lp;
+    unsigned long *ulp;
+    int           *ip;
+    int            b, a;
+
+    printf("--- long* cast ---\n");
+
+    // *(long *): 32-bit load -- fill via int*, read back via long*
+    ip    = larr;
+    ip[0] = 1234;
+    ip[1] = 5;
+    lp    = (long *)larr;
+    lv    = *lp;
+    ip    = &lv;
+    check("*(lng*)lo=1234", *ip     == 1234);
+    check("*(lng*)hi=5",    *(ip+1) == 5);
+
+    // (long *) subscript: index scales by 4
+    ip    = larr;
+    ip[2] = 999;
+    ip[3] = 0;
+    lp    = (long *)larr;
+    lv    = lp[1];
+    ip    = &lv;
+    check("lng*[1] lo=999", *ip     == 999);
+    check("lng*[1] hi=0",   *(ip+1) == 0);
+
+    // pointer arithmetic: (long *)p + 1 advances 4 bytes
+    lp = larr;
+    b  = lp;
+    a  = lp + 1;
+    check("lng*+1 step=4",  (a - b) == 4);
+
+    // write-through: *(long *) = 32-bit value
+    lv  = 70000;
+    lp  = (long *)larr;
+    *lp = lv;
+    ip  = larr;
+    check("*(lng*)wr lo",   *ip     == 4464);
+    check("*(lng*)wr hi",   *(ip+1) == 1);
+
+    // *(unsigned long *): 32-bit load
+    ip    = larr;
+    ip[0] = 4464;
+    ip[1] = 1;
+    ulp   = (unsigned long *)larr;
+    ulv   = *ulp;
+    ip    = &ulv;
+    check("*(ulng*)lo=4464", *ip     == 4464);
+    check("*(ulng*)hi=1",    *(ip+1) == 1);
+
+    // (unsigned long *) pointer arithmetic: step = 4
+    ulp = (unsigned long *)larr;
+    b   = ulp;
+    a   = ulp + 1;
+    check("ulng*+1 step=4", (a - b) == 4);
+}
+
+// ============================================================================
+// Phase 8: pointer step size for all typed pointers
+// Prefix and postfix ++ and -- must advance/retreat by sizeof(*type).
+// char*/uchar*: 1,  int*/uint*: 2,  long*/ulong*: 4
+// ============================================================================
+void test_ptrstep() {
+    char          ca[2];
+    unsigned char uca[2];
+    int           ia[2];
+    unsigned      uia[2];
+    long          la[2];
+    unsigned long ula[2];
+    char          *cp;
+    unsigned char *ucp;
+    int           *ip;
+    unsigned      *uip;
+    long          *lp;
+    unsigned long *ulp;
+    int            b, a;
+
+    printf("--- ptr step ---\n");
+
+    // char*: step = 1
+    cp = ca;   b = cp; ++cp; a = cp;
+    check("preinc chr*=1",   (a-b) == 1);
+    cp = ca;   b = cp; cp++; a = cp;
+    check("postinc chr*=1",  (a-b) == 1);
+    cp = ca+1; b = cp; --cp; a = cp;
+    check("predec chr*=1",   (b-a) == 1);
+    cp = ca+1; b = cp; cp--; a = cp;
+    check("postdec chr*=1",  (b-a) == 1);
+
+    // unsigned char*: step = 1
+    ucp = uca;   b = ucp; ++ucp; a = ucp;
+    check("preinc uchr*=1",  (a-b) == 1);
+    ucp = uca;   b = ucp; ucp++; a = ucp;
+    check("postinc uchr*=1", (a-b) == 1);
+    ucp = uca+1; b = ucp; --ucp; a = ucp;
+    check("predec uchr*=1",  (b-a) == 1);
+    ucp = uca+1; b = ucp; ucp--; a = ucp;
+    check("postdec uchr*=1", (b-a) == 1);
+
+    // int*: step = 2
+    ip = ia;   b = ip; ++ip; a = ip;
+    check("preinc int*=2",   (a-b) == 2);
+    ip = ia;   b = ip; ip++; a = ip;
+    check("postinc int*=2",  (a-b) == 2);
+    ip = ia+1; b = ip; --ip; a = ip;
+    check("predec int*=2",   (b-a) == 2);
+    ip = ia+1; b = ip; ip--; a = ip;
+    check("postdec int*=2",  (b-a) == 2);
+
+    // unsigned int*: step = 2
+    uip = uia;   b = uip; ++uip; a = uip;
+    check("preinc uint*=2",  (a-b) == 2);
+    uip = uia;   b = uip; uip++; a = uip;
+    check("postinc uint*=2", (a-b) == 2);
+    uip = uia+1; b = uip; --uip; a = uip;
+    check("predec uint*=2",  (b-a) == 2);
+    uip = uia+1; b = uip; uip--; a = uip;
+    check("postdec uint*=2", (b-a) == 2);
+
+    // long*: step = 4
+    lp = la;   b = lp; ++lp; a = lp;
+    check("preinc lng*=4",   (a-b) == 4);
+    lp = la;   b = lp; lp++; a = lp;
+    check("postinc lng*=4",  (a-b) == 4);
+    lp = la+1; b = lp; --lp; a = lp;
+    check("predec lng*=4",   (b-a) == 4);
+    lp = la+1; b = lp; lp--; a = lp;
+    check("postdec lng*=4",  (b-a) == 4);
+
+    // unsigned long*: step = 4
+    ulp = ula;   b = ulp; ++ulp; a = ulp;
+    check("preinc ulng*=4",  (a-b) == 4);
+    ulp = ula;   b = ulp; ulp++; a = ulp;
+    check("postinc ulng*=4", (a-b) == 4);
+    ulp = ula+1; b = ulp; --ulp; a = ulp;
+    check("predec ulng*=4",  (b-a) == 4);
+    ulp = ula+1; b = ulp; ulp--; a = ulp;
+    check("postdec ulng*=4", (b-a) == 4);
+}
+
 int main() {
     passed = 0;
     failed = 0;
@@ -185,6 +345,8 @@ int main() {
     test_ptrmath();
     test_write();
     test_voidcast();
+    test_lngcast();
+    test_ptrstep();
 
     printf("\n%d passed, %d failed\n", passed, failed);
     if (failed) getchar();

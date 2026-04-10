@@ -1,9 +1,23 @@
 // locals.c -- Test program for local variable initialization in Small-C 2.2.
-// Tests: scalar init (int, char, pointer), array init, partial array init,
-//        expression initializers, function-call initializers, multiple
-//        initialized locals in one declaration, mixed init and non-init,
-//        char array from string, struct init, nested struct init,
-//        struct array init.
+//
+// Purpose:
+//   Verify that the compiler correctly emits initialization code for local
+//   (auto) variables, covering all supported types and initialization
+//   forms: constants, expressions, function calls, and aggregate braces.
+//
+// Functionality covered:
+//   - Scalar init: int, char, pointer with constant initializers
+//   - Expression initializers (compile-time constant expressions)
+//   - Variable-based initializers (runtime expression)
+//   - Function-call initializers
+//   - Multiple initialized locals in a single declaration
+//   - Mixed initialized and uninitialized locals in the same declaration
+//   - Array initialization with brace list
+//   - Partial array initialization (remaining elements zero-filled)
+//   - char array initialized from a string literal
+//   - Struct local with brace initializer
+//   - Nested struct local with brace initializer
+//   - Struct array local with brace initializer
 //
 // Each test prints PASS or FAIL with a description.
 // At the end, a summary of passed/failed/total is printed.

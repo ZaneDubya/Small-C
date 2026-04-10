@@ -1,4 +1,23 @@
-// longtest.c -- Test program for long int type support in Small-C 2.3.
+// longs.c -- Test program for long int type support in Small-C 2.3.
+//
+// Purpose:
+//   Verify that the compiler correctly handles the 32-bit 'long' integer
+//   type, including storage allocation, sizeof, struct layout with long
+//   members, initializers, and pointer-to-long semantics.
+//
+// Functionality covered:
+//   - sizeof(long), sizeof(unsigned long), sizeof(long int)
+//   - sizeof(long *) equals the machine pointer size (2 bytes on 8086)
+//   - Global long and unsigned long scalar variable declarations
+//   - Global 1D and 2D long arrays
+//   - Global long variable with a constant initializer
+//   - Global long array with a brace initializer
+//   - Struct containing long members: layout without padding, sizeof
+//   - Struct containing a long array member
+//   - Global struct instance with long members
+//   - Pointer-to-long: sizeof, declaration, assignment from address
+//   - Local long variables and local long arrays
+//   - Long constants and initializers (values exceeding 16 bits)
 
 #include "../../smallc22/stdio.h"
 
@@ -1548,6 +1567,73 @@ void test12_widen() {
 }
 
 // ============================================================================
+// Phase 13: Pointer comparison regression for isLongVal() fix.
+// Before the fix, `lp == la` (long* vs long[]) emitted EQd12 (32-bit equality)
+// because primary() sets TYP_OBJ=TYPE_LONG on an array name even though AX
+// holds a 16-bit address. The fix guards the TYP_OBJ check with TYP_ADR==0.
+// Also covers prefix ++/-- on long* and unsigned long* (Phase 5 only had
+// postfix).
+// ============================================================================
+void test_lptrcmp() {
+    long          la[2];
+    unsigned long ula[2];
+    long          *lp;
+    unsigned long *ulp;
+    int            b, a, r;
+
+    printf("--- lptr cmp ---\n");
+
+    // lp == la: pointer to array start must equal array name (16-bit EQ)
+    lp = la;
+    r  = (lp == la);
+    check("lp==la true",   r == 1);
+
+    // advance lp: now lp != la
+    lp = la + 1;
+    r  = (lp == la);
+    check("lp!=la false",  r == 0);
+
+    r  = (lp != la);
+    check("lp!=la true",   r == 1);
+
+    lp = la;
+    r  = (lp != la);
+    check("lp!=la eq0",    r == 0);
+
+    // unsigned long*: same isLongVal() code path
+    ulp = ula;
+    r   = (ulp == ula);
+    check("ulp==ula true", r == 1);
+
+    ulp = ula + 1;
+    r   = (ulp == ula);
+    check("ulp!=ula fls",  r == 0);
+
+    // prefix ++ on long*: step = 4
+    lp = la;
+    b  = lp;
+    ++lp;
+    a  = lp;
+    check("++lp step=4",   (a - b) == 4);
+
+    // prefix -- back to start: verify via lp == la (regression)
+    --lp;
+    r = (lp == la);
+    check("--lp ==la",     r == 1);
+
+    // prefix ++ on unsigned long*: step = 4
+    ulp = ula;
+    b   = ulp;
+    ++ulp;
+    a   = ulp;
+    check("++ulp step=4",  (a - b) == 4);
+
+    --ulp;
+    r = (ulp == ula);
+    check("--ulp ==ula",   r == 1);
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 
@@ -1631,6 +1717,9 @@ void main() {
 
     // Phase 12 tests
     test12_widen();
+
+    // Phase 13 tests
+    test_lptrcmp();
 
     // Are ya winning, son?
     printf("\n=== Results: %d passed, %d failed, %d total ===\n",

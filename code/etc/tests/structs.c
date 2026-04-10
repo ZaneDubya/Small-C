@@ -1,11 +1,26 @@
-// test.c -- Comprehensive test program for struct support in Small-C 2.2.
-// Tests: definition, declaration (global/local), member access (dot/arrow),
-//        sizeof, assignment (member, deep copy), brace initialization,
-//        nested structs, chained access, pointer to struct,
-//        struct as function parameter, struct as function return value.
+// structs.c -- Comprehensive test program for struct support in Small-C 2.2.
 //
-// Each test prints PASS or FAIL with a description.
-// At the end, a summary of passed/failed/total is printed.
+// Purpose:
+//   Verify that the compiler correctly handles struct type definitions,
+//   variable declarations, member access, sizeof, assignment, brace
+//   initialization, nested structs, pointer-to-struct operations, and
+//   passing and returning structs by value through functions.
+//
+// Functionality covered:
+//   - Struct definition and global/local variable declarations
+//   - Member access with dot operator (.)
+//   - Member access with arrow operator (->) through pointer
+//   - sizeof for struct types, nested structs, and structs with array members
+//   - Member assignment and deep copy via struct assignment
+//   - Global struct with brace initializer
+//   - Local struct with brace initializer
+//   - Nested structs (struct containing struct members)
+//   - Chained member access (s.inner.field)
+//   - Pointer to struct: declaration, initialization, member access via ->
+//   - Struct as function parameter (passed by hidden pointer in Small-C)
+//   - Struct as function return value
+//   - Struct with int array member (struct withArr)
+//   - Struct with long member (struct withLong)
 
 #include "../../smallc22/stdio.h"
 

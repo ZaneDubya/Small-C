@@ -1,11 +1,25 @@
-// typing.c -- Test program for type qualifier support in Small-C 2.3.
-// Tests: signed, short, const, volatile, register qualifiers.
+// types.c -- Test program for type qualifier support in Small-C 2.3.
 //
-// NOTE on const-violation tests: const assignment/increment errors are
-// caught at *compile* time, so they cannot be tested in a running program.
-// To verify them manually, uncomment the blocks marked "COMPILE ERROR TEST"
-// one at a time and confirm the compiler emits "cannot assign to const
-// variable" or "cannot modify const variable".
+// Purpose:
+//   Verify that the compiler correctly accepts and processes the type
+//   qualifiers and specifiers added in Small-C 2.3: signed, short, const,
+//   volatile, and register.  Both sizeof correctness and runtime value
+//   behavior are tested; const enforcement is verified at compile time.
+//
+// Functionality covered:
+//   - signed int, signed char, signed long: sizeof and arithmetic semantics
+//   - signed (without explicit 'int'): treated as signed int
+//   - short and short int: same width as int on 8086 (2 bytes)
+//   - unsigned short: 2-byte unsigned integer
+//   - const global scalars with initializers (int, char, long, unsigned int)
+//   - const local variables: value read-back correctness
+//   - const correctness: compiler rejects assignment to const (compile-time)
+//   - volatile int and volatile long: accepted without storage-class effect
+//   - register: accepted as a declaration specifier, no storage-class effect
+//   - sizeof for all new qualifiers and combinations
+//   - Struct members using signed and short types
+//   - Signed arithmetic with negative values and overflow behavior
+
 
 #include "../../smallc22/stdio.h"
 

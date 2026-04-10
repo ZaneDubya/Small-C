@@ -1,17 +1,24 @@
-// statictest.c -- Test program for static variable support in Small-C 2.3.
+// statics.c -- Test program for static variable support in Small-C 2.3.
 //
-// Tests static global variables and static local variables of all types:
-//   char, unsigned char, int, unsigned int, long, unsigned long
+// Purpose:
+//   Verify that the compiler correctly handles the 'static' storage class
+//   for both global (file-scope) and local (function-scope) variables,
+//   including correct zero initialization, initializer application,
+//   persistence of static locals across function calls, and proper
+//   sizeof values for all static types.
 //
-// Properties verified:
-//   - sizeof correctness
-//   - Zero initialization for uninitialized statics (both global and local)
-//   - Constant initializers work correctly (initial value set once)
+// Functionality covered:
+//   - sizeof for static global scalars: char, unsigned char, int,
+//     unsigned int, long, unsigned long
+//   - sizeof for static global arrays: int[], char[], long[]
+//   - Global static zero initialization for uninitialized scalar variables
+//   - Global static zero initialization for uninitialized array elements
+//   - Global static scalars with constant initializers (all types)
+//   - Global static arrays with brace initializers (int, char, long)
 //   - Static local persistence: value survives across function calls
-//   - Static local initializer: applied only at first call
-//   - Arrays: zero init, constant init, element access
-//   - Pointer-to-static
-//   - Multiple static locals in one function
+//   - Static local initializer applied only on the first call
+//   - Pointer-to-static variable (address stability across calls)
+//   - Multiple static locals in the same function
 
 #include "../../smallc22/stdio.h"
 
