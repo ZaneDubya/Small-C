@@ -1633,6 +1633,62 @@ void test_lptrcmp() {
     check("--ulp ==ula",   r == 1);
 }
 
+// --- test_long_cns_arith: Arm A and Arm B long paths in down2 ---
+// Tests binary operations where one operand is a compile-time long constant
+// and the other is a variable long, exercising:
+//   Arm A eitherLong (const LHS, variable RHS): 70000 + long_var, 0L + long_var
+//   Arm B eitherLong (variable LHS, const RHS): long_var + 70000,
+//                                               long_var - 70000, long_var + 0L
+void test_long_cns_arith() {
+    long val;
+    int *p;
+    int r;
+    printf("--- long const arith (Arm A/B) ---\n");
+
+    // Arm B: long_var + large_const (ADD12 commutative path in emitConst32Rhs)
+    val = 0;
+    val = val + 70000;
+    p = &val;
+    check("0L+70000 lo=4464",  *p == 4464);
+    check("0L+70000 hi=1",     *(p+1) == 1);
+
+    // Arm A: large_const + long_var
+    val = 5;
+    val = 70000 + val;
+    p = &val;
+    check("70000+5L lo=4469",  *p == 4469);
+    check("70000+5L hi=1",     *(p+1) == 1);
+
+    // Arm B: long_var - large_const (non-commutative path in emitConst32Rhs)
+    val = 70005;
+    val = val - 70000;
+    p = &val;
+    check("70005L-70000 lo=5", *p == 5);
+    check("70005L-70000 hi=0", *(p+1) == 0);
+
+    // Arm B zero: long_var + 0L; sets is[STG_ADR] = start
+    val = 42;
+    val = val + 0L;
+    p = &val;
+    check("42L+0L lo=42",      *p == 42);
+    check("42L+0L hi=0",       *(p+1) == 0);
+
+    // Arm A zero: 0L + long_var; sets is[STG_ADR] = snext
+    val = 42;
+    val = 0L + val;
+    p = &val;
+    check("0L+42L lo=42",      *p == 42);
+    check("0L+42L hi=0",       *(p+1) == 0);
+
+    // Boolean use: exercises STG_ADR zero-test priming through test()
+    val = 0;
+    r = (0L == val);
+    check("0L==0L is 1",       r == 1);
+    val = 1;
+    r = (0L == val);
+    check("0L==1L is 0",       r == 0);
+}
+
 // ============================================================================
 // Main
 // ============================================================================
@@ -1720,6 +1776,9 @@ void main() {
 
     // Phase 13 tests
     test_lptrcmp();
+
+    // down2 Arm A/B long path coverage
+    test_long_cns_arith();
 
     // Are ya winning, son?
     printf("\n=== Results: %d passed, %d failed, %d total ===\n",

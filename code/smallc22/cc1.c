@@ -19,46 +19,47 @@
 #include "ccstruct.h"
 
 // forward declarations for this file:
-void doArgTypes(int type, int typeSubPtr);
-int initGlMDSub(int elemSz, int ndim, int dims[], int depth);
-void EvalInitValue(int size, int ident, int *dim);
-void InitSize(int size, int ident, int dim, int class);
-void initGlMDArr(int type, int typeSubPtr, int ndim, int dims[], int class);
-int addlabel(int def);
-void doasm();
-int doexpr(int use);
-int mustopen(char *fn, char *mode);
-void initLcMDSub(int type, int elemSz, int ndim, int dims[],
-    int depth, int baseOff, int totalSlots);
-void docont();
-void dobreak();
-int doreturn();
-void dumplits(int size);
-int dolabel();
-void dogoto();
-void dodefault();
-void docase();
-void doswitch();
-void dofor();
-void dodo();
-void dowhile();
-void doif();
-void compound();
-void declareLocals(int type, int typeSubPtr, int isStatic, int isConst);
-int dodeclare(int class);
-void dodefine();
-void parse();
-int getArraySz();
-void dostatic();
-void doinclude();
-int InitPtrArray(int type, int dim, int class);
-void InitStruct(int typeSubPtr, int class);
-void InitUnion(int typeSubPtr, int class);
-void initLocUnion(int typeSubPtr);
-int putmac(char c);
+int addLabel(int def);
+char *applyDimMeta(char *sym, int type, int typeSubPtr, char *ddentry);
+void calcArgStrides(int type, int typeSubPtr, int ndim, int dims[]);
+void dispatchLocInit(int type, int typeSubPtr, int id, int sz);
+int doExpression(int use);
+void doArgsKR();
 void doArgsTyped(int type, int typeSubPtr);
-void doArgsNonTyped();
-int statement();
+void doAsmBlock();
+void doBreak();
+void doCase();
+void doCompound();
+void doContinue();
+void doDefault();
+int doGlbDeclare(int class);
+void doGoto();
+void doDo();
+void doFor();
+void doIf();
+int doLabel();
+int doReturn();
+void doSwitch();
+int doStatement();
+void doWhile();
+void emitLocStatic(int type, int id, int sz);
+int isConstExpr(int *val);
+int isConstExpr32(int *val, int *val_hi);
+void initGlbMDArr(int type, int typeSubPtr, int ndim, int dims[], int class);
+void initGlbVar(int size, int ident, int dim, int class);
+void initLocArray(int type);
+void initLocChrStr(int infer);
+void initLocMDArr(int type, char *symptr);
+void initLocScalar(int type);
+void initLocStruct(int type);
+void initLocUnion(int typeSubPtr);
+int initPtrArray(int type, int dim, int class);
+void initLocStrArr(int typeSubPtr);
+void initStruct(int typeSubPtr, int class);
+void initUnion(int typeSubPtr, int class);
+int openFileOrErr(char *fn, char *mode);
+void parseTopLvl();
+void recordParamTypes(char *funcSym);
 
 // miscellaneous storage
 int
@@ -78,13 +79,9 @@ int
     *argvs,    // local copy of argv
     *wqptr,    // ptr to next entry
     litptr,   // ptr to next entry
-    macptr,   // macro buffer index
-    pptr,     // ptr to parsing buffer
     ch,       // current character of input line
     nch,      // next character of input line
     declared, // # of local bytes to declare, -1 when declared
-    iflevel,  // #if... nest level
-    skiplevel,// level at which #if... skipping started
     nxtlab,   // next avail label #
     litlab,   // label # assigned to literal pool
     csp,      // compiler relative stk ptr
@@ -109,27 +106,26 @@ int
     listfp,   // file pointer to list device
     lastst,   // last parsed statement type
     oldseg,   // current segment (0, DATASEG, CODESEG)
-#ifdef ENABLE_WARNINGS
-    warncount, // number of warnings emitted this compilation
-#endif
+    errcount,    // number of errors emitted this compilation
     lineno,   // current line number in input file
-    inclno;   // current line number in include file
+    inclno,   // current line number in include file
+    lastNdim,               // array dimensions from last parseLocDecl (0 = scalar/1-D)
+    lastStrides[MAX_DIMS],  // per-dim strides from last parseLocDecl (valid when lastNdim > 1)
+    typeIsConst,            // set by dotype(): 1 if const qualifier was seen; cleared by dotype()
+    typeIsPtr,              // set by dotype(): 1 if a typedef alias resolved to a pointer type;
+                            //   consumed (read + cleared) by parseLocDecl and parseSizeofType
+    protoVoidList,          // set by doArgsTyped when f(void) form is parsed
+    protoVariadic,          // set by doArgsTyped/doArgsKR when ... is parsed
+    argbufcur;              // global argbuf write cursor; saved/restored per callfunc level
 
 char
     optimize, // optimize output of staging buffer?
     alarm,    // audible alarm on errors?
     monitor,  // monitor function headers?
     pause,    // pause for operator on errors?
-#ifdef ENABLE_WARNINGS
-    nowarn,   // suppress warnings?
-#endif
     *symtab,   // symbol table
-    *litq,     // literal pool
-    *macn,     // macro name buffer
-    *macq,     // macro string buffer
-    *pline,    // parsing buffer
-    *mline,    // macro buffer
-    *line,     // ptr to pline or mline
+    *litq,     // literal pool - staging buffer for constants, per function
+    *line,     // current line pointer
     *lptr,     // ptr to current character in "line"
     *glbptr,   // global symbol table
     *locptr,   // next local symbol table entry
@@ -139,20 +135,10 @@ char
     *dimdata,  // multi-dim array metadata buffer
     *dimdatptr, // next free entry in dimdata
     *paramTypes, // function parameter-type records (allocated in main)
-    msname[NAMESIZE],   // macro symbol name
     ssname[NAMESIZE],   // symbol name (static locals mangled to _L<N> form)
     curfn[NAMESIZE],    // name of function currently being compiled
     infn[30],    // current input filename
     inclfn[30];  // current include filename
-
-int
-    lastNdim,            // ndim from last parseLocalDeclare call
-    lastStrides[MAX_DIMS], // strides from last parseLocalDeclare call
-    typeIsConst,       // set by dotype(): 1 if const qualifier was seen
-    typeIsPtr,           // set by dotype(): 1 if typedef resolved to a pointer type
-    protoVoidList,       // set by doArgsTyped when f(void) form is parsed
-    protoVariadic,       // set by doArgsTyped/doArgsNonTyped when ... is parsed
-    argbufcur;           // global argbuf write cursor; saved/restored per callfunc level
 
 int op[16] = {   // p-codes of signed binary operators
     OR12,                        // level5
@@ -198,8 +184,26 @@ int opd2[16] = { // p-codes of unsigned 32-bit binary operators
     MULd12u, DIVd12u, MODd12u       // level12
 };
 
-extern char hasInlineAsm;    // set by doasm() where there is inline assembly; disables optimizing frame teardown
-extern char hasStaticLocal;  // set by emitStatLoc() when a local static is declared; disables FPO mid-function flush
+extern char hasInlineAsm;    // set by doAsmBlock() where there is inline assembly; disables optimizing frame teardown
+extern char hasStaticLocal;  // set by emitLocStatic() when a local static is declared; disables FPO mid-function flush
+extern int macptr;           // next write index in macq (preprocessor macro string buffer usage)
+extern int paramTypesPtr;
+extern char *structdata, *structdatnext;
+
+
+#ifdef ENABLE_WARNINGS
+    int warncount; // number of warnings emitted this compilation
+    char nowarn;   // suppress warnings?
+#endif
+
+#ifdef ENABLE_DIAGNOSTICS
+int litptrMax,   // high-water mark of litptr
+    glbcount;    // number of global symbol table slots used
+char *structBase;        // snapshot of structdata base, for usage stats
+#endif
+
+
+// === Bootstrap and I/O ======================================================
 
 // execution begins here
 void main(int argc, int *argv) {
@@ -215,10 +219,7 @@ void main(int argc, int *argv) {
     argbufcur = 0;
     wqptr = wq = calloc(WQTABSZ, BPW);
     litq = calloc(LITABSZ, 1);
-    macn = calloc(MACNSIZE, 1);
-    macq = calloc(MACQSIZE, 1);
-    pline = calloc(LINESIZE, 1);
-    mline = calloc(LINESIZE, 1);
+    initPreprocessor();
     slast = stage + (STAGESIZE * 2);
     symtab = calloc(NUMLOCS*SYMAVG + NUMGLBS*SYMMAX, 1);
     locptr = STARTLOC;
@@ -226,10 +227,9 @@ void main(int argc, int *argv) {
     dimdatptr = dimdata = calloc(DIMDATSZ, 1);
     paramTypes = calloc(FNPARAMTS_SZ, 1);
     initStructs();
-#ifdef ENABLE_ENUMS
     initEnums();
-#endif
-#ifdef DIAG_OUTPUT
+#ifdef ENABLE_DIAGNOSTICS
+    structBase = structdata;
     availMem = avail(0);
     fprintf(stderr, "  Memory available: %d b\n", availMem);
     if (availMem < 2000) {
@@ -246,7 +246,7 @@ void main(int argc, int *argv) {
     openfile();     // and initial input file
     preprocess();   // fetch first line
     header();       // intro code
-    parse();        // process ALL input
+    parseTopLvl();        // process ALL input
     trailer();      // follow-up code
     fclose(output); // explicitly close output
 #ifdef ENABLE_WARNINGS
@@ -255,38 +255,140 @@ void main(int argc, int *argv) {
         fgetc(stderr);
     }
 #endif
+#ifdef ENABLE_DIAGNOSTICS
+    if (errcount == 0) {
+        fprintf(stderr, "  globals:        %d/%d bytes\n", glbcount*SYMMAX, NUMGLBS*SYMMAX);
+        fprintf(stderr, "  literals:       %d/%d bytes\n", litptrMax, LITABSZ);
+        fprintf(stderr, "  macros:         %d/%d bytes\n", macptr, MACQSIZE);
+        fprintf(stderr, "  array dims:     %d/%d bytes\n", (int)dimdatptr-(int)dimdata, DIMDATSZ);
+        fprintf(stderr, "  param types:    %d/%d bytes\n", paramTypesPtr, FNPARAMTS_SZ);
+        fprintf(stderr, "  structs:        %d/%d bytes\n", (int)structdatnext-(int)structBase, STRUCTDATSZ);
+    }
+#endif
 }
 
-// ****************************************************************************
-// High level Parsing
-// ****************************************************************************
+// get run options
+void getRunArgs() {
+    char argbuf[LINESIZE];
+    int i;
+    i = listfp = nxtlab = 0;
+    output = stdout;
+    optimize = YES;
+    alarm = monitor = pause = NO;
+#ifdef ENABLE_WARNINGS
+    nowarn = NO;
+#endif
+    while (getarg(++i, argbuf, LINESIZE, argcs, argvs) != EOF) {
+        if (argbuf[0] != '-' && argbuf[0] != '/')
+            continue;
+        if (toupper(argbuf[1]) == 'L' && isdigit(argbuf[2]) && argbuf[3] <= ' ') {
+            listfp = argbuf[2] - '0';
+            continue;
+        }
+        if (toupper(argbuf[1]) == 'N' && toupper(argbuf[2]) == 'O' && 
+            argbuf[3] <= ' ') {
+            optimize = NO;
+            continue;
+        }
+        if (argbuf[2] <= ' ') {
+            if (toupper(argbuf[1]) == 'A') {
+                alarm = YES;
+                continue;
+            }
+            if (toupper(argbuf[1]) == 'M') {
+                monitor = YES; 
+                continue;
+            }
+            if (toupper(argbuf[1]) == 'P') {
+                pause = YES;
+                continue;
+            }
+            if (toupper(argbuf[1]) == 'W') {
+#ifdef ENABLE_WARNINGS
+                nowarn = YES;
+#endif
+                continue;
+            }
+        }
+        fputs("usage: cc [file]... [-m] [-a] [-p] [-w] [-l#] [-no]\n", stderr);
+        abort(ERRCODE);
+    }
+}
+
+// input and output file opens
+void openfile() {
+    char outfn[15];
+    char fname[LINESIZE];
+    int i, j, ext;
+    input = EOF;
+    while (getarg(++filearg, fname, LINESIZE, argcs, argvs) != EOF) {
+        if (fname[0] == '-' || fname[0] == '/') continue;
+        ext = NO;
+        i = -1;
+        j = 0;
+        while (fname[++i]) {
+            if (fname[i] == '.') {
+                ext = YES;
+                break;
+            }
+            if (j < 10) outfn[j++] = fname[i];
+        }
+        if (!ext) strcpy(fname + i, ".C");
+        input = openFileOrErr(fname, "r");
+        strcpy(infn, fname);
+        lineno = 0;
+        if (!files && iscons(stdout)) {
+            strcpy(outfn + j, ".ASM");
+            output = openFileOrErr(outfn, "w");
+        }
+        files = YES;
+        kill();
+        return;
+    }
+    if (files++)
+        eof = YES;
+    else
+        input = stdin;
+    kill();
+}
+
+// open a file with error checking
+int openFileOrErr(char *fn, char *mode) {
+    int fd;
+    if (fd = fopen(fn, mode))
+        return fd;
+    fputs("open error on ", stderr);
+    lout(fn, stderr);
+    abort(ERRCODE);
+}
+
+// === Top-Level Parse Loop ===================================================
 
 // Process all input text. At this level, only global declarations, defines,
 // includes, structs, and function definitions are legal.
-void parse() {
+void parseTopLvl() {
     while (eof == 0) {
         if (amatch("extern", 6))
-            dodeclare(EXTERNAL);
+            doGlbDeclare(EXTERNAL);
         else if (amatch("static", 6)) {
-            dostatic();
+            if (doGlbDeclare(STATIC)) {
+                // parsed and emitted a static variable
+            }
+            else {
+                dofunction(STATIC);
+            }
         }
         else if (amatch("struct", 6)) {
-            dotagblock(KIND_STRUCT);
+            doStructBlock(KIND_STRUCT);
         }
         else if (amatch("union", 5)) {
-            dotagblock(KIND_UNION);
+            doStructBlock(KIND_UNION);
         }
-        else if (dodeclare(GLOBAL)) {
+        else if (doGlbDeclare(GLOBAL)) {
             ;
         }
-        else if (IsMatch("#asm")) {
-            doasm();
-        }
-        else if (IsMatch("#include")) {
-            doinclude();
-        }
-        else if (IsMatch("#define")) {
-            dodefine();
+        else if (isMatch("#asm")) {
+            doAsmBlock();
         }
         else {
             dofunction(GLOBAL);
@@ -295,117 +397,7 @@ void parse() {
     }
 }
 
-// do a static variable or function
-void dostatic() {
-    if (dodeclare(STATIC)) {
-        ;
-    }
-    else {
-        dofunction(STATIC);
-    }
-}
-
-// test for global declarations
-int dodeclare(int class) {
-    int type, typeSubPtr, declclass;
-    char *p;
-#ifdef ENABLE_TYPEDEF
-    if (amatch("typedef", 7)) {
-        return doTypedef();
-    }
-#endif
-    type = dotype(&typeSubPtr);
-    // Incorporate const qualifier into the storage class byte.
-    // Functions cannot be const; only variable declarations use this flag.
-    declclass = typeIsConst ? (class | CONST_FLAG) : class;
-    if (type != 0) {
-        // Lookahead: if next tokens are "name(" this is a function
-        // definition, not a variable declaration. Divert to dofunction().
-        blanks();
-        p = lptr;
-        if (alpha(*p)) {
-            while (an(*p)) p++;
-            while (*p == ' ' || *p == '\t') p++;
-            if (*p == '(') {
-                rettype = type;
-                rettypeSubPtr = (type == TYPE_STRUCT) ? typeSubPtr : 0;
-                rettypeIsPtr = typeIsPtr;    // pointer typedef → pointer-returning fn
-                dofunction(class);   // functions are never const
-                rettypeIsPtr = 0;
-                rettype = TYPE_INT;
-                rettypeSubPtr = 0;
-                return 1;
-            }
-        }
-        else if (*p == '*') {
-            char *q;
-            q = p + 1;
-            while (*q == ' ' || *q == '\t') q++;
-            if (alpha(*q)) {
-                while (an(*q)) q++;
-                while (*q == ' ' || *q == '\t') q++;
-                if (*q == '(') {
-                    rettype = type;
-                    rettypeSubPtr = (type == TYPE_STRUCT) ? typeSubPtr : 0;
-                    rettypeIsPtr = 1;
-                    dofunction(class);
-                    rettypeIsPtr = 0;
-                    rettype = TYPE_INT;
-                    rettypeSubPtr = 0;
-                    return 1;
-                }
-            }
-        }
-        declglb(type, declclass, typeSubPtr);
-    }
-    else if (class == EXTERNAL) {
-        declglb(TYPE_INT, class, typeSubPtr);
-    }
-    else {
-        return 0;
-    }
-    ReqSemicolon();
-    return 1;
-}
-
-#ifdef ENABLE_TYPEDEF
-// parse a typedef declaration: typedef <type> [*] <name> ;
-// Called from dodeclare() after "typedef" has been consumed.
-// Stores a TYPEDEF entry in the global symbol table.
-// IDENT == IDENT_POINTER if the alias is a pointer type, else IDENT_VARIABLE.
-// TYPE  == aliased base type (TYPE_INT, TYPE_CHR, TYPE_STRUCT, etc.)
-// CLASSPTR == struct/union def pointer when TYPE == TYPE_STRUCT, else 0.
-int doTypedef() {
-    int tdType, tdSubPtr, tdIsPtr;
-    char *sym;
-    tdType = dotype(&tdSubPtr);
-    tdIsPtr = typeIsPtr;
-    if (IsMatch("*")) tdIsPtr = 1;
-    if (tdType == 0) {
-        error("bad typedef type");
-        return 1;
-    }
-    if (symname(ssname) == 0) {
-        illname();
-        return 1;
-    }
-    if (isreserved(ssname)) {
-        error("reserved keyword used as typedef name");
-        return 1;
-    }
-    if (findglb(ssname)) {
-        multidef(ssname);
-        return 1;
-    }
-    sym = AddSymbol(ssname,
-        tdIsPtr ? IDENT_POINTER : IDENT_VARIABLE,
-        tdType, 0, 0, &glbptr, TYPEDEF);
-    if (sym && tdType == TYPE_STRUCT)
-        putint(tdSubPtr, sym + CLASSPTR, 2);
-    ReqSemicolon();
-    return 1;
-}
-#endif
+// === Type-Specifier Parsing =================================================
 
 // get type of declaration.
 // Handles type qualifiers: const, volatile, register, auto, signed,
@@ -457,21 +449,18 @@ int dotype(int *typeSubPtr) {
         return isUnsigned ? TYPE_UINT : TYPE_INT;
     }
     if (amatch("struct", 6)) {
-        if ((*typeSubPtr = getTagPtr(KIND_STRUCT)) == -1)
+        if ((*typeSubPtr = getStructPtr(KIND_STRUCT)) == -1)
             error("unknown struct name");
         return TYPE_STRUCT;
     }
     if (amatch("union", 5)) {
-        if ((*typeSubPtr = getTagPtr(KIND_UNION)) == -1)
+        if ((*typeSubPtr = getStructPtr(KIND_UNION)) == -1)
             error("unknown union name");
         return TYPE_STRUCT;
     }
-#ifdef ENABLE_ENUMS
     if (amatch("enum", 4)) {
         return doEnum(typeSubPtr);
     }
-#endif
-#ifdef ENABLE_TYPEDEF
     {
         char *savedLptr, *p;
         int savedCh, savedIsConst;
@@ -488,24 +477,220 @@ int dotype(int *typeSubPtr) {
         ch = savedCh;
         typeIsConst = savedIsConst;
     }
-#endif
     // If only const/volatile were seen with no base type, clear the flag
     // so callers do not misinterpret a non-declaration as const.
     typeIsConst = 0;
     return 0;
 }
 
-// declare a global variable
-void declglb(int type, int class, int typeSubPtr) {
+// parse a typedef declaration: typedef <type> [*] <name> ;
+// Called from doGlbDeclare() after "typedef" has been consumed.
+// Stores a TYPEDEF entry in the global symbol table.
+// IDENT == IDENT_POINTER if the alias is a pointer type, else IDENT_VARIABLE.
+// TYPE  == aliased base type (TYPE_INT, TYPE_CHR, TYPE_STRUCT, etc.)
+// CLASSPTR == struct/union def pointer when TYPE == TYPE_STRUCT, else 0.
+int doTypedef() {
+    int tdType, tdSubPtr, tdIsPtr;
+    char *sym;
+    tdType = dotype(&tdSubPtr);
+    tdIsPtr = typeIsPtr;
+    if (isMatch("*")) tdIsPtr = 1;
+    if (tdType == 0) {
+        error("bad typedef type");
+        return 1;
+    }
+    if (symname(ssname) == 0) {
+        illname();
+        return 1;
+    }
+    if (isreserved(ssname)) {
+        error("reserved keyword used as typedef name");
+        return 1;
+    }
+    if (findglb(ssname)) {
+        multidef(ssname);
+        return 1;
+    }
+    sym = addSymbol(ssname,
+        tdIsPtr ? IDENT_POINTER : IDENT_VARIABLE,
+        tdType, 0, 0, &glbptr, TYPEDEF);
+    if (sym && tdType == TYPE_STRUCT)
+        putint(tdSubPtr, sym + CLASSPTR, 2);
+    reqSemicolon();
+    return 1;
+}
+
+// parseSizeofType() -- parse the type/object operand of sizeof().
+// Returns the byte size of the named type or object.
+// Does NOT consume parentheses; the caller in level13() handles them.
+// Reuses dotype() for all keyword-type parsing so that the two paths
+// stay consistent (same qualifier handling, same typedef resolution).
+int parseSizeofType() {
+    int typeSubPtr, type, sz;
+    char sname[NAMESIZE];
+    char *ptr;
+    typeSubPtr = 0;
+    type = dotype(&typeSubPtr);
+    // A pointer typedef (e.g. typedef int *P; sizeof(P)) is always BPW.
+    if (typeIsPtr) return BPW;
+    if (type == TYPE_VOID) {
+        // sizeof(void) == 0; sizeof(void *) == BPW
+        return isMatch("*") ? BPW : 0;
+    }
+    if (type == TYPE_STRUCT) {
+        // TYPE_STRUCT is shared with unions.  typeSubPtr is the tag pointer
+        // returned by getStructPtr(); -1 means the tag was unknown (error already
+        // emitted by dotype).
+        sz = (typeSubPtr != -1) ? getStructSize(typeSubPtr) : 0;
+    }
+    else if (type != 0) {
+        // All scalar types: size is encoded in the high bits of the type
+        // constant (type >> 2 == byte size).
+        sz = type >> 2;
+    }
+    else {
+        // dotype() found no keyword type and backtracks its token on failure,
+        // so the name is still in the input.  Try sizeof(variable_name).
+        // Also handles local typedef names that dotype() misses (it only
+        // searches findglb for typedef).
+        sz = 0;
+        if (symname(sname) &&
+            ((ptr = findloc(sname)) || (ptr = findglb(sname))) &&
+            ptr[IDENT] != IDENT_FUNCTION &&
+            ptr[IDENT] != IDENT_PTR_FUNCTION &&
+            ptr[IDENT] != IDENT_LABEL) {
+            if ((ptr[CLASS] & 0x7F) == TYPEDEF) {
+                if (ptr[IDENT] == IDENT_POINTER)
+                    sz = BPW;
+                else if (ptr[TYPE] == TYPE_STRUCT)
+                    sz = getStructSize(getint(ptr + CLASSPTR, 2));
+                else
+                    sz = ptr[TYPE] >> 2;
+            }
+            else {
+                sz = getint(ptr + SIZE, 2);
+            }
+        }
+        else {
+            error("must be object or type");
+        }
+        return sz;
+    }
+    // A trailing '*' turns any base type into a pointer type (all pointers
+    // are BPW on the 8086).
+    if (sz && isMatch("*")) sz = BPW;
+    return sz;
+}
+
+// === Global Declaration Parsing =============================================
+
+// test for global declarations
+int doGlbDeclare(int class) {
+    int type, typeSubPtr, declclass;
+    char *p;
+    if (amatch("typedef", 7)) {
+        return doTypedef();
+    }
+    type = dotype(&typeSubPtr);
+    // Incorporate const qualifier into the storage class byte.
+    // Functions cannot be const; only variable declarations use this flag.
+    declclass = typeIsConst ? (class | CONST_FLAG) : class;
+    if (type != 0) {
+        // Lookahead: if next tokens are "name(" this is a function
+        // definition, not a variable declaration. Divert to dofunction().
+        blanks();
+        p = lptr;
+        if (alpha(*p)) {
+            while (an(*p)) p++;
+            while (*p == ' ' || *p == '\t') p++;
+            if (*p == '(') {
+                rettype = type;
+                rettypeSubPtr = (type == TYPE_STRUCT) ? typeSubPtr : 0;
+                rettypeIsPtr = typeIsPtr;    // pointer typedef → pointer-returning fn
+                dofunction(class);   // functions are never const
+                rettypeIsPtr = 0;
+                rettype = TYPE_INT;
+                rettypeSubPtr = 0;
+                return 1;
+            }
+        }
+        else if (*p == '*') {
+            char *q;
+            q = p + 1;
+            while (*q == ' ' || *q == '\t') q++;
+            if (alpha(*q)) {
+                while (an(*q)) q++;
+                while (*q == ' ' || *q == '\t') q++;
+                if (*q == '(') {
+                    rettype = type;
+                    rettypeSubPtr = (type == TYPE_STRUCT) ? typeSubPtr : 0;
+                    rettypeIsPtr = 1;
+                    dofunction(class);
+                    rettypeIsPtr = 0;
+                    rettype = TYPE_INT;
+                    rettypeSubPtr = 0;
+                    return 1;
+                }
+            }
+        }
+        parseGlbDecl(type, declclass, typeSubPtr);
+    }
+    else if (class == EXTERNAL) {
+        parseGlbDecl(TYPE_INT, class, typeSubPtr);
+    }
+    else {
+        return 0;
+    }
+    reqSemicolon();
+    return 1;
+}
+
+// Parse size expression inside one pair of array brackets, consuming the
+// closing ']'.  The opening '[' has already been consumed by the caller.
+// Returns the dimension size as a non-negative integer.
+// An empty bracket pair '[]' returns 0 (unspecified/inferred).
+// A non-constant expression defaults to 1 and continues without an error.
+// A negative constant is rejected and its absolute value is used instead.
+int parseArraySz() {
+    int val;
+    if (isMatch("]")) 
+        return 0; // null size
+    if (isConstExpr(&val) == 0) 
+        val = 1;
+    if (val < 0) {
+        error("negative size illegal");
+        val = -val;
+    }
+    require("]");               // force single dimension
+    return val;                 // and return size
+}
+
+// Parse one or more array dim specifications starting after the first '['
+// (already consumed by the caller).  dims[0] receives the first size; each
+// subsequent '[N]' appends to dims[].  Returns total number of dimensions.
+int parseArrayDims(int dims[]) {
+    int ndim;
+    dims[0] = parseArraySz();
+    ndim = 1;
+    while (isMatch("[")) {
+        if (ndim >= MAX_DIMS) {
+            error("too many dimensions");
+            break;
+        }
+        dims[ndim++] = parseArraySz();
+    }
+    return ndim;
+}
+
+// Parse a global variable declaration
+void parseGlbDecl(int type, int class, int typeSubPtr) {
     int id, dim;
-    int dims[MAX_DIMS], ndim, strides[MAX_DIMS];
-    int totalSize, elemSz, k;
-    char *ddentry;
+    int dims[MAX_DIMS], ndim;
     while (1) {
         if (endst()) {
             return;  // do line
         }
-        if (typeIsPtr || IsMatch("*")) {
+        if (typeIsPtr || isMatch("*")) {
             typeIsPtr = 0;
             id = IDENT_POINTER; 
             dim = 0;
@@ -525,28 +710,20 @@ void declglb(int type, int class, int typeSubPtr) {
             error("reserved keyword used as name");
         if (findglb(ssname)) 
             multidef(ssname);
-        if (id == IDENT_POINTER && IsMatch("[")) {
+        if (id == IDENT_POINTER && isMatch("[")) {
             id = IDENT_PTR_ARRAY;
-            dims[0] = getArraySz();
+            dims[0] = parseArraySz();
             ndim = 1;
             dim = dims[0];
         }
         if (id == IDENT_VARIABLE) {
-            if (IsMatch("(")) { 
+            if (isMatch("(")) { 
                 id = IDENT_FUNCTION; 
-                Require(")"); 
+                require(")"); 
             }
-            else if (IsMatch("[")) { 
+            else if (isMatch("[")) { 
                 id = IDENT_ARRAY;
-                dims[0] = getArraySz();
-                ndim = 1;
-                while (IsMatch("[")) {
-                    if (ndim >= MAX_DIMS) {
-                        error("too many dimensions");
-                        break;
-                    }
-                    dims[ndim++] = getArraySz();
-                }
+                ndim = parseArrayDims(dims);
                 dim = dims[0];
             }
         }
@@ -554,99 +731,50 @@ void declglb(int type, int class, int typeSubPtr) {
             external(ssname, type >> 2, id);
         else if (id != IDENT_FUNCTION) {
             if (id == IDENT_PTR_ARRAY)
-                dim = InitPtrArray(type, dim, class);
+                dim = initPtrArray(type, dim, class);
             else if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
                 if (typeSubPtr != -1 && ((char *)typeSubPtr)[STRDAT_KIND] == KIND_UNION)
-                    InitUnion(typeSubPtr, class);
+                    initUnion(typeSubPtr, class);
                 else
-                    InitStruct(typeSubPtr, class);
+                    initStruct(typeSubPtr, class);
             }
             else if (ndim > 1)
-                initGlMDArr(type, typeSubPtr, ndim, dims, class);
+                initGlbMDArr(type, typeSubPtr, ndim, dims, class);
             else {
-                InitSize(type >> 2, id, dim, class);
+                initGlbVar(type >> 2, id, dim, class);
             }
         }
         if (id == IDENT_PTR_ARRAY) {
-            AddSymbol(ssname, id, type, dim * BPW, 0, &glbptr, class);
+            addSymbol(ssname, id, type, dim * BPW, 0, &glbptr, class);
         }
         else if (id == IDENT_POINTER) {
-            AddSymbol(ssname, id, type, BPW, 0, &glbptr, class);
-            if (type == TYPE_STRUCT)
-                putint(typeSubPtr, cptr + CLASSPTR, 2);
+            addSymbol(ssname, id, type, BPW, 0, &glbptr, class);
+            applyDimMeta(cptr, type, typeSubPtr, 0);
         }
         else if (ndim > 1) {
-            // multi-dimensional array
-            if (type == TYPE_STRUCT)
-                elemSz = getStructSize(typeSubPtr);
-            else
-                elemSz = type >> 2;
-            if (elemSz < 1) elemSz = 1;
-            // compute strides bottom-up
-            strides[ndim - 2] = dims[ndim - 1] * elemSz;
-            k = ndim - 3;
-            while (k >= 0) {
-                strides[k] = dims[k + 1] * strides[k + 1];
-                --k;
-            }
-            totalSize = dims[0] * strides[0];
-            ddentry = storeDimDat(typeSubPtr, ndim, strides);
-            AddSymbol(ssname, id, type, totalSize, 0, &glbptr, class);
-            cptr[NDIM] = ndim;
-            putint(ddentry, cptr + CLASSPTR, 2);
+            calcArgStrides(type, typeSubPtr, ndim, dims);
+            addSymbol(ssname, id, type, dims[0] * lastStrides[0], 0, &glbptr, class);
+            applyDimMeta(cptr, type, typeSubPtr, 0);
         }
         else if (type == TYPE_STRUCT) {
-            int structsize;
-            structsize = getStructSize(typeSubPtr);
-            AddSymbol(ssname, id, type, dim * structsize, 0, &glbptr, class);
-            putint(typeSubPtr, cptr + CLASSPTR, 2);
+            int structsize = getStructSize(typeSubPtr);
+            addSymbol(ssname, id, type, dim * structsize, 0, &glbptr, class);
+            applyDimMeta(cptr, type, typeSubPtr, 0);
         }
         else {
-            int symclass;
-            symclass = (id == IDENT_FUNCTION || id == IDENT_PTR_FUNCTION)
-                       ? PROTOEXT : class;
-            AddSymbol(ssname, id, type, dim * (type >> 2), 0, &glbptr, symclass);
+            int symclass = (id == IDENT_FUNCTION || id == IDENT_PTR_FUNCTION)
+                ? PROTOEXT : class;
+            addSymbol(ssname, id, type, dim * (type >> 2), 0, &glbptr, symclass);
         }
-        if (IsMatch(",") == 0) 
+        if (isMatch(",") == 0) 
             return;
     }
 }
 
-// initialize global objects
-void InitSize(int size, int ident, int dim, int class) {
-    int savedim;
-    litptr = 0;
-    if (dim == 0) {
-        dim = -1;         // *... or ...[]
-    }
-    savedim = dim;
-    decGlobal(ident, class == GLOBAL); // don't do public if class == STATIC
-    if (IsMatch("=")) {
-        if (IsMatch("{")) {
-            while (dim) {
-                EvalInitValue(size, ident, &dim);
-                if (IsMatch(",") == 0) {
-                    break;
-                }
-            }
-            Require("}");
-        }
-        else {
-            EvalInitValue(size, ident, &dim);
-        }
-    }
-    if (savedim == -1 && dim == -1) {
-        if (ident == IDENT_ARRAY) {
-            error("need array size");
-        }
-        stowlit(0, size = BPW);
-    }
-    dumplits(size);
-    dumpzero(size, dim);           // only if dim > 0
-}
+// === Global Variable Initialization =========================================
 
 // evaluate one initializer
-void EvalInitValue(int size, int ident, int *dim) {
+void initGlbElem(int size, int ident, int *dim) {
     int value, value_hi;
     if (string(&value)) {
         if (ident == IDENT_VARIABLE || size != 1) {
@@ -660,7 +788,7 @@ void EvalInitValue(int size, int ident, int *dim) {
     else {
         if (size == BPD) {
             // 32-bit long initializer: must capture hi word too
-            if (IsCExpr32(&value, &value_hi)) {
+            if (isConstExpr32(&value, &value_hi)) {
                 if (ident == IDENT_POINTER) {
                     error("cannot assign to pointer");
                 }
@@ -670,7 +798,7 @@ void EvalInitValue(int size, int ident, int *dim) {
             }
         }
         else {
-            if (IsConstExpr(&value)) {
+            if (isConstExpr(&value)) {
                 if (ident == IDENT_POINTER) {
                     error("cannot assign to pointer");
                 }
@@ -681,9 +809,42 @@ void EvalInitValue(int size, int ident, int *dim) {
     }
 }
 
-// initialize a global pointer array (e.g. char *arr[] = {"str", 0})
+// Initialize global object
+void initGlbVar(int size, int ident, int dim, int class) {
+    int savedim;
+    litptr = 0;
+    if (dim == 0) {
+        dim = -1;         // *... or ...[]
+    }
+    savedim = dim;
+    decGlobal(ident, class == GLOBAL); // don't do public if class == STATIC
+    if (isMatch("=")) {
+        if (isMatch("{")) {
+            while (dim) {
+                initGlbElem(size, ident, &dim);
+                if (isMatch(",") == 0) {
+                    break;
+                }
+            }
+            require("}");
+        }
+        else {
+            initGlbElem(size, ident, &dim);
+        }
+    }
+    if (savedim == -1 && dim == -1) {
+        if (ident == IDENT_ARRAY) {
+            error("need array size");
+        }
+        stowlit(0, size = BPW);
+    }
+    dumpLitPool(size);
+    dumpzero(size, dim);           // only if dim > 0
+}
+
+// Initialize a global pointer array (e.g. char *arr[] = {"str", 0})
 // returns actual element count
-int InitPtrArray(int type, int dim, int class) {
+int initPtrArray(int type, int dim, int class) {
     int labels[MAXARRAYDIM];
     int values[MAXARRAYDIM];
     int isstr[MAXARRAYDIM];
@@ -697,8 +858,8 @@ int InitPtrArray(int type, int dim, int class) {
 
     decGlobal(IDENT_PTR_ARRAY, class == GLOBAL);
 
-    if (IsMatch("=")) {
-        if (IsMatch("{")) {
+    if (isMatch("=")) {
+        if (isMatch("{")) {
             while (dim && count < MAXARRAYDIM) {
                 if (string(&value)) {
                     isstr[count] = 1;
@@ -708,16 +869,16 @@ int InitPtrArray(int type, int dim, int class) {
                     ++count;
                     --dim;
                 }
-                else if (IsConstExpr(&value)) {
+                else if (isConstExpr(&value)) {
                     isstr[count] = 0;
                     values[count] = value;
                     ++count;
                     --dim;
                 }
                 else break;
-                if (IsMatch(",") == 0) break;
+                if (isMatch(",") == 0) break;
             }
-            Require("}");
+            require("}");
         }
     }
 
@@ -771,122 +932,83 @@ int InitPtrArray(int type, int dim, int class) {
     return savedim;
 }
 
-// initialize a global struct variable with optional { ... } brace syntax
-void InitStruct(int typeSubPtr, int class) {
+// Initialize all members of a global struct from { expr, expr, ... }
+void initStructBody(int typeSubPtr) {
     char *membercur, *memberend;
-    int memberSize, structSize, dim, memberTotal;
-    litptr = 0;
-    structSize = getStructSize(typeSubPtr);
-    decGlobal(IDENT_VARIABLE, class == GLOBAL);
-    if (IsMatch("=")) {
-        if (IsMatch("{")) {
-            membercur = getint(typeSubPtr + STRDAT_MBEG, 2);
-            memberend = getint(typeSubPtr + STRDAT_MEND, 2);
-            while (membercur < memberend) {
-                memberSize = membercur[STRMEM_TYPE] >> 2;
-                if (memberSize < 1) memberSize = 1;
-                memberTotal = getint(membercur + STRMEM_SIZE, 2);
-                dim = 1;
-                EvalInitValue(memberSize, IDENT_VARIABLE, &dim);
-                // Zero-fill remaining bytes for this member (e.g. array member)
-                while (litptr < getint(membercur + STRMEM_OFFSET, 2)
-                                + memberTotal) {
-                    stowlit(0, 1);
-                }
-                membercur += STRMEM_MAX;
-                if (membercur < memberend) {
-                    if (IsMatch(",") == 0) break;
-                }
-            }
-            Require("}");
+    int memberSize, memberTotal, dim;
+    membercur = getint(typeSubPtr + STRDAT_MBEG, 2);
+    memberend = getint(typeSubPtr + STRDAT_MEND, 2);
+    while (membercur < memberend) {
+        memberSize = membercur[STRMEM_TYPE] >> 2;
+        if (memberSize < 1) memberSize = 1;
+        memberTotal = getint(membercur + STRMEM_SIZE, 2);
+        dim = 1;
+        initGlbElem(memberSize, IDENT_VARIABLE, &dim);
+        // Zero-fill remaining bytes for this member (e.g. array member)
+        while (litptr < getint(membercur + STRMEM_OFFSET, 2) + memberTotal) {
+            stowlit(0, 1);
         }
-        else {
-            error("struct initializer requires { }");
+        membercur += STRMEM_MAX;
+        if (membercur < memberend) {
+            if (isMatch(",") == 0) break;
         }
     }
-    dumplits(1);
-    dumpzero(1, structSize - litptr);
 }
 
-// Initialize a global union variable.
-// Only the first member may be supplied in the initializer; the rest of the
-// union storage is zero-filled.  Extra initializer values are an error.
-void InitUnion(int typeSubPtr, int class) {
+// Initialize only the first member of a global union from { expr }
+void initUnionBody(int typeSubPtr) {
     char *firstMem;
-    int memberSize, memberTotal, unionSize;
-    litptr = 0;
-    unionSize = getStructSize(typeSubPtr);
-    decGlobal(IDENT_VARIABLE, class == GLOBAL);
-    if (IsMatch("=")) {
-        if (IsMatch("{")) {
-            firstMem = getint(typeSubPtr + STRDAT_MBEG, 2);
-            if (firstMem < getint(typeSubPtr + STRDAT_MEND, 2)) {
-                int dim;
-                memberSize = firstMem[STRMEM_TYPE] >> 2;
-                if (memberSize < 1) memberSize = 1;
-                memberTotal = getint(firstMem + STRMEM_SIZE, 2);
-                dim = 1;
-                EvalInitValue(memberSize, IDENT_VARIABLE, &dim);
-                // zero-fill remainder of first member (e.g. array member)
-                while (litptr < memberTotal) {
-                    stowlit(0, 1);
-                }
-                if (IsMatch(",")) {
-                    error("union initializer only allows one value");
-                }
-            }
-            Require("}");
+    int memberSize, memberTotal, dim;
+    firstMem = getint(typeSubPtr + STRDAT_MBEG, 2);
+    if (firstMem < getint(typeSubPtr + STRDAT_MEND, 2)) {
+        memberSize = firstMem[STRMEM_TYPE] >> 2;
+        if (memberSize < 1) memberSize = 1;
+        memberTotal = getint(firstMem + STRMEM_SIZE, 2);
+        dim = 1;
+        initGlbElem(memberSize, IDENT_VARIABLE, &dim);
+        // zero-fill remainder of first member (e.g. array member)
+        while (litptr < memberTotal) {
+            stowlit(0, 1);
         }
-        else {
-            error("union initializer requires { }");
+        if (isMatch(",")) {
+            error("union initializer only allows one value");
         }
     }
-    dumplits(1);
-    dumpzero(1, unionSize - litptr);
 }
 
-// initialize a global multi-dimensional array.
-// handles both nested braces {{1,2},{3,4}} and flat {1,2,3,4}.
-// type: e.g. TYPE_INT, TYPE_CHR
-// typeSubPtr: struct def ptr if TYPE_STRUCT, else 0
-// ndim: number of dimensions
-// dims[]: dimension sizes
-// class: GLOBAL or STATIC
-void initGlMDArr(int type, int typeSubPtr, int ndim, int dims[], int class) {
-    int elemSz, totalElems, i;
-    elemSz = type >> 2;
-    if (type == TYPE_STRUCT)
-        elemSz = getStructSize(typeSubPtr);
-    if (elemSz < 1) elemSz = 1;
-    totalElems = 1;
-    i = 0;
-    while (i < ndim) {
-        totalElems *= dims[i];
-        ++i;
-    }
+// shared wrapper for global struct/union initialization.
+// Emits the DATA label, parses the optional "= { ... }" initializer by
+// calling body(typeSubPtr) for the type-specific inner logic, then flushes
+// the literal pool and zero-fills any remaining bytes.
+void initAggregate(int typeSubPtr, int class, int (*body)()) {
+    int totalSize;
     litptr = 0;
-    decGlobal(IDENT_ARRAY, class == GLOBAL);
-    if (IsMatch("=")) {
-        if (IsMatch("{")) {
-            initGlMDSub(elemSz, ndim, dims, 0);
-            Require("}");
+    totalSize = getStructSize(typeSubPtr);
+    decGlobal(IDENT_VARIABLE, class == GLOBAL);
+    if (isMatch("=")) {
+        if (isMatch("{")) {
+            (*body)(typeSubPtr);
+            require("}");
         }
         else {
-            error("array initializer requires { }");
+            error("initializer requires { }");
         }
     }
-    if (type == TYPE_STRUCT) {
-        dumplits(1);
-        dumpzero(1, totalElems * elemSz - litptr);
-    } else {
-        dumplits(elemSz);
-        dumpzero(elemSz, totalElems - litptr / elemSz);
-    }
+    dumpLitPool(1);
+    dumpzero(1, totalSize - litptr);
+}
+
+void initStruct(int typeSubPtr, int class) {
+    initAggregate(typeSubPtr, class, initStructBody);
+}
+
+void initUnion(int typeSubPtr, int class) {
+    initAggregate(typeSubPtr, class, initUnionBody);
 }
 
 // recursive helper for global multi-dim array init.
 // depth: current dimension index (0 = outermost)
-int initGlMDSub(int elemSz, int ndim, int dims[], int depth) {
+int initGlbMDSub(int elemSz, int ndim, int dims[], int depth) {
     int i, dim, innerTot, j;
     int savedLit;
     dim = dims[depth];
@@ -894,8 +1016,8 @@ int initGlMDSub(int elemSz, int ndim, int dims[], int depth) {
         // innermost dimension: parse scalar values
         i = dim;
         while (i) {
-            EvalInitValue(elemSz, IDENT_ARRAY, &i);
-            if (IsMatch(",") == 0) break;
+            initGlbElem(elemSz, IDENT_ARRAY, &i);
+            if (isMatch(",") == 0) break;
         }
         // zero-fill remaining inner elements
         while (i > 0) {
@@ -916,24 +1038,24 @@ int initGlMDSub(int elemSz, int ndim, int dims[], int depth) {
         // nested braces mode
         i = 0;
         while (i < dim) {
-            Require("{");
+            require("{");
             savedLit = litptr;
-            initGlMDSub(elemSz, ndim, dims, depth + 1);
-            Require("}");
+            initGlbMDSub(elemSz, ndim, dims, depth + 1);
+            require("}");
             // zero-fill this row if short
             while (litptr < savedLit + innerTot * elemSz) {
                 stowlit(0, elemSz);
             }
             ++i;
-            if (IsMatch(",") == 0) break;
+            if (isMatch(",") == 0) break;
         }
     }
     else {
         // flat mode: just parse all elements sequentially
         i = dim * innerTot;
         while (i) {
-            EvalInitValue(elemSz, IDENT_ARRAY, &i);
-            if (IsMatch(",") == 0) break;
+            initGlbElem(elemSz, IDENT_ARRAY, &i);
+            if (isMatch(",") == 0) break;
         }
         // zero-fill remaining elements in flat mode
         while (i > 0) {
@@ -953,79 +1075,145 @@ int initGlMDSub(int elemSz, int ndim, int dims[], int depth) {
     }
 }
 
-// get required array size
-int getArraySz() {
-    int val;
-    if (IsMatch("]")) 
-        return 0; // null size
-    if (IsConstExpr(&val) == 0) 
-        val = 1;
-    if (val < 0) {
-        error("negative size illegal");
-        val = -val;
-    }
-    Require("]");               // force single dimension
-    return val;              // and return size
-}
-
-// open an include file
-void doinclude() {
-    int i; char str[30];
-    blanks();       // skip over to name
-    if (*lptr == '"' || *lptr == '<')  {
-        ++lptr;
-    }
+// Initialize a global multi-dimensional array.
+// handles both nested braces {{1,2},{3,4}} and flat {1,2,3,4}.
+// type: e.g. TYPE_INT, TYPE_CHR
+// typeSubPtr: struct def ptr if TYPE_STRUCT, else 0
+// ndim: number of dimensions
+// dims[]: dimension sizes
+// class: GLOBAL or STATIC
+void initGlbMDArr(int type, int typeSubPtr, int ndim, int dims[], int class) {
+    int elemSz, totalElems, i;
+    elemSz = type >> 2;
+    if (type == TYPE_STRUCT)
+        elemSz = getStructSize(typeSubPtr);
+    if (elemSz < 1) elemSz = 1;
+    totalElems = 1;
     i = 0;
-    while (lptr[i] && lptr[i] != '"' && lptr[i] != '>' && lptr[i] != '\n' && lptr[i] != CR) {
-        str[i] = lptr[i];
+    while (i < ndim) {
+        totalElems *= dims[i];
         ++i;
     }
-    str[i] = NULL;
-    if ((input2 = fopen(str, "r")) == NULL) {
-        input2 = EOF;
-        error("open failure on include file");
+    litptr = 0;
+    decGlobal(IDENT_ARRAY, class == GLOBAL);
+    if (isMatch("=")) {
+        if (isMatch("{")) {
+            initGlbMDSub(elemSz, ndim, dims, 0);
+            require("}");
+        }
+        else {
+            error("array initializer requires { }");
+        }
     }
-    else {
-        strcpy(inclfn, str);
-        inclno = 0;
+    if (type == TYPE_STRUCT) {
+        dumpLitPool(1);
+        dumpzero(1, totalElems * elemSz - litptr);
+    } else {
+        dumpLitPool(elemSz);
+        dumpzero(elemSz, totalElems - litptr / elemSz);
     }
-    kill();   // make next read come from new file (if open)
 }
 
-// define a macro symbol
-void dodefine() {
-    int k;
-    if (symname(msname) == 0) {
-        illname();
+// === Function Definition Parsing ============================================
+
+// begin a function
+// called from "parse" and tries to make a function
+// out of the following text
+int dofunction(int class) {
+    int firstType, typeSubPtr;
+    char *pGlobal, *funcSym;
+    // declared arguments have formal types
+    nogo = 0;                     // enable goto statements
+    noloc = 0;                    // enable block-local declarations
+    lastst = 0;                   // no statement yet
+    litptr = 0;                   // clear lit pool
+    litlab = getlabel();          // label next lit pool
+    locptr = STARTLOC;            // clear local variables
+    protoVoidList = 0;
+    protoVariadic = 0;
+    if (rettypeIsPtr && !typeIsPtr) isMatch("*");
+    if (monitor) {
+        lout(line, stderr);
+    }
+    if (symname(ssname) == 0) {
+        error("illegal function or declaration");
+        errflag = 0;
+        kill();                     // invalidate line
+        return;
+    }
+    if (isreserved(ssname)) {
+        error("reserved keyword used as name");
         kill();
         return;
     }
-    k = 0;
-    if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0, NAMEMAX) == 0) {
-        if (cptr2 = cptr)
-            while (*cptr2++ = msname[k++]);
+    // capture current function name for static local name mangling
+    cptr2 = curfn;
+    cptr3 = ssname;
+    while (*cptr3) *cptr2++ = *cptr3++;
+    *cptr2 = 0;
+    // If this is in the symbol table as autoext or extern, update the entry.
+    // Any other pre-existing entry is an unpermitted duplicate definition.
+    if (pGlobal = findglb(ssname)) {
+        if (pGlobal[CLASS] == AUTOEXT || pGlobal[CLASS] == PROTOEXT || pGlobal[CLASS] == EXTERNAL) {
+            pGlobal[IDENT] = rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION;
+            pGlobal[CLASS] = class;
+            if (rettype == TYPE_STRUCT) {
+                pGlobal[TYPE] = TYPE_STRUCT;
+                putint(rettypeSubPtr, pGlobal + CLASSPTR, 2);
+            }
+            funcSym = pGlobal;
+        }
         else {
-            error("macro name table full");
-            return;
+            // error: can't define something twice.
+            multidef(ssname);
+            funcSym = pGlobal;
         }
     }
-    putint(macptr, cptr + NAMESIZE, 2);
-    while (white()) 
-        gch();
-    while (putmac(gch())) {
-        // place a macro, character by character
+    else {
+        addSymbol(ssname, rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION, rettype, 0, 0, &glbptr, class);
+        if (rettype == TYPE_STRUCT)
+            putint(rettypeSubPtr, cptr + CLASSPTR, 2);
+        funcSym = cptr;
     }
-    if (macptr >= MACMAX) {
-        error("macro string queue full");
-        abort(ERRCODE);
+    if (isMatch("(") == 0)
+        error("no open paren");
+    if ((firstType = dotype(&typeSubPtr)) != 0) {
+        doArgsTyped(firstType, typeSubPtr);
     }
-}
-
-int putmac(char c) {
-    macq[macptr] = c;
-    if (macptr < MACMAX)
-        ++macptr;
-    return c;
+    else {
+        doArgsKR();
+    }
+    // Determine whether this is a prototype (';' follows) or a definition.
+    blanks();
+    if (*lptr == ';') {
+        // Prototype: record param types, mark as PROTOEXT.
+        // EXTRN will only be emitted by trailer() if the function is actually called.
+        funcSym[CLASS] = PROTOEXT;
+        recordParamTypes(funcSym);
+        locptr = STARTLOC;
+        reqSemicolon();
+        return;
+    }
+    // Definition: record param types, emit PUBLIC label, generate body.
+    recordParamTypes(funcSym);
+    // Restore ssname from curfn: arg parsing overwrites ssname with param names.
+    cptr2 = ssname; cptr3 = curfn; while (*cptr3) *cptr2++ = *cptr3++; *cptr2 = 0;
+    // don't do public if class == STATIC
+    decGlobal(rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION, class == GLOBAL);
+    hasStaticLocal = 0;  // reset per-function before generating body
+    gen(ENTER, 0);
+    doStatement();
+    // Flush any code left in the staging buffer by doReturn() for struct-
+    // returning functions.  doReturn() activates the staging buffer via
+    // level1() but never calls clearStage, so snext is non-zero on exit.
+    clearStage(0, snext);
+    if (lastst != STRETURN && lastst != STGOTO)
+        gen(RETURN, 0);
+    if (litptr) {
+        toseg(DATASEG);
+        gen(REFm, litlab);
+        dumpLitPool(1);               // dump literals
+    }
 }
 
 // Match a variadic ellipsis '...' in an argument list.
@@ -1033,12 +1221,12 @@ int putmac(char c) {
 // On match: sets protoVariadic, consumes ')', returns 1.
 // Returns 0 if '...' is not present.
 int matchEllipsis(int requireNamed) {
-    if (IsMatch("...") == 0)
+    if (isMatch("...") == 0)
         return 0;
     if (requireNamed && argstk == 0)
         error("'...' must follow named parameter");
     protoVariadic = 1;
-    Require(")");
+    require(")");
     return 1;
 }
 
@@ -1089,122 +1277,31 @@ void recordParamTypes(char *funcSym) {
     protoVariadic = 0;
 }
 
-// begin a function
-//
-// called from "parse" and tries to make a function
-// out of the following text
-int dofunction(int class) {
-    int firstType, typeSubPtr;
-    char *pGlobal, *funcSym;
-    // declared arguments have formal types
-    nogo = 0;                     // enable goto statements
-    noloc = 0;                    // enable block-local declarations
-    lastst = 0;                   // no statement yet
-    litptr = 0;                   // clear lit pool
-    litlab = getlabel();          // label next lit pool
-    locptr = STARTLOC;            // clear local variables
-    protoVoidList = 0;
-    protoVariadic = 0;
-    if (rettypeIsPtr && !typeIsPtr) IsMatch("*");
-    if (monitor) {
-        lout(line, stderr);
-    }
-    if (symname(ssname) == 0) {
-        error("illegal function or declaration");
-        errflag = 0;
-        kill();                     // invalidate line
-        return;
-    }
-    if (isreserved(ssname)) {
-        error("reserved keyword used as name");
-        kill();
-        return;
-    }
-    // capture current function name for static local name mangling
-    cptr2 = curfn;
-    cptr3 = ssname;
-    while (*cptr3) *cptr2++ = *cptr3++;
-    *cptr2 = 0;
-    // If this is in the symbol table as autoext or extern, update the entry.
-    // Any other pre-existing entry is an unpermitted duplicate definition.
-    if (pGlobal = findglb(ssname)) {
-        if (pGlobal[CLASS] == AUTOEXT || pGlobal[CLASS] == PROTOEXT || pGlobal[CLASS] == EXTERNAL) {
-            pGlobal[IDENT] = rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION;
-            pGlobal[CLASS] = class;
-            if (rettype == TYPE_STRUCT) {
-                pGlobal[TYPE] = TYPE_STRUCT;
-                putint(rettypeSubPtr, pGlobal + CLASSPTR, 2);
-            }
-            funcSym = pGlobal;
-        }
-        else {
-            // error: can't define something twice.
-            multidef(ssname);
-            funcSym = pGlobal;
-        }
-    }
-    else {
-        AddSymbol(ssname, rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION, rettype, 0, 0, &glbptr, class);
-        if (rettype == TYPE_STRUCT)
-            putint(rettypeSubPtr, cptr + CLASSPTR, 2);
-        funcSym = cptr;
-    }
-    if (IsMatch("(") == 0)
-        error("no open paren");
-    if ((firstType = dotype(&typeSubPtr)) != 0) {
-        doArgsTyped(firstType, typeSubPtr);
-    }
-    else {
-        doArgsNonTyped();
-    }
-    // Determine whether this is a prototype (';' follows) or a definition.
-    blanks();
-    if (*lptr == ';') {
-        // Prototype: record param types, mark as PROTOEXT.
-        // EXTRN will only be emitted by trailer() if the function is actually called.
-        funcSym[CLASS] = PROTOEXT;
-        recordParamTypes(funcSym);
-        locptr = STARTLOC;
-        ReqSemicolon();
-        return;
-    }
-    // Definition: record param types, emit PUBLIC label, generate body.
-    recordParamTypes(funcSym);
-    // Restore ssname from curfn: arg parsing overwrites ssname with param names.
-    cptr2 = ssname; cptr3 = curfn; while (*cptr3) *cptr2++ = *cptr3++; *cptr2 = 0;
-    // don't do public if class == STATIC
-    decGlobal(rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION, class == GLOBAL);
-    hasStaticLocal = 0;  // reset per-function before generating body
-    gen(ENTER, 0);
-    statement();
-    // Flush any code left in the staging buffer by doreturn() for struct-
-    // returning functions.  doreturn() activates the staging buffer via
-    // level1() but never calls ClearStage, so snext is non-zero on exit.
-    // If left unflushed, subsequent functions overflow the buffer and all
-    // gen() calls become no-ops, causing dumplits() to emit bare numbers
-    // with no leading "DB" directive.
-    ClearStage(0, snext);
-    if (lastst != STRETURN && lastst != STGOTO)
-        gen(RETURN, 0);
-    if (litptr) {
-        toseg(DATASEG);
-        gen(REFm, litlab);
-        dumplits(1);               // dump literals
+// Adjust a struct-by-value parameter to a hidden-pointer parameter.
+// In Small-C, struct arguments are passed by caller-allocated hidden pointer;
+// the callee receives a pointer to the struct, not the value directly.
+// Called by both doArgsTyped and doArgsKRTypes to eliminate duplicated logic.
+void toStructPtr(int *id, int *sz, int type) {
+    if (type == TYPE_STRUCT && *id == IDENT_VARIABLE) {
+        *id = IDENT_POINTER;
+        *sz = BPW;
     }
 }
 
 // doArgsTyped: interpret a function argument list with declared types.
 // in type: the type of the first variable in the argument list.
 void doArgsTyped(int type, int typeSubPtr) {
-    int id, sz, paren, argConst;
-    char *ptr, *ddentry;
-    argConst = typeIsConst;   // capture const flag for first argument
+    int id, sz, argConst;
+    // dofunction() called dotype() to get the first param's type; typeIsConst
+    // reflects whether 'const' was seen then. Subsequent args re-capture it
+    // after each comma-triggered dotype() call in the loop below.
+    argConst = typeIsConst;
     // Handle f(void) -- explicit zero-parameter prototype or definition.
     // But only when 'void' is NOT followed by '*': void* is a valid param type.
     if (type == TYPE_VOID) {
         blanks();
         if (ch != '*') {
-            if (IsMatch(")") == 0)
+            if (isMatch(")") == 0)
                 error("void must be only parameter");
             argstk = 0;
             argtop = BPW;
@@ -1214,125 +1311,45 @@ void doArgsTyped(int type, int typeSubPtr) {
         }
         // Fall through: 'void *' -- pointer-to-void parameter.
     }
-    // get a list of all arguments. Set the name, id (Variable or Pointer),
-    // type (unsigned/signed int/char), size, and 'argstk' for each. argstk is
-    // the 0-based index of the variable on the stack. We will next reverse 
-    // these values and offset them to account for the pushed BP value, which
-    // will also be on the stack.
+    // Walk the parameter list. Register each param in the local symbol table
+    // using offset argstk + 2*BPW, yielding sequential cdecl BP-relative
+    // offsets: first arg -> [BP+4], second -> [BP+6], etc.
     argstk = 0;
-    while (IsMatch(")") == 0) {
+    while (isMatch(")") == 0) {
         // check for variadic ellipsis
         if (matchEllipsis(1)) break;
-        // match opening parent for function ptr: (*arg)()
-        if (IsMatch("("))
-            paren = 1;
-        else
-            paren = 0;
-        // match * for pointer, else variable
-        if (IsMatch("*")) {
-            id = IDENT_POINTER;
-            sz = BPW;
-        }
-        else {
-            id = IDENT_VARIABLE;
-            if (type == TYPE_VOID) {
-                error("parameter cannot have void type");
-                sz = BPW;  // error recovery
-            }
-            else {
-                sz = type >> 2;
-            }
-        }
-        if (symname(ssname)) {
-            if (isreserved(ssname)) {
-                error("reserved keyword used as name");
-            }
-            else if (findloc(ssname)) {
-                multidef(ssname);
-            }
-            else {
-                if (paren && IsMatch(")")) {
-                    // unmatch paren for function ptr.
-                }
-                if (IsMatch("(")) {
-                    if (!paren || id != IDENT_POINTER) {
-                        error("not a valid function ptr, try (*...)()");
-                    }
-                    Require(")");
-                }
-                else if (id == IDENT_VARIABLE && IsMatch("[")) {
-                    int dims[MAX_DIMS], ndim, elemSz, k;
-                    char *ddentry;
-                    id = IDENT_POINTER;
-                    sz = BPW;
-                    dims[0] = getArraySz();
-                    ndim = 1;
-                    while (IsMatch("[")) {
-                        if (ndim >= MAX_DIMS) {
-                            error("too many dimensions");
-                            break;
-                        }
-                        dims[ndim++] = getArraySz();
-                    }
-                    if (ndim > 1) {
-                        if (type == TYPE_STRUCT)
-                            elemSz = getStructSize(
-                                typeSubPtr);
-                        else
-                            elemSz = type >> 2;
-                        if (elemSz < 1) elemSz = 1;
-                        lastStrides[ndim - 2] =
-                            dims[ndim - 1] * elemSz;
-                        k = ndim - 3;
-                        while (k >= 0) {
-                            lastStrides[k] = dims[k + 1]
-                                * lastStrides[k + 1];
-                            --k;
-                        }
-                        lastNdim = ndim;
-                    }
-                    else {
-                        lastNdim = 0;
-                    }
-                }
-                // Hidden pointer for struct params: caller pushes address
-                if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
-                    id = IDENT_POINTER;
-                    sz = BPW;
-                }
-                // Preserve const qualifier on parameter (stored in CLASS byte).
-                // Offset argstk + 2*BPW gives sequential BP-relative offsets:
-                // first arg -> [BP+4], second -> [BP+6], etc. (cdecl R-to-L push).
-                AddSymbol(ssname, id, type, sz, argstk + 2*BPW, &locptr,
-                    argConst ? (AUTOMATIC | CONST_FLAG) : AUTOMATIC);
-                if (lastNdim > 1) {
-                    cptr[NDIM] = lastNdim;
-                    ddentry = storeDimDat(typeSubPtr,
-                        lastNdim, lastStrides);
-                    putint(ddentry, cptr + CLASSPTR, 2);
-                }
-                else if (type == TYPE_STRUCT) {
-                    putint(typeSubPtr, cptr + CLASSPTR, 2);
-                }
-                if (id != IDENT_POINTER
-                    && (type == TYPE_LONG || type == TYPE_ULONG))
-                    argstk += BPD;
-                else
-                    argstk += BPW;
-            }
-        }
-        else {
-            error("illegal argument name");
+        // Parse the declarator: handles *, (*name)(), name[], name.
+        // Populates ssname, id (IDENT_POINTER or IDENT_VARIABLE), sz,
+        // and lastNdim/lastStrides for multi-dim array params.
+        // defArrTyp=IDENT_POINTER causes array params to decay to pointers.
+        if (parseLocDecl(type, typeSubPtr, IDENT_POINTER, &id, &sz) == 0)
             break;
+        if (findloc(ssname)) {
+            multidef(ssname);
+        }
+        else {
+            // Hidden pointer for struct params: caller pushes address.
+            toStructPtr(&id, &sz, type);
+            // Preserve const qualifier on parameter (stored in CLASS byte).
+            // Offset argstk + 2*BPW gives sequential BP-relative offsets:
+            // first arg -> [BP+4], second -> [BP+6], etc. (cdecl R-to-L push).
+            addSymbol(ssname, id, type, sz, argstk + 2*BPW, &locptr,
+                argConst ? (AUTOMATIC | CONST_FLAG) : AUTOMATIC);
+            applyDimMeta(cptr, type, typeSubPtr, 0);
+            if (id != IDENT_POINTER
+                && (type == TYPE_LONG || type == TYPE_ULONG))
+                argstk += BPD;
+            else
+                argstk += BPW;
         }
         // advance to next arg or closing paren
-        if (IsMatch(",")) {
+        if (isMatch(",")) {
             if (matchEllipsis(0)) break;
             if ((type = dotype(&typeSubPtr)) == 0) {
                 error("untyped argument declaration");
                 break;
             }
-            argConst = typeIsConst;  // capture const flag for this argument
+            argConst = typeIsConst;  // re-capture const qualifier for next arg
         }
     }
     csp = 0;                       // preset stack ptr
@@ -1384,11 +1401,53 @@ void fixArgOffs() {
     }
 }
 
-// interpret a function argument list without declared types
-void doArgsNonTyped() {
+// K&R second-pass type patcher: called once per type-declaration line by
+// doArgsKR after all argument names have been collected (Phase 1).
+// Patches IDENT, TYPE, and SIZE in the symbol table entries that Phase 1
+// created.  Does NOT write final BP-relative offsets -- that is deferred to
+// fixArgOffs() (Phase 3), which accounts for long args taking 4 bytes.
+//
+// argstk here is a BPW slot counter (one tick per name), NOT a byte offset.
+// The offset field written by Phase 1 (sequential 0, BPW, 2*BPW, ...) is
+// left untouched; fixArgOffs() always overwrites every slot's OFFSET.
+void doArgsKRTypes(int type, int typeSubPtr) {
+    int id, sz;
+    char *ptr;
+    while (argstk > 0) {
+        if (parseLocDecl(type, typeSubPtr, IDENT_POINTER, &id, &sz)) {
+            if (ptr = findloc(ssname)) {
+                // Hidden pointer for struct params.
+                toStructPtr(&id, &sz, type);
+                ptr[IDENT] = id;
+                ptr[TYPE] = type;
+                putint(sz, ptr + SIZE, 2);
+                applyDimMeta(ptr, type, typeSubPtr, 0);
+            }
+            else {
+                error("not an argument");
+            }
+        }
+        argstk = argstk - BPW;            // decrement slot counter
+        if (endst())
+            return;
+        if (isMatch(",") == 0)
+            error("no comma or terminating semicolon");
+    }
+}
+
+// interpret a function argument list without declared types (K&R) 
+//   Phase 1 (above): each name is registered in the local symbol table
+//     with a sequential BPW-slot offset and zero type/size.
+//   Phase 2 (below): each type-declaration line is parsed; doArgsKRTypes
+//     patches IDENT, TYPE, and SIZE for every name on that line.
+//     argstk is decremented by BPW per name as a slot counter, not a
+//     byte counter -- long args are still one slot at this stage.
+//   Phase 3: fixArgOffs() recomputes true BP-relative byte offsets
+//     accounting for long args occupying 4 bytes instead of 2.
+void doArgsKR() {
     // count args
     argstk = 0;
-    while (IsMatch(")") == 0) {
+    while (isMatch(")") == 0) {
         if (matchEllipsis(1)) break;
         if (symname(ssname)) {
             if (isreserved(ssname))
@@ -1396,7 +1455,7 @@ void doArgsNonTyped() {
             else if (findloc(ssname))
                 multidef(ssname);
             else {
-                AddSymbol(ssname, 0, 0, 0, argstk, &locptr, AUTOMATIC);
+                addSymbol(ssname, 0, 0, 0, argstk, &locptr, AUTOMATIC);
                 argstk += BPW;
             }
         }
@@ -1405,7 +1464,7 @@ void doArgsNonTyped() {
             skipToNextToken();
         }
         blanks();
-        if (streq(lptr, ")") == 0 && IsMatch(",") == 0)
+        if (streq(lptr, ")") == 0 && isMatch(",") == 0)
             error("no comma");
         if (endst())
             break;
@@ -1416,8 +1475,8 @@ void doArgsNonTyped() {
         int type, typeSubPtr;
         type = dotype(&typeSubPtr);
         if (type != 0) {
-            doArgTypes(type, typeSubPtr);
-            ReqSemicolon();
+            doArgsKRTypes(type, typeSubPtr);
+            reqSemicolon();
         }
         else {
             error("wrong number of arguments");
@@ -1428,73 +1487,90 @@ void doArgsNonTyped() {
     return;
 }
 
-// declare argument types
-void doArgTypes(int type, int typeSubPtr) {
-    int id, sz;
-    char *ptr, *ddentry;
-    while (1) {
-        if (argstk == 0)
-            return;           // no arguments
-        if (parseLocalDeclare(type, typeSubPtr, IDENT_POINTER, &id, &sz)) {
-            if (ptr = findloc(ssname)) {
-                // Hidden pointer for struct params
-                if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
-                    id = IDENT_POINTER;
-                    sz = BPW;
-                }
-                ptr[IDENT] = id;
-                ptr[TYPE] = type;
-                putint(sz, ptr + SIZE, 2);
-                putint(argtop - getint(ptr + OFFSET, 2), ptr + OFFSET, 2);
-                if (lastNdim > 1) {
-                    ptr[NDIM] = lastNdim;
-                    ddentry = storeDimDat(typeSubPtr,
-                        lastNdim, lastStrides);
-                    putint(ddentry, ptr + CLASSPTR, 2);
-                }
-                else if (type == TYPE_STRUCT) {
-                    putint(typeSubPtr, ptr + CLASSPTR, 2);
-                }
-            }
-            else {
-                error("not an argument");
-            }
+// calcArgStrides: fill lastStrides[] and lastNdim for a declarator with
+// 2+ array dimensions. When ndim <= 1, sets lastNdim = 0 (caller handles the
+// single-dimension case). Used by doArgsTyped and parseLocDecl.
+void calcArgStrides(int type, int typeSubPtr, int ndim, int dims[]) {
+    int elemSz, k;
+    if (ndim > 1) {
+        if (type == TYPE_STRUCT)
+            elemSz = getStructSize(typeSubPtr);
+        else
+            elemSz = type >> 2;
+        if (elemSz < 1) elemSz = 1;
+        lastStrides[ndim - 2] = dims[ndim - 1] * elemSz;
+        k = ndim - 3;
+        while (k >= 0) {
+            lastStrides[k] = dims[k + 1] * lastStrides[k + 1];
+            --k;
         }
-        argstk = argstk - BPW;            // cnt down
-        if (endst())
-            return;
-        if (IsMatch(",") == 0)
-            error("no comma or terminating semicolon");
+        lastNdim = ndim;
+    }
+    else {
+        lastNdim = 0;
     }
 }
 
-// parse next local or argument declaration
-// @param type value of type of variable, see cc.h
-// @param defArrTyp only comes into play if this is an array declare:
-//                        if IDENT_ARRAY, then must have array size;
-//                        if IDENT_POINTER, then must be a pointer.
-// @return 1 is name is valid, 0 + error if invalid.
-int parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
-    int nameIsValid, hasOpenParen;
-    hasOpenParen = IsMatch("(") ? 1 : 0;
-    if (typeIsPtr || IsMatch("*")) {
-        typeIsPtr = 0;
+// === Local Declaration Parsing ==============================================
+
+// Parse a single declarator after the base type has been consumed by dotype().
+// Used for local variables, function arguments, and struct/union members.
+//
+// Inputs:
+//   type       -- base type constant (TYPE_INT, TYPE_CHR, TYPE_STRUCT, ...)
+//   typeSubPtr -- struct/union descriptor index when type == TYPE_STRUCT; else 0
+//   defArrTyp  -- parsing context for array declarations:
+//                   IDENT_ARRAY   -> local or struct member (explicit size required)
+//                   IDENT_POINTER -> function argument (*name[] decays to pointer)
+//   id, sz     -- out-parameters for declarator identity and byte size
+//
+// Outputs (via out-parameters and globals):
+//   *id        <- IDENT_POINTER, IDENT_VARIABLE, or the effective array identity
+//   *sz        <- byte size of the declared object (0 only for unsized char[] locals)
+//   ssname     <- (global) validated identifier name
+//   typeIsPtr  -- global set by dotype() when a typedef resolves to a pointer type;
+//                 consumed (read then cleared) here so subsequent calls start clean
+//   lastNdim   <- (global) number of array dimensions for multi-dim arrays, else 0
+//   lastStrides[] <- (global) per-dimension strides for ndim > 1
+//
+// Returns 1 if the identifier name is valid, 0 (+ error) if invalid or unsupported.
+// On a 0 return the caller should skip further processing of this declarator.
+int parseLocDecl(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
+    int nameIsValid, hasFnPtrParen;
+
+    // Default: not a multi-dim declarator. The array suffix path below
+    // overrides this via calcArgStrides when ndim > 1.
+    lastNdim = 0;
+
+    // A leading '(' signals a function-pointer declarator: (*fp)(args).
+    // Consume it now so the identifier name can still be reached and we
+    // can emit a useful error below rather than crashing the parser.
+    hasFnPtrParen = isMatch("(") ? 1 : 0;
+
+    // Determine declarator identity and element size.
+    // typeIsPtr is a global set by dotype() when a typedef alias resolves to
+    // a pointer type (e.g. typedef int *P; P x;).  Treat it exactly like an
+    // explicit '*' token and clear it so the next dotype() call starts clean.
+    if (typeIsPtr || isMatch("*")) {
+        typeIsPtr = 0;          // consumed; clear for subsequent callers
         *id = IDENT_POINTER;
         *sz = BPW;
     }
     else {
         *id = IDENT_VARIABLE;
         if (type == TYPE_VOID) {
-            error("variable cannot have void type");
-            *sz = BPW;  // error recovery
+            error("parameter or variable cannot have void type");
+            *sz = BPW;          // error-recovery: use a pointer-sized slot
         }
         else if (type == TYPE_STRUCT) {
             *sz = getStructSize(typeSubPtr);
         }
         else {
-            *sz = type >> 2;
+            *sz = type >> 2;    // size in bytes is encoded in the high bits of the type constant
         }
     }
+
+    // Parse and validate the identifier name.
     if ((nameIsValid = symname(ssname)) == 0) {
         illname();
     }
@@ -1502,183 +1578,182 @@ int parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz)
         error("reserved keyword used as name");
         nameIsValid = 0;
     }
-    if (hasOpenParen && IsMatch(")")) {
-        // unmatch paren
-    }
-    if (IsMatch("(")) {
-        if (!hasOpenParen || *id != IDENT_POINTER) {
-            error("Is this a function pointer? Try (*...)()");
+
+    // Function-pointer declarator: (*fnName)().
+    // The only currently supported form is an empty parameter list: (*name)().
+    // TODO: typed parameter lists in function-pointer declarations, e.g.
+    //       int (*cmp)(int a, int b), are not yet implemented.
+    // *id is already IDENT_POINTER (set above when '*' was consumed); the
+    // symbol is registered as a plain pointer variable.
+    if (hasFnPtrParen) {
+        isMatch(")");           // consume the closing ')' of (*fnName)
+        if (*id == IDENT_POINTER) {
+            if (isMatch("(")) {
+                // require an immediately following ')': no parameter tokens allowed.
+                // A non-empty list means typed parameters which are not yet supported;
+                // skip to the closing ')' to avoid cascading parse errors.
+                if (isMatch(")") == 0) {
+                    error("typed parameters in function pointer declarations not yet supported");
+                    while (ch && ch != ')')
+                        gch();
+                    isMatch(")");   // consume the closing ')'
+                    return 0;
+                }
+            }
+            // (*fnName)() with empty parens — accepted; continue as plain pointer.
         }
-        Require(")");
+        // else: int (x) — parenthesized plain declarator name, valid C90;
+        // paren was already consumed above, continue normally.
     }
-    else if (*id == IDENT_POINTER && IsMatch("[")) {
-        // pointer array: *name[]
-        getArraySz();     // consume [] size if present
+    else if (isMatch("(")) {
+        // 'type name(...)' without a preceding '(*' is not a variable declaration.
+        error("function pointer declaration requires (*name)() form");
+        while (ch && ch != ')')
+            gch();
+        isMatch(")");
+        return 0;
+    }
+
+    // Parse optional array dimension suffix.
+    if (*id == IDENT_POINTER && isMatch("[")) {
+        // *name[N] in argument position: array of T parameter is adjusted to pointer to T.
+        // Consume the dimension and force BPW.
+        parseArraySz();
         if (defArrTyp == IDENT_POINTER) {
-            // function parameter: *name[] is just a pointer
-            *sz = BPW;
+            *sz = BPW;          // *name[] parameter adjusted to plain pointer
         }
         else {
             error("local pointer arrays not supported");
         }
-        lastNdim = 0;
     }
-    else if (*id == IDENT_VARIABLE && IsMatch("[")) {
-        int dims[MAX_DIMS], ndim, elemSz, k;
+    else if (*id == IDENT_VARIABLE && isMatch("[")) {
+        int dims[MAX_DIMS], ndim;
         *id = defArrTyp;
-        dims[0] = getArraySz();
-        ndim = 1;
-        while (IsMatch("[")) {
-            if (ndim >= MAX_DIMS) {
-                error("too many dimensions");
-                break;
-            }
-            dims[ndim++] = getArraySz();
-        }
+        ndim = parseArrayDims(dims);
         if (ndim > 1) {
-            // multi-dimensional: compute strides and total size
-            if (type == TYPE_STRUCT)
-                elemSz = getStructSize(typeSubPtr);
-            else
-                elemSz = type >> 2;
-            if (elemSz < 1) elemSz = 1;
-            lastStrides[ndim - 2] = dims[ndim - 1] * elemSz;
-            k = ndim - 3;
-            while (k >= 0) {
-                lastStrides[k] = dims[k + 1]
-                    * lastStrides[k + 1];
-                --k;
-            }
+            // Multi-dimensional: compute per-dimension strides and total size.
+            calcArgStrides(type, typeSubPtr, ndim, dims);
             *sz = dims[0] * lastStrides[0];
-            lastNdim = ndim;
         }
         else {
-            // single dimension (original path)
-            lastNdim = 0;
+            // Single dimension.
             if ((*sz *= dims[0]) == 0) {
                 if (defArrTyp == IDENT_ARRAY
                     && (type == TYPE_CHR || type == TYPE_UCHR)) {
-                    // char arr[] — size inferred from string init
+                    // 'char name[]' with no explicit size is legal.
+                    // The actual element count is inferred from the string-literal
+                    // Initializer; leave *sz == 0 and let initLocChrStr allocate
+                    // the right stack space after seeing the initializer.
                 }
                 else {
-                    if (defArrTyp == IDENT_ARRAY) {
+                    if (defArrTyp == IDENT_ARRAY)
                         error("need array size");
-                    }
-                    *sz = BPW;      // size of pointer argument
+                    *sz = BPW;  // unsized parameter array decays to pointer
                 }
             }
         }
     }
-    else {
-        lastNdim = 0;
-    }
+
     return nameIsValid;
 }
 
-// ****************************************************************************
-// 2nd level parsing
-// ****************************************************************************
+// Copy a NUL-terminated symbol name into dst (up to NAMESIZE bytes).
+// Used to save and restore ssname around static local name mangling.
+void copyname(char *dst, char *src) {
+    while (*src) *dst++ = *src++;
+    *dst = 0;
+}
 
-// Each call to statement() parses a single statement. Sequences of statements
-// only occur within a compound statement; the loop that recognizes statement
-// sequences is only found in compound().
-// First, statement() looks for a data declaration, introduced by char, int,
-// unsigned, unsigned char, or unsigned int. Finding one of these, it declares
-// a local, passing the data type (CHR, INT, UCHR, or UINT). It then enforces
-// the presence of a semicolon.
-// If that fails, it looks for one of the tokens that introduces an executable
-// statement. If successful, the corresponding parsing function is called, and
-// the global lastst is set to a value indicating which statement was parsed.
-int statement() {
-    int type, typeSubPtr, isStatic;
-    isStatic = 0;
-    if (ch == 0 && eof) return;
-    if (amatch("static", 6)) isStatic = 1;
-    if ((type = dotype(&typeSubPtr)) != 0) {
-        // Pass CONST_FLAG in the class so AddSymbol stores it in CLASS byte.
-        declareLocals(type, typeSubPtr, isStatic, typeIsConst);
-        ReqSemicolon();
-    }
-    else if (isStatic) {
-        error("expected type after static");
-    }
+// Makes a unique name for a static local and puts it into dst.
+// Format: _L<N> where N is a unique label number (e.g. _L42).
+// dst must be at least NAMESIZE bytes.
+void makeNameLcSt(char *dst, int n) {
+    char buf[8];
+    int len;
+    char *p, *q;
+    p = dst;
+    *p++ = '_';
+    *p++ = 'L';
+    if (n == 0) { *p++ = '0'; }
     else {
-        if (declared >= 0) {
-            if (ncmp > 1) {
-                nogo = declared;
-            }
-            if (declared > 0) {
-                gen(ADDSP, csp - declared);
-            }
-            declared = -1;
+        q = buf;
+        while (n > 0) { *q++ = (n % 10) + '0'; n /= 10; }
+        len = q - buf;
+        while (len > 0) *p++ = buf[--len];
+    }
+    *p = 0;
+}
+
+// Declare local variables for the current statement.
+// type:      base type (TYPE_INT, TYPE_CHR, TYPE_STRUCT, ...) parsed by dotype()
+// typeSubPtr: struct/enum descriptor pointer when type == TYPE_STRUCT
+// isStatic:  1 if 'static' storage class preceded the type keyword
+// isConst:   1 if 'const' qualifier was present (typeIsConst, cleared by dotype())
+void declareLocals(int type, int typeSubPtr, int isStatic, int isConst) {
+    int id, sz, N;
+    // lclass only used in the auto (non-static) branch
+    int lclass;
+    // ddentry, glbEntry, localName only used in the static branch
+    char *ddentry, *glbEntry;
+    char localName[NAMESIZE];
+    lclass = isConst ? (AUTOMATIC | CONST_FLAG) : AUTOMATIC;
+    if (swactive) {
+        error("not allowed in switch");
+    }
+    if (noloc) {
+        error("not allowed with goto");
+    }
+    if (declared < 0) {
+        error("must declare first in block");
+    }
+    while (1) {
+        if (endst()) {
+            return;
         }
-        if (IsMatch("{")) {
-            compound();
-        }
-        else if (amatch("if", 2)) {
-            doif();
-            lastst = STIF;
-        }
-        else if (amatch("while", 5)) {
-            dowhile();
-            lastst = STWHILE;
-        }
-        else if (amatch("do", 2)) {
-            dodo();
-            lastst = STDO;
-        }
-        else if (amatch("for", 3)) {
-            dofor();
-            lastst = STFOR;
-        }
-        else if (amatch("switch", 6)) {
-            doswitch();
-            lastst = STSWITCH;
-        }
-        else if (amatch("case", 4)) {
-            docase();
-            lastst = STCASE;
-        }
-        else if (amatch("default", 7)) {
-            dodefault();
-            lastst = STDEF;
-        }
-        else if (amatch("goto", 4)) {
-            dogoto();
-            lastst = STGOTO;
-        }
-        else if (dolabel()) {
-            lastst = STLABEL;
-        }
-        else if (amatch("return", 6)) {
-            doreturn();
-            ReqSemicolon();
-            lastst = STRETURN;
-        }
-        else if (amatch("break", 5)) {
-            dobreak();
-            ReqSemicolon();
-            lastst = STBREAK;
-        }
-        else if (amatch("continue", 8)) {
-            docont();
-            ReqSemicolon();
-            lastst = STCONT;
-        }
-        else if (IsMatch(";"))   {
-            errflag = 0;
-        }
-        else if (IsMatch("#asm")) {
-            doasm();
-            lastst = STASM;
+        parseLocDecl(type, typeSubPtr, IDENT_ARRAY, &id, &sz);
+        if (isStatic) {
+            // static local: allocate in DATA segment, not on stack
+            // save original name; ssname will be overwritten with the _L<N> label
+            copyname(localName, ssname);
+            N = getlabel();
+            makeNameLcSt(ssname, N);  // ssname = "_L<N>" for DATA label + global entry
+            emitLocStatic(type, id, sz);
+            // after addSymbol(&glbptr), cptr = the new global DATA entry
+            // CONST_FLAG goes on the global entry: primary() redirects is[SYMTAB_ADR]
+            // there, so level1()'s const check reads the flag from the global entry.
+            glbEntry = addSymbol(ssname, id, type, sz, 0, &glbptr,
+                isConst ? (STATIC | CONST_FLAG) : STATIC);
+            ddentry = applyDimMeta(cptr, type, typeSubPtr, 0);   // allocate dimdata slot once
+            // restore original name for the local scoping entry
+            // OFFSET stores glbEntry so primary() can redirect STATIC-class accesses.
+            // Plain STATIC class (no CONST_FLAG) keeps the redirect detection working.
+            copyname(ssname, localName);
+            // after addSymbol(&locptr), cptr = the new local scoping entry
+            addSymbol(ssname, id, type, sz, glbEntry, &locptr, STATIC);
+            applyDimMeta(cptr, type, typeSubPtr, ddentry);  // reuse slot; do NOT reallocate
         }
         else {
-            doexpr(NO);
-            ReqSemicolon();
-            lastst = STEXPR;
+            // auto local: allocate on stack
+            // 8086 ABI — align 4-byte (long) locals to an even offset
+            if ((type >> 2) >= BPD && (declared & 1)) {
+                declared++;
+            }
+            declared += sz;
+            // lclass carries CONST_FLAG when the variable is const-qualified
+            // after addSymbol(&locptr), cptr = the new auto local entry
+            addSymbol(ssname, id, type, sz, csp - declared, &locptr, lclass);
+            // allocate dimdata slot if needed
+            applyDimMeta(cptr, type, typeSubPtr, 0);
+            if (isMatch("=")) {
+                dispatchLocInit(type, typeSubPtr, id, sz);
+            }
+            else if (sz == 0 && id == IDENT_ARRAY) {
+                error("need array size");
+            }
         }
+        if (isMatch(",") == 0)
+            return;
     }
-    return lastst;
 }
 
 // allocate pending local variable space on the stack
@@ -1691,6 +1766,72 @@ void allocPendLoc() {
         declared = 0;
     }
 }
+
+// Dispatch to the correct local-variable initializer after '=' is consumed.
+// Handles the sz==0 array case (char arr[]="...") without calling allocPendLoc
+// because the size is not yet known; initLocChrStr(1) infers and fixes it.
+// All other cases call allocPendLoc() first to commit the stack frame slot.
+// cptr must point to the symbol just added by addSymbol (needed by initLocMDArr).
+// WARNING: the arms that call isMatch("{") are token-consuming side effects;
+// their order encodes parsing priority and must not be changed.
+void dispatchLocInit(int type, int typeSubPtr, int id, int sz) {
+    if (sz == 0 && id == IDENT_ARRAY) {
+        // char arr[] = "..." — size inferred from string literal
+        initLocChrStr(1);
+        return;
+    }
+    allocPendLoc();     // commit pending stack frame space before emitting stores
+    if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
+        if (typeSubPtr != -1 && ((char *)typeSubPtr)[STRDAT_KIND] == KIND_UNION)
+            initLocUnion(typeSubPtr);
+        else
+            initLocStruct(typeSubPtr);
+    }
+    // multi-dim check must precede the 1D isMatch("{") to avoid consuming '{'
+    else if (id == IDENT_ARRAY && lastNdim > 1 && isMatch("{")) {
+        initLocMDArr(type, cptr);    // cptr = entry added by the preceding addSymbol
+    }
+    else if (type == TYPE_STRUCT && id == IDENT_ARRAY) {
+        initLocStrArr(typeSubPtr);
+    }
+    else if (id == IDENT_ARRAY && isMatch("{")) {
+        // '{' consumed above; initLocArray reads the element list
+        initLocArray(type);
+    }
+    else if (id == IDENT_ARRAY && (type == TYPE_CHR || type == TYPE_UCHR)) {
+        initLocChrStr(0);
+    }
+    else if (id == IDENT_ARRAY) {
+        error("array initializer requires { }");
+    }
+    else {
+        initLocScalar(type);
+    }
+}
+
+// === Symbol Metadata Helpers ================================================
+
+// Apply multi-dim or struct metadata to symbol table entry sym.
+// sym is typically cptr (the entry just created by addSymbol); for K&R argument
+// patching it may be any valid symbol table entry.
+// Must be called while lastNdim/lastStrides reflect the current declarator.
+// ddentry: 0 => allocate a new dimdata slot via storeDimDat (first-time use);
+//          non-zero => reuse an already-allocated slot (e.g. static local alias).
+// Returns the dimdata pointer (non-zero for multi-dim arrays, else 0).
+char *applyDimMeta(char *sym, int type, int typeSubPtr, char *ddentry) {
+    if (lastNdim > 1) {
+        sym[NDIM] = lastNdim;
+        if (ddentry == 0)
+            ddentry = storeDimDat(typeSubPtr, lastNdim, lastStrides);
+        putint(ddentry, sym + CLASSPTR, 2);
+    }
+    else if (type == TYPE_STRUCT) {
+        putint(typeSubPtr, sym + CLASSPTR, 2);
+    }
+    return ddentry;
+}
+
+// === Local Initializer Code-Gen Helpers =====================================
 
 // Helper: emit the store sequence after gen(POP2,0).
 // BX has the destination address, AX has the value to store.
@@ -1730,11 +1871,35 @@ void genStoreByte(int off, int val) {
     gen(PUTbp1, 0);
 }
 
-// initialize a local scalar variable (int, char, pointer)
-// cptr must point to the symbol table entry for the variable.
-void initLocScalar(int type) {
+// Helper: emit a zero-value store into the stack slot at off with element size elemSz.
+// Sequence: POINT1s(off), PUSH1, GETw1n(0), POP2, genStoreZero(elemSz).
+void genZeroElem(int off, int elemSz) {
+    gen(POINT1s, off);
+    gen(PUSH1, 0);
+    gen(GETw1n, 0);
+    gen(POP2, 0);
+    genStoreZero(elemSz);
+}
+
+// Helper: parse one initializer expression and store it into the stack slot at off.
+// Sequence: POINT1s(off), PUSH1, staged expr (widened to DX:AX if long dst), POP2, genStore.
+void initLocElem(int off, int elemSz, int isPtr) {
     int isConst, val;
     int *before, *start;
+    gen(POINT1s, off);
+    gen(PUSH1, 0);
+    setstage(&before, &start);
+    parseExprWidened(&isConst, &val, elemSz == BPD);
+    clearStage(before, start);
+    gen(POP2, 0);
+    genStore(elemSz, isPtr);
+}
+
+// === Local Scalar, 1D Array, and Char-String Initializers ===================
+
+// Initialize a local scalar variable (int, char, pointer)
+// cptr must point to the symbol table entry for the variable.
+void initLocScalar(int type) {
     int offset, elemSize, isPtr;
     char *savedcptr;
     savedcptr = cptr;
@@ -1742,21 +1907,12 @@ void initLocScalar(int type) {
     isPtr = (savedcptr[IDENT] == IDENT_POINTER);
     elemSize = type >> 2;
     if (elemSize < 1) elemSize = 1;
-    // point to variable address, save it, evaluate expression, store
-    gen(POINT1s, offset);
-    gen(PUSH1, 0);
-    setstage(&before, &start);
-    ParseExpression(&isConst, &val);
-    ClearStage(before, start);
-    gen(POP2, 0);
-    genStore(elemSize, isPtr);
+    initLocElem(offset, elemSize, isPtr);
 }
 
-// initialize a local array variable with { expr, expr, ... }
+// Initialize a local array variable with { expr, expr, ... }
 // cptr must point to the symbol table entry for the array.
 void initLocArray(int type) {
-    int isConst, val;
-    int *before, *start;
     int offset, elemSize, dim, count;
     char *savedcptr;
     savedcptr = cptr;
@@ -1766,211 +1922,20 @@ void initLocArray(int type) {
     dim = getint(savedcptr + SIZE, 2) / elemSize;
     count = 0;
     while (count < dim) {
-        gen(POINT1s, offset + count * elemSize);
-        gen(PUSH1, 0);
-        setstage(&before, &start);
-        ParseExpression(&isConst, &val);
-        ClearStage(before, start);
-        gen(POP2, 0);
-        genStore(elemSize, 0);
+        initLocElem(offset + count * elemSize, elemSize, 0);
         count++;
-        if (IsMatch(",") == 0)
+        if (isMatch(",") == 0)
             break;
     }
-    Require("}");
+    require("}");
     // zero-fill remaining elements
     while (count < dim) {
-        gen(POINT1s, offset + count * elemSize);
-        gen(PUSH1, 0);
-        gen(GETw1n, 0);
-        gen(POP2, 0);
-        genStoreZero(elemSize);
+        genZeroElem(offset + count * elemSize, elemSize);
         count++;
     }
 }
 
-// initialize a local multi-dimensional array with { ... } syntax.
-// supports both nested braces and flat row-major form.
-// symptr must point to the symbol table entry for the array.
-void initLcMDArr(int type, char *symptr) {
-    int offset, elemSz, totalElems, ndim;
-    int dims[MAX_DIMS], strides[MAX_DIMS];
-    int i;
-    char *ddentry;
-    offset = getint(symptr + OFFSET, 2);
-    ndim = symptr[NDIM];
-    if (type == TYPE_STRUCT)
-        elemSz = getStructSize(getClsPtr(symptr));
-    else
-        elemSz = type >> 2;
-    if (elemSz < 1) elemSz = 1;
-    // reconstruct dims from strides and total size
-    ddentry = getint(symptr + CLASSPTR, 2);
-    totalElems = getint(symptr + SIZE, 2) / elemSz;
-    // read strides from dimdata
-    i = 0;
-    while (i < ndim - 1) {
-        strides[i] = getint(ddentry + 2 + i * 2, 2);
-        ++i;
-    }
-    // reconstruct dimension sizes from strides
-    // strides[i] = dims[i+1] * strides[i+1] (or dims[ndim-1]*elemSz)
-    dims[ndim - 1] = strides[ndim - 2] / elemSz;
-    i = ndim - 2;
-    while (i > 0) {
-        dims[i] = strides[i - 1] / strides[i];
-        --i;
-    }
-    dims[0] = totalElems;
-    i = 1;
-    while (i < ndim) {
-        dims[0] /= dims[i];
-        ++i;
-    }
-    initLcMDSub(type, elemSz, ndim, dims, 0, offset, totalElems);
-    Require("}");
-}
-
-// recursive helper for local multi-dim array init.
-// emits code to store each element at the correct stack offset.
-void initLcMDSub(int type, int elemSz, int ndim, int dims[],
-    int depth, int baseOff, int totalSlots) {
-    int i, dim, innerTot, j, isConst, val;
-    int *before, *start;
-    int count;
-    int strOff, strLen;
-    dim = dims[depth];
-    if (depth == ndim - 1) {
-        // innermost: check for string literal (char arrays)
-        if (elemSz == 1 && (type == TYPE_CHR
-            || type == TYPE_UCHR)) {
-            count = 0;
-            while (count < dim) {
-                if (string(&strOff)) {
-                    // copy string chars to stack
-                    i = 0;
-                    strLen = litptr - strOff - 1;
-                    while (i < strLen && count < dim) {
-                        genStoreByte(baseOff + count,
-                            litq[strOff + i] & 255);
-                        ++count;
-                        ++i;
-                    }
-                    litptr = strOff;
-                }
-                else {
-                    gen(POINT1s,
-                        baseOff + count);
-                    gen(PUSH1, 0);
-                    setstage(&before, &start);
-                    ParseExpression(&isConst, &val);
-                    ClearStage(before, start);
-                    gen(POP2, 0);
-                    gen(PUTbp1, 0);
-                    ++count;
-                }
-                if (IsMatch(",") == 0) break;
-            }
-            // zero-fill rest
-            while (count < dim) {
-                genStoreByte(baseOff + count, 0);
-                ++count;
-            }
-            return;
-        }
-        // innermost: parse and emit each element
-        count = 0;
-        while (count < dim) {
-            gen(POINT1s, baseOff + count * elemSz);
-            gen(PUSH1, 0);
-            setstage(&before, &start);
-            ParseExpression(&isConst, &val);
-            ClearStage(before, start);
-            gen(POP2, 0);
-            genStore(elemSz, 0);
-            ++count;
-            if (IsMatch(",") == 0) break;
-        }
-        // zero-fill rest of this row
-        while (count < dim) {
-            gen(POINT1s, baseOff + count * elemSz);
-            gen(PUSH1, 0);
-            gen(GETw1n, 0);
-            gen(POP2, 0);
-            genStoreZero(elemSz);
-            ++count;
-        }
-        return;
-    }
-    // compute inner total elements per this-dim slot
-    innerTot = 1;
-    j = depth + 1;
-    while (j < ndim) {
-        innerTot *= dims[j];
-        ++j;
-    }
-    blanks();
-    if (streq(lptr, "{")) {
-        // nested braces
-        i = 0;
-        while (i < dim) {
-            Require("{");
-            initLcMDSub(type, elemSz, ndim, dims,
-                depth + 1,
-                baseOff + i * innerTot * elemSz,
-                innerTot);
-            Require("}");
-            ++i;
-            if (IsMatch(",") == 0) break;
-        }
-    }
-    else {
-        // flat mode: sequential elements
-        count = 0;
-        while (count < dim * innerTot) {
-            gen(POINT1s,
-                baseOff + count * elemSz);
-            gen(PUSH1, 0);
-            setstage(&before, &start);
-            ParseExpression(&isConst, &val);
-            ClearStage(before, start);
-            gen(POP2, 0);
-            if (elemSz == BPW) gen(PUTwp1, 0);
-            else gen(PUTbp1, 0);
-            ++count;
-            if (IsMatch(",") == 0) break;
-        }
-        // zero-fill remaining flat elements
-        while (count < dim * innerTot) {
-            gen(POINT1s,
-                baseOff + count * elemSz);
-            gen(PUSH1, 0);
-            gen(GETw1n, 0);
-            gen(POP2, 0);
-            if (elemSz == BPW) gen(PUTwp1, 0);
-            else gen(PUTbp1, 0);
-            ++count;
-        }
-        return;
-    }
-    // zero-fill remaining rows (nested brace mode)
-    while (i < dim) {
-        j = 0;
-        while (j < innerTot) {
-            gen(POINT1s,
-                baseOff + (i * innerTot + j) * elemSz);
-            gen(PUSH1, 0);
-            gen(GETw1n, 0);
-            gen(POP2, 0);
-            if (elemSz == BPW) gen(PUTwp1, 0);
-            else gen(PUTbp1, 0);
-            ++j;
-        }
-        ++i;
-    }
-}
-
-// initialize a local char array from a string literal.
+// Initialize a local char array from a string literal.
 // if infer is true, the array had [] with no size, so we fix up the
 // symbol table entry from the string length before allocating.
 // if infer is false, the array has an explicit size and
@@ -2005,6 +1970,173 @@ void initLocChrStr(int infer) {
     litptr = strOffset;
 }
 
+// === Local N-Dimensional Array Initializers =================================
+
+// Reconstruct per-dimension element counts from stride metadata stored in
+// the symbol's dimdata slot.  strides[k] holds the byte size of one slice
+// at dimension k (i.e. dims[k+1]*...*dims[ndim-1]*elemSz).
+// On return, dims[0..ndim-1] contain the element count for each dimension.
+void deriveDims(char *symptr, int dims[], int elemSz, int ndim) {
+    int strides[MAX_DIMS];
+    int totalElems, i;
+    char *ddentry;
+    ddentry = getint(symptr + CLASSPTR, 2);
+    totalElems = getint(symptr + SIZE, 2) / elemSz;
+    // read stored strides (ndim-1 entries beginning at byte 2 of the slot)
+    i = 0;
+    while (i < ndim - 1) {
+        strides[i] = getint(ddentry + 2 + i * 2, 2);
+        ++i;
+    }
+    // innermost dimension: stride[ndim-2] / elemSz
+    dims[ndim - 1] = strides[ndim - 2] / elemSz;
+    // middle dimensions: ratio of adjacent strides
+    i = ndim - 2;
+    while (i > 0) {
+        dims[i] = strides[i - 1] / strides[i];
+        --i;
+    }
+    // outermost dimension: total elements divided by the product of all others
+    dims[0] = totalElems;
+    i = 1;
+    while (i < ndim) {
+        dims[0] /= dims[i];
+        ++i;
+    }
+}
+
+// Initialize the innermost row of a char/uchar multi-dim array.
+// Accepts string literals (expanded byte-by-byte) and individual char
+// expressions intermixed; zero-fills any slots not covered.
+// baseOff: stack offset of the first byte in this row.
+// dim:     number of bytes in this row.
+void initLocMDCharRow(int baseOff, int dim) {
+    int count, i, strOff, strLen;
+    count = 0;
+    while (count < dim) {
+        if (string(&strOff)) {
+            // expand string literal bytes (excluding NUL terminator) inline
+            strLen = litptr - strOff - 1;
+            i = 0;
+            while (i < strLen && count < dim) {
+                genStoreByte(baseOff + count, litq[strOff + i] & 255);
+                ++count;
+                ++i;
+            }
+            litptr = strOff;   // roll back literal pool; bytes emitted as immediates
+        }
+        else {
+            initLocElem(baseOff + count, 1, 0);
+            ++count;
+        }
+        if (isMatch(",") == 0) break;
+    }
+    // zero-fill any remaining bytes in this row
+    while (count < dim) {
+        genStoreByte(baseOff + count, 0);
+        ++count;
+    }
+}
+
+// Initialize the innermost row of a non-char multi-dim array.
+// Parses element expressions and emits stores; zero-fills the remainder.
+// baseOff: stack offset of the first element.
+// elemSz:  element size in bytes.
+// dim:     number of elements in this row.
+void initLocMDElemRow(int elemSz, int baseOff, int dim) {
+    int count;
+    count = 0;
+    while (count < dim) {
+        initLocElem(baseOff + count * elemSz, elemSz, 0);
+        ++count;
+        if (isMatch(",") == 0) break;
+    }
+    // zero-fill remainder of this row
+    while (count < dim) {
+        genZeroElem(baseOff + count * elemSz, elemSz);
+        ++count;
+    }
+}
+
+// recursive helper for local multi-dim array init.
+// Handles nested-brace {{r0},{r1}} and flat {e0,e1,...} initializer forms.
+// type:    element type (e.g. TYPE_INT, TYPE_CHR)
+// elemSz:  element size in bytes
+// ndim:    total number of dimensions
+// dims[]:  element count for each dimension
+// depth:   current recursion depth (0 == outermost brace level)
+// baseOff: stack offset of the first element reachable at this depth
+void initLocMDSub(int type, int elemSz, int ndim, int dims[],
+    int depth, int baseOff) {
+    int i, dim, innerTot, j;
+    dim = dims[depth];
+    if (depth == ndim - 1) {
+        // innermost dimension: dispatch by element type
+        if (elemSz == 1 && (type == TYPE_CHR || type == TYPE_UCHR))
+            initLocMDCharRow(baseOff, dim);
+        else
+            initLocMDElemRow(elemSz, baseOff, dim);
+        return;
+    }
+    // compute total element count of one sub-array at this depth
+    innerTot = 1;
+    j = depth + 1;
+    while (j < ndim) {
+        innerTot *= dims[j];
+        ++j;
+    }
+    blanks();
+    if (streq(lptr, "{")) {
+        // nested-brace mode: each sub-array is enclosed in { }
+        i = 0;
+        while (i < dim) {
+            require("{");
+            initLocMDSub(type, elemSz, ndim, dims,
+                depth + 1,
+                baseOff + i * innerTot * elemSz);
+            require("}");
+            ++i;
+            if (isMatch(",") == 0) break;
+        }
+        // zero-fill sub-arrays not covered by the initializer
+        while (i < dim) {
+            j = 0;
+            while (j < innerTot) {
+                genZeroElem(baseOff + (i * innerTot + j) * elemSz, elemSz);
+                ++j;
+            }
+            ++i;
+        }
+    }
+    else {
+        // flat mode: all elements in row-major order, no inner braces
+        if (elemSz == 1 && (type == TYPE_CHR || type == TYPE_UCHR))
+            initLocMDCharRow(baseOff, dim * innerTot);
+        else
+            initLocMDElemRow(elemSz, baseOff, dim * innerTot);
+    }
+}
+
+// Initialize a local multi-dimensional array with { ... } syntax.
+// Supports both nested-brace {{r0},{r1}} and flat {e0,e1,...} forms.
+// symptr must point to the symbol table entry for the array.
+void initLocMDArr(int type, char *symptr) {
+    int offset, elemSz, ndim;
+    int dims[MAX_DIMS];
+    offset = getint(symptr + OFFSET, 2);
+    ndim = symptr[NDIM];
+    if (type == TYPE_STRUCT)
+        elemSz = getStructSize(getClsPtr(symptr));
+    else
+        elemSz = type >> 2;
+    if (elemSz < 1) elemSz = 1;
+    deriveDims(symptr, dims, elemSz, ndim);
+    initLocMDSub(type, elemSz, ndim, dims, 0, offset);
+    require("}");
+}
+
+// === Local Struct and Union Initializers ====================================
+
 // walk struct members and initialize each from expressions in current {...}.
 // typeSubPtr points to the struct definition.
 // baseOffset is the stack offset of the struct (or nested member) start.
@@ -2012,8 +2144,6 @@ void initLocStrMem(int typeSubPtr, int baseOffset) {
     char *membercur, *memberend;
     int memberSize, memberTotal, memberOffset;
     int nestedPtr;
-    int isConst, val;
-    int *before, *start;
     int elemCount, elemIdx, i;
     membercur = getint(typeSubPtr + STRDAT_MBEG, 2);
     memberend = getint(typeSubPtr + STRDAT_MEND, 2);
@@ -2025,51 +2155,34 @@ void initLocStrMem(int typeSubPtr, int baseOffset) {
         if (membercur[STRMEM_TYPE] == TYPE_STRUCT
             && membercur[STRMEM_IDENT] == IDENT_VARIABLE) {
             nestedPtr = getint(membercur + STRMEM_CLASSPTR, 2);
-            Require("{");
-            initLocStrMem(nestedPtr,
-                baseOffset + memberOffset);
-            Require("}");
+            require("{");
+            initLocStrMem(nestedPtr, baseOffset + memberOffset);
+            require("}");
         }
         else if (membercur[STRMEM_IDENT] == IDENT_ARRAY) {
             elemCount = memberTotal / memberSize;
-            Require("{");
+            require("{");
             elemIdx = 0;
             while (elemIdx < elemCount) {
-                gen(POINT1s,
-                    baseOffset + memberOffset + elemIdx * memberSize);
-                gen(PUSH1, 0);
-                setstage(&before, &start);
-                ParseExpression(&isConst, &val);
-                ClearStage(before, start);
-                gen(POP2, 0);
-                genStore(memberSize, 0);
+                initLocElem(baseOffset + memberOffset + elemIdx * memberSize,
+                    memberSize, 0);
                 elemIdx++;
-                if (IsMatch(",") == 0) break;
+                if (isMatch(",") == 0) break;
             }
-            Require("}");
+            require("}");
             while (elemIdx < elemCount) {
-                gen(POINT1s,
-                    baseOffset + memberOffset + elemIdx * memberSize);
-                gen(PUSH1, 0);
-                gen(GETw1n, 0);
-                gen(POP2, 0);
-                genStoreZero(memberSize);
+                genZeroElem(baseOffset + memberOffset + elemIdx * memberSize,
+                    memberSize);
                 elemIdx++;
             }
         }
         else {
-            gen(POINT1s, baseOffset + memberOffset);
-            gen(PUSH1, 0);
-            setstage(&before, &start);
-            ParseExpression(&isConst, &val);
-            ClearStage(before, start);
-            gen(POP2, 0);
-            genStore(memberSize,
+            initLocElem(baseOffset + memberOffset, memberSize,
                 membercur[STRMEM_IDENT] == IDENT_POINTER);
         }
         membercur += STRMEM_MAX;
         if (membercur < memberend) {
-            if (IsMatch(",") == 0) break;
+            if (isMatch(",") == 0) break;
         }
     }
     // zero-fill remaining members
@@ -2085,19 +2198,19 @@ void initLocStrMem(int typeSubPtr, int baseOffset) {
     }
 }
 
-// initialize a local struct variable: struct tag v = { ... };
+// Initialize a local struct variable: struct tag v = { ... };
 // cptr must point to the symbol table entry for the variable.
 void initLocStruct(int typeSubPtr) {
     char *savedcptr;
     int baseOffset;
     savedcptr = cptr;
     baseOffset = getint(savedcptr + OFFSET, 2);
-    if (IsMatch("{") == 0) {
+    if (isMatch("{") == 0) {
         error("struct initializer requires { }");
         return;
     }
     initLocStrMem(typeSubPtr, baseOffset);
-    Require("}");
+    require("}");
 }
 
 // Initialize a local union variable: union tag v = { expr };
@@ -2105,13 +2218,11 @@ void initLocStruct(int typeSubPtr) {
 // cptr must point to the symbol table entry for the variable.
 void initLocUnion(int typeSubPtr) {
     char *savedcptr, *firstMem;
-    int baseOffset, unionSize, memberSize, memberTotal;
-    int isConst, val, i;
-    int *before, *start;
+    int baseOffset, unionSize, memberSize, memberTotal, i;
     savedcptr = cptr;
     baseOffset = getint(savedcptr + OFFSET, 2);
     unionSize = getStructSize(typeSubPtr);
-    if (IsMatch("{") == 0) {
+    if (isMatch("{") == 0) {
         error("union initializer requires { }");
         return;
     }
@@ -2120,16 +2231,10 @@ void initLocUnion(int typeSubPtr) {
         memberSize = firstMem[STRMEM_TYPE] >> 2;
         if (memberSize < 1) memberSize = 1;
         memberTotal = getint(firstMem + STRMEM_SIZE, 2);
-        // emit: &(baseOffset) on stack, then evaluate and store first member
-        gen(POINT1s, baseOffset);
-        gen(PUSH1, 0);
-        setstage(&before, &start);
-        ParseExpression(&isConst, &val);
-        ClearStage(before, start);
-        gen(POP2, 0);
-        genStore(memberSize,
+        // evaluate and store first member
+        initLocElem(baseOffset, memberSize,
             firstMem[STRMEM_IDENT] == IDENT_POINTER);
-        if (IsMatch(",")) {
+        if (isMatch(",")) {
             error("union initializer only allows one value");
         }
         // zero-fill bytes after the first member up to union size
@@ -2139,10 +2244,10 @@ void initLocUnion(int typeSubPtr) {
             i++;
         }
     }
-    Require("}");
+    require("}");
 }
 
-// initialize a local struct array: struct tag a[N] = {{...},{...},...};
+// Initialize a local struct array: struct tag a[N] = {{...},{...},...};
 // cptr must point to the symbol table entry for the array.
 // cptr must point to the symbol table entry for the array.
 void initLocStrArr(int typeSubPtr) {
@@ -2152,20 +2257,19 @@ void initLocStrArr(int typeSubPtr) {
     baseOffset = getint(savedcptr + OFFSET, 2);
     structSize = getStructSize(typeSubPtr);
     dim = getint(savedcptr + SIZE, 2) / structSize;
-    if (IsMatch("{") == 0) {
+    if (isMatch("{") == 0) {
         error("struct array initializer requires { }");
         return;
     }
     idx = 0;
     while (idx < dim) {
-        Require("{");
-        initLocStrMem(typeSubPtr,
-            baseOffset + idx * structSize);
-        Require("}");
+        require("{");
+        initLocStrMem(typeSubPtr, baseOffset + idx * structSize);
+        require("}");
         idx++;
-        if (IsMatch(",") == 0) break;
+        if (isMatch(",") == 0) break;
     }
-    Require("}");
+    require("}");
     while (idx < dim) {
         i = 0;
         while (i < structSize) {
@@ -2176,24 +2280,34 @@ void initLocStrArr(int typeSubPtr) {
     }
 }
 
-// Build mangled name for a static local into dst.
-// Format: _L<N> where N is a unique label number (e.g. _L42).
-// dst must be at least NAMESIZE bytes.
-void buildmangle(char *dst, int n) {
-    char buf[8];
-    int len;
-    char *p, *q;
-    p = dst;
-    *p++ = '_';
-    *p++ = 'L';
-    if (n == 0) { *p++ = '0'; }
-    else {
-        q = buf;
-        while (n > 0) { *q++ = (n % 10) + '0'; n /= 10; }
-        len = q - buf;
-        while (len > 0) *p++ = buf[--len];
+// === Static Local Variables =================================================
+
+// Parse and emit one constant initializer value of the given element size.
+// Handles 32-bit (BPD), 8-bit (1), and 16-bit cases.
+// Returns 1 on success, 0 if the expression is not a constant (error emitted).
+int emitConstVal(int esize) {
+    int val, val_hi;
+    if (esize == BPD) {
+        if (isConstExpr32(&val, &val_hi) == 0) {
+            error("static local: constant initializer required");
+            return 0;
+        }
+        gen(WORD_, 0); outdec(val);     newline();
+        gen(WORD_, 0); outdec(val_hi);  newline();
     }
-    *p = 0;
+    else {
+        if (isConstExpr(&val) == 0) {
+            error("static local: constant initializer required");
+            return 0;
+        }
+        if (esize == 1) {
+            gen(BYTE_, 0); outdec(val & 255); newline();
+        }
+        else {
+            gen(WORD_, 0); outdec(val); newline();
+        }
+    }
+    return 1;
 }
 
 // Emit DATA segment storage for a static local variable.
@@ -2201,8 +2315,8 @@ void buildmangle(char *dst, int n) {
 // Consumes "= initializer" if present; otherwise zero-fills.
 // Flushes the staging buffer before switching segments.
 // Returns after switching back to CODE segment.
-void emitStatLoc(int type, int id, int sz) {
-    int esize, dim, count, val;
+void emitLocStatic(int type, int id, int sz) {
+    int esize, dim, count;
     // compute element size and element count
     if (id == IDENT_POINTER) {
         esize = BPW;
@@ -2215,40 +2329,20 @@ void emitStatLoc(int type, int id, int sz) {
     if (dim < 1) dim = 1;
     // flush any pending stack allocations and staged code before switching segments
     allocPendLoc();
-    ClearStage(0, snext);
+    clearStage(0, snext);
     hasStaticLocal = 1;  // prevent FPO from stripping ENTER during mid-function flushfunc()
     // emit label in DATA segment — no PUBLIC since CLASS == STATIC
     decGlobal(id, 0);
-    if (IsMatch("=")) {
+    if (isMatch("=")) {
         if (id == IDENT_ARRAY) {
-            if (IsMatch("{")) {
+            if (isMatch("{")) {
                 count = 0;
                 while (count < dim) {
-                    int val_hi;
-                    if (esize == BPD) {
-                        if (IsCExpr32(&val, &val_hi) == 0) {
-                            error("static local: constant initializer required");
-                            break;
-                        }
-                        gen(WORD_, 0); outdec(val);     newline();
-                        gen(WORD_, 0); outdec(val_hi);  newline();
-                    }
-                    else {
-                        if (IsConstExpr(&val) == 0) {
-                            error("static local: constant initializer required");
-                            break;
-                        }
-                        if (esize == 1) {
-                            gen(BYTE_, 0); outdec(val & 255); newline();
-                        }
-                        else {
-                            gen(WORD_, 0); outdec(val); newline();
-                        }
-                    }
+                    if (emitConstVal(esize) == 0) break;
                     count++;
-                    if (IsMatch(",") == 0) break;
+                    if (isMatch(",") == 0) break;
                 }
-                Require("}");
+                require("}");
             }
             else {
                 error("static local: array initializer requires { }");
@@ -2258,27 +2352,7 @@ void emitStatLoc(int type, int id, int sz) {
         }
         else {
             // scalar or pointer
-            int val_hi;
-            if (esize == BPD) {
-                if (IsCExpr32(&val, &val_hi) == 0) {
-                    error("static local: constant initializer required");
-                    val = 0; val_hi = 0;
-                }
-                gen(WORD_, 0); outdec(val);     newline();
-                gen(WORD_, 0); outdec(val_hi);  newline();
-            }
-            else {
-                if (IsConstExpr(&val) == 0) {
-                    error("static local: constant initializer required");
-                    val = 0;
-                }
-                if (esize == 1) {
-                    gen(BYTE_, 0); outdec(val & 255); newline();
-                }
-                else {
-                    gen(WORD_, 0); outdec(val); newline();
-                }
-            }
+            emitConstVal(esize);
         }
     }
     else {
@@ -2289,146 +2363,125 @@ void emitStatLoc(int type, int id, int sz) {
     toseg(CODESEG);
 }
 
-// declare local variables
-// isStatic: 1 if the 'static' keyword preceded the type
-// isConst:  1 if the 'const' qualifier was on the type (stored in CLASS byte)
-void declareLocals(int type, int typeSubPtr, int isStatic, int isConst) {
-    int id, sz, N, lclass;
-    char *ddentry, *glbEntry;
-    char localName[NAMESIZE];
-    char *p, *q;
-    lclass = isConst ? (AUTOMATIC | CONST_FLAG) : AUTOMATIC;
-    if (swactive) {
-        error("not allowed in switch");
+// === Statement Dispatch and Control Flow ====================================
+
+// Each call to doStatement() parses a single statement. Sequences of statements
+// only occur within a compound statement; the loop that recognizes statement
+// sequences is only found in doCompound().
+// First, doStatement() looks for a data declaration, introduced by char, int,
+// unsigned, unsigned char, or unsigned int. Finding one of these, it declares
+// a local, passing the data type (CHR, INT, UCHR, or UINT). It then enforces
+// the presence of a semicolon.
+// If that fails, it looks for one of the tokens that introduces an executable
+// statement. If successful, the corresponding parsing function is called, and
+// the global lastst is set to a value indicating which statement was parsed.
+int doStatement() {
+    int type, typeSubPtr, isStatic;
+    isStatic = 0;
+    if (ch == 0 && eof) return;
+    if (amatch("static", 6)) isStatic = 1;
+    if ((type = dotype(&typeSubPtr)) != 0) {
+        // Pass CONST_FLAG in the class so addSymbol stores it in CLASS byte.
+        declareLocals(type, typeSubPtr, isStatic, typeIsConst);
+        reqSemicolon();
     }
-    if (noloc) {
-        error("not allowed with goto");
+    else if (isStatic) {
+        error("expected type after static");
     }
-    if (declared < 0) {
-        error("must declare first in block");
-    }
-    while (1) {
-        if (endst()) {
-            return;
+    else {
+        if (declared >= 0) {
+            if (ncmp > 1) {
+                nogo = declared;
+            }
+            if (declared > 0) {
+                gen(ADDSP, csp - declared);
+            }
+            declared = -1;
         }
-        parseLocalDeclare(type, typeSubPtr, IDENT_ARRAY, &id, &sz);
-        if (isStatic) {
-            // static local: allocate in DATA segment, not on stack
-            // save the short local name (user-visible, stored in local entry)
-            p = localName; q = ssname;
-            while (*q) *p++ = *q++;
-            *p = 0;
-            // build unique _L<N> label into ssname for DATA segment and global entry
-            N = getlabel();
-            buildmangle(ssname, N);
-            // emit DATA segment label + initializer (or zero-fill)
-            emitStatLoc(type, id, sz);
-            // add to global table under _L<N> name
-            // CONST_FLAG goes on the global entry: after primary() redirects
-            // is[SYMTAB_ADR] to the global entry, the const check in level1()
-            // reads the flag from there.
-            glbEntry = AddSymbol(ssname, id, type, sz, 0, &glbptr,
-                isConst ? (STATIC | CONST_FLAG) : STATIC);
-            if (lastNdim > 1) {
-                cptr[NDIM] = lastNdim;
-                ddentry = storeDimDat(typeSubPtr, lastNdim, lastStrides);
-                putint(ddentry, cptr + CLASSPTR, 2);
-            }
-            else if (type == TYPE_STRUCT) {
-                putint(typeSubPtr, cptr + CLASSPTR, 2);
-            }
-            // restore short name; add local entry for scoping
-            // OFFSET holds the global entry pointer for redirect in primary()
-            // Local entry uses plain STATIC (no CONST_FLAG) so that the
-            // ptr[CLASS]==STATIC redirect detection in primary() still works.
-            p = ssname; q = localName;
-            while (*q) *p++ = *q++;
-            *p = 0;
-            AddSymbol(ssname, id, type, sz, glbEntry, &locptr, STATIC);
-            if (lastNdim > 1) {
-                cptr[NDIM] = lastNdim;
-                putint(ddentry, cptr + CLASSPTR, 2);
-            }
-            else if (type == TYPE_STRUCT) {
-                putint(typeSubPtr, cptr + CLASSPTR, 2);
-            }
-            // no stack space needed for static locals
+        if (isMatch("{")) {
+            doCompound();
+        }
+        else if (amatch("if", 2)) {
+            doIf();
+            lastst = STIF;
+        }
+        else if (amatch("while", 5)) {
+            doWhile();
+            lastst = STWHILE;
+        }
+        else if (amatch("do", 2)) {
+            doDo();
+            lastst = STDO;
+        }
+        else if (amatch("for", 3)) {
+            doFor();
+            lastst = STFOR;
+        }
+        else if (amatch("switch", 6)) {
+            doSwitch();
+            lastst = STSWITCH;
+        }
+        else if (amatch("case", 4)) {
+            doCase();
+            lastst = STCASE;
+        }
+        else if (amatch("default", 7)) {
+            doDefault();
+            lastst = STDEF;
+        }
+        else if (amatch("goto", 4)) {
+            doGoto();
+            lastst = STGOTO;
+        }
+        else if (doLabel()) {
+            lastst = STLABEL;
+        }
+        else if (amatch("return", 6)) {
+            doReturn();
+            reqSemicolon();
+            lastst = STRETURN;
+        }
+        else if (amatch("break", 5)) {
+            doBreak();
+            reqSemicolon();
+            lastst = STBREAK;
+        }
+        else if (amatch("continue", 8)) {
+            doContinue();
+            reqSemicolon();
+            lastst = STCONT;
+        }
+        else if (isMatch(";"))   {
+            errflag = 0;
+        }
+        else if (isMatch("#asm")) {
+            doAsmBlock();
+            lastst = STASM;
         }
         else {
-            // pad to even alignment for long (4-byte) locals
-            if ((type >> 2) >= BPD && (declared & 1))
-                declared++;
-            declared += sz;
-            // lclass carries CONST_FLAG when the variable is const-qualified.
-            AddSymbol(ssname, id, type, sz, csp - declared, &locptr, lclass);
-            if (lastNdim > 1) {
-                cptr[NDIM] = lastNdim;
-                ddentry = storeDimDat(typeSubPtr, lastNdim,
-                    lastStrides);
-                putint(ddentry, cptr + CLASSPTR, 2);
-            }
-            else if (type == TYPE_STRUCT) {
-                putint(typeSubPtr, cptr + CLASSPTR, 2);
-            }
-            if (IsMatch("=")) {
-                if (sz == 0 && id == IDENT_ARRAY) {
-                    // char arr[] = "..." — infer size from string
-                    initLocChrStr(1);
-                }
-                else {
-                    allocPendLoc();
-                    if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
-                        if (typeSubPtr != -1 && ((char *)typeSubPtr)[STRDAT_KIND] == KIND_UNION)
-                            initLocUnion(typeSubPtr);
-                        else
-                            initLocStruct(typeSubPtr);
-                    }
-                    else if (id == IDENT_ARRAY && lastNdim > 1
-                        && IsMatch("{")) {
-                        initLcMDArr(type, cptr);
-                    }
-                    else if (type == TYPE_STRUCT && id == IDENT_ARRAY) {
-                        initLocStrArr(typeSubPtr);
-                    }
-                    else if (id == IDENT_ARRAY && IsMatch("{")) {
-                        initLocArray(type);
-                    }
-                    else if (id == IDENT_ARRAY
-                        && (type == TYPE_CHR || type == TYPE_UCHR)) {
-                        initLocChrStr(0);
-                    }
-                    else if (id == IDENT_ARRAY) {
-                        error("array initializer requires { }");
-                    }
-                    else {
-                        initLocScalar(type);
-                    }
-                }
-            }
-            else if (sz == 0 && id == IDENT_ARRAY) {
-                error("need array size");
-            }
+            doExpression(NO);
+            reqSemicolon();
+            lastst = STEXPR;
         }
-        if (IsMatch(",") == 0)
-            return;
     }
+    return lastst;
 }
 
-void compound() {
+void doCompound() {
     int savcsp; 
     char *savloc;
     savcsp = csp;
     savloc = locptr;
     declared = 0;           // may now declare local variables
     ++ncmp;                 // new level open
-    while (IsMatch("}") == 0)
+    while (isMatch("}") == 0)
         if (eof) {
             error("no final }");
             break;
         }
         else {
             // do one statement:
-            statement();
+            doStatement();
         }
         // close current level
         if (--ncmp && lastst != STRETURN && lastst != STGOTO) {
@@ -2450,10 +2503,10 @@ void compound() {
         declared = -1;          // may not declare variables
 }
 
-void doif() {
+void doIf() {
     int flab1, flab2;
-    GenTestAndJmp(flab1 = getlabel(), YES);  // get expr, and branch false
-    statement();                    // if true, do a statement
+    genTestAndJmp(flab1 = getlabel(), YES);  // get expr, and branch false
+    doStatement();                    // if true, do a statement
     if (amatch("else", 4) == 0) {    // if...else?
         // simple "if"...print false label
         gen(LABm, flab1);
@@ -2463,65 +2516,65 @@ void doif() {
     if (lastst != STRETURN && lastst != STGOTO)
         gen(JMPm, flab2);
     gen(LABm, flab1);    // print false label
-    statement();         // and do "else" clause
+    doStatement();         // and do "else" clause
     gen(LABm, flab2);    // print true label
 }
 
-void dowhile() {
+void doWhile() {
     int wq[4];              // allocate local queue
     addwhile(wq);           // add entry to queue for "break"
     gen(LABm, wq[WQLOOP]);  // loop label
-    GenTestAndJmp(wq[WQEXIT], YES);  // see if true
-    statement();            // if so, do a statement
+    genTestAndJmp(wq[WQEXIT], YES);  // see if true
+    doStatement();            // if so, do a statement
     gen(JMPm, wq[WQLOOP]);  // loop to label
     gen(LABm, wq[WQEXIT]);  // exit label
     delwhile();             // delete queue entry
 }
 
-void dodo() {
+void doDo() {
     int wq[4], top;
     addwhile(wq);
     gen(LABm, top = getlabel());
-    statement();
-    Require("while");
+    doStatement();
+    require("while");
     gen(LABm, wq[WQLOOP]);
-    GenTestAndJmp(wq[WQEXIT], YES);
+    genTestAndJmp(wq[WQEXIT], YES);
     gen(JMPm, top);
     gen(LABm, wq[WQEXIT]);
     delwhile();
-    ReqSemicolon();
+    reqSemicolon();
 }
 
-void dofor() {
+void doFor() {
     int wq[4], lab1, lab2;
     addwhile(wq);
     lab1 = getlabel();
     lab2 = getlabel();
-    Require("(");
-    if (IsMatch(";") == 0) {
-        doexpr(NO);           // expr 1
-        ReqSemicolon();
+    require("(");
+    if (isMatch(";") == 0) {
+        doExpression(NO);           // expr 1
+        reqSemicolon();
     }
     gen(LABm, lab1);
-    if (IsMatch(";") == 0) {
-        GenTestAndJmp(wq[WQEXIT], NO); // expr 2
-        ReqSemicolon();
+    if (isMatch(";") == 0) {
+        genTestAndJmp(wq[WQEXIT], NO); // expr 2
+        reqSemicolon();
     }
     gen(JMPm, lab2);
     gen(LABm, wq[WQLOOP]);
-    if (IsMatch(")") == 0) {
-        doexpr(NO);           // expr 3
-        Require(")");
+    if (isMatch(")") == 0) {
+        doExpression(NO);           // expr 3
+        require(")");
     }
     gen(JMPm, lab1);
     gen(LABm, lab2);
-    statement();
+    doStatement();
     gen(JMPm, wq[WQLOOP]);
     gen(LABm, wq[WQEXIT]);
     delwhile();
 }
 
-void doswitch() {
+void doSwitch() {
     int wq[4], endlab, swact, swdef, swilg, *swnex, *swptr;
     swact = swactive;
     swdef = swdefault;
@@ -2529,22 +2582,22 @@ void doswitch() {
     swnex = swptr = swnext;
     addwhile(wq);
     *(wqptr + WQLOOP - WQSIZ) = 0;
-    Require("(");
+    require("(");
     {
         int is[ISSIZE], savedloc;
         int *before, *start;
         savedloc = locptr;
         setstage(&before, &start);
         if (level1(is)) fetch(is);
-        ClearStage(before, start);
+        clearStage(before, start);
         locptr = savedloc;
         swislong = isLongVal(is);
     }
-    Require(")");
+    require(")");
     swdefault = 0;
     swactive = 1;
     gen(JMPm, endlab = getlabel());
-    statement();                // cases, etc.
+    doStatement();                // cases, etc.
     gen(JMPm, wq[WQEXIT]);
     gen(LABm, endlab);
     if (swislong) {
@@ -2576,7 +2629,7 @@ void doswitch() {
     swislong = swilg;
 }
 
-void docase() {
+void doCase() {
     if (swactive == 0) error("not in switch");
     if (swnext > swend - (swislong ? 1 : 0)) {
         error("too many cases");
@@ -2585,7 +2638,7 @@ void docase() {
     gen(LABm, *swnext++ = getlabel());
     if (swislong) {
         int val_hi, val_lo;
-        IsCExpr32(&val_lo, &val_hi);
+        isConstExpr32(&val_lo, &val_hi);
         // Sign-extend 16-bit case constants to 32-bit
         if (val_hi == 0 && (val_lo & 0x8000))
             val_hi = -1;
@@ -2593,40 +2646,40 @@ void docase() {
         *swnext++ = val_hi;
     }
     else {
-        IsConstExpr(swnext++);
+        isConstExpr(swnext++);
     }
-    Require(":");
+    require(":");
 }
 
-void dodefault() {
+void doDefault() {
     if (swactive) {
         if (swdefault)
             error("multiple defaults");
     }
     else
         error("not in switch");
-    Require(":");
+    require(":");
     gen(LABm, swdefault = getlabel());
 }
 
-void dogoto() {
+void doGoto() {
     if (nogo > 0)
         error("not allowed with block-locals");
     else noloc = 1;
     if (symname(ssname))
-        gen(JMPm, addlabel(NO));
+        gen(JMPm, addLabel(NO));
     else
         error("bad label");
-    ReqSemicolon();
+    reqSemicolon();
 }
 
-int dolabel() {
+int doLabel() {
     char *savelptr;
     blanks();
     savelptr = lptr;
     if (symname(ssname)) {
         if (gch() == ':') {
-            gen(LABm, addlabel(YES));
+            gen(LABm, addLabel(YES));
             return 1;
         }
         else bump(savelptr - lptr);
@@ -2634,7 +2687,7 @@ int dolabel() {
     return 0;
 }
 
-int addlabel(int def) {
+int addLabel(int def) {
     if (cptr = findloc(ssname)) {
         if (cptr[IDENT] != IDENT_LABEL)
             error("not a label"); // same name used for variable
@@ -2646,12 +2699,12 @@ int addlabel(int def) {
         }
     }
     else {
-        cptr = AddSymbol(ssname, IDENT_LABEL, def, 0, getlabel(), &locptr, TYPE_LABEL);
+        cptr = addSymbol(ssname, IDENT_LABEL, def, 0, getlabel(), &locptr, TYPE_LABEL);
     }
     return (getint(cptr + OFFSET, 2));
 }
 
-int doreturn() {
+int doReturn() {
     int savcsp;
     if (endst() == 0) {
         if (rettype == TYPE_STRUCT) {
@@ -2686,7 +2739,7 @@ int doreturn() {
             gen(PUSH1, 0);                              // push dst [BP+4]
             cpyfn = findglb("structcp");
             if (cpyfn == 0)
-                cpyfn = AddSymbol("structcp", IDENT_FUNCTION, TYPE_INT,
+                cpyfn = addSymbol("structcp", IDENT_FUNCTION, TYPE_INT,
                     0, 0, &glbptr, AUTOEXT);
             else if ((cpyfn[CLASS] & 0x7F) == PROTOEXT)
                 cpyfn[CLASS] = AUTOEXT;  // ensure trailer() emits EXTRN
@@ -2703,12 +2756,12 @@ int doreturn() {
             locptr = savedloc;
             if ((rettype == TYPE_LONG || rettype == TYPE_ULONG)
                 && !isLongVal(is)) {
-                if (rettype == TYPE_ULONG || IsUnsigned(is))
+                if (rettype == TYPE_ULONG || isUnsigned(is))
                     gen(WIDENu, 0);
                 else
                     gen(WIDENs, 0);
             }
-            ClearStage(before, start);
+            clearStage(before, start);
         }
     }
     savcsp = csp;
@@ -2716,7 +2769,7 @@ int doreturn() {
     csp = savcsp;
 }
 
-void dobreak() {
+void doBreak() {
     int *ptr;
     if ((ptr = readwhile(wqptr)) == 0)
         return;
@@ -2724,7 +2777,7 @@ void dobreak() {
     gen(JMPm, ptr[WQEXIT]);
 }
 
-void docont() {
+void doContinue() {
     int *ptr;
     ptr = wqptr;
     while (1) {
@@ -2737,14 +2790,14 @@ void docont() {
     gen(JMPm, ptr[WQLOOP]);
 }
 
-void doasm() {
+void doAsmBlock() {
     ccode = 0;           // mark mode as "asm"
     hasInlineAsm = 1;    // suppress FP omission: inline asm may reference BP outside p-code view
-    ClearStage(0, snext);  // flush any pending staged p-codes
+    clearStage(0, snext);  // flush any pending staged p-codes
     flushfunc();           // flush funcbuf so inline asm lands in order
     while (1) {
         doInline();
-        if (IsMatch("#endasm"))
+        if (isMatch("#endasm"))
             break;
         if (eof)
             break;
@@ -2754,14 +2807,14 @@ void doasm() {
     ccode = 1;
 }
 
-int doexpr(int use) {
+int doExpression(int use) {
     int isConst, val;
     int *before, *start;
     usexpr = use;        // tell isfree() whether expr value is used
     while (1) {
         setstage(&before, &start);
-        ParseExpression(&isConst, &val);
-        ClearStage(before, start);
+        parseExpr(&isConst, &val);
+        clearStage(before, start);
         if (ch != ',')
             break;
         bump(1);
@@ -2769,100 +2822,3 @@ int doexpr(int use) {
     usexpr = YES;        // return to normal value
 }
 
-// ****************************************************************************
-// miscellaneous functions
-// ****************************************************************************
-
-// get run options
-void getRunArgs() {
-    int i;
-    i = listfp = nxtlab = 0;
-    output = stdout;
-    optimize = YES;
-    alarm = monitor = pause = NO;
-#ifdef ENABLE_WARNINGS
-    nowarn = NO;
-#endif
-    line = mline;
-    while (getarg(++i, line, LINESIZE, argcs, argvs) != EOF) {
-        if (line[0] != '-' && line[0] != '/')
-            continue;
-        if (toupper(line[1]) == 'L' && isdigit(line[2]) && line[3] <= ' ') {
-            listfp = line[2] - '0';
-            continue;
-        }
-        if (toupper(line[1]) == 'N' && toupper(line[2]) == 'O' && 
-            line[3] <= ' ') {
-            optimize = NO;
-            continue;
-        }
-        if (line[2] <= ' ') {
-            if (toupper(line[1]) == 'A') {
-                alarm = YES;
-                continue;
-            }
-            if (toupper(line[1]) == 'M') {
-                monitor = YES; 
-                continue;
-            }
-            if (toupper(line[1]) == 'P') {
-                pause = YES;
-                continue;
-            }
-            if (toupper(line[1]) == 'W') {
-#ifdef ENABLE_WARNINGS
-                nowarn = YES;
-#endif
-                continue;
-            }
-        }
-        fputs("usage: cc [file]... [-m] [-a] [-p] [-w] [-l#] [-no]\n", stderr);
-        abort(ERRCODE);
-    }
-}
-
-// input and output file opens
-void openfile() {
-    char outfn[15];
-    int i, j, ext;
-    input = EOF;
-    while (getarg(++filearg, pline, LINESIZE, argcs, argvs) != EOF) {
-        if (pline[0] == '-' || pline[0] == '/') continue;
-        ext = NO;
-        i = -1;
-        j = 0;
-        while (pline[++i]) {
-            if (pline[i] == '.') {
-                ext = YES;
-                break;
-            }
-            if (j < 10) outfn[j++] = pline[i];
-        }
-        if (!ext) strcpy(pline + i, ".C");
-        input = mustopen(pline, "r");
-        strcpy(infn, pline);
-        lineno = 0;
-        if (!files && iscons(stdout)) {
-            strcpy(outfn + j, ".ASM");
-            output = mustopen(outfn, "w");
-        }
-        files = YES;
-        kill();
-        return;
-    }
-    if (files++)
-        eof = YES;
-    else
-        input = stdin;
-    kill();
-}
-
-// open a file with error checking
-int mustopen(char *fn, char *mode) {
-    int fd;
-    if (fd = fopen(fn, mode))
-        return fd;
-    fputs("open error on ", stderr);
-    lout(fn, stderr);
-    abort(ERRCODE);
-}

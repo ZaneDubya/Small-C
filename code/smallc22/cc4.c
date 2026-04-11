@@ -25,7 +25,7 @@ char hasStaticLocal; // function contains local static variable(s): mid-function
 // === externals ==============================================================
 
 extern char
-*cptr, *macn, *litq, *symtab, optimize, ssname[NAMESIZE];
+*cptr, *litq, *symtab, optimize, ssname[NAMESIZE];
 
 extern int
 *stage, litlab, litptr, csp, output, oldseg, usexpr,
@@ -1439,15 +1439,15 @@ void gen(int pcode, int value) {
     snext += 2;
 }
 
-// ClearStage() either writes the contents of the buffer to the output file and
+// clearStage() either writes the contents of the buffer to the output file and
 // resets snext to zero or merely backs up snext to an earlier point in the
-// buffer, thereby discarding the most recently generated code. ClearStage()
+// buffer, thereby discarding the most recently generated code. clearStage()
 // calls dumpstage which calls outcode() to translate the p-codes to ASCII
 // strings and write them to the output file. Outcode() in turn calls peep()
 // to optimize the p-codes before it translates and writes them.
 // If start == 0, throw away contents.
 // If before != 0, don't dump queue yet.
-void ClearStage(int *before, int *start) {
+void clearStage(int *before, int *start) {
     if (before) {
         snext = before;
         return;
@@ -1459,9 +1459,9 @@ void ClearStage(int *before, int *start) {
 
 // Route a p-code into funcbuf when in CODE segment, else emit directly.
 // Handles overflow by flushing without optimization.
+// Note: on overflow all p-codes are emitted directly, bypassing FPO and
+// epilogue consolidation for the trailing portion of the function.
 void bufout(int pcode, int value) {
-    int used;
-    used = fnext - funcbuf;
     if (oldseg != CODESEG) {
         outcode(pcode, value);
         return;
@@ -1480,109 +1480,116 @@ void bufout(int pcode, int value) {
     fnext += 2;
 }
 
-// Two-pass short-branch optimizer over funcbuf.
-// Pass 1: record label byte positions.
-// Pass 2: substitute short-branch p-codes where target is within +-127 bytes.
-// Pass 3: emit via outcode().
-void flushfunc() {
-    int *p, pc, val, spc, pos, short_end, delta, changed;
-    int i, lpos, nflab;
-    int pairs;
-    pairs = (fnext - funcbuf) / 2;
-    if (fnext == funcbuf) {
-        return;
+// Frame Pointer Omission (FPO): determines whether BP is provably unused by
+// this function and, if so, rewrites ENTER -> NOP_ and RETURN -> RETNOFP.
+// BP is required for two independent reasons; either is sufficient to block FPO:
+//   1. Any [BP+/-N] addressing p-code reads or writes params / locals via the frame.
+//   2. RETURN with nonzero value must emit MOV SP,BP to free stack space even when
+//      no BP-relative p-code is present (e.g. a local referenced only in sizeof).
+// hasInlineAsm: inline #asm bypasses funcbuf and may use BP directly.
+// hasStaticLocal: a mid-function flush (triggered by a local static's data-segment
+//   output) sees ENTER but not the BP-relative p-codes that follow it; FPO must
+//   be suppressed for the entire function in that case.
+static void canOptFPOpass() {
+    int *p, pc, can_omit;
+    can_omit = !hasInlineAsm && !hasStaticLocal;
+    for (p = funcbuf; p < fnext; p += 2) {
+        pc = p[0];
+        if (pc == POINT1s || pc == POINT2s  ||
+            pc == GETb1s  || pc == GETb1su  ||
+            pc == GETw1s  || pc == GETw2s   ||
+            pc == PUSHs   || pc == PUSHds   ||
+            pc == PUTws1  || pc == PUTbs1   ||
+            pc == GETd1s  || pc == GETd2s   ||
+            pc == PUTds1  || pc == CMP1s    ||
+            (pc == RETURN && p[1] != 0)) {
+            can_omit = 0;
+            break;
+        }
     }
-    // Frame Pointer Omission (FPO) pass:
-    // BP can be dropped when it is never needed inside the function.  BP is
-    // needed for two independent reasons:
-    //   1. Any stack suffix p-code reads or writes [BP+/-N] (params or locals).
-    //   2. RETURN.value != 0 means SP must be restored via MOV SP,BP before
-    //      RET.  This catches locals declared but never accessed (e.g. a local
-    //      used only in sizeof): they emit ADDSP but no BP-relative p-code.
-    // Inline #asm blocks are excluded; they bypass funcbuf and may use BP.
-    {
-        int can_omit = !hasInlineAsm && !hasStaticLocal;
+    if (can_omit) {
         for (p = funcbuf; p < fnext; p += 2) {
-            pc = p[0];
-            if (pc == POINT1s || pc == POINT2s  ||
-                pc == GETb1s  || pc == GETb1su  ||
-                pc == GETw1s  || pc == GETw2s   ||
-                pc == PUSHs   || pc == PUSHds   ||
-                pc == PUTws1  || pc == PUTbs1   ||
-                pc == GETd1s  || pc == GETd2s   ||
-                pc == PUTds1  || pc == CMP1s    ||
-                (pc == RETURN && p[1] != 0)) {
-                can_omit = 0;
-                break;
-            }
-        }
-        if (can_omit) {
-            for (p = funcbuf; p < fnext; p += 2) {
-                if (p[0] == ENTER)  p[0] = NOP_;
-                if (p[0] == RETURN) p[0] = RETNOFP;
-            }
+            if (p[0] == ENTER)  p[0] = NOP_;
+            if (p[0] == RETURN) p[0] = RETNOFP;
         }
     }
-    // Epilogue Consolidation pass:
-    // When a function has 2+ RETURN p-codes (frame pointer NOT omitted), replace
-    // all but the last with JMP to a shared epilogue label, saving up to 2 bytes
-    // per eliminated copy after short-branch optimization converts JMPm to JMPs.
-    // Trigger: nret >= 2 AND at least one RETURN has nonzero value (i.e. at least
-    // one return point actually frees locals via MOV SP,BP), so the consolidation
-    // is never vacuous.  Functions where FP was omitted have RETNOFP (1 byte) and
-    // are never eligible: a JMP would cost more than the RET it replaces.
-    {
-        int *pp, *lastRet, nret, nretN, epiLabel;
-        nret = 0; nretN = 0; lastRet = 0;
+}
+
+// Epilogue Consolidation: when 2+ RETURN p-codes exist and FP is in use (not
+// FPO-eligible), replaces all but the last RETURN with JMP to a shared epilogue
+// label. After the short-branch pass those JMPs may shrink to JMPs (SHORT),
+// saving up to 2 bytes per eliminated epilogue copy.
+// Guard nretN >= 1: at least one RETURN must have nonzero value (emitting
+// MOV SP,BP) to make consolidation worthwhile. Functions that passed FPO use
+// RETNOFP (1 byte) and are never eligible -- a JMPm would only cost more.
+// Guard fnext + 2 <= funcbuf + FUNCBUFSIZE: epilogue appends one new pair.
+static void epilogue_consolidation_pass() {
+    int *pp, *lastRet, nret, nretN, epiLabel;
+    nret = 0; nretN = 0; lastRet = 0;
+    for (pp = funcbuf; pp < fnext; pp += 2) {
+        if (pp[0] == RETURN) {
+            nret++;
+            if (pp[1] != 0) nretN++;
+            lastRet = pp;
+        }
+    }
+    if (nret >= 2 && nretN >= 1 && fnext + 2 <= funcbuf + FUNCBUFSIZE) {
+        epiLabel = getlabel();
         for (pp = funcbuf; pp < fnext; pp += 2) {
-            if (pp[0] == RETURN) {
-                nret++;
-                if (pp[1] != 0) nretN++;
-                lastRet = pp;
+            if (pp[0] == RETURN && pp != lastRet) {
+                pp[0] = JMPm;
+                pp[1] = epiLabel;
             }
         }
-        if (nret >= 2 && nretN >= 1 && fnext + 2 <= funcbuf + FUNCBUFSIZE) {
-            epiLabel = getlabel();
-            for (pp = funcbuf; pp < fnext; pp += 2) {
-                if (pp[0] == RETURN && pp != lastRet) {
-                    pp[0] = JMPm;
-                    pp[1] = epiLabel;
-                }
-            }
-            // Repurpose the last RETURN slot as the epilogue label,
-            // then append the single shared RETURN(1) at the new tail.
-            // value=1 is nonzero so RETURN always emits MOV SP,BP / POP BP / RET,
-            // which is correct since BP is guaranteed set up (FP not omitted).
-            lastRet[0] = LABm;
-            lastRet[1] = epiLabel;
-            fnext[0] = RETURN;
-            fnext[1] = 1;
-            fnext += 2;
-        }
+        // Repurpose the last RETURN slot as the epilogue label, then append the
+        // single shared RETURN(1) at the new tail. value=1 is nonzero so RETURN
+        // emits MOV SP,BP / POP BP / RET -- correct since BP is set up (FP not omitted).
+        lastRet[0] = LABm;
+        lastRet[1] = epiLabel;
+        fnext[0] = RETURN;
+        fnext[1] = 1;
+        fnext += 2;
     }
-    // iterate: each pass may shrink branches, bringing more targets within range
+}
+
+// Per-function p-code post-processor: runs optimization passes over funcbuf,
+// then emits the final instruction sequence via outcode() and resets the buffer.
+// Called by toseg() at every function-end or segment-change boundary.
+// Pass order is semantically fixed:
+//   1. canOptFPOpass():                   may replace ENTER/RETURN before epilogue runs
+//   2. epilogue_consolidation_pass(): introduces JMPm entries for short-branch pass
+//   3. Short-branch loop:            iterates to fixpoint; convergence is guaranteed
+//                                    because code size is monotonically non-increasing
+//   4. Emit:                         walk funcbuf, call outcode() per pair, reset fnext
+void flushfunc() {
+    int *p, pc, val, spc, pos, ref_pos, delta, changed;
+    int i, lpos, nflab;
+    if (fnext == funcbuf)
+        return;
+    canOptFPOpass();
+    epilogue_consolidation_pass();
+    // Short-branch loop: each substitution may bring further targets into ±127-byte
+    // range, so repeat until a full pass produces no changes (fixpoint).
     do {
-        // pass 1: record label byte positions using current p-codes
+        // Pass 1: record each LABm's byte offset using current code_size[] estimates.
+        // Labels beyond FL_LABMAX are silently ignored (not a concern in practice).
         nflab = 0;
         pos = 0;
-        p = funcbuf;
-        while (p < fnext) {
+        for (p = funcbuf; p < fnext; p += 2) {
             pc = p[0];
-            if (pc == LABm && nflab < 256) {
+            if (pc == LABm && nflab < FL_LABMAX) {
                 fl_labnum[nflab] = p[1];
                 fl_labpos[nflab] = pos;
                 ++nflab;
             }
-            pos += code_size[pc];
-            p += 2;
+            pos += code_size[pc]; // code_size[LABm] == 0: labels emit no bytes
         }
-        // pass 2: substitute reachable long branches with short variants
+        // Pass 2: substitute any long branch whose target falls within ±127 bytes.
         changed = 0;
         pos = 0;
-        p = funcbuf;
-        while (p < fnext) {
+        for (p = funcbuf; p < fnext; p += 2) {
             pc = p[0];
-            spc = shortbranch(pc);
+            spc = shortbranch(pc); // 0 if not a substitutable long branch
             if (spc) {
                 val = p[1];
                 lpos = -1;
@@ -1590,20 +1597,21 @@ void flushfunc() {
                     if (fl_labnum[i] == val) { lpos = fl_labpos[i]; break; }
                 }
                 if (lpos >= 0) {
-                    short_end = pos + code_size[spc];
-                    delta = lpos - short_end;
+                    // ref_pos: byte address immediately after this instruction,
+                    // which is the reference point for x86 relative-branch offsets.
+                    ref_pos = pos + code_size[spc]; // use short size: target of substitution
+                    delta = lpos - ref_pos;
                     if (delta >= -128 && delta <= 127) {
                         if (p[0] != spc) { p[0] = spc; changed = 1; }
                     }
                 }
             }
             pos += code_size[pc];
-            p += 2;
         }
     } while (changed);
-    // pass 3: emit
-    p = funcbuf;
-    while (p < fnext) { outcode(p[0], p[1]); p += 2; }
+    // Pass 3: emit the final instruction sequence and reset the buffer.
+    for (p = funcbuf; p < fnext; p += 2)
+        outcode(p[0], p[1]);
     fnext = funcbuf;
 }
 
@@ -1713,7 +1721,7 @@ void point() {
 }
 
 // dump the literal pool
-void dumplits(int size) {
+void dumpLitPool(int size) {
     int j, k;
     k = 0;
     while (k < litptr) {
@@ -1796,9 +1804,7 @@ int peep(int *seq) {
         }
         next += 2; ++seq;
     }
-
     // === have a match, now optimize it ======================================
-
     reply = skip = NO;
     while (*(++seq) || skip) {
         if (skip) {
@@ -1848,7 +1854,11 @@ int peep(int *seq) {
                 break;
             }
         }
-        else { snext[0] = *seq; reply = YES; }  // set p-code
+        else {
+            // set p-code
+            snext[0] = *seq; 
+            reply = YES; 
+        }
     }
     return (reply);
 }

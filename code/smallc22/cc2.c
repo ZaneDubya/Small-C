@@ -26,236 +26,32 @@ char *keywords[] = {
     "volatile", "while",    0
 };
 
+int blanksDone;  // true if blanks() last stopped at a non-whitespace character
+
 extern char
-    *symtab, *macn, *macq, *pline, *mline, optimize,
+    *symtab, *mline, optimize,
     alarm, *glbptr, *line, *lptr, *cptr, *cptr2, *cptr3,
-    *locptr, *dimdata, *dimdatptr, msname[NAMESIZE], pause,
+    *locptr, *dimdata, *dimdatptr, pause,
     infn[30], inclfn[30], *paramTypes;
 
 extern int
-    *wq, ccode, ch, csp, eof, errflag, iflevel,
-    input, input2, listfp, macptr, nch,
-    nxtlab, op[16], opindex, opsize, output, pptr,
-    skiplevel, *wqptr, lineno, inclno;
+    *wq, ccode, ch, csp, eof, errflag,
+    input, input2, listfp, nch,
+    nxtlab, op[16], opindex, opsize, output,
+    *wqptr, lineno, inclno, errcount;
 
 #ifdef ENABLE_WARNINGS
 extern char nowarn;
 extern int warncount;
 #endif
 
+#ifdef ENABLE_DIAGNOSTICS
+extern int glbcount;
+#endif
 // forward declarations for this file:
 int astreq(char str1[], char str2[], int len);
 void errout(char msg[], int fp, char *path, int ln);
 int hash(char *sname);
-void ifline();
-void keepch(char c);
-void noiferr();
-
-// === input functions ========================================================
-
-void preprocess() {
-    int k;
-    char c;
-    if (ccode) {
-        line = mline;
-        ifline();
-        if (eof) return;
-    }
-    else {
-        doInline();
-        return;
-    }
-    pptr = -1;
-    while (ch != LF && ch != CR && ch) {
-        if (white()) {
-            keepch(' ');
-            while (white()) gch();
-        }
-        else if (ch == '"') {
-            keepch(ch);
-            gch();
-            while (ch != '"' || (*(lptr - 1) == 92 && *(lptr - 2) != 92)) {
-                if (ch == NULL) {
-                    error("no quote");
-                    break;
-                }
-                keepch(gch());
-            }
-            gch();
-            keepch('"');
-        }
-        else if (ch == 39) {
-            keepch(39);
-            gch();
-            while (ch != 39 || (*(lptr - 1) == 92 && *(lptr - 2) != 92)) {
-                if (ch == NULL) {
-                    error("no apostrophe");
-                    break;
-                }
-                keepch(gch());
-            }
-            gch();
-            keepch(39);
-        }
-        else if (ch == '/' && nch == '*') {
-            bump(2);
-            while ((ch == '*' && nch == '/') == 0) {
-                if (ch) bump(1);
-                else {
-                    ifline();
-                    if (eof) break;
-                }
-            }
-            bump(2);
-        }
-        // ignore C99-style comments
-        else if (ch == '/' && nch == '/') {
-            bump(2);
-            while ((ch == LF || ch == CR) == 0) {
-                if (ch) bump(1);
-                else {
-                    ifline();
-                    if (eof) break;
-                }
-            }
-            bump(1);
-            if (ch == LF) {
-                bump(1);
-            }
-        }
-        else if (an(ch)) {
-            k = 0;
-            while (an(ch) && k < NAMEMAX) {
-                msname[k++] = ch;
-                gch();
-            }
-            msname[k] = NULL;
-            if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0, NAMEMAX)) {
-                k = getint(cptr + NAMESIZE, 2);
-                while (c = macq[k++]) {
-                  keepch(c);
-                }
-                while (an(ch)) {
-                  gch();
-                }
-            }
-            else {
-                k = 0;
-                while (c = msname[k++]) {
-                  keepch(c);
-                }
-                while (an(ch)) {
-                  keepch(ch);
-                  gch();
-                }
-            }
-        }
-        else keepch(gch());
-    }
-    if (pptr >= LINEMAX) error("line too long");
-    keepch(NULL);
-    line = pline;
-    bump(0);
-}
-
-void keepch(char c) {
-    if (pptr < LINEMAX) {
-      pline[++pptr] = c;
-    }
-}
-
-void ifline() {
-    while (1) {
-        doInline();
-        if (eof) return;
-        if (IsMatch("#ifdef")) {
-            ++iflevel;
-            if (skiplevel) 
-                continue;
-            symname(msname);
-            if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0, NAMEMAX) == 0)
-                skiplevel = iflevel;
-            continue;
-        }
-        if (IsMatch("#ifndef")) {
-            ++iflevel;
-            if (skiplevel) continue;
-            symname(msname);
-            if (FindSymbol(msname, macn, NAMESIZE + 2, MACNEND, MACNBR, 0, NAMEMAX))
-                skiplevel = iflevel;
-            continue;
-        }
-        if (IsMatch("#else")) {
-            if (iflevel) {
-                if (skiplevel == iflevel) skiplevel = 0;
-                else if (skiplevel == 0)  skiplevel = iflevel;
-            }
-            else noiferr();
-            continue;
-        }
-        if (IsMatch("#endif")) {
-            if (iflevel) {
-                if (skiplevel == iflevel) skiplevel = 0;
-                --iflevel;
-            }
-            else noiferr();
-            continue;
-        }
-        if (skiplevel) continue;
-        if (ch == 0) continue;
-        break;
-    }
-}
-
-void doInline() {
-    int k, unit;
-    poll(1);           // allow operator interruption
-    if (input == EOF)
-        openfile();
-    if (eof)
-        return;
-    if ((unit = input2) == EOF)
-        unit = input;
-    line[LINEMAX - 2] = '\n';  // sentinel: fgets overwrites only if buffer fills
-    if (fgets(line, LINEMAX, unit) == NULL) {
-        fclose(unit);
-        if (input2 != EOF)
-            input2 = EOF;
-        else
-            input = EOF;
-        *line = NULL;
-    }
-    else {
-        if (input2 != EOF) {
-            ++inclno;
-        }
-        else {
-            ++lineno;
-        }
-        // If the buffer filled without a newline the physical line was longer
-        // than LINEMAX-1.  Drain the remainder so the next read starts on a
-        // fresh line, then report the error exactly once.
-        if (line[LINEMAX - 2] != '\n' && line[LINEMAX - 2] != '\0') {
-            int c;
-            while ((c = fgetc(unit)) != '\n' && c != EOF) ;
-            error("line too long");
-        }
-        if (listfp) {
-            if (listfp == output)
-                fputc(';', output);
-            fputs(line, listfp);
-        }
-    }
-    bump(0);
-}
-
-int inbyte() {
-    while (ch == 0) {
-        if (eof) return 0;
-        preprocess();
-    }
-    return gch();
-}
 
 // === scanning functions =====================================================
 
@@ -288,14 +84,14 @@ int symname(char *sname) {
     return 1;
 }
 
-void Require(char *str)  {
-    if (IsMatch(str) == 0) {
+void require(char *str)  {
+    if (isMatch(str) == 0) {
         error("missing token");
     }
 }
 
-void ReqSemicolon() {
-    if (IsMatch(";") == 0) {
+void reqSemicolon() {
+    if (isMatch(";") == 0) {
         error("no semicolon");
     }
     else {
@@ -303,7 +99,7 @@ void ReqSemicolon() {
     }
 }
 
-int IsMatch(char *lit) {
+int isMatch(char *lit) {
     int k;
     blanks();
     if (k = streq(lptr, lit)) {
@@ -373,10 +169,18 @@ int nextop(char *list) {
 }
 
 void blanks() {
+    // Fast path: blanks() last stopped at a non-whitespace character.
+    // If ch is still non-whitespace, skip avail() and return immediately.
+    // Re-validate the condition rather than tracking every mutation of ch.
+    if (blanksDone && ch && !(*lptr <= ' ' && *lptr)) {
+        return;
+    }
+    blanksDone = 0;
+    avail(YES);  // check for stack/symbol table overflow once per real blanks() scan
     while (1) {
         while (ch) {
-            if (white()) gch();
-            else return;
+            if (*lptr <= ' ' && *lptr) gch();
+            else { blanksDone = 1; return; }
         }
         if (line == mline) return;
         preprocess();
@@ -384,8 +188,16 @@ void blanks() {
     }
 }
 
+// white() -- test if the current character is whitespace (space, tab, etc.).
+// Returns non-zero if *lptr is a non-null character <= ' '.
+//
+// IMPORTANT: avail() (stack/heap overflow check) must be called by the CALLER
+// before entering any loop that calls white(), NOT inside white() itself.
+// white() is invoked in the tight inner loop of blanks() once per character,
+// so placing avail() here would fire hundreds of thousands of times per
+// compilation. blanks() calls avail() once at entry, which is sufficient
+// because no allocation can occur between two consecutive white() calls.
 int white() {
-    avail(YES);  // abort on stack/symbol table overflow
     return (*lptr <= ' ' && *lptr);
 }
 
@@ -465,7 +277,7 @@ int getDimStride(char *sym, int idx) {
 
 // === symbol table management functions ======================================
 
-int AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class) {
+int addSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class) {
     if (lgpp == &glbptr) {
         if (cptr2 = findglb(sname)) {
             return cptr2;
@@ -474,7 +286,9 @@ int AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, 
             error("global symbol table overflow");
             return 0;
         }
-        /* THIS IS WHERE WE WOULD COUNT GLOBALS!; */
+#ifdef ENABLE_DIAGNOSTICS
+        ++glbcount;
+#endif
     }
     else {
         if (locptr > (ENDLOC - SYMMAX)) {
@@ -509,7 +323,7 @@ int AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, 
 // end: end of table of strings
 // max: max count of strings in table
 // off: ???
-int FindSymbol(char *sname, char *buf, int len, char *end, int max, int off, int namelen) {
+int findSymbol(char *sname, char *buf, int len, char *end, int max, int off, int namelen) {
     unsigned int ihash, imax;
     imax = (max - 1);
     ihash = hash(sname) % imax;
@@ -534,13 +348,13 @@ int hash(char *sname) {
 }
 
 int findglb(char *sname) {
-    if (FindSymbol(sname, STARTGLB, SYMMAX, ENDGLB, NUMGLBS, NAME, SYMMAX - NAME))
+    if (findSymbol(sname, STARTGLB, SYMMAX, ENDGLB, NUMGLBS, NAME, SYMMAX - NAME))
         return cptr;
     return 0;
 }
 
 int findloc(char *sname)  {
-    cptr = locptr - 1;  // FindSymbol backward for block locals
+    cptr = locptr - 1;  // findSymbol backward for block locals
     while (cptr > STARTLOC) {
         cptr = cptr - *cptr;
         if (astreq(sname, cptr, NAMEMAX)) return (cptr - NAME);
@@ -637,14 +451,10 @@ void needlval() {
     error("must be lvalue");
 }
 
-void noiferr() {
-    error("no matching #if...");
-    errflag = 0;
-}
-
 void error(char msg[]) {
     char *path;
     int   ln;
+    ++errcount;
     if (errflag) {
         return;
     }

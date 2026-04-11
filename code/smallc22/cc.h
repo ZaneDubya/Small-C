@@ -1,9 +1,7 @@
 // CC.H -- Symbol Definitions for Small-C compiler.
 
-// #define DIAG_OUTPUT      // verbose compiler diagnostics
-#define ENABLE_ENUMS
-#define ENABLE_TYPEDEF
-// #define ENABLE_WARNINGS  // enable optional compiler warnings
+// #define ENABLE_DIAGNOSTICS      // verbose compiler diagnostics
+#define ENABLE_WARNINGS  // enable optional compiler warnings
 #ifdef ENABLE_WARNINGS
 #define WARN_IMPLICIT    // warn about implicit int and undeclared functions
 #define WARN_ARGCOUNT    // warn about wrong number of arguments in function calls
@@ -106,7 +104,7 @@
 #define NUMLOCS   100
 #define STARTLOC  symtab
 #define ENDLOC    (symtab+NUMLOCS*SYMAVG)
-#define NUMGLBS   380
+#define NUMGLBS   500
 
 #define STARTGLB  ENDLOC
 #define ENDGLB    (ENDLOC+(NUMGLBS-1)*SYMMAX)
@@ -177,14 +175,14 @@
 #define WQEXIT  2
 
 // literal pool
-#define LITABSZ 5000
+#define LITABSZ 4200
 
 #define LITMAX  (LITABSZ-1)
 
 // multi-dimensional array metadata buffer
 #define DIMDATSZ  500  // dimdata buffer size
 #define MAX_DIMS    8  // max dimensions per array
-#define FNPARAMTS_SZ 768 // size of paramTypes[] function parameter-type buffer
+#define FNPARAMTS_SZ 1024 // size of paramTypes[] function parameter-type buffer
 
 // argument buffer for two-pass right-to-left argument pushing
 // First pass collects each arg's p-codes here; second pass emits them reversed.
@@ -309,6 +307,7 @@
 #define STLABEL  14
 
 #define FUNCBUFSIZE 2000  // int slots in per-function buffer (1000 p-code pairs, 4000 bytes)
+#define FL_LABMAX    256  // max labels tracked by flushfunc() for short-branch optimization
 
 // === P-code definitions =====================================================
 // ============================================================================
@@ -564,91 +563,93 @@
 // === function prototypes for Small-C ========================================
 // ============================================================================
 
-int AddSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class);
-int FindSymbol(char *sname, char *buf, int len, char *end, int max, int off, int namelen);
-int IsMatch(char *lit);
-int IsUnsigned(int is[]);
+int addSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class);
+void addwhile(int ptr[]);
 int alpha(char c);
 int amatch(char *lit, int len);
 int an(char c);
+void blanks();
+void bump(int n);
 int callfunc(char *ptr);
+void clearStage(int *before, int *start);
+void decGlobal(int ident, int isGlobal);
+void delwhile();
+void dodefine();
+int doEnum(int *typeSubPtr);
 int dofunction(int class);
+void doinclude();
+void doInline();
+int doStructBlock(int kind);
+int doTypedef();
 int dotype(int *typeSubPtr);
+void dumpLitPool(int size);
+void dumpzero(int size, int count);
 int endst();
+void error(char msg[]);
+void external(char *name, int size, int ident);
+void fetch(int is[]);
 int findglb(char *sname);
 int findloc(char *sname);
+int findSymbol(char *sname, char *buf, int len, char *end, int max, int off, int namelen);
+void flushfunc();
 int gch();
+void gen(int pcode, int value);
+void genTestAndJmp(int label, int reqParens);
 int getClsPtr(char *sym);
 int getDimStride(char *sym, int idx);
-int getStructMember(char *basestruct, char *sname);
-int getStructPtr();
-int getStructPtr();
-int getStructSize(char *basestruct);
 int getint(char *addr, int len);
 int getlabel();
+void getRunArgs();
+int getStructMember(char *basestruct, char *sname);
+int getStructPtr(int kind);
+int getStructSize(char *basestruct);
+void header();
+void illname();
 int inbyte();
-int IsConstExpr(int *val);
+void initEnums();
+void initPreprocessor();
+void initStructs();
+int isCExpr32(int *val, int *val_hi);
+int isConstExpr(int *val);
 int isLongVal(int is[]);
+int isMatch(char *lit);
 int isreserved(char *name);
+int isUnsigned(int is[]);
+void kill();
 int level1(int is[]);
+void lout(char *line, int fd);
+void multidef(char *sname);
+void needlval();
+void newline();
 int nextsym(char *entry);
 int nextop(char *list);
-int parseLocalDeclare(int type, int typeSubPtr, int defArrTyp, int *id, int *sz);
+void openfile();
+void outdec(int number);
+void parseExpr(int *con, int *val);
+void parseExprWidened(int *con, int *val, int destIsLong);
+void parseGlbDecl(int type, int class, int typeSubPtr);
+int parseLocDecl(int type, int typeSubPtr, int defArrTyp, int *id, int *sz);
+int parseSizeofType();
+void point();
+void preprocess();
 int primary(int *is);
+void putint(int i, char *addr, int len);
+int readwhile(int *ptr);
+void require(char *str);
+void reqSemicolon();
+void setstage(int *before, int *start);
+void skipToNextToken();
+int storeDimDat(int sptr, int ndim, int strides[]);
+int storeParamTypes(char *typebuf, int nparams_byte);
+void stowlit(int value, int size);
 int streq(char str1[], char str2[]);
 int string(int *offset);
 int symname(char *sname);
+int tableFind(int tab[], int key);
+void toseg(int newseg);
+void trailer();
 int white();
-void addwhile(int ptr[]);
-void ClearStage(int *before, int *start);
-void GenTestAndJmp(int label, int reqParens);
-void ParseExpression(int *con, int *val);
-void ReqSemicolon();
-void Require(char *str);
-void blanks();
-void bump(int n);
-void declglb(int type, int class, int typeSubPtr);
-void delwhile();
-void doInline();
-void error(char msg[]);
-void fetch(int is[]);
-void flushfunc();
-void gen(int pcode, int value);
-void illname();
-void kill();
-void lout(char *line, int fd);
-void needlval();
-void newline();
-void openfile();
-void outdec(int number);
-void putint(int i, char *addr, int len);
-int readwhile(int *ptr);
-void setstage(int *before, int *start);
-void skipToNextToken();
-void stowlit(int value, int size);
 #ifdef ENABLE_WARNINGS
 void warning(char msg[]);
 void warningWithName(char msg[], char *name, char suffix[]);
-#endif
-int storeDimDat(int sptr, int ndim, int strides[]);
-int IsCExpr32(int *val, int *val_hi);
-void toseg(int newseg);
-void dumpzero(int size, int count);
-void decGlobal(int ident, int isGlobal);
-void multidef(char *sname);
-void external(char *name, int size, int ident);
-void initStructs();
-void getRunArgs();
-void preprocess();
-void header();
-void trailer();
-int dostructblock();
-void point();
-int storeParamTypes(char *typebuf, int nparams_byte);
-#ifdef ENABLE_ENUMS
-void initEnums();
-int doEnum(int *typeSubPtr);
-#endif
-#ifdef ENABLE_TYPEDEF
-int doTypedef();
 #endif

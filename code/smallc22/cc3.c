@@ -39,21 +39,32 @@ extern int ch, csp, litlab, litptr, nch, op[16], op2[16], opd[16], opd2[16],
     opindex, opsize, *snext, *slast, *argbuf, argbufcur, argtop, rettype, rettypeSubPtr,
     lastNdim, lastStrides[MAX_DIMS];
 
+#ifdef ENABLE_DIAGNOSTICS
+    extern int litptrMax;
+#endif
+
 // forward declarations for this file:
-void CalcCmp32(int lhi, int llo, int oper, int rhi, int rlo, int *reshi, int *reslo);
-void CalcConst32(int lhi, int llo, int oper, int rhi, int rlo, int *reshi, int *reslo);
-void CalcUConst32(int lhi, int llo, int oper, int rhi, int rlo, int *reshi, int *reslo);
-int CalcUConst(unsigned left, int oper, unsigned right);
-int CalcConst(int left, int oper, int right);
+void calcCmp32(int lhi, int llo, int oper, int rhi, int rlo, int *reshi, int *reslo);
+void calcConst32(int lhi, int llo, int oper, int rhi, int rlo, int *reshi, int *reslo);
+void calcUConst32(int lhi, int llo, int oper, int rhi, int rlo, int *reshi, int *reslo);
+int calcUConst(unsigned left, int oper, unsigned right);
+int calcConst(int left, int oper, int right);
 int chrcon(int *lo, int *hi);
 int constant(int is[]);
 int down(char *opstr, int opoff, int (*level)(), int is[]);
 int down1(int (*level)(), int is[]);
 void down2(int oper, int oper2, int (*level)(), int is[], int is2[]);
+int tryReverse(int *oper, int *oper2, int guard);
+void foldConst32(int oper, int leftLong, int rightLong, int is[], int is2[]);
+void applyResultType(int oper, int is[], int is2[]);
+void emitConst32Rhs(int oper, int leftLong, int is[], int is2[]);
+void emitConst16Rhs(int *oper, int *oper2, int is[], int is2[]);
+void prepLongRegs(int leftLong, int rightLong, int is[], int is2[]);
+void scalePtrOperands(int oper, int is[], int is2[]);
 void dropout(int k, int tcode, int exit1, int is[]);
 void error(char msg[]);
 void experr();
-void GenJmpIfZero(int oper, int label, int is[]);
+void genJmpIfZero(int oper, int label, int is[]);
 int level14(int *is);
 int litchar();
 void negate32(int *hi, int *lo);
@@ -62,26 +73,48 @@ int skim(char *opstr, int tcode, int dropval, int endval, int (*level)(), int is
 void step(int oper, int is[], int oper2);
 void store(int is[]);
 int structmember(char *ptr, int *is);
-void widen_primary(int is[]);
-int tableFind(int tab[], int key);
+void widenPrimary(int is[]);
+void checkFnArgCount(char *ptr, int userArgCount);
+int collectOneArg(int is[], int argLens[], int argSizes[], int idx, int *pNargs);
 
 // ****************************************************************************
 // lead-in functions
 // ****************************************************************************
 
-int IsConstExpr(int *val) {
+int isConstExpr(int *val) {
     int isConst;
     int *before, *start;
     setstage(&before, &start);
-    ParseExpression(&isConst, val);
-    ClearStage(before, 0);     // scratch generated code
+    parseExpr(&isConst, val);
+    clearStage(before, 0);     // scratch generated code
     if (isConst == 0) {
         error("must be constant expression");
     }
     return isConst;
 }
 
-void ParseExpression(int *con, int *val) {
+void parseExpr32(int *con, int *val, int *val_hi) {
+    int is[ISSIZE], savedlocptr;
+    savedlocptr = locptr;
+    if (level1(is)) fetch(is);
+    *con = is[TYP_CNST];
+    *val = is[VAL_CNST];
+    *val_hi = is[VAL_CNST_HI];
+    locptr = savedlocptr;
+}
+
+int isConstExpr32(int *val, int *val_hi) {
+    int isConst;
+    int *before, *start;
+    setstage(&before, &start);
+    parseExpr32(&isConst, val, val_hi);
+    clearStage(before, 0);
+    if (isConst == 0)
+        error("must be constant expression");
+    return isConst;
+}
+
+void parseExpr(int *con, int *val) {
     int is[ISSIZE], savedlocptr;
     savedlocptr = locptr;
     if (level1(is)) {
@@ -92,50 +125,43 @@ void ParseExpression(int *con, int *val) {
     locptr = savedlocptr;
 }
 
-void ParseExpr32(int *con, int *val, int *val_hi) {
+// Like parseExpr, but when destIsLong is true and the expression
+// evaluates to a 16-bit value, emits WIDENs or WIDENu to extend AX to DX:AX.
+// Use this when storing into a long/unsigned-long slot to ensure DX is set.
+void parseExprWidened(int *con, int *val, int destIsLong) {
     int is[ISSIZE], savedlocptr;
     savedlocptr = locptr;
     if (level1(is)) fetch(is);
     *con = is[TYP_CNST];
     *val = is[VAL_CNST];
-    *val_hi = is[VAL_CNST_HI];
+    if (destIsLong && !isLongVal(is))
+        widenPrimary(is);   // CWD or XOR DX,DX depending on signedness of is
     locptr = savedlocptr;
 }
 
-int IsCExpr32(int *val, int *val_hi) {
-    int isConst;
-    int *before, *start;
-    setstage(&before, &start);
-    ParseExpr32(&isConst, val, val_hi);
-    ClearStage(before, 0);
-    if (isConst == 0)
-        error("must be constant expression");
-    return isConst;
-}
-
-void GenTestAndJmp(int label, int reqParens) {
+void genTestAndJmp(int label, int reqParens) {
     int is[ISSIZE];
     int *before, *start;
     if (reqParens) {
-        Require("(");
+        require("(");
     }
     while (1) {
         setstage(&before, &start);
         if (level1(is)) {
             fetch(is);
         }
-        if (IsMatch(",")) {
-            ClearStage(before, start);
+        if (isMatch(",")) {
+            clearStage(before, start);
         }
         else {
             break;
         }
     }
     if (reqParens) {
-        Require(")");
+        require(")");
     }
     if (is[TYP_CNST]) {             // constant expression
-        ClearStage(before, 0);
+        clearStage(before, 0);
         if (is[VAL_CNST] || is[VAL_CNST_HI]) {
             return;
         }
@@ -146,29 +172,29 @@ void GenTestAndJmp(int label, int reqParens) {
         switch (is[LAST_OP]) {       // operator code
             case EQ12:
             case LE12u: 
-                GenJmpIfZero(EQ10f, label, is); 
+                genJmpIfZero(EQ10f, label, is); 
                 break;
             case NE12:
             case GT12u: 
-                GenJmpIfZero(NE10f, label, is); 
+                genJmpIfZero(NE10f, label, is); 
                 break;
             case GT12:  
-                GenJmpIfZero(GT10f, label, is); 
+                genJmpIfZero(GT10f, label, is); 
                 break;
             case GE12:  
-                GenJmpIfZero(GE10f, label, is); 
+                genJmpIfZero(GE10f, label, is); 
                 break;
             case GE12u: 
-                ClearStage(is[STG_ADR], 0);      
+                clearStage(is[STG_ADR], 0);      
                 break;
             case LT12:  
-                GenJmpIfZero(LT10f, label, is); 
+                genJmpIfZero(LT10f, label, is); 
                 break;
             case LT12u: 
-                GenJmpIfZero(JMPm, label, is); 
+                genJmpIfZero(JMPm, label, is); 
                 break;
             case LE12:  
-                GenJmpIfZero(LE10f, label, is); 
+                genJmpIfZero(LE10f, label, is); 
                 break;
             default:    
                 if (isLongVal(is))
@@ -184,12 +210,12 @@ void GenTestAndJmp(int label, int reqParens) {
         else
             gen(NE10f, label);
     }
-    ClearStage(before, start);
+    clearStage(before, start);
 }
 
 // test primary register against zero and generate a jump instruction if false
-void GenJmpIfZero(int oper, int label, int is[]) {
-    ClearStage(is[STG_ADR], 0);       // purge conventional code
+void genJmpIfZero(int oper, int label, int is[]) {
+    clearStage(is[STG_ADR], 0);       // purge conventional code
     gen(oper, label);
 }
 
@@ -199,6 +225,96 @@ void GenJmpIfZero(int oper, int label, int is[]) {
 // the expression operators, such that level1() recognizes the operators at the
 // lowest precedence level and level14() the highest.
 // ============================================================================
+
+// Lazily register structcp as AUTOEXT on first struct assignment, so that
+// trailer() emits EXTRN structcp only in files that actually use it.
+// Returns the symbol table entry pointer (as int).
+int extrnStructCp() {
+    char *cpyfn = findglb("structcp");
+    if (cpyfn == 0) {
+        cpyfn = addSymbol("structcp", IDENT_FUNCTION, TYPE_INT, 0, 0, &glbptr, AUTOEXT);
+    } else if ((cpyfn[CLASS] & 0x7F) == PROTOEXT) {
+        cpyfn[CLASS] = AUTOEXT;  // ensure trailer() emits EXTRN
+    }
+    return cpyfn;
+}
+
+// Parse and emit code for a struct-to-struct assignment (simple '=' only).
+// Returns 1 if a struct LHS was detected and assignment code was emitted
+//   (or an error was reported); the caller must then return 0.
+// Returns 0 if the LHS is not a struct type; the caller falls through to
+//   the scalar assignment paths.
+int doStructAssign(int is[]) {
+    int is2[ISSIZE], k, savedcsp, structSize;
+    char *lhsPtr, *rhsPtr;
+    // Detect struct LHS -- two representations:
+    // (a) is[TYP_OBJ] == TYPE_STRUCT: LHS address already in AX (result of
+    //     member access or pointer dereference through a struct pointer).
+    // (b) is[TYP_OBJ] == 0, SYMTAB_ADR points to a named struct variable.
+    lhsPtr = is[SYMTAB_ADR];
+    if (is[TYP_OBJ] != TYPE_STRUCT) {
+        if (is[TYP_OBJ] != 0 || !lhsPtr
+            || lhsPtr[TYPE] != TYPE_STRUCT || lhsPtr[IDENT] != IDENT_VARIABLE)
+            return 0;   // not a struct LHS
+    }
+    savedcsp = csp;
+    structSize = getStructSize(getClsPtr(lhsPtr));
+    if (is[TYP_OBJ] == TYPE_STRUCT) {
+        // Computed-address LHS: &dst is in AX right now.  Push it before
+        // parsing RHS, since the RHS parse may contain function calls that
+        // clobber AX.
+        gen(PUSH1, 0);                   // save &dst
+        k = level1(is2);
+        if (k && is2[TYP_OBJ] == TYPE_STRUCT) {
+            // AX = &src, placed there by a struct-returning function call
+        } else if (k && is2[TYP_OBJ] == 0
+                   && (rhsPtr = is2[SYMTAB_ADR])
+                   && rhsPtr[TYPE] == TYPE_STRUCT) {
+            gen(POINT1m, rhsPtr);        // AX = &src (named variable)
+        } else {
+            error("type mismatch in struct assignment");
+            gen(ADDSP, savedcsp);
+            return 1;
+        }
+        // Build structcp(dst, src, n) args right-to-left:
+        //   [BP+8] = n,  [BP+6] = &src,  [BP+4] = &dst.
+        gen(MOVE21, 0);                  // BX = &src
+        gen(GETw1n, structSize);         // AX = n
+        gen(PUSH1, 0);                   // push n         ([BP+8])
+        gen(SWAP12, 0);                  // AX = &src (from BX)
+        gen(PUSH1, 0);                   // push &src      ([BP+6])
+        gen(GETw1s, savedcsp - BPW);     // AX = &dst (from saved stack slot)
+        gen(PUSH1, 0);                   // push &dst      ([BP+4])
+    }
+    else {
+        // Named-variable LHS: &dst is a stable label; parse RHS first.
+        // No register-pressure hazard because &dst is not in a register.
+        k = level1(is2);
+        if (k && is2[TYP_OBJ] == TYPE_STRUCT) {
+            // AX = &src, placed there by a struct-returning function call
+        } else if (k && is2[TYP_OBJ] == 0
+                   && (rhsPtr = is2[SYMTAB_ADR])
+                   && rhsPtr[TYPE] == TYPE_STRUCT) {
+            gen(POINT1m, rhsPtr);        // AX = &src (named variable)
+        } else {
+            error("type mismatch in struct assignment");
+            gen(ADDSP, savedcsp);
+            return 1;
+        }
+        // Build structcp(dst, src, n) args right-to-left:
+        //   [BP+8] = n,  [BP+6] = &src,  [BP+4] = &dst.
+        gen(MOVE21, 0);                  // BX = &src
+        gen(GETw1n, structSize);         // AX = n
+        gen(PUSH1, 0);                   // push n         ([BP+8])
+        gen(SWAP12, 0);                  // AX = &src (from BX)
+        gen(PUSH1, 0);                   // push &src      ([BP+6])
+        gen(POINT1m, lhsPtr);            // AX = &dst (global label)
+        gen(PUSH1, 0);                   // push &dst      ([BP+4])
+    }
+    gen(CALLm, extrnStructCp());
+    gen(ADDSP, savedcsp);
+    return 1;
+}
 
 // level1() recognizes and generates code for the assignment operators: 
 // =, |=, ^=, &=, +=, -=, *=, /=, %=, >>=, and <<=.
@@ -214,48 +330,53 @@ void GenJmpIfZero(int oper, int label, int is[]) {
 // initial instance of level1() returns to one of the lead-in functions or to
 // primary() or level14() (by way of down1() and down2() ).
 int level1(int is[]) {
-    int k, is2[ISSIZE], is3[2], oper, oper2;
-    char *lhsPtr, *rhsPtr;
-    int isStructLhs, savedcsp, structSize;
-    char *cpyfn;
+    int k, is2[ISSIZE], is3[ISSIZE], oper, oper2;
+    char *lhsPtr;
     k = down1(level2, is);
+    // This block runs in two contexts:
+    // (1) Outermost call: down1() discards stage code for constant sub-expressions
+    //     so that down2() can use immediate-mode p-codes.  For bare expressions
+    //     (e.g. return 0) that don't go through down2(), we re-emit here.
+    // (2) Recursive RHS call (e.g. x = 5): down1() sets TYP_CNST but emits nothing.
+    //     The caller won't call fetch() when level1 returns 0, so we must load
+    //     the constant into AX now.
     if (is[TYP_CNST]) {
         gen(GETw1n, is[VAL_CNST]);
         if (is[TYP_CNST] >> 2 == BPD)
             gen(GETdxn, is[VAL_CNST_HI]);
     }
     // check if this is an assignment operator, requiring an lvalue.
-    if (IsMatch("|=")) {
+    if (isMatch("|=")) {
         oper = oper2 = OR12;
     }
-    else if (IsMatch("^=")) {
+    else if (isMatch("^=")) {
         oper = oper2 = XOR12;
     }
-    else if (IsMatch("&=")) { 
+    else if (isMatch("&=")) { 
         oper = oper2 = AND12; 
     }
-    else if (IsMatch("+=")) { 
+    else if (isMatch("+=")) { 
         oper = oper2 = ADD12;
     }
-    else if (IsMatch("-=")) {
+    else if (isMatch("-=")) {
         oper = oper2 = SUB12;
     }
-    else if (IsMatch("*=")) { 
+    else if (isMatch("*=")) { 
         oper = MUL12; oper2 = MUL12u;
     }
-    else if (IsMatch("/=")) { 
+    else if (isMatch("/=")) { 
         oper = DIV12; oper2 = DIV12u;
     }
-    else if (IsMatch("%=")) { 
+    else if (isMatch("%=")) { 
         oper = MOD12; oper2 = MOD12u;
     }
-    else if (IsMatch(">>=")) {
+    else if (isMatch(">>=")) {
         oper = ASR12; oper2 = LSR12;
     }
-    else if (IsMatch("<<=")) {
+    else if (isMatch("<<=")) {
         oper = oper2 = ASL12;
     }
-    else if (IsMatch("=")) {
+    else if (isMatch("=")) {
         oper = oper2 = 0;
     }
     else {
@@ -271,86 +392,15 @@ int level1(int is[]) {
         error("cannot assign to const variable");
         return 0;
     }
+    // Snapshot the LHS descriptor for store() and for the widening checks below.
+    // is3 carries only SYMTAB_ADR and TYP_OBJ; the other fields must be zero so
+    // that isLongVal(is3) does not false-positive on stale stack data.
     is3[SYMTAB_ADR] = is[SYMTAB_ADR];
-    is3[TYP_OBJ] = is[TYP_OBJ];
-    // Struct-to-struct deep copy
-    if (oper == 0) {
-        lhsPtr = is[SYMTAB_ADR];
-        isStructLhs = 0;
-        if (is[TYP_OBJ] == TYPE_STRUCT)
-            isStructLhs = 1;
-        else if (is[TYP_OBJ] == 0 && lhsPtr && lhsPtr[TYPE] == TYPE_STRUCT
-                 && lhsPtr[IDENT] == IDENT_VARIABLE)
-            isStructLhs = 1;
-        if (isStructLhs) {
-            savedcsp = csp;
-            structSize = getStructSize(getClsPtr(lhsPtr));
-            if (is[TYP_OBJ] == TYPE_STRUCT) {
-                // LHS is a computed address in AX (member access, etc).
-                // Must save before parsing RHS.
-                gen(PUSH1, 0);
-                k = level1(is2);
-                if (k && is2[TYP_OBJ] == TYPE_STRUCT) {
-                    // AX = src from struct-returning function
-                } else if (k && is2[TYP_OBJ] == 0
-                           && (rhsPtr = is2[SYMTAB_ADR])
-                           && rhsPtr[TYPE] == TYPE_STRUCT) {
-                    gen(POINT1m, rhsPtr);
-                } else {
-                    error("type mismatch in struct assignment");
-                    gen(ADDSP, savedcsp);
-                    return 0;
-                }
-                // AX = &src.  Build structcp(dst, src, n) args R-to-L:
-                // push n first ([BP+8]), &src second ([BP+6]),
-                // &dst last ([BP+4]).
-                gen(MOVE21, 0);                  // BX = &src
-                gen(GETw1n, structSize);         // AX = n
-                gen(PUSH1, 0);                   // push n
-                gen(SWAP12, 0);                  // AX = &src (from BX)
-                gen(PUSH1, 0);                   // push &src
-                gen(GETw1s, savedcsp - BPW);     // AX = &dst (from saved slot)
-                gen(PUSH1, 0);                   // push &dst (last [BP+4])
-            }
-            else {
-                // LHS from symbol table -- parse RHS first so that
-                // callfunc's return buffer doesn't separate &dst from
-                // the structcp arguments.
-                k = level1(is2);
-                if (k && is2[TYP_OBJ] == TYPE_STRUCT) {
-                    // AX = src from struct-returning function
-                } else if (k && is2[TYP_OBJ] == 0
-                           && (rhsPtr = is2[SYMTAB_ADR])
-                           && rhsPtr[TYPE] == TYPE_STRUCT) {
-                    gen(POINT1m, rhsPtr);
-                } else {
-                    error("type mismatch in struct assignment");
-                    gen(ADDSP, savedcsp);
-                    return 0;
-                }
-                // AX = &src.  Build structcp(dst, src, n) args R-to-L:
-                // push n first ([BP+8]), &src second ([BP+6]),
-                // &dst last ([BP+4]).
-                gen(MOVE21, 0);                  // BX = &src
-                gen(GETw1n, structSize);         // AX = n
-                gen(PUSH1, 0);                   // push n
-                gen(SWAP12, 0);                  // AX = &src (from BX)
-                gen(PUSH1, 0);                   // push &src
-                gen(POINT1m, lhsPtr);            // AX = &dst (global address)
-                gen(PUSH1, 0);                   // push &dst (last [BP+4])
-            }
-            cpyfn = findglb("structcp");
-            if (cpyfn == 0) {
-                cpyfn = AddSymbol("structcp", IDENT_FUNCTION, TYPE_INT,
-                    0, 0, &glbptr, AUTOEXT);
-            } else if ((cpyfn[CLASS] & 0x7F) == PROTOEXT) {
-                cpyfn[CLASS] = AUTOEXT;  // ensure trailer() emits EXTRN
-            }
-            gen(CALLm, cpyfn);
-            gen(ADDSP, savedcsp);
-            return 0;
-        }
-    }
+    is3[TYP_OBJ]    = is[TYP_OBJ];
+    is3[TYP_ADR]    = 0;
+    is3[TYP_CNST]   = 0;
+    // Struct-to-struct deep copy -- handled only for simple '='.
+    if (oper == 0 && doStructAssign(is)) return 0;
     if (is[TYP_OBJ]) {                          // indirect target
         if (oper) {                             // ?=
             gen(PUSH1, 0);                      // save address (always 16-bit)
@@ -364,7 +414,7 @@ int level1(int is[]) {
                 fetch(is2);
             // widen RHS if LHS is long and RHS is not
             if (is3[TYP_OBJ] >> 2 == BPD && !isLongVal(is2))
-                widen_primary(is2);
+                widenPrimary(is2);
             gen(POP2, 0);                       // retrieve address
         }
     }
@@ -378,7 +428,7 @@ int level1(int is[]) {
                 fetch(is2);                     // parse right side
             // widen RHS if LHS is long and RHS is not
             if (isLongVal(is3) && !isLongVal(is2))
-                widen_primary(is2);
+                widenPrimary(is2);
         }
     }
     store(is3);                                 // store result
@@ -391,7 +441,7 @@ int level2(int is1[]) {
     // Call level3() by way of down1() to parse the first expression.
     k = down1(level3, is1);
     // If next token is not ?, this is not a ternary operator, return to caller
-    if (IsMatch("?") == 0) {
+    if (isMatch("?") == 0) {
         return k;
     }
     // getlabel() is called to reserve a label number for use in jumping around
@@ -408,7 +458,7 @@ int level2(int is1[]) {
             gen(GETdxn, is2[VAL_CNST_HI]);
     }
     // Enforce second character of operator (":")
-    Require(":");
+    require(":");
     gen(JMPm, endlab = getlabel());
     gen(LABm, flab);
     if (down1(level2, is3)) {
@@ -490,37 +540,79 @@ int level12(int is[]) {
     return down("* / %", 13, level13, is); 
 }
 
-// level13() parses the unary operators: ++, --, ~, !, -, *, &, and sizeof().
-int level13(int is[]) {
-    int k;
+// Guard helper shared by all ++/-- arms.
+// k is the lvalue-flag returned by the descent into level13 or level14.
+// Returns 1 if modification is allowed; 0 if an error was already emitted.
+// Two distinct rejections are possible:
+//   - k == 0: the operand is an rvalue (no storage address); needlval() reports it.
+//   - CONST_FLAG set: the symbol was declared const; modification is forbidden.
+int checkModifiable(int k, int is[]) {
     char *ptr;
-    if (IsMatch("++")) {                 // ++lval
-        if (level13(is) == 0) {
-            needlval();
-            return 0;
-        }
-        ptr = is[SYMTAB_ADR];
-        if (ptr && ptr[CLASS] & CONST_FLAG) {
-            error("cannot modify const variable");
-            return 0;
-        }
-        step(rINC1, is, 0);
+    if (k == 0) { needlval(); return 0; }
+    // Look up the symbol entry.  If the CLASS field carries CONST_FLAG the
+    // variable was declared const and may not be written through.
+    ptr = is[SYMTAB_ADR];
+    if (ptr && ptr[CLASS] & CONST_FLAG) {
+        error("cannot modify const variable");
         return 0;
     }
-    else if (IsMatch("--")) {            // --lval
-        if (level13(is) == 0) {
-            needlval();
-            return 0;
-        }
-        ptr = is[SYMTAB_ADR];
-        if (ptr && ptr[CLASS] & CONST_FLAG) {
-            error("cannot modify const variable");
-            return 0;
-        }
-        step(rDEC1, is, 0);
+    return 1;
+}
+
+// Determine the pointed-to element type for a unary * dereference.
+// The lookup has three priority tiers so that explicit pointer casts take
+// precedence over the symbol's declared type:
+//   1. TYP_ADR non-zero: an explicit (type*) cast is in effect; use its target
+//      type directly.  This is what makes *(unsigned char*)p fetch a single
+//      unsigned byte even when p was declared as int*.
+//   2. SYMTAB_ADR non-null: derive the element type from the symbol table entry.
+//      IDENT_PTR_ARRAY is a special case: the compiler represents a pointer-
+//      to-array as an unsigned pointer, so force TYPE_UINT.
+//   3. Fallback: assume TYPE_INT (the default pointed-to type for untyped
+//      expressions such as a function return value used immediately as a pointer).
+// IMPORTANT: must be called before is[TYP_ADR] and is[SYMTAB_ADR] are cleared.
+int resolveDerefType(int is[]) {
+    char *ptr;
+    if (is[TYP_ADR])
+        return is[TYP_ADR];
+    if (ptr = is[SYMTAB_ADR])
+        return (ptr[IDENT] == IDENT_PTR_ARRAY) ? TYPE_UINT : ptr[TYPE];
+    return TYPE_INT;
+}
+
+// level13() parses all unary prefix operators and the two postfix operators
+// (++ and --), which are handled here because their operand is parsed by
+// level14 and the token comes after the operand.
+// Operator dispatch order:
+//   ++expr  --expr          prefix increment / decrement
+//   ~expr                   bitwise complement
+//   !expr                   logical not (result always 16-bit 0/1)
+//   -expr                   arithmetic negation
+//   *expr                   pointer dereference
+//   sizeof(type-or-name)    compile-time size query
+//   &expr                   address-of
+//   expr++ expr--           postfix increment / decrement (via level14)
+int level13(int is[]) {
+    int k, dir;
+    char *ptr;
+
+    // ---- prefix ++ and -- ----
+    // Match the operator first, then parse the operand with a recursive call
+    // so that chains like ++*p resolve correctly.  The undo argument to step()
+    // is 0 for prefix: the pre-modified value is discarded, not preserved.
+    if      (isMatch("++")) dir = rINC1;
+    else if (isMatch("--")) dir = rDEC1;
+    else                    dir = 0;
+    if (dir) {
+        if (!checkModifiable(level13(is), is)) return 0;
+        step(dir, is, 0);
         return 0;
     }
-    else if (IsMatch("~")) {             // ~
+
+    else if (isMatch("~")) {             // ~
+        // Fetch the operand, choose the 16-bit or 32-bit complement p-code,
+        // then fold the constant value in is[] so downstream levels can
+        // constant-fold the full expression without emitting code.
         if (level13(is)) fetch(is);
         if (isLongVal(is))
             gen(COMd1, 0);
@@ -531,15 +623,17 @@ int level13(int is[]) {
             is[VAL_CNST_HI] = ~is[VAL_CNST_HI];
         return (is[STG_ADR] = 0);
     }
-    else if (IsMatch("!")) {             // !
+    else if (isMatch("!")) {             // !
+        // Logical not always produces a 16-bit 0 or 1 regardless of operand
+        // width, so clear TYP_OBJ and SYMTAB_ADR after the emit.
         if (level13(is)) fetch(is);
         if (isLongVal(is))
             gen(LNEGd1, 0);
         else
             gen(LNEG1, 0);
-        // result is always 16-bit 0/1
         is[TYP_OBJ] = 0;
         is[SYMTAB_ADR] = 0;
+        // Constant fold: collapse any non-zero hi:lo pair to 0; zero to 1.
         if (is[TYP_CNST]) {
             int wasTrue;
             wasTrue = is[VAL_CNST] || is[VAL_CNST_HI];
@@ -549,7 +643,9 @@ int level13(int is[]) {
         }
         return (is[STG_ADR] = 0);
     }
-    else if (IsMatch("-")) {             // unary -
+    else if (isMatch("-")) {             // unary -
+        // Two's complement negate.  For 32-bit operands use negate32() which
+        // handles carry across the word boundary; for 16-bit just negate lo.
         if (level13(is)) fetch(is);
         if (isLongVal(is))
             gen(ANEGd1, 0);
@@ -563,118 +659,47 @@ int level13(int is[]) {
         }
         return (is[STG_ADR] = 0);
     }
-    else if (IsMatch("*")) {             // unary *
+    else if (isMatch("*")) {             // unary *
+        // Dereference: AX holds a pointer; after this node AX holds the value
+        // at that address.  resolveDerefType() inspects is[] before any fields
+        // are cleared to find the correct element type for the subsequent fetch.
         if (level13(is)) fetch(is);
-        if (is[TYP_ADR]) {
-            // Pointer cast in effect: use the cast's target type directly.
-            // This lets *(unsigned char *)voidptr and similar work correctly.
-            is[TYP_OBJ] = is[TYP_ADR];
-        }
-        else if (ptr = is[SYMTAB_ADR]) {
-            if (ptr[IDENT] == IDENT_PTR_ARRAY)
-                is[TYP_OBJ] = TYPE_UINT;
-            else
-                is[TYP_OBJ] = ptr[TYPE];
-        }
-        else
-            is[TYP_OBJ] = TYPE_INT;
+        is[TYP_OBJ] = resolveDerefType(is);
         if (is[TYP_OBJ] == TYPE_VOID) {
             error("cannot dereference void pointer");
             is[TYP_OBJ] = TYPE_INT;   // error recovery
         }
-        is[STG_ADR] = is[TYP_ADR] = is[TYP_CNST] = 0; // no op0 stage addr, not addr or const
-        is[VAL_CNST] = 1;                   // omit fetch() on func call
+        // Clear address/cast/const fields: the result is a plain value in AX,
+        // not a pointer or a constant.  VAL_CNST = 1 tells callfunc() to skip
+        // an extra fetch() for immediate function-call results.
+        is[STG_ADR] = is[TYP_ADR] = is[TYP_CNST] = 0;
+        is[VAL_CNST] = 1;
         return 1;
     }
-    else if (amatch("sizeof", 6)) {    // sizeof()
-        int sz, p;  char *ptr, sname[NAMESIZE];
-        if (IsMatch("(")) {
-            p = 1;
-        }
-        else {
-            p = 0;
-        }
-        sz = 0;
-        // Consume qualifiers that do not affect object size.
-        if (amatch("const", 5))    ;
-        if (amatch("volatile", 8)) ;
-        if (amatch("signed", 6))   { sz = BPW; }  // signed alone == int (2 bytes)
-        if (amatch("unsigned", 8)) {
-            sz = BPW;
-            if (amatch("long", 4)) {
-                sz = BPD;
-                amatch("int", 3);
-            }
-        }
-        // short == int on 8086 (both 16-bit)
-        if (amatch("short", 5)) {
-            amatch("int", 3);
-            if (sz == 0) sz = BPW;  // unsigned short still BPW
-        }
-        else if (amatch("long", 4)) {
-            sz = BPD;
-            amatch("int", 3);
-        }
-        else if (amatch("int", 3)) {
-            if (sz == 0) sz = BPW;
-        }
-        else if (amatch("char", 4)) {
-            sz = 1;
-        }
-        if (sz) { 
-            if (IsMatch("*")) {      
-                sz = BPW; 
-            }
-        }
-        else if (amatch("void", 4)) {
-            // sizeof(void*) == BPW (2); sizeof(void) == 0
-            sz = IsMatch("*") ? BPW : 0;
-        }
-        else if (amatch("struct", 6)) {
-            char *sp;
-            sp = getTagPtr(KIND_STRUCT);
-            if (sp == -1) error("unknown struct name");
-            else sz = getStructSize(sp);
-        }
-        else if (amatch("union", 5)) {
-            char *sp;
-            sp = getTagPtr(KIND_UNION);
-            if (sp == -1) error("unknown union name");
-            else sz = getStructSize(sp);
-        }
-        else if (amatch("enum", 4)) {
-            symname(sname);    // consume optional tag name
-            sz = BPW;          // sizeof(enum X) == sizeof(int) == 2
-        }
-        else if (symname(sname) &&  
-            ((ptr = findloc(sname)) || (ptr = findglb(sname))) &&
-            ptr[IDENT] != IDENT_FUNCTION && ptr[IDENT] != IDENT_PTR_FUNCTION
-            && ptr[IDENT] != IDENT_LABEL) {
-            if ((ptr[CLASS] & 0x7F) == TYPEDEF) {
-                // typedef name: derive size from type, not SIZE field (which is 0)
-                if (ptr[IDENT] == IDENT_POINTER)
-                    sz = BPW;
-                else if (ptr[TYPE] == TYPE_STRUCT)
-                    sz = getStructSize(getint(ptr + CLASSPTR, 2));
-                else
-                    sz = ptr[TYPE] >> 2;
-            }
-            else {
-                sz = getint(ptr + SIZE, 2);
-            }
-        }
-        else if (sz == 0) {
-            error("must be object or type");
-        }
-        if (p) {
-            Require(")");
-        }
+    else if (amatch("sizeof", 6)) {      // sizeof()
+        // parseSizeofType() delegates to dotype() for the full keyword
+        // grammar and handles the variable-name fallback.  The result is
+        // a compile-time TYPE_INT constant; no code is emitted.
+        int sz, p;
+        if (isMatch("(")) p = 1; else p = 0;
+        sz = parseSizeofType();
+        if (p) require(")");
         is[TYP_CNST] = TYPE_INT;
         is[VAL_CNST] = sz;
         is[TYP_ADR] = is[TYP_OBJ] = is[SYMTAB_ADR] = 0;
         return 0;
     }
-    else if (IsMatch("&")) {             // unary &
+    else if (isMatch("&")) {             // unary &
+        // Address-of: the operand must be an lvalue (level13 returned 1).
+        // Record the pointed-to type in TYP_ADR, then get the address into AX.
+        // Two code paths depending on whether the address is already in AX:
+        //   - TYP_OBJ non-zero means primary() emitted POINT1s (local variable):
+        //     AX already holds the address; just update is[] and return.
+        //   - TYP_OBJ zero means primary() deferred the load (global variable):
+        //     emit POINT1m to materialise the address now.
+        // In both cases TYP_OBJ is cleared so isLongVal() sees a 16-bit pointer,
+        // not the 32-bit element type — otherwise a later PUSH would emit PUSHd1
+        // (two words) instead of PUSH1 (one word).
         if (level13(is) == 0) {
             error("illegal address");
             return 0;
@@ -682,49 +707,108 @@ int level13(int is[]) {
         ptr = is[SYMTAB_ADR];
         is[TYP_ADR] = ptr[TYPE];
         if (is[TYP_OBJ]) {
-            // AX already has the address (POINT1s emitted by primary() for
-            // local variables). The result of & is always a 16-bit pointer,
-            // so clear TYP_OBJ — otherwise isLongVal() treats &(long) as a
-            // long value and emits PUSHd1 (two words) instead of PUSH1 (one).
             is[TYP_OBJ] = 0;
             return 0;
         }
         gen(POINT1m, ptr);
-        // TYP_OBJ stays 0: same reasoning as above.
         return 0;
     }
     else {
+        // ---- postfix ++ and -- ----
+        // Descend to the next level to parse the operand, then check for a
+        // trailing ++ or --.  The undo argument to step() is the opposite
+        // direction: step() applies the increment/decrement, stores, then
+        // reverses the change in the register so the caller sees the
+        // pre-modification value.
         k = level14(is);
-        if (IsMatch("++")) {               // lval++
-            if (k == 0) {
-                needlval();
-                return 0;
-            }
-            ptr = is[SYMTAB_ADR];
-            if (ptr && ptr[CLASS] & CONST_FLAG) {
-                error("cannot modify const variable");
-                return 0;
-            }
-            step(rINC1, is, rDEC1);
+        if      (isMatch("++")) dir = rINC1;
+        else if (isMatch("--")) dir = rDEC1;
+        else                    dir = 0;
+        if (dir) {
+            if (!checkModifiable(k, is)) return 0;
+            step(dir, is, dir == rINC1 ? rDEC1 : rINC1);
             return 0;
         }
-        else if (IsMatch("--")) {          // lval--
-            if (k == 0) {
-                needlval();
-                return 0;
-            }
-            ptr = is[SYMTAB_ADR];
-            if (ptr && ptr[CLASS] & CONST_FLAG) {
-                error("cannot modify const variable");
-                return 0;
-            }
-            step(rDEC1, is, rINC1);
-            return 0;
-        }
-        else {
-            return k;
+        return k;
+    }
+}
+
+// Reset is[] state after a function call for non-struct, non-pointer-returning
+// functions.  Sets TYP_OBJ to the function's return type when long, else 0.
+// Returns 0 so callers can write: k = clearIsAfterCall(is, ptr).
+int clearIsAfterCall(int *is, char *ptr) {
+    is[SYMTAB_ADR] = is[TYP_CNST] = is[VAL_CNST] = 0;
+    is[VAL_CNST_HI] = is[TYP_ADR] = is[LAST_OP] = is[STG_ADR] = 0;
+    if (ptr && (ptr[TYPE] == TYPE_LONG || ptr[TYPE] == TYPE_ULONG))
+        is[TYP_OBJ] = ptr[TYPE];
+    else
+        is[TYP_OBJ] = 0;
+    return 0;
+}
+
+// Emit code to add index * stride to the array base address in AX.
+// Used for intermediate dimensions of multi-dim arrays where the
+// stride is a precomputed table value rather than a simple element size.
+// If the index is a compile-time constant the index expression is folded
+// away; otherwise a runtime multiply is emitted.  'before' is the
+// setstage() snapshot taken before the index expression was parsed.
+int addStrideOff(int stride, int *is2, char *before) {
+    if (is2[TYP_CNST]) {
+        clearStage(before, 0);
+        if (is2[VAL_CNST]) {
+            gen(GETw2n, is2[VAL_CNST] * stride);
+            gen(ADD12, 0);
         }
     }
+    else {
+        gen(PUSH2, 0);
+        gen(GETw2n, stride);
+        gen(MUL12, 0);
+        gen(POP2, 0);
+        gen(ADD12, 0);
+    }
+    return 0;
+}
+
+// Emit code to add index * elemSize to the array base address in AX.
+// Used for the final (innermost) subscript dimension.
+// elemType: TYPE_xxx constant that determines the per-element byte size.
+// ptr:      symbol-table entry for the array (needed for struct size lookup).
+// For compile-time constant indexes the multiplication is folded at compile
+// time; for runtime indexes shifts (pow-of-2 sizes) or a multiply (struct)
+// are emitted.  'before' is the setstage() snapshot taken before the index
+// expression was parsed.
+int applyElemOffset(int elemType, char *ptr, int *is2, char *before) {
+    if (is2[TYP_CNST]) {
+        clearStage(before, 0);
+        if (is2[VAL_CNST]) {
+            if (elemType == TYPE_STRUCT)
+                gen(GETw2n, is2[VAL_CNST] * getStructSize(getClsPtr(ptr)));
+            else if (elemType >> 2 == BPD)
+                gen(GETw2n, is2[VAL_CNST] << LBPD);
+            else if (elemType >> 2 == BPW)
+                gen(GETw2n, is2[VAL_CNST] << LBPW);
+            else
+                gen(GETw2n, is2[VAL_CNST]);
+            gen(ADD12, 0);
+        }
+    }
+    else {
+        if (elemType == TYPE_STRUCT) {
+            gen(PUSH2, 0);
+            gen(GETw2n, getStructSize(getClsPtr(ptr)));
+            gen(MUL12, 0);
+            gen(POP2, 0);
+        }
+        else if (elemType >> 2 == BPD) {
+            gen(DBL1, 0);
+            gen(DBL1, 0);
+        }
+        else if (elemType >> 2 == BPW)
+            gen(DBL1, 0);
+        gen(ADD12, 0);
+    }
+    return 0;
 }
 
 // Level14() is the last (highest) precedence level before primary(). It
@@ -735,11 +819,13 @@ int level14(int *is) {
     int k, val, elemType;
     char *ptr, *before, *start;
     int is2[ISSIZE];
+    // k=1: AX holds an lvalue address; caller must fetch() to load the value.
+    // k=0: AX already holds the final value or rvalue address.
     k = primary(is);
     ptr = is[SYMTAB_ADR];
     blanks();
     while (1) {
-        if (IsMatch(".")) {
+        if (isMatch(".")) {
             // struct member access via dot operator
             if (ptr == 0 || ptr[TYPE] != TYPE_STRUCT) {
                 error("dot requires struct");
@@ -747,7 +833,7 @@ int level14(int *is) {
             }
             // Auto-dereference struct pointers (hidden pointer params, etc.)
             if (ptr[IDENT] == IDENT_POINTER && is[TYP_OBJ] != TYPE_STRUCT) {
-                if (k) fetch(is);
+                if (k) fetch(is);   // load pointer value; AX = struct base address
             }
             // Get struct base address into AX.
             // Locals: POINT1s was already emitted by primary(); AX = &struct.
@@ -755,162 +841,110 @@ int level14(int *is) {
             else if (is[TYP_OBJ] == 0) {
                 gen(POINT1m, ptr);
             }
+            // else: local struct variable -- POINT1s already put &struct in AX.
             k = structmember(ptr, is);
         }
-        else if (IsMatch("->")) {
+        else if (isMatch("->")) {
             // struct member access via arrow operator
             if (ptr == 0 || ptr[TYPE] != TYPE_STRUCT) {
                 error("-> requires pointer to struct");
                 return 0;
             }
             if (ptr[IDENT] == IDENT_VARIABLE) {
-                error("use . for struct variables");
+                error("use . for struct variables");  // -> needs a pointer, not a plain struct
                 return 0;
             }
             // Load pointer value to get struct address into AX.
             if (k) fetch(is);
             k = structmember(ptr, is);
         }
-        else if (IsMatch("[")) {
+        else if (isMatch("[")) {
             // [subscript]
             if (ptr == 0) {
                 error("can't subscript");
                 skipToNextToken();
-                Require("]");
+                require("]");
                 return 0;
             }
+            // TYP_ADR non-zero means the expression has pointer/array character.
             if (is[TYP_ADR]) { 
                 if (k) {
-                    fetch(is); 
+                    fetch(is);   // load pointer/array base address into AX
                 }
             }
             else { 
                 error("can't subscript"); 
                 k = 0; 
             }
+            // Snapshot the p-code stream; clearStage can rewind to here if the
+            // index expression turns out to be a compile-time constant.
             setstage(&before, &start);
             is2[TYP_CNST] = 0;
-            down2(0, 0, level1, is2, is2);
-            Require("]");
+            down2(0, 0, level1, is2, is2);   // parse subscript expression into is2[]
+            require("]");
             if (is[DIM_LEFT] > 1) {
-                // multi-dim: use stride for this dimension
+                // Intermediate dimension: scale by precomputed stride (not element size).
+                // ptr[NDIM]-is[DIM_LEFT] converts dims-remaining to the outer dim index.
                 int stride;
                 stride = getDimStride(ptr,
                     ptr[NDIM] - is[DIM_LEFT]);
-                if (is2[TYP_CNST]) {
-                    ClearStage(before, 0);
-                    if (is2[VAL_CNST]) {
-                        gen(GETw2n,
-                            is2[VAL_CNST] * stride);
-                        gen(ADD12, 0);
-                    }
-                }
-                else {
-                    gen(PUSH2, 0);
-                    gen(GETw2n, stride);
-                    gen(MUL12, 0);
-                    gen(POP2, 0);
-                    gen(ADD12, 0);
-                }
-                is[DIM_LEFT]--;
-                is[TYP_ADR] = ptr[TYPE];
-                k = 0;
+                addStrideOff(stride, is2, before);
+                is[DIM_LEFT]--;          // one fewer dimension remains
+                is[TYP_ADR] = ptr[TYPE]; // result is still a pointer into the sub-array
+                k = 0;                   // AX holds an address; no fetch needed yet
             }
             else {
                 // final dimension or 1D: element-size scaling
                 if (ptr && ptr[IDENT] == IDENT_PTR_ARRAY) {
-                    // pointer array: elements are word-sized pointers
-                    if (is2[TYP_CNST]) {
-                        ClearStage(before, 0);
-                        if (is2[VAL_CNST]) {
-                            gen(GETw2n,
-                                is2[VAL_CNST] << LBPW);
-                            gen(ADD12, 0);
-                        }
-                    }
-                    else {
-                        gen(DBL1, 0);
-                        gen(ADD12, 0);
-                    }
+                    // Pointer-array element: always word-sized (the stored pointer value).
+                    applyElemOffset(TYPE_UINT, ptr, is2, before);
                     is[DIM_LEFT] = 0;
-                    is[TYP_OBJ] = TYPE_UINT;
-                    is[TYP_ADR] = ptr[TYPE];
-                    k = 1;
+                    is[TYP_OBJ] = TYPE_UINT;   // element is a pointer value (unsigned int)
+                    is[TYP_ADR] = ptr[TYPE];   // what that pointer points to
+                    k = 1;                     // AX has element address; fetch needed
                 }
                 else {
                     // Use cast type if present, else the symbol's declared type.
                     elemType = is[TYP_ADR] ? is[TYP_ADR] : ptr[TYPE];
-                    if (is2[TYP_CNST]) {
-                        ClearStage(before, 0);
-                        if (is2[VAL_CNST]) {
-                            if (elemType == TYPE_STRUCT) {
-                                gen(GETw2n, is2[VAL_CNST]
-                                    * getStructSize(
-                                        getClsPtr(ptr)));
-                            }
-                            else if (elemType >> 2 == BPD) {
-                                gen(GETw2n,
-                                    is2[VAL_CNST] << LBPD);
-                            }
-                            else if (elemType >> 2 == BPW) {
-                                gen(GETw2n,
-                                    is2[VAL_CNST] << LBPW);
-                            }
-                            else {
-                                gen(GETw2n, is2[VAL_CNST]);
-                            }
-                            gen(ADD12, 0);
-                        }
-                    }
-                    else {
-                        if (elemType == TYPE_STRUCT) {
-                            gen(PUSH2, 0);
-                            gen(GETw2n, getStructSize(
-                                getClsPtr(ptr)));
-                            gen(MUL12, 0);
-                            gen(POP2, 0);
-                        }
-                        else if (elemType >> 2 == BPD) {
-                            gen(DBL1, 0);
-                            gen(DBL1, 0);
-                        }
-                        else if (elemType >> 2 == BPW) {
-                            gen(DBL1, 0);
-                        }
-                        gen(ADD12, 0);
-                    }
+                    applyElemOffset(elemType, ptr, is2, before);
                     is[DIM_LEFT] = 0;
-                    is[TYP_ADR] = 0;
+                    is[TYP_ADR] = 0;           // subscripted result is a scalar, not a pointer
                     is[TYP_OBJ] = elemType;
-                    k = 1;
+                    k = 1;                     // AX has element address; fetch needed
                 }
             }
         }
-        else if (IsMatch("(")) {         // function(...)
+        else if (isMatch("(")) {         // function(...)
+            // Three dispatch paths: indirect through value already in AX,
+            // indirect through a fetched function-pointer variable, or direct
+            // call to a named function.
             if (ptr == 0) {
-                callfunc(0);
+                callfunc(0);               // unnamed: call address already in AX
             }
             else if (ptr[IDENT] != IDENT_FUNCTION && ptr[IDENT] != IDENT_PTR_FUNCTION) {
                 if (k && !is[VAL_CNST]) {
-                    fetch(is);
+                    fetch(is);             // load the function-pointer value into AX
                 }
-                callfunc(0);
+                callfunc(0);               // indirect call through value in AX
             }
             else {
-                callfunc(ptr);
+                callfunc(ptr);             // direct call to named function
             }
             if (ptr && ptr[IDENT] == IDENT_FUNCTION
                     && ptr[TYPE] == TYPE_STRUCT) {
+                // Struct return: create a scratch local so chained member access
+                // works (e.g. getRect().x).  callfunc() stored the result at the
+                // top of the stack frame; tmpRetStr gives that slot a symbol entry.
                 is[TYP_OBJ] = TYPE_STRUCT;
-                is[SYMTAB_ADR] = AddSymbol("tmpRetStr",
+                is[SYMTAB_ADR] = addSymbol("tmpRetStr",
                     IDENT_VARIABLE, TYPE_STRUCT,
                     getStructSize(getClsPtr(ptr)),
                     0, &locptr, AUTOMATIC);
                 putint(getClsPtr(ptr),
-                       is[SYMTAB_ADR] + CLASSPTR, 2);
+                       is[SYMTAB_ADR] + CLASSPTR, 2);  // copy struct class ptr to scratch entry
                 is[TYP_ADR] = is[TYP_CNST] = is[VAL_CNST] = 0;
                 is[LAST_OP] = is[STG_ADR] = 0;
-                k = 1;
+                k = 1;                     // lvalue: AX has address of the scratch local
             }
             else if (ptr && ptr[IDENT] == IDENT_PTR_FUNCTION) {
                 // pointer-returning function: propagate pointer type to caller
@@ -919,24 +953,21 @@ int level14(int *is) {
                 is[TYP_CNST]   = is[VAL_CNST] = is[VAL_CNST_HI] = 0;
                 is[LAST_OP]    = is[STG_ADR]  = 0;
                 is[SYMTAB_ADR] = 0;
-                k = 0;
+                k = 0;                     // AX holds the returned pointer value
             }
             else {
-                k = is[SYMTAB_ADR] = is[TYP_CNST] = is[VAL_CNST] = 0;
-                is[VAL_CNST_HI] = is[TYP_ADR] = is[LAST_OP] = is[STG_ADR] = 0;
-                if (ptr && (ptr[TYPE] == TYPE_LONG || ptr[TYPE] == TYPE_ULONG))
-                    is[TYP_OBJ] = ptr[TYPE];
-                else
-                    is[TYP_OBJ] = 0;
+                k = clearIsAfterCall(is, ptr); // scalar/void return: clear all type state
             }
         }
         else {
             break;
         }
+        // Refresh ptr so the next postfix operator sees the updated type info.
         ptr = is[SYMTAB_ADR];
     }
+    // Named function used without (): emit its address so it can be stored or passed.
     if (ptr && (ptr[IDENT] == IDENT_FUNCTION || ptr[IDENT] == IDENT_PTR_FUNCTION)) {
-        gen(POINT1m, ptr);
+        gen(POINT1m, ptr);   // AX = address of the function label
         is[SYMTAB_ADR] = 0;
         return 0;
     }
@@ -963,7 +994,7 @@ int structmember(char *ptr, int *is) {
         gen(GETw2n, offset);
         gen(ADD12, 0);
     }
-    is[SYMTAB_ADR] = AddSymbol("tmpStrMem",
+    is[SYMTAB_ADR] = addSymbol("tmpStrMem",
         member[STRMEM_IDENT], member[STRMEM_TYPE],
         getint(member + STRMEM_SIZE, 2),
         getint(member + STRMEM_OFFSET, 2),
@@ -1034,11 +1065,11 @@ void applycast(int casttype, int is[]) {
     if (dstLong && !srcLong) {
 #ifdef ENABLE_WARNINGS
         // Warn if widening signed value into unsigned long.
-        if ((casttype & IS_UNSIGNED) && !IsUnsigned(is)) {
+        if ((casttype & IS_UNSIGNED) && !isUnsigned(is)) {
             warning("sign-conversion: widening signed value to unsigned long");
         }
 #endif
-        widen_primary(is);
+        widenPrimary(is);
     }
     // Narrowing and same-size: no codegen needed
 
@@ -1125,13 +1156,13 @@ int trycast(int is[]) {
     }
     else if (amatch("struct", 6)) {
         char *sp;
-        sp = getTagPtr(KIND_STRUCT);
+        sp = getStructPtr(KIND_STRUCT);
         if (sp == -1) error("unknown struct name");
         casttype = TYPE_STRUCT;
     }
     else if (amatch("union", 5)) {
         char *sp;
-        sp = getTagPtr(KIND_UNION);
+        sp = getStructPtr(KIND_UNION);
         if (sp == -1) error("unknown union name");
         casttype = TYPE_STRUCT;
     }
@@ -1143,11 +1174,11 @@ int trycast(int is[]) {
         return 0;
     }
 
-    if (IsMatch("*")) {
+    if (isMatch("*")) {
         // Pointer cast: (type *)expr
         // The value in AX is left unchanged; only expression metadata is
         // updated to reflect "this is a pointer to casttype".
-        Require(")");
+        require(")");
         if (level13(is)) fetch(is);
         is[TYP_ADR]  = casttype;
         is[TYP_OBJ]  = 0;
@@ -1156,7 +1187,7 @@ int trycast(int is[]) {
         return 1;
     }
 
-    Require(")");
+    require(")");
 
     if (level13(is)) fetch(is);
 
@@ -1167,12 +1198,12 @@ int trycast(int is[]) {
 int primary(int *is) {
     char *ptr, sname[NAMESIZE];
     int k;
-    if (IsMatch("(")) {                  // (cast) or (subexpression)
+    if (isMatch("(")) {                  // (cast) or (subexpression)
         if (trycast(is)) return 0;
         do {
             k = level1(is); 
-        } while (IsMatch(","));
-        Require(")");
+        } while (isMatch(","));
+        require(")");
         return k;
     }
     putint(0, is, ISSIZE << LBPW);    // clear "is" array
@@ -1262,7 +1293,7 @@ int primary(int *is) {
             // as a function. Then, if it never is formally declared, it will
             // be identified to the assembler as an external reference before
             // the compiler quits.
-            is[SYMTAB_ADR] = AddSymbol(sname, IDENT_FUNCTION, TYPE_INT, 
+            is[SYMTAB_ADR] = addSymbol(sname, IDENT_FUNCTION, TYPE_INT, 
                 0, 0, &glbptr, AUTOEXT);
         }
         return 0;
@@ -1279,25 +1310,123 @@ void experr() {
     skipToNextToken();
 }
 
+// Phase D helper: check caller's argument count against prototype.
+// ptr   — symbol table entry for the callee
+// userArgCount — number of user-visible arguments supplied at this call site
+//                (does NOT include the hidden struct-return pointer)
+void checkFnArgCount(char *ptr, int userArgCount) {
+    int protoIdx, nbyte, isVariadic, nfixed;
+    // No prototype recorded: nothing to check.
+    if (getint(ptr + FNPARAMPTR, 2) == 0)
+        return;
+    protoIdx = getint(ptr + FNPARAMPTR, 2);
+    nbyte    = (int)(paramTypes[protoIdx]) & 0xFF;
+    isVariadic = (nbyte >> 7) & 1;
+    nfixed     = nbyte & 0x7F;
+#ifdef WARN_ARGCOUNT
+    if (isVariadic) {
+        if (userArgCount < nfixed)
+            warningWithName("too few arguments for variadic function '",
+                            ptr + NAME, "'");
+    }
+    else {
+        if (userArgCount != nfixed)
+            warningWithName("wrong number of arguments to '",
+                            ptr + NAME, "'");
+    }
+#endif
+}
+
+// Phase E helper: evaluate one call argument and store its p-codes in argbuf.
+// Returns 1 on success; 0 if the argument buffer would overflow (error issued).
+//
+// is[]        — expression state; written by level1()/fetch() inside
+// argLens[]   — records the p-code slot count for this argument (output)
+// argSizes[]  — records BPW or BPD for this argument (output)
+// idx         — index of this argument in both arrays (0-based)
+// pNargs      — running byte-count of all pushed args; updated on success
+//
+// Globals touched (intentionally, as in the rest of cc3.c):
+//   snext, locptr, argbufcur — all updated on return
+int collectOneArg(int is[], int argLens[], int argSizes[], int idx, int *pNargs) {
+    int savedlocptr, alen, i;
+    int *exprStart;
+    savedlocptr = locptr;
+    exprStart   = snext;
+    // Evaluate the argument expression into the staging buffer.
+    // Three dispatch cases for lvalue results:
+    if (level1(is)) {
+        char *argptr;
+        if (is[TYP_OBJ] == TYPE_STRUCT) {
+            // Struct indirect (TYP_OBJ set): AX already holds the address;
+            // no fetch needed — the struct is passed by address.
+        }
+        else if (is[TYP_OBJ] == 0 && (argptr = is[SYMTAB_ADR])
+                 && argptr[TYPE] == TYPE_STRUCT
+                 && argptr[IDENT] != IDENT_FUNCTION
+                 && argptr[IDENT] != IDENT_PTR_FUNCTION) {
+            // Struct direct (no TYP_OBJ, but symbol type is struct):
+            // emit POINT1m so AX = address of the named struct variable.
+            gen(POINT1m, argptr);
+        }
+        else {
+            // Scalar or pointer lvalue: fetch value into AX (or DX:AX for long).
+            fetch(is);
+        }
+    }
+    locptr = savedlocptr;
+    // Copy this arg's p-codes from the staging buffer into argbuf.
+    alen = (int)(snext - exprStart);
+    if (argbufcur + alen + 2 > ARGBUF_SIZE) {
+        error("argument buffer overflow");
+        return 0;
+    }
+    for (i = 0; i < alen; i++)
+        argbuf[argbufcur + i] = exprStart[i];
+    argLens[idx]  = alen;
+    argSizes[idx] = isLongVal(is) ? BPD : BPW;
+    argbufcur += alen;   // advance global cursor: nested calls start above here
+    *pNargs   += argSizes[idx];
+    // Discard this arg's p-codes from stage[]; the next arg reuses the slot.
+    snext = exprStart;
+    return 1;
+}
+
+// callfunc — emit a complete function call sequence.
+//   ptr  — symbol table entry for a named function, or NULL for an indirect
+//           call (function address already in AX on entry).
+//
+// Overview of the two-pass scheme:
+//   FIRST PASS:  evaluate arguments left-to-right; store each arg's p-codes
+//                in argbuf[] (global scratch), then discard from stage[].
+//                argbufcur is advanced after each arg so that nested calls
+//                (args that are themselves calls) write above the parent's data.
+//   SECOND PASS: replay argbuf chunks in REVERSE order, appending PUSH1 or
+//                PUSHd1 after each.  This produces cdecl right-to-left push
+//                order so the first argument lands at [BP+4].
+//   EMIT CALL:   for indirect calls reload the saved funcptr into AX first;
+//                then emit CALLm (named) or CALL1 (indirect), followed by
+//                ADDSP to clean up the caller's stack frame.
 int callfunc(char *ptr) {      // symbol table entry or 0
-    int nargs, nargcnt, is[ISSIZE];
-    int savedlocptr, retStructSize;
-    int argLens[MAX_CALL_ARGS];  // ints stored in argbuf per user arg
-    int argSizes[MAX_CALL_ARGS]; // BPW or BPD per user arg
-    int argBufNext;              // absolute write cursor into argbuf
-    int argbufBase;              // argbufcur at entry to this callfunc level
+    int nargs, is[ISSIZE];
+    int retStructSize;
+    int argLens[MAX_CALL_ARGS];  // p-code slot count per user arg (for reverse walk)
+    int argSizes[MAX_CALL_ARGS]; // BPW or BPD per user arg (for PUSH selection)
+    int argbufBase;              // argbufcur at entry; restored after second pass
     int userArgCount;            // number of user (non-hidden) args collected
     int indSaveCsp;              // BP offset of saved funcptr (indirect calls)
-    int *exprStart;
-    int i, alen;
-    nargs = 0;
-    nargcnt = 0;
+    int i;
+
+    // --- Phase 0: initialise ---
+    nargs        = 0;
     retStructSize = 0;
-    argbufBase = argbufcur;   // save so nested calls start ABOVE our data
-    argBufNext = argbufcur;   // our local cursor starts at current global position
+    argbufBase   = argbufcur;   // mark our region; nested calls write above this
     userArgCount = 0;
-    indSaveCsp = 0;
-    blanks();                      // already saw open paren
+    indSaveCsp   = 0;
+    blanks();                   // consume whitespace after the open paren already consumed
+
+    // --- Phase 1: entry-side effects ---
+
 #ifdef ENABLE_WARNINGS
 #ifdef WARN_IMPLICIT
     // Warn if the function was called without a prior prototype or declaration.
@@ -1308,109 +1437,56 @@ int callfunc(char *ptr) {      // symbol table entry or 0
     // Upgrade PROTOEXT -> AUTOEXT on first call so trailer() emits EXTRN.
     if (ptr && (ptr[CLASS] & 0x7F) == PROTOEXT)
         ptr[CLASS] = AUTOEXT;
-    // For struct-returning functions, allocate the return buffer on the caller's
-    // stack and push a hidden pointer to it as the FIRST argument (highest BP
-    // offset). User arguments follow at lower BP offsets via R-to-L push.
+
+    // Struct-returning function: allocate the return buffer on the caller's
+    // stack and push a hidden pointer to it as the LAST-pushed (outermost)
+    // argument (highest BP offset).  User arguments follow at lower offsets.
     if (ptr && ptr[TYPE] == TYPE_STRUCT) {
         retStructSize = getStructSize(getClsPtr(ptr));
         gen(ADDSP, csp - retStructSize);
         gen(POINT1s, csp);
         gen(PUSH1, 0);
-        nargs += BPW;
-        nargcnt++;
+        nargs += BPW;           // hidden pointer counts toward ADDSP cleanup
     }
-    // For indirect calls (function pointer): save funcptr from AX to a temp
-    // stack slot now, before arg evaluation clobbers AX.
+    // Indirect call: save funcptr from AX into a temp stack slot now,
+    // before argument evaluation clobbers AX.
     if (ptr == 0) {
         gen(ADDSP, csp - BPW);   // allocate one-word temp slot
         indSaveCsp = csp;        // BP offset of the temp slot
-        gen(PUTws1, indSaveCsp); // [BP + indSaveCsp] = AX (save funcptr)
+        gen(PUTws1, indSaveCsp); // [BP + indSaveCsp] = AX
         nargs += BPW;            // temp slot cleaned up by ADDSP after call
     }
-    // FIRST PASS: evaluate each argument L-to-R, collect p-codes into argbuf,
-    // then restore snext to discard them from the staging buffer.
+
+    // --- Phase 2: first pass — collect args left-to-right into argbuf ---
     while (streq(lptr, ")") == 0) {
-        if (endst()) {
+        if (endst())
             break;
-        }
         if (userArgCount >= MAX_CALL_ARGS) {
             error("too many arguments");
             break;
         }
-        savedlocptr = locptr;
-        exprStart = snext;
-        // Evaluate the argument expression into the staging buffer.
-        if (level1(is)) {
-            char *argptr;
-            if (is[TYP_OBJ] == TYPE_STRUCT) {
-                // struct lvalue: address already in AX, no fetch needed
-            }
-            else if (is[TYP_OBJ] == 0 && (argptr = is[SYMTAB_ADR])
-                     && argptr[TYPE] == TYPE_STRUCT
-                     && argptr[IDENT] != IDENT_FUNCTION
-                     && argptr[IDENT] != IDENT_PTR_FUNCTION) {
-                gen(POINT1m, argptr);
-            }
-            else {
-                fetch(is);
-            }
-        }
-        locptr = savedlocptr;
-        // Copy this arg's p-codes from stage[] into argbuf.
-        alen = (int)(snext - exprStart);
-        if (argBufNext + alen + 2 > ARGBUF_SIZE) {
-            error("argument buffer overflow");
+        if (collectOneArg(is, argLens, argSizes, userArgCount, &nargs) == 0)
             break;
-        }
-        for (i = 0; i < alen; i++)
-            argbuf[argBufNext + i] = exprStart[i];
-        argLens[userArgCount] = alen;
-        argSizes[userArgCount] = isLongVal(is) ? BPD : BPW;
-        argBufNext += alen;
-        argbufcur = argBufNext;   // advance global so next inner call starts here
-        nargs += argSizes[userArgCount];
-        // Discard this arg's p-codes from stage[]; next arg writes in same slot.
-        snext = exprStart;
         userArgCount++;
-        nargcnt++;
-        if (IsMatch(",") == 0) {
+        if (isMatch(",") == 0)
             break;
-        }
     }
-    Require(")");
-    // Check argument count against prototype if available.
-    if (ptr && getint(ptr + FNPARAMPTR, 2) != 0) {
-        int protoIdx, nbyte, isVariadic, nfixed, effectiveArgs;
-        protoIdx = getint(ptr + FNPARAMPTR, 2);
-        nbyte = (int)(paramTypes[protoIdx]) & 0xFF;
-        isVariadic = (nbyte >> 7) & 1;
-        nfixed = nbyte & 0x7F;
-        effectiveArgs = nargcnt;
-        if (ptr[TYPE] == TYPE_STRUCT)
-            --effectiveArgs;
-#ifdef ENABLE_WARNINGS
-#ifdef WARN_ARGCOUNT
-        if (isVariadic) {
-            if (effectiveArgs < nfixed)
-                warningWithName("too few arguments for variadic function '", ptr + NAME, "'");
-        }
-        else {
-            if (effectiveArgs != nfixed)
-                warningWithName("wrong number of arguments to '", ptr + NAME, "'");
-        }
-#endif
-#endif
+    require(")");
+
+    // --- Phase 3: prototype argument count check ---
+    if (ptr) {
+        checkFnArgCount(ptr, userArgCount);
     }
-    // SECOND PASS: emit user args in REVERSED order (last arg first).
-    // This produces right-to-left push order so the first arg lands at [BP+4].
-    // Walk backward through argbuf by subtracting lengths, avoiding a
-    // separate argBufStart[] array on the (tight) stack.
+    // --- Phase 4: second pass — replay args in reverse for R-to-L push ---
+    // Walk backward through argbuf using cumulative length subtraction,
+    // avoiding a separate argBufStart[] array (stack-pressure tradeoff for
+    // the 8086 self-hosted environment).
     {
-        int pos = argBufNext;   // one-past-end of all collected arg p-codes
+        int pos = argbufcur;   // one-past-end of all collected arg p-codes
         for (i = userArgCount - 1; i >= 0; i--) {
             int j, len;
             int *src;
-            pos -= argLens[i];  // start of arg i's p-codes in argbuf
+            pos -= argLens[i];  // rewind to start of arg i's p-codes
             len = argLens[i];
             src = argbuf + pos;
             if (snext + len + 2 > slast) {
@@ -1422,22 +1498,20 @@ int callfunc(char *ptr) {      // symbol table entry or 0
             snext += len;
             gen(argSizes[i] == BPD ? PUSHd1 : PUSH1, 0);
         }
-        argbufcur = argbufBase;   // restore/free: inner calls may reuse this space
+        argbufcur = argbufBase;   // free our region; nested-call data above is gone
     }
-    // For indirect calls: reload the saved funcptr into AX before CALL1.
-    if (ptr == 0) {
+
+    // --- Phase 5: emit call and stack cleanup ---
+    // For indirect calls: reload saved funcptr into AX before CALL1.
+    if (ptr == 0)
         gen(GETw1s, indSaveCsp);
-    }
-    if (ptr) {
+    if (ptr)
         gen(CALLm, ptr);
-    }
-    else {
+    else
         gen(CALL1, 0);
-    }
-    gen(ADDSP, csp + nargs);
-    if (retStructSize > 0) {
-        gen(POINT1s, csp);
-    }
+    gen(ADDSP, csp + nargs);       // restore SP past all pushed args + hidden slots
+    if (retStructSize > 0)
+        gen(POINT1s, csp);         // AX = address of struct return buffer on caller stack
 }
 
 // Return the pointer scale factor: number of bytes per element.
@@ -1487,7 +1561,11 @@ int isLongVal(int is[]) {
     char *ptr;
     if (is[TYP_CNST] >> 2 == BPD)
         return 1;
-    if (is[TYP_OBJ] >> 2 == BPD)
+    // TYP_OBJ is the element type of an indirect reference.  When TYP_ADR is
+    // also set the expression value is a 16-bit pointer (address), not the
+    // 32-bit element.  Example: long la[] — TYP_OBJ=TYPE_LONG, TYP_ADR=TYPE_LONG,
+    // AX holds the array address.  Do NOT treat that as a long value.
+    if (is[TYP_OBJ] >> 2 == BPD && is[TYP_ADR] == 0)
         return 1;
     ptr = is[SYMTAB_ADR];
     if (ptr && is[TYP_OBJ] == 0 && is[TYP_ADR] == 0
@@ -1498,16 +1576,16 @@ int isLongVal(int is[]) {
 }
 
 // Sign- or zero-extend AX to DX:AX based on signedness of is[].
-void widen_primary(int is[]) {
-    if (IsUnsigned(is))
+void widenPrimary(int is[]) {
+    if (isUnsigned(is))
         gen(WIDENu, 0);
     else
         gen(WIDENs, 0);
 }
 
 // Sign- or zero-extend BX to CX:BX based on signedness of is[].
-void widen_secondary(int is[]) {
-    if (IsUnsigned(is))
+void widenSecondary(int is[]) {
+    if (isUnsigned(is))
         gen(WIDENu2, 0);
     else
         gen(WIDENs2, 0);
@@ -1717,8 +1795,8 @@ int number(int *lo, int *hi) {
     int klo, khi, minus, hasL, hasU, base, digit;
     klo = khi = minus = hasL = hasU = 0;
     while (1) {
-        if (IsMatch("+"));
-        else if (IsMatch("-"))
+        if (isMatch("+"));
+        else if (isMatch("-"))
             minus = 1;
         else
             break;
@@ -1822,7 +1900,7 @@ int number(int *lo, int *hi) {
 int chrcon(int *lo, int *hi) {
     int klo, khi, carry;
     klo = khi = 0;
-    if (IsMatch("'") == 0)
+    if (isMatch("'") == 0)
         return 0;
     while (ch != '\'') {
         // shift khi:klo left by 8 and add new char
@@ -1843,7 +1921,7 @@ int chrcon(int *lo, int *hi) {
 // literatals are supported: blanks() calls preprocess() which expands macros.
 // #define S "world" and then "hello " S will concatenate to "hello world".
 int string(int *offset) {
-    if (IsMatch("\"") == 0) {
+    if (isMatch("\"") == 0) {
         return 0;
     }
     *offset = litptr;
@@ -1854,8 +1932,11 @@ int string(int *offset) {
             stowlit(litchar(), 1);
         }
         gch();
-    } while (IsMatch("\""));
+    } while (isMatch("\""));
     litq[litptr++] = 0;
+#ifdef ENABLE_DIAGNOSTICS
+    if (litptr > litptrMax) litptrMax = litptr;
+#endif
     return 1;
 }
 
@@ -1866,6 +1947,9 @@ void stowlit(int value, int size) {
     }
     putint(value, litq + litptr, size);
     litptr += size;
+#ifdef ENABLE_DIAGNOSTICS
+    if (litptr > litptrMax) litptrMax = litptr;
+#endif
 }
 
 int litchar() {
@@ -1964,273 +2048,398 @@ int down(char *opstr, int opoff, int (*level)(), int is[]) {
     }
 }
 
-// unary drop to a lower level
+// Unary drop to a lower level.
+// Calls level() to parse the next sub-expression into is[].
+// If the result is a compile-time constant, the p-codes generated by level()
+// are discarded immediately; they will be emitted efficiently once the full
+// binary operation context is known in down2.
+// Returns the lvalue flag from level() for use by the caller.
 int down1(int (*level)(), int is[]) {
     int k, *before, *start;
     setstage(&before, &start);
     k = (*level)(is);
     if (is[TYP_CNST]) {
-        ClearStage(before, 0);  // load constant later
+        // Discard code emitted for a constant sub-expression; down2 will
+        // load the constant value directly when it knows the full context.
+        clearStage(before, 0);
     }
     return k;
 }
 
-// binary drop to a lower level
-void down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
-    int *before, *start;
+// Attempt to reverse a comparison operator pair in-place.
+// Swaps operand sense (LT<->GT, LE<->GE) to avoid an extra register move.
+// Updates *oper and *oper2 only when both can be reversed and guard is non-zero.
+// Returns 1 if the reversal was applied, 0 otherwise.
+int tryReverse(int *oper, int *oper2, int guard) {
+    int rev, rev2;
+    rev  = reverseOp(*oper);
+    rev2 = reverseOp(*oper2);
+    if (rev && rev2 && guard) {
+        *oper  = rev;
+        *oper2 = rev2;
+        return 1;
+    }
+    return 0;
+}
+
+// Fold a 32-bit constant binary operation into is[] at compile time.
+// Called only when both sides are compile-time constants and eitherLong is true.
+// Widens any 16-bit constant half to 32 bits, dispatches to the appropriate
+// calcXxx32 function, then writes the folded value and result type into is[].
+void foldConst32(int oper, int leftLong, int rightLong, int is[], int is2[]) {
+    int lhi, llo, rhi, rlo, reshi, reslo;
+    llo = is[VAL_CNST];
+    lhi = is[VAL_CNST_HI];
+    if (!leftLong) {
+        // Widen the 16-bit left constant: zero-extend if unsigned, sign-extend if signed.
+        lhi = (is[TYP_CNST] == TYPE_UINT) ? 0 : ((llo & 0x8000) ? -1 : 0);
+    }
+    rlo = is2[VAL_CNST];
+    rhi = is2[VAL_CNST_HI];
+    if (!rightLong) {
+        // Widen the 16-bit right constant: zero-extend if unsigned, sign-extend if signed.
+        rhi = (is2[TYP_CNST] == TYPE_UINT) ? 0 : ((rlo & 0x8000) ? -1 : 0);
+    }
+    reshi = reslo = 0;
+    // Dispatch to the correct folding function based on operator and signedness.
+    if (oper == LT12 || oper == LE12 || oper == GT12 || oper == GE12) {
+        calcCmp32(lhi, llo, oper, rhi, rlo, &reshi, &reslo);
+    }
+    else if (isUnsigned(is) || isUnsigned(is2)) {
+        calcUConst32(lhi, llo, oper, rhi, rlo, &reshi, &reslo);
+    }
+    else {
+        calcConst32(lhi, llo, oper, rhi, rlo, &reshi, &reslo);
+    }
+    is[VAL_CNST]    = reslo;
+    is[VAL_CNST_HI] = reshi;
+    // Set the result type.  Comparisons always yield a 16-bit int; arithmetic
+    // keeps the 32-bit type of the wider operand (signed or unsigned long).
+    if (oper == EQ12 || oper == NE12 ||
+        oper == LT12 || oper == LE12 || oper == GT12 || oper == GE12 ||
+        oper == LT12u || oper == LE12u || oper == GT12u || oper == GE12u) {
+        is[TYP_CNST]    = TYPE_INT;
+        is[VAL_CNST_HI] = 0;
+    }
+    else if (isUnsigned(is) || isUnsigned(is2)) {
+        is[TYP_CNST] = TYPE_ULONG;
+    }
+    else {
+        is[TYP_CNST] = TYPE_LONG;
+    }
+}
+
+// Propagate pointer type and signedness from the operands into the result is[].
+// Called after both the constant-folding and variable code-emission paths in down2.
+void applyResultType(int oper, int is[], int is2[]) {
     char *ptr;
-    int leftLong, rightLong, eitherLong, loper, sc;
-    setstage(&before, &start);
-    is[STG_ADR] = 0;                             // not "... op 0" syntax
-    leftLong = isLongVal(is);
-    if (is[TYP_CNST]) {                           // constant op unknown
-        if (down1(level, is2))
-            fetch(is2);
-        rightLong = isLongVal(is2);
-        eitherLong = leftLong || rightLong;
-        if (eitherLong) {
-            // widen RHS in DX:AX if it's 16-bit
-            if (!rightLong) widen_primary(is2);
-            if (is[VAL_CNST] == 0 && is[VAL_CNST_HI] == 0)
-                is[STG_ADR] = snext;
-            gen(GETw2n, is[VAL_CNST]);
-            gen(GETcxn, is[VAL_CNST_HI]);
+    // For add/subtract involving pointer operands, fix up the result address type.
+    if (oper == SUB12 || oper == ADD12) {
+        if (is[TYP_ADR] && is2[TYP_ADR]) {
+            // pointer - pointer: result is a plain integer offset, not a pointer.
+            is[TYP_ADR] = 0;
         }
-        else {
-            if (is[VAL_CNST] == 0)
-                is[STG_ADR] = snext;
-            sc = ptrScale(oper, is2, is); if (!sc) sc = 1;
-            gen(GETw2n, is[VAL_CNST] * sc);
-        }
-    }
-    else {                                  // variable op unknown
-        if (leftLong)
-            gen(PUSHd1, 0);
-        else
-            gen(PUSH1, 0);                      // at start in the buffer
-        if (down1(level, is2)) fetch(is2);
-        rightLong = isLongVal(is2);
-        eitherLong = leftLong || rightLong;
-        if (is2[TYP_CNST]) {                      // variable op constant
-            if (is2[VAL_CNST] == 0 && is2[VAL_CNST_HI] == 0)
-                is[STG_ADR] = start;
-            if (leftLong)
-                csp += BPD;
-            else
-                csp += BPW;                     // adjust stack and
-            ClearStage(before, 0);          // discard the PUSH
-            if (eitherLong) {
-                if (!leftLong)
-                    widen_primary(is);  // widen left in DX:AX
-                if (oper == ADD12 || oper == ADDd12) {
-                    // commutative: left stays in DX:AX
-                    gen(GETw2n, is2[VAL_CNST]);
-                    gen(GETcxn, is2[VAL_CNST_HI]);
-                }
-                else {
-                    // non-commutative: swap
-                    gen(MOVEd21, 0);
-                    gen(GETw1n, is2[VAL_CNST]);
-                    gen(GETdxn, is2[VAL_CNST_HI]);
-                }
-            }
-            else {
-                sc = ptrScale(oper, is, is2); if (!sc) sc = 1;
-                if (oper == ADD12) {            // commutative
-                    gen(GETw2n, is2[VAL_CNST] * sc);
-                }
-                else {                          // non-commutative
-                    // If the operator pair can be reversed, swap operands and use GETw2n
-                    // like the commutative case, avoiding MOVE21+GETw1n overhead.
-                    int rev, rev2;
-                    rev = reverseOp(oper);
-                    rev2 = reverseOp(oper2);
-                    if (rev && rev2 && !is[STG_ADR]) {
-                        gen(GETw2n, is2[VAL_CNST] * sc);
-                        oper = rev;
-                        oper2 = rev2;
-                    }
-                    else {
-                        gen(MOVE21, 0);
-                        gen(GETw1n, is2[VAL_CNST] * sc);
-                    }
-                }
-            }
-        }
-        else {                              // variable op variable
-            // If the RHS was just loaded as a simple word-sized variable, reverse the operator
-            // to emit GETw2m/GETw2s directly, enabling CMP-Memory/Stack peephole rules.
-            if (!eitherLong && before && snext == before + 4
-                && (before[2] == GETw1m || before[2] == GETw1s)) {
-                // RHS is a simple word-sized global or stack variable.
-                // Try to reverse the comparison so we can emit GETw2x
-                // directly, enabling CMP-Memory/Stack optimizer rules.
-                int rev, rev2, rhspc, rhsval;
-                rev = reverseOp(oper);
-                rev2 = reverseOp(oper2);
-                if (rev && rev2) {
-                    rhspc = before[2];
-                    rhsval = before[3];
-                    csp += BPW;
-                    ClearStage(before, 0);
-                    gen(rhspc == GETw1m ? GETw2m : GETw2s, rhsval);
-                    oper = rev;
-                    oper2 = rev2;
-                }
-                else {
-                    gen(POP2, 0);
-                }
-            }
-            else if (eitherLong) {
-                // widen right (in DX:AX) if not long
-                if (!rightLong) widen_primary(is2);
-                // pop left
-                if (leftLong)
-                    gen(POPd2, 0);
-                else {
-                    gen(POP2, 0);
-                    widen_secondary(is);
-                }
-            }
-            else {
-                gen(POP2, 0);
-                if (ptrScale(oper, is, is2) == BPD) {
-                    gen(DBL1, 0); gen(DBL1, 0);
-                }
-                else if (isDouble(oper, is, is2)) gen(DBL1, 0);
-                if (ptrScale(oper, is2, is) == BPD) {
-                    gen(DBL2, 0); gen(DBL2, 0);
-                }
-                else if (isDouble(oper, is2, is)) gen(DBL2, 0);
-            }
-        }
-    }
-    if (oper) {
-        if (IsUnsigned(is) || IsUnsigned(is2)) {
-            oper = oper2;
-        }
-        if (eitherLong)
-            loper = toLongOp(oper);
-        else
-            loper = oper;
-        if (is[TYP_CNST] && is2[TYP_CNST]) {               // constant result
-            if (eitherLong) {
-                // 32-bit constant folding
-                int rhi, rlo, lhi, llo, reshi, reslo;
-                // Widen 16-bit constants to 32-bit for folding
-                llo = is[VAL_CNST];
-                lhi = is[VAL_CNST_HI];
-                if (!leftLong) {
-                    // sign- or zero-extend left
-                    if (is[TYP_CNST] == TYPE_UINT)
-                        lhi = 0;
-                    else
-                        lhi = (llo & 0x8000) ? -1 : 0;
-                }
-                rlo = is2[VAL_CNST];
-                rhi = is2[VAL_CNST_HI];
-                if (!rightLong) {
-                    if (is2[TYP_CNST] == TYPE_UINT)
-                        rhi = 0;
-                    else
-                        rhi = (rlo & 0x8000) ? -1 : 0;
-                }
-                reshi = reslo = 0;
-                // Route to appropriate folding function
-                if (oper == LT12 || oper == LE12 ||
-                    oper == GT12 || oper == GE12) {
-                    CalcCmp32(lhi, llo, oper, rhi, rlo,
-                              &reshi, &reslo);
-                }
-                else if (IsUnsigned(is) || IsUnsigned(is2)) {
-                    CalcUConst32(lhi, llo, oper, rhi, rlo,
-                                 &reshi, &reslo);
-                }
-                else {
-                    CalcConst32(lhi, llo, oper, rhi, rlo,
-                                &reshi, &reslo);
-                }
-                is[VAL_CNST] = reslo;
-                is[VAL_CNST_HI] = reshi;
-                // Determine result type
-                if (oper == EQ12 || oper == NE12 ||
-                    oper == LT12 || oper == LE12 ||
-                    oper == GT12 || oper == GE12 ||
-                    oper == LT12u || oper == LE12u ||
-                    oper == GT12u || oper == GE12u) {
-                    // comparison: result is 16-bit int
-                    is[TYP_CNST] = TYPE_INT;
-                    is[VAL_CNST_HI] = 0;
-                }
-                else if (IsUnsigned(is) || IsUnsigned(is2)) {
-                    is[TYP_CNST] = TYPE_ULONG;
-                }
-                else {
-                    is[TYP_CNST] = TYPE_LONG;
-                }
-            }
-            else {
-                is[VAL_CNST] = CalcConst(is[VAL_CNST], oper, is2[VAL_CNST]);
-                if (is2[TYP_CNST] == TYPE_UINT) {
-                    is[TYP_CNST] = TYPE_UINT;
-                }
-            }
-            ClearStage(before, 0);
-        }
-        else {
-            // variable result
-            is[TYP_CNST] = 0;
-            is[VAL_CNST_HI] = 0;
-            gen(loper, 0);
-            if (oper == SUB12 && is[TYP_ADR] >> 2 == BPW && is2[TYP_ADR] >> 2 == BPW) { 
-                // difference of two word addresses
-                gen(SWAP12, 0);
-                gen(GETw1n, 1);
-                gen(ASR12, 0);          // div by 2
-            }
-            if (oper == SUB12 && is[TYP_ADR] >> 2 == BPD && is2[TYP_ADR] >> 2 == BPD) { 
-                // difference of two long addresses: div by 4
-                gen(SWAP12, 0);
-                gen(GETw1n, 2);
-                gen(ASR12, 0);
-            }
-            // identify the operator
-            is[LAST_OP] = loper;
-            // comparison results are always 16-bit
-            if (eitherLong && isCmpOp(loper)) {
-                eitherLong = 0;
-                is[TYP_OBJ] = 0;
-                is[SYMTAB_ADR] = 0;
-            }
-            // non-comparison long ops produce a 32-bit result
-            else if (eitherLong) {
-                if (IsUnsigned(is) || IsUnsigned(is2))
-                    is[TYP_OBJ] = TYPE_ULONG;
-                else
-                    is[TYP_OBJ] = TYPE_LONG;
-                is[SYMTAB_ADR] = 0;
-            }
-        }
-        if (oper == SUB12 || oper == ADD12) {
-            if (is[TYP_ADR] && is2[TYP_ADR]) {
-                //  addr +/- addr
-                is[TYP_ADR] = 0;
-            }
-            else if (is2[TYP_ADR]) {
-                // value +/- addr
-                is[SYMTAB_ADR] = is2[SYMTAB_ADR];
-                is[TYP_OBJ] = is2[TYP_OBJ];
-                is[TYP_ADR] = is2[TYP_ADR];
-            }
-        }
-        if (is[SYMTAB_ADR] == 0 || ((ptr = is2[SYMTAB_ADR]) && (ptr[TYPE] & IS_UNSIGNED))) {
+        else if (is2[TYP_ADR]) {
+            // integer +/- pointer: result inherits the RHS pointer type.
             is[SYMTAB_ADR] = is2[SYMTAB_ADR];
+            is[TYP_OBJ]    = is2[TYP_OBJ];
+            is[TYP_ADR]    = is2[TYP_ADR];
+        }
+    }
+    // Propagate SYMTAB_ADR from the RHS when the LHS has no symbol entry,
+    // or when the RHS symbol is unsigned (unsigned-ness infects the result type).
+    if (is[SYMTAB_ADR] == 0 ||
+        ((ptr = is2[SYMTAB_ADR]) && (ptr[TYPE] & IS_UNSIGNED))) {
+        is[SYMTAB_ADR] = is2[SYMTAB_ADR];
+    }
+}
+
+// Emit register-setup code for Arm B when at least one operand is 32-bit
+// and the RHS is a compile-time constant.
+// Called after the speculative PUSH has been retracted and clearStage run.
+// On entry: LHS value is in AX (or DX:AX if leftLong; callee widens if not).
+// On return:
+//   ADD12: LHS stays in DX:AX (primary); RHS constant loaded into CX:BX.
+//   other: LHS moved to CX:BX (secondary); RHS constant loaded into DX:AX.
+void emitConst32Rhs(int oper, int leftLong, int is[], int is2[]) {
+    if (!leftLong)
+        widenPrimary(is);
+    if (oper == ADD12) {
+        // Addition is commutative: leave LHS in DX:AX as the primary,
+        // and load the 32-bit RHS constant into the secondary (CX:BX).
+        gen(GETw2n, is2[VAL_CNST]);
+        gen(GETcxn, is2[VAL_CNST_HI]);
+    }
+    else {
+        // Non-commutative: move LHS to secondary (CX:BX), then load
+        // the 32-bit RHS constant into the primary (DX:AX).
+        gen(MOVEd21, 0);
+        gen(GETw1n, is2[VAL_CNST]);
+        gen(GETdxn, is2[VAL_CNST_HI]);
+    }
+}
+
+// Emit register-setup code for Arm B when both operands are 16-bit
+// and the RHS is a compile-time constant.
+// Called after the speculative PUSH has been retracted and clearStage run.
+// On entry: LHS value is in AX.
+// *oper/*oper2 may be updated in-place by tryReverse() so that the
+// operator-emit tail sees the (possibly reversed) operator.
+void emitConst16Rhs(int *oper, int *oper2, int is[], int is2[]) {
+    int sc;
+    sc = ptrScale(*oper, is, is2); if (!sc) sc = 1;
+    if (*oper == ADD12) {
+        // Addition is commutative: load the (scaled) RHS constant
+        // directly into the secondary register (BX).
+        gen(GETw2n, is2[VAL_CNST] * sc);
+    }
+    else {
+        // Non-commutative.  Try reversing the operator so the constant
+        // can go into BX like the commutative case, avoiding MOVE21+GETw1n.
+        // Reversal is suppressed when STG_ADR is set (the zero-test signal
+        // is active and must not be invalidated by swapping operands).
+        if (tryReverse(oper, oper2, !is[STG_ADR])) {
+            gen(GETw2n, is2[VAL_CNST] * sc);
+        }
+        else {
+            // Cannot reverse: move LHS to BX, then load RHS into AX.
+            gen(MOVE21, 0);
+            gen(GETw1n, is2[VAL_CNST] * sc);
         }
     }
 }
 
+// Prepare registers for Arm C when at least one operand is long.
+// On entry: RHS is in AX (or DX:AX if rightLong); LHS is on the stack.
+// On return:
+//   primary   (DX:AX) = RHS, widened to 32 bits if it was only 16 bits.
+//   secondary (CX:BX) = LHS, popped from the stack and widened if needed.
+void prepLongRegs(int leftLong, int rightLong, int is[], int is2[]) {
+    // Widen the RHS to DX:AX if it arrived as only 16 bits.
+    if (!rightLong)
+        widenPrimary(is2);
+    // Pop the LHS from the stack into the secondary register pair.
+    if (leftLong) {
+        gen(POPd2, 0);
+    }
+    else {
+        // LHS is 16-bit but the operation is 32-bit: pop into BX
+        // then sign/zero-extend to fill CX:BX.
+        gen(POP2, 0);
+        widenSecondary(is);
+    }
+}
+
+// Scale primary and secondary registers for pointer arithmetic in Arm C (16-bit path).
+// Called after gen(POP2, 0) has moved LHS into BX; RHS is in AX.
+// If LHS (is[]) is a pointer, the integer side (RHS = AX = DBL1) is scaled.
+// If RHS (is2[]) is a pointer, the integer side (LHS = BX = DBL2) is scaled.
+// DBL doubles a register; two DBLs scale by 4 for long* arithmetic.
+void scalePtrOperands(int oper, int is[], int is2[]) {
+    if (ptrScale(oper, is, is2) == BPD) {
+        gen(DBL1, 0); gen(DBL1, 0);  // LHS is a long*: scale RHS (AX) by 4
+    }
+    else if (isDouble(oper, is, is2)) {
+        gen(DBL1, 0);                 // LHS is a word*: scale RHS (AX) by 2
+    }
+    if (ptrScale(oper, is2, is) == BPD) {
+        gen(DBL2, 0); gen(DBL2, 0);  // RHS is a long*: scale LHS (BX) by 4
+    }
+    else if (isDouble(oper, is2, is)) {
+        gen(DBL2, 0);                 // RHS is a word*: scale LHS (BX) by 2
+    }
+}
+
+// down2() evaluates (LHS oper RHS) where LHS is already described by is[].
+// Parses the RHS by recursing into level(), then arranges the register pair:
+//   primary   (AX / DX:AX) = RHS
+//   secondary (BX / CX:BX) = LHS
+// After setup, emits the operator p-code and updates is[] with the result type.
+// When oper == 0 (subscript mode, called from level14 for array indexing):
+// only the operand setup is performed and is[] is not updated.
+void down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
+    int *before, *start;
+    int leftLong, rightLong, eitherLong, loper, sc;
+    setstage(&before, &start);
+    // Clear the STG_ADR signal; it will be set below only when one operand is zero,
+    // allowing test() to emit a more compact "compare to zero" instruction sequence.
+    is[STG_ADR] = 0;
+    leftLong = isLongVal(is);
+
+    if (is[TYP_CNST]) {
+        // ---- Arm A: constant LHS, unknown RHS ----
+        // Invariant: TYP_CNST and TYP_ADR are mutually exclusive.  number() and
+        // chrcon() never set TYP_ADR; pointer casts clear TYP_CNST; applycast()
+        // clears TYP_ADR on scalar results.  Therefore ptrScale(oper, is2, is)
+        // below correctly treats is2 (the RHS) as the potential pointer --
+        // is[TYP_ADR] is guaranteed 0 in this arm.
+        // Parse and fetch the RHS from level(); it lands in AX (or DX:AX for longs).
+        if (down1(level, is2))
+            fetch(is2);
+        rightLong  = isLongVal(is2);
+        eitherLong = leftLong || rightLong;
+        if (eitherLong) {
+            // RHS is in AX.  If it is only 16-bit, sign/zero-extend it to DX:AX.
+            if (!rightLong)
+                widenPrimary(is2);
+            // If the LHS constant is zero, record this position so test() can
+            // replace the upcoming GETw2n/GETcxn pair with a cheaper zero-test.
+            if (is[VAL_CNST] == 0 && is[VAL_CNST_HI] == 0)
+                is[STG_ADR] = snext;
+            // Load the 32-bit LHS constant into the secondary register pair (CX:BX).
+            gen(GETw2n, is[VAL_CNST]);
+            gen(GETcxn, is[VAL_CNST_HI]);
+        }
+        else {
+            // If the LHS constant is zero, record this position so test() can
+            // replace the upcoming GETw2n with a cheaper zero-test.
+            if (is[VAL_CNST] == 0)
+                is[STG_ADR] = snext;
+            // Apply pointer-element-size scaling for pointer + integer arithmetic.
+            sc = ptrScale(oper, is2, is); if (!sc) sc = 1;
+            // Load the (possibly scaled) 16-bit LHS constant into the secondary (BX).
+            gen(GETw2n, is[VAL_CNST] * sc);
+        }
+    }
+    else {
+        // ---- Arms B and C: variable LHS, unknown RHS ----
+        // Push the LHS value onto the stack to free the primary register for the RHS.
+        if (leftLong)
+            gen(PUSHd1, 0);
+        else
+            gen(PUSH1, 0);
+        // Parse and fetch the RHS into the primary register (AX / DX:AX).
+        if (down1(level, is2))
+            fetch(is2);
+        rightLong  = isLongVal(is2);
+        eitherLong = leftLong || rightLong;
+
+        if (is2[TYP_CNST]) {
+            // ---- Arm B: variable LHS, constant RHS ----
+            // If the RHS constant is zero, record the start of this binary operation
+            // so test() can replace the operand-setup sequence with a zero-test.
+            if (is2[VAL_CNST] == 0 && is2[VAL_CNST_HI] == 0)
+                is[STG_ADR] = start;
+            // Retract the speculative PUSH: we no longer need the stack slot because
+            // the constant will be loaded directly into a register.
+            if (leftLong)
+                csp += BPD;
+            else
+                csp += BPW;
+            clearStage(before, 0);
+            if (eitherLong) {
+                emitConst32Rhs(oper, leftLong, is, is2);
+            }
+            else {
+                emitConst16Rhs(&oper, &oper2, is, is2);
+            }
+        }
+        else {
+            // ---- Arm C: variable LHS, variable RHS ----
+            // RHS is now in AX; LHS is on the stack waiting to be popped into BX.
+            if (!eitherLong && before && snext == before + 4
+                && (before[2] == GETw1m || before[2] == GETw1s)) {
+                // The RHS was just loaded by a single GETw1m/GETw1s instruction.
+                // Stage buffer layout: int pairs (pc, arg); before[2] is the p-code
+                // of that instruction and before[3] is its address operand.
+                // Retract that load, reverse the operator, and re-emit a GETw2m/GETw2s
+                // so the CMP-Memory/Stack peephole rules in the optimizer can fire.
+                int rhspc  = before[2];
+                int rhsval = before[3];
+                // Guard is 1, not !is[STG_ADR]: STG_ADR is always 0 at this
+                // point (cleared at entry, never set in Arm A or on the Arm C path).
+                if (tryReverse(&oper, &oper2, 1)) {
+                    csp += BPW;
+                    clearStage(before, 0);
+                    gen(rhspc == GETw1m ? GETw2m : GETw2s, rhsval);
+                }
+                else {
+                    // Operator is not reversible: pop LHS into BX the normal way.
+                    gen(POP2, 0);
+                }
+            }
+            else if (eitherLong) {
+                prepLongRegs(leftLong, rightLong, is, is2);
+            }
+            else {
+                // Both operands are 16-bit: pop LHS into BX.
+                gen(POP2, 0);
+                // Scale operands for pointer arithmetic if either side is a pointer.
+                scalePtrOperands(oper, is, is2);
+            }
+        }
+    }
+
+    // When oper == 0 this function was called from level14 in subscript mode
+    // (array indexing).  The register setup above is all that is needed; there
+    // is no operator to emit and is[] must not be updated.
+    if (oper == 0)
+        return;
+
+    // ---- Select the actual operator p-code to emit ----
+    // Switch to the unsigned variant when either operand is unsigned.
+    if (isUnsigned(is) || isUnsigned(is2))
+        oper = oper2;
+    // Map the 16-bit operator to its 32-bit counterpart when either side is long.
+    loper = eitherLong ? toLongOp(oper) : oper;
+
+    if (is[TYP_CNST] && is2[TYP_CNST]) {
+        // ---- Both operands are constants: fold the result at compile time ----
+        if (eitherLong) {
+            foldConst32(oper, leftLong, rightLong, is, is2);
+        }
+        else {
+            // 16-bit constant fold.
+            is[VAL_CNST] = calcConst(is[VAL_CNST], oper, is2[VAL_CNST]);
+            // If the RHS was an unsigned constant, the result is also unsigned.
+            if (is2[TYP_CNST] == TYPE_UINT)
+                is[TYP_CNST] = TYPE_UINT;
+        }
+        // Discard all p-codes emitted during operand setup; a compile-time
+        // constant result needs no code.
+        clearStage(before, 0);
+    }
+    else {
+        // ---- At least one operand is variable: emit the operator p-code ----
+        is[TYP_CNST]    = 0;
+        is[VAL_CNST_HI] = 0;
+        gen(loper, 0);
+        // For pointer subtraction the raw result is a byte difference.
+        // Divide it by the element size to produce an element count.
+        if (oper == SUB12 && is[TYP_ADR] >> 2 == BPW && is2[TYP_ADR] >> 2 == BPW) {
+            // Both pointers point to word-sized elements: divide raw difference by 2.
+            gen(SWAP12, 0);
+            gen(GETw1n, 1);
+            gen(ASR12, 0);
+        }
+        if (oper == SUB12 && is[TYP_ADR] >> 2 == BPD && is2[TYP_ADR] >> 2 == BPD) {
+            // Both pointers point to long-sized elements: divide raw difference by 4.
+            gen(SWAP12, 0);
+            gen(GETw1n, 2);
+            gen(ASR12, 0);
+        }
+        // Record the emitted operator so test() can recognise "expr op 0" patterns
+        // and choose a more compact jump sequence.
+        is[LAST_OP] = loper;
+        if (eitherLong && isCmpOp(loper)) {
+            // A long comparison always produces a 16-bit int result (0 or 1).
+            eitherLong     = 0;
+            is[TYP_OBJ]    = 0;
+            is[SYMTAB_ADR] = 0;
+        }
+        else if (eitherLong) {
+            // A non-comparison long operation produces a 32-bit result.
+            is[TYP_OBJ]    = (isUnsigned(is) || isUnsigned(is2)) ? TYPE_ULONG : TYPE_LONG;
+            is[SYMTAB_ADR] = 0;
+        }
+    }
+
+    // Propagate pointer type and signedness from the operands into the result.
+    applyResultType(oper, is, is2);
+}
+
 // unsigned operand?
-int IsUnsigned(int is[]) {
+int isUnsigned(int is[]) {
     char *ptr;
     if (is[TYP_ADR] || is[TYP_CNST] == TYPE_UINT || is[TYP_CNST] == TYPE_ULONG ||
         is[TYP_VAL] & IS_UNSIGNED ||
@@ -2240,7 +2449,7 @@ int IsUnsigned(int is[]) {
 }
 
 // calculate signed constant result
-int CalcConst(int left, int oper, int right) {
+int calcConst(int left, int oper, int right) {
     switch (oper) {
         case ADD12:
             return (left + right);
@@ -2275,11 +2484,11 @@ int CalcConst(int left, int oper, int right) {
         case ASL12:
             return (left << right);
     }
-    return CalcUConst(left, oper, right);
+    return calcUConst(left, oper, right);
 }
 
 // calculate unsigned constant result
-int CalcUConst(unsigned left, int oper, unsigned right) {
+int calcUConst(unsigned left, int oper, unsigned right) {
     switch (oper) {
         case MUL12u:
             return (left  *  right);
@@ -2304,7 +2513,7 @@ int CalcUConst(unsigned left, int oper, unsigned right) {
 // 32-bit signed constant folding.  Operates on hi:lo pairs.
 // Returns result type: TYPE_LONG or TYPE_ULONG.
 // Result stored via reshi/reslo pointers.
-void CalcConst32(int lhi, int llo, int oper, int rhi, int rlo,
+void calcConst32(int lhi, int llo, int oper, int rhi, int rlo,
             int *reshi, int *reslo) {
     unsigned alo, blo, newlo;
     int carry;
@@ -2397,7 +2606,7 @@ void CalcConst32(int lhi, int llo, int oper, int rhi, int rlo,
 }
 
 // 32-bit unsigned constant folding for comparison operators.
-void CalcUConst32(int lhi, int llo, int oper, int rhi, int rlo,
+void calcUConst32(int lhi, int llo, int oper, int rhi, int rlo,
              int *reshi, int *reslo) {
     unsigned ulhi, ullo, urhi, urlo;
     ulhi = lhi; ullo = llo; urhi = rhi; urlo = rlo;
@@ -2436,13 +2645,13 @@ void CalcUConst32(int lhi, int llo, int oper, int rhi, int rlo,
             return;
         default:
             // delegate to signed version for non-comparison ops
-            CalcConst32(lhi, llo, oper, rhi, rlo, reshi, reslo);
+            calcConst32(lhi, llo, oper, rhi, rlo, reshi, reslo);
             return;
     }
 }
 
 // Signed 32-bit comparison folding.
-void CalcCmp32(int lhi, int llo, int oper, int rhi, int rlo,
+void calcCmp32(int lhi, int llo, int oper, int rhi, int rlo,
           int *reshi, int *reslo) {
     unsigned ullo, urlo;
     ullo = llo; urlo = rlo;

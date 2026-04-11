@@ -26,7 +26,6 @@
 #include "stdio.h"
 #include "cc.h"
 #include "ccenum.h"
-#ifdef ENABLE_ENUMS
 extern char ssname[], *glbptr;
 extern int  ch, eof;
 
@@ -69,7 +68,7 @@ int doEnum(int *typeSubPtr) {
         hasTag = 0;
     }
 
-    if (IsMatch("{")) {
+    if (isMatch("{")) {
         // --- Register tag name (was addEnumTag, inlined) ---
         if (hasTag) {
             if (findEnumTag(tagname) != -1) {
@@ -92,7 +91,7 @@ int doEnum(int *typeSubPtr) {
         // --- Parse enumerator list ---
         nextVal = 0;
         for (;;) {
-            if (IsMatch("}"))
+            if (isMatch("}"))
                 break;
             if (ch == 0 && eof) {
                 error("no final }");
@@ -105,16 +104,16 @@ int doEnum(int *typeSubPtr) {
             }
             if (isreserved(ssname))
                 error("reserved keyword used as enumerator");
-            if (IsMatch("="))
-                IsConstExpr(&nextVal);
+            if (isMatch("="))
+                isConstExpr(&nextVal);
             // addEnumConst inlined:
             if (findglb(ssname))
                 error("enum constant already defined");
             else
-                AddSymbol(ssname, IDENT_VARIABLE, TYPE_INT, BPW, nextVal, &glbptr, ENUMCONST);
+                addSymbol(ssname, IDENT_VARIABLE, TYPE_INT, BPW, nextVal, &glbptr, ENUMCONST);
             nextVal++;
-            if (IsMatch(",") == 0) {
-                Require("}");
+            if (isMatch(",") == 0) {
+                require("}");
                 break;
             }
         }
@@ -129,4 +128,3 @@ int doEnum(int *typeSubPtr) {
 
     return TYPE_INT;
 }
-#endif

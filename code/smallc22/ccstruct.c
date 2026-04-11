@@ -32,8 +32,8 @@ extern int ch, eof, rettype, rettypeSubPtr;
 char *structdata, *structdatnext, *structmemnext;
 
 // forward declarations for this file:
-int doTag(int kind);
-int findTagByName(int kind, char *sname);
+int doStruct(int kind);
+int findStructByName(int kind, char *sname);
 
 void initStructs() {
   structdata = calloc(STRUCTDATSZ, 1);
@@ -42,11 +42,11 @@ void initStructs() {
 }
 
 // Handle a struct or union keyword at global scope.
-// Called from parse() after 'struct'/'union' has been matched.
-int dotagblock(int kind) {
+// Called from parseTopLvl() after 'struct'/'union' has been matched.
+int doStructBlock(int kind) {
   int sp;
   char *p;
-  sp = doTag(kind);
+  sp = doStruct(kind);
   if (sp != -1 && !endst()) {
     blanks();
     p = lptr;
@@ -62,16 +62,16 @@ int dotagblock(int kind) {
         return;
       }
     }
-    declglb(TYPE_STRUCT, GLOBAL, sp);
+    parseGlbDecl(TYPE_STRUCT, GLOBAL, sp);
   }
-  ReqSemicolon();
+  reqSemicolon();
 }
 
 // Define a single struct or union if '{' follows the tag name,
 // otherwise look up an existing definition by tag name.
 // kind: KIND_STRUCT or KIND_UNION
 // @return pointer to tag definition, or -1 on error.
-int doTag(int kind) {
+int doStruct(int kind) {
   int i, totalsize, typeSubIdx;
   blanks();
   if (symname(ssname)) {
@@ -85,8 +85,8 @@ int doTag(int kind) {
     illname();
     return -1;
   }
-  if (IsMatch("{") == 0) {
-    return findTagByName(kind, ssname);
+  if (isMatch("{") == 0) {
+    return findStructByName(kind, ssname);
   }
   putint(structmemnext, structdatnext + STRDAT_MBEG, 2);
   i = 0;
@@ -99,7 +99,7 @@ int doTag(int kind) {
   structdatnext[STRDAT_NAME + i] = 0;
   structdatnext[STRDAT_KIND] = kind;
   totalsize = 0;
-  while (IsMatch("}") == 0) {
+  while (isMatch("}") == 0) {
     int id, sz, type;
     if (ch == 0 && eof) {
       error("no final }");
@@ -107,7 +107,7 @@ int doTag(int kind) {
     }
     if ((type = dotype(&typeSubIdx)) != 0) {
       while (1) {
-        parseLocalDeclare(type, typeSubIdx, IDENT_ARRAY, &id, &sz);
+        parseLocDecl(type, typeSubIdx, IDENT_ARRAY, &id, &sz);
         if (getStructMember(structdatnext, ssname)) {
           error("duplicate member name");
           abort(1);
@@ -135,12 +135,12 @@ int doTag(int kind) {
           putint(typeSubIdx, structmemnext + STRMEM_CLASSPTR, 2);
         }
         structmemnext += STRMEM_MAX;
-        if (IsMatch(",") == 0)
+        if (isMatch(",") == 0)
           break;
         if (endst())
           break;
       }
-      ReqSemicolon();
+      reqSemicolon();
     }
     else {
       error("tag may only contain members");
@@ -157,7 +157,7 @@ int doTag(int kind) {
 // @param kind  KIND_STRUCT or KIND_UNION
 // @param sname the tag name to search for
 // @return pointer to tag data if found, else -1
-int findTagByName(int kind, char *sname) {
+int findStructByName(int kind, char *sname) {
   char *current, *end;
   current = STRDAT_START;
   end = structdatnext;
@@ -175,7 +175,7 @@ int findTagByName(int kind, char *sname) {
 // Consumes the tag name from input if found.
 // kind: KIND_STRUCT or KIND_UNION
 // @return pointer to tag data if found, else -1
-int getTagPtr(int kind) {
+int getStructPtr(int kind) {
   char *current, *end;
   int len;
   current = STRDAT_START;

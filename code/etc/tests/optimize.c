@@ -151,6 +151,23 @@ int test_shr(int a, int b) {
 // Main: verify all patterns produce correct results
 // ============================================================================
 
+// ============================================================================
+// Zero-constant operand: exercises is[STG_ADR] priming in down2.
+// Arm A: compile-time zero LHS sets STG_ADR = snext before GETw2n(0).
+// Arm B: compile-time zero RHS sets STG_ADR = start before the whole setup.
+// test() uses STG_ADR to emit a compact zero-comparison branch.
+// ============================================================================
+
+int test_zero_lhs(int x) {
+    if (0 == x) return 1;   // Arm A: const 0 LHS, variable RHS
+    return 0;
+}
+
+int test_zero_rhs(int x) {
+    if (x == 0) return 1;   // Arm B: variable LHS, const 0 RHS
+    return 0;
+}
+
 void main() {
     printf("=== SETSFLG/fset optimization tests ===\n");
 
@@ -193,6 +210,12 @@ void main() {
     // SHR (signed)
     check("shr(4,1)!=0",  test_shr(4, 1));    // 4>>1=2 truthy
     check("shr(0,1)==0", !test_shr(0, 1));    // 0>>1=0 falsy
+
+    // Zero-const STG_ADR priming
+    check("0==0 lhs true",    test_zero_lhs(0));
+    check("0==1 lhs false",  !test_zero_lhs(1));
+    check("x==0 rhs true",   test_zero_rhs(0));
+    check("x==1 rhs false", !test_zero_rhs(1));
 
     printf("\nPassed: %d  Failed: %d\n", passed, failed);
     if (failed) getchar();

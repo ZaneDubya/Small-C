@@ -348,3 +348,11 @@ Small-C Revision History
     manual long-store sequence (PUTwp1 / ADD2n / GETw1n / PUTwp1) clobbered
     AX with zero before storing the high word, corrupting any long value whose
     upper 16 bits were non-zero. Replaced with genStore() / PUTdp1.
+147 Significant reorganization and code optimization. Renamed functions from
+    PascalCase to camelCase (IsMatch->isMatch, etc.) for naming consistency.
+    Removed ENABLE_ENUMS and ENABLE_TYPEDEF compile-time guards; both features
+    are now always compiled. Adjusted buffer sizes: NUMGLBS 380->500,
+    LITABSZ 5000->4200, FNPARAMTS_SZ 768->1024; added FL_LABMAX (256) for the
+    short-branch label table. Folded small internal helpers (keepch, ifline,
+    noiferr) into their sole callers to reduce call overhead.
+    Pre-processor code is now in ccpre.c.

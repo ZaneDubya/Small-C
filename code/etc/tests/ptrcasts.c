@@ -335,6 +335,31 @@ void test_ptrstep() {
     check("postdec ulng*=4", (b-a) == 4);
 }
 
+// ============================================================================
+// Phase 9: int* - int* element-count subtraction
+// Subtracting two typed int* pointers must yield the element count, not bytes.
+// down2 emits SWAP12 + GETw1n(1) + ASR12 to divide the raw byte difference by 2.
+// ============================================================================
+void test_ptrdiff_int() {
+    int arr[4];
+    int *p1, *p2;
+    int diff;
+
+    printf("--- ptrdiff int* ---\n");
+
+    p1 = arr;
+    p2 = arr + 3;
+    diff = p2 - p1;
+    check("int* p2-p1==3",  diff == 3);
+
+    p2 = arr + 1;
+    diff = p2 - p1;
+    check("int* p2-p1==1",  diff == 1);
+
+    diff = p1 - p2;
+    check("int* p1-p2==-1", diff == -1);
+}
+
 int main() {
     passed = 0;
     failed = 0;
@@ -347,6 +372,7 @@ int main() {
     test_voidcast();
     test_lngcast();
     test_ptrstep();
+    test_ptrdiff_int();
 
     printf("\n%d passed, %d failed\n", passed, failed);
     if (failed) getchar();

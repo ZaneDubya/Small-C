@@ -12,6 +12,9 @@ ECHO ============================================================
 CALL enums.bat
 IF ERRORLEVEL 1 GOTO fail
 
+CALL knr.bat
+IF ERRORLEVEL 1 GOTO fail
+
 CALL locals.bat
 IF ERRORLEVEL 1 GOTO fail
 

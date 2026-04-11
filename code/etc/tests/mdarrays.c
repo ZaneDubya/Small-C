@@ -18,6 +18,8 @@
 //   - Function accepting a 1D row pointer (int row[], int cols)
 //   - Function accepting a full 2D array parameter (int b[][3], int rows)
 //   - sizeof for 2D and 3D arrays (total byte count)
+//   - Local 2D long array (nested brace init) — regression for BPD store bug
+//   - Local 2D long array (flat init)           — regression for BPD store bug
 
 #include "../../smallc22/stdio.h"
 
@@ -309,6 +311,96 @@ void tParam2D() {
     check("sum2D(mat,3)==45", sum2D(mat3x3, 3) == 45);
 }
 
+// Regression tests for BPD (long/dword) element stores in local 2D arrays.
+// Before the genStore fix, initLocMDSub open-coded PUTwp1/PUTbp1 for emit and
+// zero-fill, silently using the byte-store path for 4-byte (long) elements.
+
+// Print hi/lo words of a long and whether it equals the expected value.
+// On 8086, long is stored little-endian: low word at &v, high word at &v+2.
+void checkLong(char *desc, long got, long exp) {
+    int *p;
+    p = &got;
+    printf("  %s: got lo=%d hi=%d", desc, *p, *(p+1));
+    p = &exp;
+    printf(" exp lo=%d hi=%d", *p, *(p+1));
+    if (got == exp) {
+        printf(" PASS\n");
+        passed++;
+    }
+    else {
+        printf(" FAIL\n");
+        getchar();
+        failed++;
+    }
+}
+
+// Nested-brace form: alternates values with zero and non-zero hi words.
+// 65537L = 0x00010001: lo=1, hi=1.  131075L = 0x00020003: lo=3, hi=2.
+void tLclLongNested() {
+    long ln[2][2] = {{1L, 65537L}, {131075L, 4L}};
+    int *p;
+    printf("\n--- Local 2D long (nested brace init) ---\n");
+    p = ln;
+    printf("  raw words: %d %d %d %d %d %d %d %d\n",
+        *p, *(p+1), *(p+2), *(p+3),
+        *(p+4), *(p+5), *(p+6), *(p+7));
+    checkLong("ln[0][0]", ln[0][0], 1L);        // lo=1, hi=0
+    checkLong("ln[0][1]", ln[0][1], 65537L);    // lo=1, hi=1
+    checkLong("ln[1][0]", ln[1][0], 131075L);   // lo=3, hi=2
+    checkLong("ln[1][1]", ln[1][1], 4L);        // lo=4, hi=0
+    // explicit hi-word checks via int pointer
+    p = &ln[0][1];
+    check("ln[0][1] lo==1", *p == 1);
+    check("ln[0][1] hi==1", *(p+1) == 1);
+    p = &ln[1][0];
+    check("ln[1][0] lo==3", *p == 3);
+    check("ln[1][0] hi==2", *(p+1) == 2);
+}
+
+// Flat form: alternates lo-only and hi+lo values in row-major order.
+// 65546L = 65536+10: lo=10, hi=1.  131102L = 2*65536+30: lo=30, hi=2.
+void tLclLongFlat() {
+    long lf[2][2] = {10L, 65546L, 131102L, 40L};
+    int *p;
+    printf("\n--- Local 2D long (flat init) ---\n");
+    p = lf;
+    printf("  raw words: %d %d %d %d %d %d %d %d\n",
+        *p, *(p+1), *(p+2), *(p+3),
+        *(p+4), *(p+5), *(p+6), *(p+7));
+    checkLong("lf[0][0]", lf[0][0], 10L);       // lo=10, hi=0
+    checkLong("lf[0][1]", lf[0][1], 65546L);    // lo=10, hi=1
+    checkLong("lf[1][0]", lf[1][0], 131102L);   // lo=30, hi=2
+    checkLong("lf[1][1]", lf[1][1], 40L);       // lo=40, hi=0
+    // explicit hi-word checks via int pointer
+    p = &lf[0][1];
+    check("lf[0][1] lo==10", *p == 10);
+    check("lf[0][1] hi==1",  *(p+1) == 1);
+    p = &lf[1][0];
+    check("lf[1][0] lo==30", *p == 30);
+    check("lf[1][0] hi==2",  *(p+1) == 2);
+}
+
+// Increment of a 2D long element that overflows the lo word into the hi word,
+// and decrement that borrows back from the hi word into the lo word.
+// 65535L++ should yield lo=0, hi=1; 65536L-- should yield lo=-1 (0xFFFF), hi=0.
+void tLclLongBoundary() {
+    long a[1][2];
+    int *p;
+    printf("\n--- 2D long elem inc/dec word boundary ---\n");
+    // increment overflow: lo wraps 0xFFFF -> 0x0000, carry into hi
+    a[0][0] = 65535L;
+    a[0][0]++;
+    p = &a[0][0];
+    check("65535++ lo==0", *p == 0);
+    check("65535++ hi==1", *(p+1) == 1);
+    // decrement underflow: hi borrows back, lo goes from 0x0000 to 0xFFFF
+    a[0][1] = 65536L;
+    a[0][1]--;
+    p = &a[0][1];
+    check("65536-- lo==-1", *p == -1);  // 0xFFFF == -1 as signed 16-bit
+    check("65536-- hi==0",  *(p+1) == 0);
+}
+
 // ============================================================================
 // Main
 // ============================================================================
@@ -335,6 +427,9 @@ void main() {
     tLclFlat();
     tLclCharStr();
     tParam2D();
+    tLclLongNested();
+    tLclLongFlat();
+    tLclLongBoundary();
     printf("\n==============================\n");
     printf("Results: %d passed, %d failed\n",
         passed, failed);
