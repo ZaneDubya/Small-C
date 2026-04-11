@@ -16,7 +16,6 @@
 #include "stdio.h"
 #include "cc.h"
 
-// #define DISOPT           // display optimizations values
 
 char needLong;
 char hasInlineAsm;   // function contains #asm block(s): must not omit frame pointer
@@ -88,14 +87,158 @@ int getpop(int *next);
 #define COMMUTES 0200    // commutative p-code
 #define SETSFLG  0004    // instruction leaves ZF = (result == 0), so OR AX,AX can be skipped
 
-// === optimizer command lists ================================================
 
-#define HIGH_SEQ   90
-
-#ifdef DISOPT
-int optcount[HIGH_SEQ + 1];   // per-rule optimization hit counts
+#ifdef ENABLE_DISPOPT
+#define DISPOPT_HIGH   94
+int optcount[DISPOPT_HIGH + 1];   // per-rule optimization hit counts
 #endif
 
+// === seqdata[] — Peephole Optimizer Rule Table ==============================
+//
+// This is the documentation of the heart of the optimizer.
+// 
+// Each entry in seqdata[] is one rewrite rule. Rules have NO fixed length:
+// both the match pattern and the action command list can be as long as needed.
+// The only structure is a pair of delimiters:
+//   [ <match-pattern...>,  0,  <action-commands...>,  0, 0 ]
+//
+// Rules are laid out consecutively in the flat int array, terminated by a
+// final double-zero after the double-zero of the last rule. All valid rules
+// will be executed; DISPOPT_HIGH is only used to limit the reporting of hit
+// counts for diagnostics.
+//
+// -- MATCH PATTERN (before the first zero) -----------------------------------
+//
+// Each element in the match pattern is checked against the p-code pairs (each
+// 2 ints) in the staging buffer starting at snext, advancing forward by one
+// p-code pair per match pattern element:
+// 
+//   literal         — the p-code at the current slot must equal this value
+//   any    (0xFF)   — matches any single p-code (buffer must not be empty)
+//   _pop   (0xFE)   — succeeds if getpop() finds a matching POP2 ahead
+//   pfree  (0xFD)   — succeeds if AX is dead from this point forward (isfree)
+//   sfree  (0xFC)   — succeeds if BX is dead from this point forward (isfree)
+//   comm   (0xFB)   — succeeds if the current p-code has the COMMUTES flag
+//   fset   (0xFA)   — succeeds if the current p-code has the SETSFLG flag
+//
+// The non-consuming matchers (pfree, sfree, comm, fset, _pop) advance only the
+// pattern pointer, not the buffer cursor — they test a condition at the same
+// position. If any element fails, peep() returns NO immediately. There is no
+// backtracking; patterns are tested strictly left-to-right.
+//
+// The pattern may be any length. A one-element pattern (e.g. just ADD1n) is
+// legal; so is a ten-element pattern matching ten consecutive p-code pairs.
+//
+// -- ACTION COMMANDS (between the zero separator and the double-zero) --------
+//
+// After a successful match, the action list is executed sequentially. Each
+// action list int is one of:
+//
+//   * A bare p-code value (< PCODES):  written into snext[0], replacing the
+//     p-code at the current cursor. Does not advance the cursor.
+//   * A command word (>= PCODES):  high byte is the opcode, low byte is a
+//     signed offset n (0x01..0x04 = +1..+4; 0xFF..0xFC = -1..-4):
+//       go  |n  — advance snext by n p-code pairs (snext += n*2). n may be
+//                 negative, moving the cursor backward to a slot already
+//                 written. This is how write-forward-then-back works: write
+//                 a p-code at pos0, go|p1 to pos1, write another p-code,
+//                 go|m1 back to pos0 so dumpstage() emits both in order.
+//       gc  |n  — copy the p-code from the slot n pairs away into snext[0].
+//                 Used to relocate a p-code from a later position to the
+//                 current one.
+//       gv  |n  — copy the value from the slot n pairs away into snext[1].
+//                 Used to carry an operand to a replacement instruction.
+//       sum |n  — add the value from slot n to snext[1]. Constant folding.
+//       neg     — negate snext[1]. Used with sum to implement subtraction.
+//       ife |n  — if snext[1] != n, skip all commands until the next zero
+//                 sentinel. Allows a single rule to have multiple conditional
+//                 branches: one block per zero-delimited section.
+//       ifl |n  — if snext[1] >= n, skip to next zero sentinel. Range guard
+//                 (e.g., only apply INC reduction when the value is small).
+
+//       swv |n  — swap snext[1] with the value at slot n.
+//       topop|n — write (n | pcode) into the matching POP2 slot found by
+//                 getpop(), and copy snext[1] into its value. The POP2 is
+//                 replaced in-place; the current p-codes are consumed with go.
+//
+// Conditional blocks (ife/ifl): when a condition fails, all commands up to
+// the next zero sentinel are skipped. Multiple zero-delimited blocks can
+// appear in one action list, each conditionally executed. For example, this
+// action command list has two conditional blocks:
+//
+//   ife|p1, go|p1, rINC1, 0,       < block A: if value==1
+//   ife|p2, go|p1, rINC1, 0,       < block B: if value==2 (note: rINC1 repeats)
+//   ifl|p3, go|p1, ADD1n, gv|m1, 0 < block C: if value<3
+//
+// The action list may be any length. All commands and conditional blocks
+// before the closing double-zero are processed.
+//
+// -- dumpstage() -------------------------------------------------------------
+//
+// dumpstage() scans the staging buffer one p-code at a time:
+//   while (snext < stail):
+//       for each rule 0..HIGH_SEQ:
+//           if peep(seqdata[rule]) matched:
+//               goto restart            < restart from rule 0, same position
+//       bufout(snext[0], snext[1])      < no rule matched: emit p-code as-is
+//       snext += 2                      < advance to next slot
+//
+// On a match, optimization restarts from rule 0 at the same cursor position.
+// This allows rules to chain: one rule's output may be the input for a
+// subsequent rule and that rule can be anywhere in the action list. However,
+// rule order does matter in that earlier rules get priority on matches! A
+// rule that appears earlier in seqdata[] will match and rewrite before a
+// later rule that could also match the same input. A rule that depends on
+// the output of another rule must appear after that input rule.
+//
+// -- WRITE-FORWARD-THEN-BACK -------------------------------------------------
+//
+// When a replacement needs to emit two p-codes that each carry a different
+// value sourced from different input slots, write both slots in place then
+// return the cursor to the first:
+//
+//   CMP12, go|p1, JccE, go|m1, 0, 0   (for "EQ12 + NE10f -> CMP12 + JccE")
+//
+// Step-by-step: write CMP12 at pos0 -> advance to pos1 -> write JccE at pos1
+// (keeping pos1's original label value) -> retreat to pos0. dumpstage() then
+// emits pos0 (CMP12) and pos1 (JccE) in sequence.
+//
+// NOP_ fills dead slots: (e.g. GETw2n + EQ12 + NE10f -> CMP1n + NOP_ + JccE):
+//
+//   CMP1n, go|p1, NOP_, go|p1, JccE, go|m2, 0, 0
+//
+// Writes CMP1n at pos0, NOP_ at pos1, JccE at pos2, then retreats to pos0.
+// NOP_ fills the dead middle slot (3 input slots, 2 meaningful output values).
+//
+// -- LIVENESS GUARDS (pfree, sfree) ------------------------------------------
+//
+// isfree(reg, pp) scans forward from pp toward stail. For each p-code:
+//   - USES & reg set  -> register is live  -> return NO
+//   - ZAPS & reg set  -> register is dead  -> return YES
+//   - neither         -> continue
+// At stail: if usexpr is true, AX is live; BX is dead.
+//
+// Use sfree in patterns to gate rules that destroy BX on "BX is not needed
+// downstream". Use pfree similarly for AX. Without these guards, a rule
+// that clobbers a register would silently miscompile code that reads it later.
+//
+// -- EXAMPLES ----------------------------------------------------------------
+//
+//   Minimal (1-element pattern, 1-element action):
+//     ADD12, MOVE21, 0,  go|p1, ADD21, 0,  0
+//     Matches ADD12 followed by MOVE21. Skips ADD12 (go|p1 advances past it),
+//     replaces MOVE21 with ADD21.
+//
+//   Conditional multi-block action:
+//     ADD1n, 0,  ifl|m2,0,ifl|0,rDEC1,neg,0,  ifl|p3,rINC1,0,  0
+//     Matches ADD1n. Block 1 fires if value < -2 (... negate then rDEC1).
+//     Block 2 fires if value < 3. If neither block fires, no change.
+//
+//   Three-slot write-forward-then-back:
+//     GETw2n,EQ12,NE10f,sfree, 0,  CMP1n,go|p1,NOP_,go|p1,JccE,go|m2, 0, 0
+//     Matches GETw2n + EQ12 + NE10f, but only if BX is free (not live).
+//     Writes CMP1n at pos0, NOP_ at pos1, JccE at pos2, then retreats to pos0.
+//
 int seqdata[] = {
     // 000 Add Fold
     // Replace ADD12+MOVE21 with ADD21, eliminating redundant copy.
@@ -405,7 +548,6 @@ int seqdata[] = {
     //     OUT: POINT2m(m)  ->  MOV BX, OFFSET m
     POINT1m,MOVE21,pfree,0,go|p1,POINT2m,gv|m1,0, 0,
 
-
     // 031 Stack Address Offset Fold
     // Fold POINT1s + constant offset + ADD12 + MOVE21 into POINT2s with the combined displacement.
     //     IN:  POINT1s(o)  GETw2n(n)  ADD12   MOVE21
@@ -424,7 +566,6 @@ int seqdata[] = {
     //          copy without using pr.
     //     OUT: POINT2s(o)  PUSH2
     POINT1s,PUSH1,MOVE21,0,go|p1,POINT2s,gv|m1,go|p1,PUSH2,go|m1,0, 0,
-
 
     // 033 Stack Address Direct to Sr
     // Same as Point-Mem Direct to Sr for a stack address: replace POINT1s+MOVE21 with POINT2s.
@@ -547,7 +688,6 @@ int seqdata[] = {
     //          GETw2p reloads it after any instead of saving/restoring through the stack.
     //     OUT: any  GETw2p(0)  ->  <any op>  MOV BX,[BX]
     PUSHp,any,POP2,0,go|p2,gc|m1,gv|m1,go|m1,GETw2p,gv|m1,0, 0,
-
 
     // 046 Constant-1 Left Shift to Single-Bit Shift
     // Replace GETw1n(1)+ASL12 with ASL1_1 when the shift count is exactly 1.
@@ -721,50 +861,50 @@ int seqdata[] = {
     NE12,NE10f,0,CMP12,go|p1,JccNE,go|m1,0, 0,
     // 072 LT12+NE10f -> CMP12+JccG (branch when sr >= pr)
     LT12,NE10f,0,CMP12,go|p1,JccG,go|m1,0, 0,
-    // 072 GT12+NE10f -> CMP12+JccL (branch when sr <= pr)
+    // 073 GT12+NE10f -> CMP12+JccL (branch when sr <= pr)
     GT12,NE10f,0,CMP12,go|p1,JccL,go|m1,0, 0,
-    // 073 LE12+NE10f -> CMP12+JccGE (branch when sr > pr)
+    // 074 LE12+NE10f -> CMP12+JccGE (branch when sr > pr)
     LE12,NE10f,0,CMP12,go|p1,JccGE,go|m1,0, 0,
-    // 074 GE12+NE10f -> CMP12+JccLE (branch when sr < pr)
+    // 075 GE12+NE10f -> CMP12+JccLE (branch when sr < pr)
     GE12,NE10f,0,CMP12,go|p1,JccLE,go|m1,0, 0,
-    // 075 LT12u+NE10f -> CMP12+JccA (branch when sr >= pr unsigned)
+    // 076 LT12u+NE10f -> CMP12+JccA (branch when sr >= pr unsigned)
     LT12u,NE10f,0,CMP12,go|p1,JccA,go|m1,0, 0,
-    // 076 GT12u+NE10f -> CMP12+JccB (branch when sr <= pr unsigned)
+    // 077 GT12u+NE10f -> CMP12+JccB (branch when sr <= pr unsigned)
     GT12u,NE10f,0,CMP12,go|p1,JccB,go|m1,0, 0,
-    // 077 LE12u+NE10f -> CMP12+JccAE (branch when sr > pr unsigned)
+    // 078 LE12u+NE10f -> CMP12+JccAE (branch when sr > pr unsigned)
     LE12u,NE10f,0,CMP12,go|p1,JccAE,go|m1,0, 0,
-    // 078 GE12u+NE10f -> CMP12+JccBE (branch when sr < pr unsigned)
+    // 079 GE12u+NE10f -> CMP12+JccBE (branch when sr < pr unsigned)
     GE12u,NE10f,0,CMP12,go|p1,JccBE,go|m1,0, 0,
 
     // B-group: XX12 + EQ10f (branch when condition is TRUE — inverted Jcc)
 
-    // 079 EQ12+EQ10f -> CMP12+JccNE (branch when sr == pr)
+    // 080 EQ12+EQ10f -> CMP12+JccNE (branch when sr == pr)
     EQ12,EQ10f,0,CMP12,go|p1,JccNE,go|m1,0, 0,
-    // 080 NE12+EQ10f -> CMP12+JccE (branch when sr != pr)
+    // 081 NE12+EQ10f -> CMP12+JccE (branch when sr != pr)
     NE12,EQ10f,0,CMP12,go|p1,JccE,go|m1,0, 0,
-    // 081 LT12+EQ10f -> CMP12+JccLE (branch when sr < pr)
+    // 082 LT12+EQ10f -> CMP12+JccLE (branch when sr < pr)
     LT12,EQ10f,0,CMP12,go|p1,JccLE,go|m1,0, 0,
-    // 082 GT12+EQ10f -> CMP12+JccGE (branch when sr > pr)
+    // 083 GT12+EQ10f -> CMP12+JccGE (branch when sr > pr)
     GT12,EQ10f,0,CMP12,go|p1,JccGE,go|m1,0, 0,
-    // 083 LE12+EQ10f -> CMP12+JccL (branch when sr <= pr)
+    // 084 LE12+EQ10f -> CMP12+JccL (branch when sr <= pr)
     LE12,EQ10f,0,CMP12,go|p1,JccL,go|m1,0, 0,
-    // 084 GE12+EQ10f -> CMP12+JccG (branch when sr >= pr)
+    // 085 GE12+EQ10f -> CMP12+JccG (branch when sr >= pr)
     GE12,EQ10f,0,CMP12,go|p1,JccG,go|m1,0, 0,
-    // 085 LT12u+EQ10f -> CMP12+JccBE (branch when sr < pr unsigned)
+    // 086 LT12u+EQ10f -> CMP12+JccBE (branch when sr < pr unsigned)
     LT12u,EQ10f,0,CMP12,go|p1,JccBE,go|m1,0, 0,
-    // 086 GT12u+EQ10f -> CMP12+JccAE (branch when sr > pr unsigned)
+    // 087 GT12u+EQ10f -> CMP12+JccAE (branch when sr > pr unsigned)
     GT12u,EQ10f,0,CMP12,go|p1,JccAE,go|m1,0, 0,
-    // 087 LE12u+EQ10f -> CMP12+JccB (branch when sr <= pr unsigned)
+    // 088 LE12u+EQ10f -> CMP12+JccB (branch when sr <= pr unsigned)
     LE12u,EQ10f,0,CMP12,go|p1,JccB,go|m1,0, 0,
-    // 088 GE12u+EQ10f -> CMP12+JccA (branch when sr >= pr unsigned)
+    // 089 GE12u+EQ10f -> CMP12+JccA (branch when sr >= pr unsigned)
     GE12u,EQ10f,0,CMP12,go|p1,JccA,go|m1,0, 0,
 
     // Eliminate OR AX,AX when preceding ALU op already sets ZF correctly
-    // 089 ALU-with-SETSFLG + NE10f -> NE10fp (remove redundant OR AX,AX)
+    // 090 ALU-with-SETSFLG + NE10f -> NE10fp (remove redundant OR AX,AX)
     fset,NE10f,0,go|p1,NE10fp,go|m1,0, 0,
-    // 090 ALU-with-SETSFLG + EQ10f -> EQ10fp (remove redundant OR AX,AX)
+    // 091 ALU-with-SETSFLG + EQ10f -> EQ10fp (remove redundant OR AX,AX)
     fset,EQ10f,0,go|p1,EQ10fp,go|m1,0, 0,
-    // 091 Constant-1 Logical Right Shift to Single-Bit Logical Shift
+    // 092 Constant-1 Logical Right Shift to Single-Bit Logical Shift
     // Same as Constant-1 Right Shift but for unsigned: replace GETw1n(1)+LSR12 with LSR1_1.
     //     IN:  GETw1n(1)  LSR12
     //          AX=1       AX = BX >> AX  (unsigned; MOV CX,AX / MOV AX,BX / SHR AX,CL)
@@ -774,19 +914,52 @@ int seqdata[] = {
     //     OUT: LSR1_1  ->  MOV AX,BX / SHR AX,1
     GETw1n,LSR12,0,ife|p1,go|p1,LSR1_1,0, 0,
 
+    // 093 Store Const Word, Stack Variable (5-to-2 fold)
+    // Fold POINT1s+PUSH1+GETw1n+POP2+PUTwp1 into GETw1n+PUTws1: eliminate the
+    // address-register round-trip when writing a value to a BP-relative slot.
+    // Note: for local_var = constant; the front end generates:
+    //     POINT1s(o)  PUSH1  GETw1n(n)  POP2  PUTwp1
+    // When dumpstage scans, snext starts at POINT1s. Rule 033 (POINT1s+MOVE21)
+    // does not match because PUSH1 follows. No other rule matches the full
+    // sequence, so POINT1s is emitted to funcbuf and snext advances to PUSH1.
+    // Rule 044 (PUSH1+any+POP2) then fires, producing MOVE21+GETw1n; by that
+    // point POINT1s is gone and the stack offset is lost forever. This rule
+    // fires at the POINT1s position before POINT1s is lost and replaces the
+    // entire five-p-code sequence with two p-codes.
+    //     IN:  POINT1s(o)    PUSH1        GETw1n(n)  POP2      PUTwp1
+    //          AX=&stack[o]  push AX      AX=n       BX=pop'd  [BX]=AX
+    //     NET: stack[o] = n;  AX = n
+    //     OUT: GETw1n(n)  PUTws1(o)
+    //          AX=n       o[BP]=AX
+    //     (for n==0:  XOR AX,AX  /  MOV o[BP],AX)
+    //     GUARD: sfree — BX must not be live after PUTwp1
+    //     ACTION (snext starts at pos0 = POINT1s):
+    //       go|p3      advance to pos3 (POP2), skips pos0,pos1,pos2
+    //       GETw1n     overwrite pos3 pcode with GETw1n
+    //       gv|m1      copy pos2[1] (=n) into pos3[1], snext[-1] = pos2.value
+    //       go|p1      advance to pos4 (PUTwp1)
+    //       PUTws1     overwrite pos4 pcode with PUTws1
+    //       gv|m4      copy pos0[1] (=o) into pos4[1], snext[-7] = pos0.value
+    //       go|m1      retreat to pos3  — dumpstage emits pos3,pos4 in order
+    POINT1s,PUSH1,GETw1n,POP2,PUTwp1,sfree,0,go|p3,GETw1n,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
+
+    // 094 Store Const Byte, Stack Variable (5-to-2 fold)
+    // Same as rule 093 but for byte stores: POINT1s+PUSH1+GETw1n+POP2+PUTbp1
+    // -> GETw1n+PUTbs1. PUTbs1 emits MOV BYTE PTR o[BP],AL.
+    //     IN:  POINT1s(o)    PUSH1        GETw1n(n)  POP2      PUTbp1
+    //     NET: (byte)stack[o] = n;  AX = n
+    //     OUT: GETw1n(n)  PUTbs1(o)
+    //     GUARD: sfree
+    POINT1s,PUSH1,GETw1n,POP2,PUTbp1,sfree,0,go|p3,GETw1n,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
+
     // These four _pop/topop rules eliminate PUSH/POP round-trips by reloading
-    // at the pop site.  Disabled because the compiler crashes when they are
-    // included in seqdata.
-    //
+    // the pop site. Disabled because the compiler crashes.
     // Point-Mem Push/Pop to Reload
     //  0,POINT1m,PUSH1,pfree,_pop,0,topop|POINT2m,go|p2,0,
-    //
     // Stack-Addr Push/Pop to Reload
     //  0,POINT1s,PUSH1,pfree,_pop,0,topop|POINT2s,go|p2,0,
-    //
     // Global-Mem Push/Pop to Reload
     //  0,PUSHm,_pop,0,topop|GETw2m,go|p1,0,
-    //
     // Stack-Var Push/Pop to Reload
     //  0,PUSHs,_pop,0,topop|GETw2s,go|p1,0,
     0  // end sentinel
@@ -1355,11 +1528,11 @@ void trailer() {
     }
     toseg(NULL);
     outline("END");
-#ifdef DISOPT
+#ifdef ENABLE_DISPOPT
     {
         int i;
-        outstr(";opt   count"); newline();
-        for (i = 0; i <= HIGH_SEQ; i++) {
+        outstr("; opt   count"); newline();
+        for (i = 0; i <= DISPOPT_HIGH; i++) {
             fprintf(output, "; %d   %d\n", i, optcount[i]);
             poll(YES);
         }
@@ -1636,15 +1809,16 @@ void dumpstage() {
             rulenum = 0;
             while (*seq) {
                 if (peep(seq)) {
-#ifdef DISOPT
+#ifdef ENABLE_DISPOPT
                     optcount[rulenum]++;
                     fprintf(output, ";                  optimized %d\n", rulenum);
 #endif
                     goto restart;
                 }
                 // advance past this rule's double-zero terminator
-                while (!(*seq == 0 && *(seq + 1) == 0))
+                while (!(*seq == 0 && *(seq + 1) == 0)) {
                     seq++;
+                }
                 seq += 2;
                 rulenum++;
             }
