@@ -72,6 +72,9 @@ int number(int *lo, int *hi);
 int skim(char *opstr, int tcode, int dropval, int endval, int (*level)(), int is[]);
 void step(int oper, int is[], int oper2);
 void store(int is[]);
+void fetchBF(int is[]);
+void storeBF(int is[]);
+void genBFStep(int oper, int is[], int oper2);
 int structmember(char *ptr, int *is);
 void widenPrimary(int is[]);
 void checkFnArgCountAndTypes(char *ptr, int userArgCount, int argDepths[]);
@@ -401,6 +404,11 @@ int level1(int is[]) {
     is3[TYP_CNST]   = 0;
     // Snapshot LHS pointer depth for the depth-mismatch check below.
     is3[IS_PTRDEPTH] = is[IS_PTRDEPTH];
+    // Snapshot bit-field state so store(is3) has full bit-field info.
+    is3[IS_BITFIELD] = is[IS_BITFIELD];
+    is3[BF_WIDTH]    = is[BF_WIDTH];
+    is3[BF_OFFSET]   = is[BF_OFFSET];
+    is3[BF_SIGNED]   = is[BF_SIGNED];
     // Struct-to-struct deep copy -- handled only for simple '='.
     if (oper == 0 && doStructAssign(is)) return 0;
     if (is[TYP_OBJ]) {                          // indirect target
@@ -733,6 +741,10 @@ int level13(int is[]) {
             error("illegal address");
             return 0;
         }
+        if (is[IS_BITFIELD]) {
+            error("cannot take address of bit-field");
+            return 0;
+        }
         ptr = is[SYMTAB_ADR];
         is[TYP_ADR] = ptr[TYPE];
         is[IS_PTRDEPTH]++;
@@ -1047,7 +1059,17 @@ int structmember(char *ptr, int *is) {
     is[TYP_OBJ] = member[STRMEM_TYPE];
     is[TYP_ADR] = 0;
     is[TYP_CNST] = is[VAL_CNST] = is[LAST_OP] = is[STG_ADR] = 0;
-    // For nested structs, propagate struct definition pointer
+    is[IS_BITFIELD] = 0;
+    /* Propagate bit-field metadata if this member is a bit-field */
+    if (member[STRMEM_BITFIELD]) {
+        is[IS_BITFIELD] = 1;
+        is[BF_WIDTH]    = member[STRMEM_BITWIDTH];
+        is[BF_OFFSET]   = member[STRMEM_BITOFF];
+        is[BF_SIGNED]   = !(member[STRMEM_TYPE] & IS_UNSIGNED);
+        /* Result type of a bit-field read is int (signed) or unsigned int */
+        is[TYP_OBJ]     = is[BF_SIGNED] ? TYPE_INT : TYPE_UINT;
+    }
+    /* For nested structs, propagate struct definition pointer */
     if (member[STRMEM_TYPE] == TYPE_STRUCT) {
         putint(getint(member + STRMEM_CLASSPTR, 2),
                is[SYMTAB_ADR] + CLASSPTR, 2);
@@ -1611,6 +1633,10 @@ int isDouble(int oper, int is1[], int is2[]) {
 
 void step(int oper, int is[], int oper2) {
     int longval, stepsize;
+    if (is[IS_BITFIELD]) {
+        genBFStep(oper, is, oper2);
+        return;
+    }
     longval = isLongVal(is);
     fetch(is);
     // Multi-level pointer (T** or deeper): element is itself a pointer → always BPW.
@@ -1721,8 +1747,122 @@ int isCmpOp(int oper) {
     return tableFind(cmpOpTab, oper);
 }
 
+// fetchBF(is[]) — emit code to extract a bit-field value into AX.
+// Entry: AX = address of the 16-bit word containing the field.
+// Exit:  AX = field value (masked, sign- or zero-extended to 16 bits).
+//        BX = address of containing word (preserved by AND1n/SHR1n/SHL1n/SAR1n).
+void fetchBF(int is[]) {
+    int bw, boff, is_signed, mask;
+    bw = is[BF_WIDTH];
+    boff = is[BF_OFFSET];
+    is_signed = is[BF_SIGNED];
+    if (bw == 16)
+        mask = -1;
+    else
+        mask = (1 << bw) - 1;
+    gen(GETw1p, 0);              /* auto-MOVE21: BX=addr; then AX=[BX]=word     */
+    if (boff > 0)
+        gen(SHR1n, boff);        /* AX >>= boff (logical, unsigned fill)        */
+    gen(AND1n, mask);            /* AX &= mask  (isolate field at low bits)      */
+    if (is_signed && bw < 16) {
+        gen(SHL1n, 16 - bw);    /* bring sign bit to bit 15                    */
+        gen(SAR1n, 16 - bw);    /* arithmetic right shift — sign-extends AX    */
+    }
+}
+
+// storeBF(is[]) — emit a read-modify-write sequence to store AX into a bit-field.
+// Entry: AX = new field value (only low bw bits matter), BX = address of word.
+// Exit:  [BX] updated; AX = merged word (caller need not use AX afterward).
+void storeBF(int is[]) {
+    int bw, boff, mask, clear_mask;
+    bw = is[BF_WIDTH];
+    boff = is[BF_OFFSET];
+    if (bw == 16)
+        mask = -1;
+    else
+        mask = (1 << bw) - 1;
+    if (boff == 0)
+        clear_mask = ~mask;
+    else
+        clear_mask = ~(mask << boff);
+    /* 1. Truncate new value to field width (BX = address, preserved by AND1n) */
+    gen(AND1n, mask);
+    /* 2. Position the new value (BX = address, preserved by SHL1n) */
+    if (boff > 0)
+        gen(SHL1n, boff);
+    /* AX = positioned_new, BX = address */
+    /* 3. Read–modify–write */
+    gen(PUSH2, 0);               /* PUSH BX  — save address; stack=[...,addr] */
+    gen(GETw2p, 0);              /* BX = [BX] = curr_word; AX = positioned_new */
+    gen(SWAP12, 0);              /* AX = curr_word, BX = positioned_new        */
+    gen(AND1n, clear_mask);      /* AX = curr_word with field bits zeroed       */
+    gen(OR12, 0);                /* AX = merged word                           */
+    gen(POP2, 0);                /* BX = address; stack=[...]                  */
+    gen(PUTwp1, 0);              /* [BX] = AX  (write merged word back)        */
+}
+
+// genBFStep(oper, is, oper2) — emit increment/decrement of a bit-field.
+// Entry: AX = address of the 16-bit word containing the field.
+// oper  = rINC1 or rDEC1 (the modification to apply).
+// oper2 = 0 for prefix ++/--; rDEC1 or rINC1 for postfix (to return pre-mod value).
+//
+// Stack protocol (both prefix and postfix):
+//   PUSH1           barrier + save addr;            stack=[addr]
+//   GETw1p          BX=addr, AX=curr_word           (MOVE21 inside GETw1p cannot
+//                                                    fold with POINT1s across PUSH1)
+//   extract field → AX=field_value, BX=addr
+//   postfix: PUSH1  save old field value;            stack=[addr, old_fv]
+//   gen(oper,1)     AX = new_field_value, BX=addr
+//   prefix:  PUSH1  save new field value;            stack=[addr, new_fv]
+//   storeBF         RMW (internally balanced PUSH2/POP2); BX=addr, AX=merged_word
+//   POP2            BX = result_fv;                  stack=[addr]
+//   SWAP12          AX = result_fv, BX = merged_word
+//   POP2            BX = addr (discard);             stack=[]
+//   AX = result_fv  (new value for prefix, old value for postfix)
+void genBFStep(int oper, int is[], int oper2) {
+    int bw, boff, is_signed, mask;
+    bw = is[BF_WIDTH];
+    boff = is[BF_OFFSET];
+    is_signed = is[BF_SIGNED];
+    if (bw == 16)
+        mask = -1;
+    else
+        mask = (1 << bw) - 1;
+    /* Push address: acts as optimizer barrier AND saves addr for cleanup */
+    gen(PUSH1, 0);               /* stack=[addr]; AX=addr                      */
+    /* GETw1p auto-emits its own MOVE21; PUSH1 above prevents the peephole    */
+    /* optimizer from folding POINT1s+MOVE21 → LEA BX (which would leave AX  */
+    /* stale and break the entire extract/modify/store sequence).              */
+    gen(GETw1p, 0);              /* MOVE21: BX=addr; MOV AX,[BX]: AX=curr_word */
+    /* Extract field from AX (all *1n p-codes are BX-preserving): */
+    if (boff > 0)
+        gen(SHR1n, boff);        /* AX >>= boff (logical; BX=addr preserved)   */
+    gen(AND1n, mask);            /* AX &= mask  (BX=addr preserved)            */
+    if (is_signed && bw < 16) {
+        gen(SHL1n, 16 - bw);    /* bring sign bit to bit 15 (BX preserved)    */
+        gen(SAR1n, 16 - bw);    /* sign-extend AX (BX preserved)              */
+    }
+    /* AX = field_value, BX = addr */
+    if (oper2)
+        gen(PUSH1, 0);           /* postfix: save old_fv; stack=[addr,old_fv]  */
+    gen(oper, 1);                /* AX = new_field_value; BX = addr            */
+    if (!oper2)
+        gen(PUSH1, 0);           /* prefix:  save new_fv; stack=[addr,new_fv]  */
+    /* storeBF entry: AX=new_fv, BX=addr; internally PUSH2/POP2 balanced      */
+    storeBF(is);
+    /* After storeBF: BX=addr, AX=merged_word; stack=[addr, result_fv]        */
+    gen(POP2, 0);                /* BX = result_fv; stack=[addr]               */
+    gen(SWAP12, 0);              /* AX = result_fv, BX = merged_word           */
+    gen(POP2, 0);                /* BX = addr (discard); stack=[]              */
+    /* AX = new_fv (prefix) or old_fv (postfix) — correct expression value    */
+}
+
 void store(int is[]) {
     char *ptr;
+    if (is[IS_BITFIELD]) {
+        storeBF(is);
+        return;
+    }
     if (is[TYP_OBJ]) {                    // putstk
         if (is[TYP_OBJ] >> 2 == BPD) {
             gen(PUTdp1, 0);
@@ -1750,6 +1890,10 @@ void store(int is[]) {
 
 void fetch(int is[]) {
     char *ptr;
+    if (is[IS_BITFIELD]) {
+        fetchBF(is);
+        return;
+    }
     ptr = is[SYMTAB_ADR];
     if (is[TYP_OBJ]) {                                   // indirect
         if (is[TYP_OBJ] >> 2 == BPD) {

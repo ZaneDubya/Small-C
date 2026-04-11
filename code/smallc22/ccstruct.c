@@ -73,6 +73,7 @@ int doStructBlock(int kind) {
 // @return pointer to tag definition, or -1 on error.
 int doStruct(int kind) {
   int i, totalsize, typeSubIdx;
+  int cur_unit_offset, next_free_bit;
   blanks();
   if (symname(ssname)) {
     if (isreserved(ssname)) {
@@ -99,43 +100,155 @@ int doStruct(int kind) {
   structdatnext[STRDAT_NAME + i] = 0;
   structdatnext[STRDAT_KIND] = kind;
   totalsize = 0;
+  cur_unit_offset = -1;
+  next_free_bit = 0;
   while (isMatch("}") == 0) {
     int id, sz, type;
+    int is_bf, bit_width, bit_off, byte_off, skip_entry;
     if (ch == 0 && eof) {
       error("no final }");
       return;
     }
     if ((type = dotype(&typeSubIdx)) != 0) {
       while (1) {
-        parseLocDecl(type, typeSubIdx, IDENT_ARRAY, &id, &sz);
-        if (getStructMember(structdatnext, ssname)) {
+        is_bf = 0; bit_width = 0; bit_off = 0; byte_off = 0; skip_entry = 0;
+
+        /* Detect unnamed bit-field: type followed directly by ':' */
+        blanks();
+        if (ch == ':') {
+          ssname[0] = 0;
+          id = IDENT_VARIABLE;
+          sz = BPW;
+          lastPtrDepth = 0;
+        }
+        else {
+          parseLocDecl(type, typeSubIdx, IDENT_ARRAY, &id, &sz);
+        }
+
+        /* Duplicate-name check (skip for unnamed members) */
+        if (ssname[0] && getStructMember(structdatnext, ssname)) {
           error("duplicate member name");
           abort(1);
         }
-        if (kind == KIND_UNION) {
-          putint(0, structmemnext + STRMEM_OFFSET, 2);
-          if (sz > totalsize) totalsize = sz;
-        }
-        else {
-          putint(totalsize, structmemnext + STRMEM_OFFSET, 2);
-          totalsize += sz;
-        }
-        structmemnext[STRMEM_IDENT] = id;
-        structmemnext[STRMEM_TYPE] = type;
-        putint(sz, structmemnext + STRMEM_SIZE, 2);
-        i = 0;
-        while (an(ssname[i])) {
-          structmemnext[STRMEM_NAME + i] = ssname[i++];
-          if (STRMEM_NAME + i == STRMEM_CLASSPTR) {
-            break;
+
+        /* Check for bit-field width specifier ':' */
+        if (isMatch(":")) {
+          is_bf = 1;
+          if (lastPtrDepth != 0) {
+            error("bit-field cannot be a pointer");
+            bit_width = 1;
+          }
+          else if (id == IDENT_ARRAY) {
+            error("bit-field cannot be an array");
+            bit_width = 1;
+          }
+          else if (type == TYPE_LONG || type == TYPE_ULONG) {
+            error("bit-field cannot have long type");
+            bit_width = 1;
+          }
+          else if (type == TYPE_STRUCT) {
+            error("bit-field cannot have struct type");
+            bit_width = 1;
+          }
+          else if (type == TYPE_VOID) {
+            error("bit-field cannot have void type");
+            bit_width = 1;
+          }
+          else {
+            isConstExpr(&bit_width);
+          }
+          if (bit_width < 0) {
+            error("negative bit-field width");
+            bit_width = 1;
+          }
+          if (bit_width > 16) {
+            error("bit-field width exceeds 16");
+            bit_width = 16;
+          }
+          if (bit_width == 0 && ssname[0]) {
+            error("named bit-field cannot have zero width");
+            bit_width = 1;
           }
         }
-        structmemnext[STRMEM_NAME + i] = 0;
-        if (type == TYPE_STRUCT) {
-          putint(typeSubIdx, structmemnext + STRMEM_CLASSPTR, 2);
+
+        /* Layout and emit */
+        if (is_bf) {
+          if (bit_width == 0) {
+            /* Unnamed zero-width: force-align to next allocation unit */
+            if (kind == KIND_STRUCT && cur_unit_offset != -1) {
+              totalsize = cur_unit_offset + BPW;
+              cur_unit_offset = -1;
+              next_free_bit = 0;
+            }
+            skip_entry = 1;
+          }
+          else if (kind == KIND_UNION) {
+            byte_off = 0;
+            bit_off  = 0;
+            if (BPW > totalsize) totalsize = BPW;
+            if (!ssname[0]) skip_entry = 1;
+          }
+          else {
+            /* STRUCT: pack into current unit or open a new one */
+            if (cur_unit_offset == -1 || next_free_bit + bit_width > 16) {
+              if (cur_unit_offset == -1)
+                cur_unit_offset = totalsize;
+              else
+                cur_unit_offset = cur_unit_offset + BPW;
+              totalsize = cur_unit_offset + BPW;
+              next_free_bit = 0;
+            }
+            byte_off = cur_unit_offset;
+            bit_off  = next_free_bit;
+            next_free_bit += bit_width;
+            if (!ssname[0]) skip_entry = 1;
+          }
         }
-        structmemnext[STRMEM_PTRDEPTH] = lastPtrDepth;
-        structmemnext += STRMEM_MAX;
+        else {
+          /* Normal member: close any open bit-field unit (STRUCT only) */
+          if (kind == KIND_STRUCT && cur_unit_offset != -1) {
+            totalsize = cur_unit_offset + BPW;
+            cur_unit_offset = -1;
+            next_free_bit = 0;
+          }
+        }
+
+        if (!skip_entry) {
+          if (is_bf) {
+            putint(byte_off, structmemnext + STRMEM_OFFSET, 2);
+            structmemnext[STRMEM_IDENT]    = id;
+            structmemnext[STRMEM_TYPE]     = type;
+            putint(BPW, structmemnext + STRMEM_SIZE, 2);
+            structmemnext[STRMEM_BITFIELD] = 1;
+            structmemnext[STRMEM_BITWIDTH] = bit_width;
+            structmemnext[STRMEM_BITOFF]   = bit_off;
+          }
+          else {
+            if (kind == KIND_UNION) {
+              putint(0, structmemnext + STRMEM_OFFSET, 2);
+              if (sz > totalsize) totalsize = sz;
+            }
+            else {
+              putint(totalsize, structmemnext + STRMEM_OFFSET, 2);
+              totalsize += sz;
+            }
+            structmemnext[STRMEM_IDENT] = id;
+            structmemnext[STRMEM_TYPE]  = type;
+            putint(sz, structmemnext + STRMEM_SIZE, 2);
+            if (type == TYPE_STRUCT) {
+              putint(typeSubIdx, structmemnext + STRMEM_CLASSPTR, 2);
+            }
+            structmemnext[STRMEM_PTRDEPTH] = lastPtrDepth;
+          }
+          /* Copy member name (common to both paths); max 12 chars + null */
+          i = 0;
+          while (an(ssname[i]) && i < 12) {
+            structmemnext[STRMEM_NAME + i] = ssname[i++];
+          }
+          structmemnext[STRMEM_NAME + i] = 0;
+          structmemnext += STRMEM_MAX;
+        }
+
         if (isMatch(",") == 0)
           break;
         if (endst())
@@ -147,6 +260,10 @@ int doStruct(int kind) {
       error("tag may only contain members");
       abort(1);
     }
+  }
+  /* Close any open bit-field unit at end of struct */
+  if (kind == KIND_STRUCT && cur_unit_offset != -1) {
+    totalsize = cur_unit_offset + BPW;
   }
   putint(totalsize, structdatnext + STRDAT_SIZE, 2);
   putint(structmemnext, structdatnext + STRDAT_MEND, 2);

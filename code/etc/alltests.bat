@@ -48,6 +48,9 @@ IF ERRORLEVEL 1 GOTO fail
 CALL structs.bat
 IF ERRORLEVEL 1 GOTO fail
 
+CALL bitfield.bat
+IF ERRORLEVEL 1 GOTO fail
+
 CALL typedef.bat
 IF ERRORLEVEL 1 GOTO fail
 

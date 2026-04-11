@@ -366,3 +366,15 @@ Small-C Revision History
     function handles the optional = { expr, ... } brace initializer, following
     the same slot-by-slot pattern as initLocArray().
     Add comprehensive multi-level pointer test suite (mlptrs.c).
+149 Add struct/union bitfield support.
+    STRMEM_ record extended with BITFIELD/BITWIDTH/BITOFF fields; is[] gains
+    IS_BITFIELD, BF_WIDTH, BF_OFFSET, BF_SIGNED (ISSIZE 11->15).
+    Four new BX-preserving pcodes for field shifts: AND1n, SHL1n, SAR1n, SHR1n.
+    doStruct() packs fields LSB-first into 16-bit units; handles unnamed
+    fields, zero-width alignment pads, mixed normal/bit-field members, unions.
+    structmember() fills IS_BITFIELD metadata; level1() snapshots it into
+    is3[] for compound assignment; level13() rejects &bitfield.
+    fetchBF() shifts and masks the field into AX with optional sign-extension.
+    storeBF() does a read-modify-write.
+    genBFStep() does field ++/--: PUSH1 saves the address and blocks the
+    POINT1s+MOVE21->LEA fold; separate prefix/postfix value save.

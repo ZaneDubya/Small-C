@@ -1027,7 +1027,12 @@ char* code[PCODES] = {
     /* 205 RETNOFP    */ "\000RET\n",                 // bare RET (frame pointer omitted)
     // logical (unsigned) right shift
     /* 206 LSR12      */ "\011MOV CX,AX\nMOV AX,BX\nSHR AX,CL\n",
-    /* 207 LSR1_1     */ "\001MOV AX,BX\nSHR AX,1\n"
+    /* 207 LSR1_1     */ "\001MOV AX,BX\nSHR AX,1\n",
+    // bit-field manipulation (AX-only; BX preserved)
+    /* 208 AND1n      */ "\011AND AX,<n>\n",
+    /* 209 SHL1n      */ "\011MOV CL,<n>\nSHL AX,CL\n",
+    /* 210 SAR1n      */ "\011MOV CL,<n>\nSAR AX,CL\n",
+    /* 211 SHR1n      */ "\011MOV CL,<n>\nSHR AX,CL\n"
 
 };
 
@@ -1251,7 +1256,11 @@ int code_size[PCODES] = {
     /*204 EQ10fps  */  2,  // JNE SHORT _n
     /*205 RETNOFP  */  1,   // near RET
     /*206 LSR12    */  6,  // MOV CX,AX / MOV AX,BX / SHR AX,CL
-    /*207 LSR1_1   */  4   // MOV AX,BX / SHR AX,1
+    /*207 LSR1_1   */  4,  // MOV AX,BX / SHR AX,1
+    /*208 AND1n    */  3,  // AND AX,imm16
+    /*209 SHL1n    */  4,  // MOV CL,n / SHL AX,CL
+    /*210 SAR1n    */  4,  // MOV CL,n / SAR AX,CL
+    /*211 SHR1n    */  4   // MOV CL,n / SHR AX,CL
 };
 
 // Map a long-branch p-code to its short-branch equivalent, or 0 if not a branch.

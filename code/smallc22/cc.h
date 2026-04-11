@@ -277,7 +277,12 @@
 #define IS_PTRDEPTH 10  // is[IS_PTRDEPTH]: pointer depth of expression
                         // (0 = not a pointer/already dereferenced to base, 1=T*, 2=T**, etc.)
 
-#define ISSIZE 11       // number of entries in is[] arrays
+#define IS_BITFIELD 11  // is[IS_BITFIELD]: non-zero if the current expression is a bit-field member
+#define BF_WIDTH    12  // is[BF_WIDTH]: width in bits of the bit-field (1..16)
+#define BF_OFFSET   13  // is[BF_OFFSET]: bit offset of the field within its allocation unit (0..15)
+#define BF_SIGNED   14  // is[BF_SIGNED]: 1 if the base type is signed, 0 if unsigned
+
+#define ISSIZE 15       // number of entries in is[] arrays
 
 // input line
 #define LINEMAX  127
@@ -563,7 +568,12 @@
 // logical (unsigned) shift right
 #define LSR12   206   // logical shift right sr by pr into pr (unsigned >> unsigned)
 #define LSR1_1  207   // logical shift right sr by 1 into pr (optimizer-generated)
-#define PCODES  208   // size of code[]
+// bit-field manipulation (AX only, BX preserved)
+#define AND1n   208   // AND AX, imm16  (mask AX to imm bits; BX unchanged)
+#define SHL1n   209   // MOV CL,n / SHL AX,CL  (shift AX left by n; BX unchanged)
+#define SAR1n   210   // MOV CL,n / SAR AX,CL  (arithmetic shift AX right by n; BX unchanged)
+#define SHR1n   211   // MOV CL,n / SHR AX,CL  (logical shift AX right by n; BX unchanged)
+#define PCODES  212   // size of code[]
 
 // === function prototypes for Small-C ========================================
 // ============================================================================
