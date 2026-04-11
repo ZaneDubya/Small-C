@@ -17,6 +17,7 @@
 #define STRMEM_OFFSET   4
 #define STRMEM_NAME     6   // null-terminated, max 12 chars + null
 #define STRMEM_CLASSPTR 19  // ptr to struct def if member is TYPE_STRUCT
+#define STRMEM_PTRDEPTH 21  // pointer depth of member: 1=T*, 2=T**, etc.; 0 for non-pointers
 #define STRMEM_MAX      22
 
 // struct data and member data definitions

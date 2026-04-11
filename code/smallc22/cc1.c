@@ -48,6 +48,7 @@ int isConstExpr32(int *val, int *val_hi);
 void initGlbMDArr(int type, int typeSubPtr, int ndim, int dims[], int class);
 void initGlbVar(int size, int ident, int dim, int class);
 void initLocArray(int type);
+void initLocPtrArray();
 void initLocChrStr(int infer);
 void initLocMDArr(int type, char *symptr);
 void initLocScalar(int type);
@@ -116,7 +117,8 @@ int
                             //   consumed (read + cleared) by parseLocDecl and parseSizeofType
     protoVoidList,          // set by doArgsTyped when f(void) form is parsed
     protoVariadic,          // set by doArgsTyped/doArgsKR when ... is parsed
-    argbufcur;              // global argbuf write cursor; saved/restored per callfunc level
+    argbufcur,              // global argbuf write cursor; saved/restored per callfunc level
+    lastPtrDepth;           // pointer depth from last parseLocDecl/parseGlbDecl (0=non-ptr, 1=T*, 2=T**, ...)
 
 char
     optimize, // optimize output of staging buffer?
@@ -467,8 +469,7 @@ int dotype(int *typeSubPtr) {
         savedLptr = lptr;
         savedCh = ch;
         savedIsConst = typeIsConst;
-        if (symname(ssname) && (p = findglb(ssname))
-                && ((p[CLASS] & 0x7F) == TYPEDEF)) {
+        if (symname(ssname) && (p = findglb(ssname)) && ((p[CLASS] & 0x7F) == TYPEDEF)) {
             *typeSubPtr = getint(p + CLASSPTR, 2);
             typeIsPtr = (p[IDENT] == IDENT_POINTER);
             return p[TYPE];
@@ -617,7 +618,9 @@ int doGlbDeclare(int class) {
         else if (*p == '*') {
             char *q;
             q = p + 1;
+            // Skip any additional '*' tokens (multi-level pointer return type)
             while (*q == ' ' || *q == '\t') q++;
+            while (*q == '*') { q++; while (*q == ' ' || *q == '\t') q++; }
             if (alpha(*q)) {
                 while (an(*q)) q++;
                 while (*q == ' ' || *q == '\t') q++;
@@ -684,16 +687,19 @@ int parseArrayDims(int dims[]) {
 
 // Parse a global variable declaration
 void parseGlbDecl(int type, int class, int typeSubPtr) {
-    int id, dim;
+    int id, dim, ptrDepth;
     int dims[MAX_DIMS], ndim;
     while (1) {
         if (endst()) {
             return;  // do line
         }
+        ptrDepth = 0;
         if (typeIsPtr || isMatch("*")) {
             typeIsPtr = 0;
             id = IDENT_POINTER; 
             dim = 0;
+            ptrDepth = 1;
+            while (isMatch("*")) ptrDepth++;
         }
         else { 
             id = IDENT_VARIABLE; 
@@ -749,6 +755,7 @@ void parseGlbDecl(int type, int class, int typeSubPtr) {
         }
         else if (id == IDENT_POINTER) {
             addSymbol(ssname, id, type, BPW, 0, &glbptr, class);
+            cptr[PTRDEPTH] = ptrDepth;
             applyDimMeta(cptr, type, typeSubPtr, 0);
         }
         else if (ndim > 1) {
@@ -1131,7 +1138,21 @@ int dofunction(int class) {
     locptr = STARTLOC;            // clear local variables
     protoVoidList = 0;
     protoVariadic = 0;
-    if (rettypeIsPtr && !typeIsPtr) isMatch("*");
+    if (rettypeIsPtr && !typeIsPtr) {
+        // Consume all '*' tokens that form the function's return pointer depth.
+        int retPtrDepth;
+        retPtrDepth = 0;
+        while (isMatch("*")) retPtrDepth++;
+        if (retPtrDepth == 0) retPtrDepth = 1;  // rettypeIsPtr set but no '*' (shouldn't happen)
+        // Store depth on funcSym after it is added below.
+        lastPtrDepth = retPtrDepth;
+    }
+    else if (typeIsPtr) {
+        lastPtrDepth = 1;  // typedef-based pointer return; depth from typedef (defaulting to 1)
+    }
+    else {
+        lastPtrDepth = 0;
+    }
     if (monitor) {
         lout(line, stderr);
     }
@@ -1175,6 +1196,8 @@ int dofunction(int class) {
             putint(rettypeSubPtr, cptr + CLASSPTR, 2);
         funcSym = cptr;
     }
+    // Store pointer return depth on the function symbol.
+    funcSym[PTRDEPTH] = lastPtrDepth;
     if (isMatch("(") == 0)
         error("no open paren");
     if ((firstType = dotype(&typeSubPtr)) != 0) {
@@ -1237,7 +1260,7 @@ int matchEllipsis(int requireNamed) {
 // that.
 void recordParamTypes(char *funcSym) {
     int nparams, nparams_byte, k;
-    char typebuf[32], *p;
+    char typebuf[32], depthbuf[32], *p;
     // If param types are already recorded (e.g. a prior prototype), skip.
     if (getint(funcSym + FNPARAMPTR, 2) != 0) {
         protoVoidList = 0;
@@ -1264,13 +1287,13 @@ void recordParamTypes(char *funcSym) {
     nparams = 0;
     p = STARTLOC;
     while (p < locptr && nparams < 32) {
-        typebuf[nparams] = (p[IDENT] == IDENT_POINTER ? 0x80 : 0)
-                           | (p[TYPE] & 0x7F);
+        typebuf[nparams]  = p[TYPE];
+        depthbuf[nparams] = p[PTRDEPTH];
         ++nparams;
         p = nextsym(p);
     }
     nparams_byte = (protoVariadic ? 0x80 : 0) | (nparams & 0x7F);
-    k = storeParamTypes(typebuf, nparams_byte);
+    k = storeParamTypes(typebuf, depthbuf, nparams_byte);
     if (k != 0)
         putint(k, funcSym + FNPARAMPTR, 2);
     protoVoidList = 0;
@@ -1335,6 +1358,7 @@ void doArgsTyped(int type, int typeSubPtr) {
             // first arg -> [BP+4], second -> [BP+6], etc. (cdecl R-to-L push).
             addSymbol(ssname, id, type, sz, argstk + 2*BPW, &locptr,
                 argConst ? (AUTOMATIC | CONST_FLAG) : AUTOMATIC);
+            cptr[PTRDEPTH] = lastPtrDepth;
             applyDimMeta(cptr, type, typeSubPtr, 0);
             if (id != IDENT_POINTER
                 && (type == TYPE_LONG || type == TYPE_ULONG))
@@ -1420,6 +1444,7 @@ void doArgsKRTypes(int type, int typeSubPtr) {
                 toStructPtr(&id, &sz, type);
                 ptr[IDENT] = id;
                 ptr[TYPE] = type;
+                ptr[PTRDEPTH] = lastPtrDepth;
                 putint(sz, ptr + SIZE, 2);
                 applyDimMeta(ptr, type, typeSubPtr, 0);
             }
@@ -1555,8 +1580,11 @@ int parseLocDecl(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
         typeIsPtr = 0;          // consumed; clear for subsequent callers
         *id = IDENT_POINTER;
         *sz = BPW;
+        lastPtrDepth = 1;
+        while (isMatch("*")) lastPtrDepth++;
     }
     else {
+        lastPtrDepth = 0;
         *id = IDENT_VARIABLE;
         if (type == TYPE_VOID) {
             error("parameter or variable cannot have void type");
@@ -1616,14 +1644,19 @@ int parseLocDecl(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
 
     // Parse optional array dimension suffix.
     if (*id == IDENT_POINTER && isMatch("[")) {
-        // *name[N] in argument position: array of T parameter is adjusted to pointer to T.
-        // Consume the dimension and force BPW.
-        parseArraySz();
+        // *name[N]: in argument position, decay to plain pointer.
+        // In local variable position, allocate N pointer slots on the stack.
+        int dim = parseArraySz();
         if (defArrTyp == IDENT_POINTER) {
-            *sz = BPW;          // *name[] parameter adjusted to plain pointer
+            *sz = BPW;              // *name[] parameter adjusted to plain pointer
         }
         else {
-            error("local pointer arrays not supported");
+            if (dim <= 0) {
+                error("local pointer array requires explicit size");
+                dim = 1;
+            }
+            *id = IDENT_PTR_ARRAY;
+            *sz = dim * BPW;        // N pointer slots on the stack
         }
     }
     else if (*id == IDENT_VARIABLE && isMatch("[")) {
@@ -1723,6 +1756,7 @@ void declareLocals(int type, int typeSubPtr, int isStatic, int isConst) {
             // there, so level1()'s const check reads the flag from the global entry.
             glbEntry = addSymbol(ssname, id, type, sz, 0, &glbptr,
                 isConst ? (STATIC | CONST_FLAG) : STATIC);
+            cptr[PTRDEPTH] = lastPtrDepth;
             ddentry = applyDimMeta(cptr, type, typeSubPtr, 0);   // allocate dimdata slot once
             // restore original name for the local scoping entry
             // OFFSET stores glbEntry so primary() can redirect STATIC-class accesses.
@@ -1742,6 +1776,7 @@ void declareLocals(int type, int typeSubPtr, int isStatic, int isConst) {
             // lclass carries CONST_FLAG when the variable is const-qualified
             // after addSymbol(&locptr), cptr = the new auto local entry
             addSymbol(ssname, id, type, sz, csp - declared, &locptr, lclass);
+            cptr[PTRDEPTH] = lastPtrDepth;
             // allocate dimdata slot if needed
             applyDimMeta(cptr, type, typeSubPtr, 0);
             if (isMatch("=")) {
@@ -1803,6 +1838,12 @@ void dispatchLocInit(int type, int typeSubPtr, int id, int sz) {
     }
     else if (id == IDENT_ARRAY) {
         error("array initializer requires { }");
+    }
+    else if (id == IDENT_PTR_ARRAY) {
+        if (isMatch("{"))
+            initLocPtrArray();
+        else
+            error("pointer array initializer requires { }");
     }
     else {
         initLocScalar(type);
@@ -1931,6 +1972,30 @@ void initLocArray(int type) {
     // zero-fill remaining elements
     while (count < dim) {
         genZeroElem(offset + count * elemSize, elemSize);
+        count++;
+    }
+}
+
+// Initialize a local pointer array variable with { expr, expr, ... }
+// cptr must point to the symbol table entry for the array.
+// '{' has already been consumed by the caller.
+void initLocPtrArray() {
+    int offset, dim, count;
+    char *savedcptr;
+    savedcptr = cptr;
+    offset = getint(savedcptr + OFFSET, 2);
+    dim = getint(savedcptr + SIZE, 2) / BPW;
+    count = 0;
+    while (count < dim) {
+        initLocElem(offset + count * BPW, BPW, 1);
+        count++;
+        if (isMatch(",") == 0)
+            break;
+    }
+    require("}");
+    // zero-fill remaining slots
+    while (count < dim) {
+        genZeroElem(offset + count * BPW, BPW);
         count++;
     }
 }
@@ -2318,7 +2383,7 @@ int emitConstVal(int esize) {
 void emitLocStatic(int type, int id, int sz) {
     int esize, dim, count;
     // compute element size and element count
-    if (id == IDENT_POINTER) {
+    if (id == IDENT_POINTER || id == IDENT_PTR_ARRAY) {
         esize = BPW;
     }
     else {
@@ -2334,7 +2399,7 @@ void emitLocStatic(int type, int id, int sz) {
     // emit label in DATA segment — no PUBLIC since CLASS == STATIC
     decGlobal(id, 0);
     if (isMatch("=")) {
-        if (id == IDENT_ARRAY) {
+        if (id == IDENT_ARRAY || id == IDENT_PTR_ARRAY) {
             if (isMatch("{")) {
                 count = 0;
                 while (count < dim) {
@@ -2739,8 +2804,7 @@ int doReturn() {
             gen(PUSH1, 0);                              // push dst [BP+4]
             cpyfn = findglb("structcp");
             if (cpyfn == 0)
-                cpyfn = addSymbol("structcp", IDENT_FUNCTION, TYPE_INT,
-                    0, 0, &glbptr, AUTOEXT);
+                cpyfn = addSymbol("structcp", IDENT_FUNCTION, TYPE_INT, 0, 0, &glbptr, AUTOEXT);
             else if ((cpyfn[CLASS] & 0x7F) == PROTOEXT)
                 cpyfn[CLASS] = AUTOEXT;  // ensure trailer() emits EXTRN
             gen(CALLm, cpyfn);

@@ -28,7 +28,7 @@
 #include "ccstruct.h"
 
 extern char *symtab, *locptr, *lptr, ssname[];
-extern int ch, eof, rettype, rettypeSubPtr;
+extern int ch, eof, rettype, rettypeSubPtr, lastPtrDepth;
 char *structdata, *structdatnext, *structmemnext;
 
 // forward declarations for this file:
@@ -134,6 +134,7 @@ int doStruct(int kind) {
         if (type == TYPE_STRUCT) {
           putint(typeSubIdx, structmemnext + STRMEM_CLASSPTR, 2);
         }
+        structmemnext[STRMEM_PTRDEPTH] = lastPtrDepth;
         structmemnext += STRMEM_MAX;
         if (isMatch(",") == 0)
           break;

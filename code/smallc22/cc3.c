@@ -74,7 +74,7 @@ void step(int oper, int is[], int oper2);
 void store(int is[]);
 int structmember(char *ptr, int *is);
 void widenPrimary(int is[]);
-void checkFnArgCount(char *ptr, int userArgCount);
+void checkFnArgCountAndTypes(char *ptr, int userArgCount, int argDepths[]);
 int collectOneArg(int is[], int argLens[], int argSizes[], int idx, int *pNargs);
 
 // ****************************************************************************
@@ -399,6 +399,8 @@ int level1(int is[]) {
     is3[TYP_OBJ]    = is[TYP_OBJ];
     is3[TYP_ADR]    = 0;
     is3[TYP_CNST]   = 0;
+    // Snapshot LHS pointer depth for the depth-mismatch check below.
+    is3[IS_PTRDEPTH] = is[IS_PTRDEPTH];
     // Struct-to-struct deep copy -- handled only for simple '='.
     if (oper == 0 && doStructAssign(is)) return 0;
     if (is[TYP_OBJ]) {                          // indirect target
@@ -415,6 +417,12 @@ int level1(int is[]) {
             // widen RHS if LHS is long and RHS is not
             if (is3[TYP_OBJ] >> 2 == BPD && !isLongVal(is2))
                 widenPrimary(is2);
+#ifdef ENABLE_WARNINGS
+            if (is3[IS_PTRDEPTH] >= 2 && is2[IS_PTRDEPTH] >= 2
+                && is3[IS_PTRDEPTH] != is2[IS_PTRDEPTH]
+                && !(is2[TYP_CNST] && is2[VAL_CNST] == 0))
+                warning("pointer assignment: depth mismatch");
+#endif
             gen(POP2, 0);                       // retrieve address
         }
     }
@@ -429,6 +437,12 @@ int level1(int is[]) {
             // widen RHS if LHS is long and RHS is not
             if (isLongVal(is3) && !isLongVal(is2))
                 widenPrimary(is2);
+#ifdef ENABLE_WARNINGS
+            if (is3[IS_PTRDEPTH] >= 2 && is2[IS_PTRDEPTH] >= 2
+                && is3[IS_PTRDEPTH] != is2[IS_PTRDEPTH]
+                && !(is2[TYP_CNST] && is2[VAL_CNST] == 0))
+                warning("pointer assignment: depth mismatch");
+#endif
         }
     }
     store(is3);                                 // store result
@@ -661,9 +675,23 @@ int level13(int is[]) {
     }
     else if (isMatch("*")) {             // unary *
         // Dereference: AX holds a pointer; after this node AX holds the value
-        // at that address.  resolveDerefType() inspects is[] before any fields
-        // are cleared to find the correct element type for the subsequent fetch.
+        // at that address (or still a pointer if depth > 1).
         if (level13(is)) fetch(is);
+        if (is[IS_PTRDEPTH] > 1) {
+            // Multi-level: removing one pointer indirection still leaves a pointer.
+            // After decrement the result is still an lvalue: AX holds the intermediate
+            // pointer value (always word-sized).  The next fetch (outer * or caller)
+            // will load the pointer via GETw1p (TYPE_UINT → BPW), then resolveDerefType
+            // handles the final element type when IS_PTRDEPTH reaches 1.
+            is[IS_PTRDEPTH]--;
+            is[TYP_OBJ] = TYPE_UINT;   // intermediate pointer is always word-sized
+            // TYP_ADR stays: it is the ultimate base type of the pointer chain.
+            is[STG_ADR] = is[TYP_CNST] = 0;
+            is[VAL_CNST] = 1;
+            return 1;
+        }
+        // Final (or only) dereference: existing behaviour.
+        // resolveDerefType() inspects is[] before any fields are cleared.
         is[TYP_OBJ] = resolveDerefType(is);
         if (is[TYP_OBJ] == TYPE_VOID) {
             error("cannot dereference void pointer");
@@ -673,6 +701,7 @@ int level13(int is[]) {
         // not a pointer or a constant.  VAL_CNST = 1 tells callfunc() to skip
         // an extra fetch() for immediate function-call results.
         is[STG_ADR] = is[TYP_ADR] = is[TYP_CNST] = 0;
+        is[IS_PTRDEPTH] = 0;
         is[VAL_CNST] = 1;
         return 1;
     }
@@ -706,6 +735,7 @@ int level13(int is[]) {
         }
         ptr = is[SYMTAB_ADR];
         is[TYP_ADR] = ptr[TYPE];
+        is[IS_PTRDEPTH]++;
         if (is[TYP_OBJ]) {
             is[TYP_OBJ] = 0;
             return 0;
@@ -905,11 +935,25 @@ int level14(int *is) {
                 }
                 else {
                     // Use cast type if present, else the symbol's declared type.
-                    elemType = is[TYP_ADR] ? is[TYP_ADR] : ptr[TYPE];
-                    applyElemOffset(elemType, ptr, is2, before);
-                    is[DIM_LEFT] = 0;
-                    is[TYP_ADR] = 0;           // subscripted result is a scalar, not a pointer
-                    is[TYP_OBJ] = elemType;
+                    // Exception: if the subscript base is a depth-2+ pointer
+                    // (e.g. char**, char***), each stored slot is itself a
+                    // pointer = BPW bytes, regardless of the base element type.
+                    // Use TYPE_UINT to force BPW scale and BPW-wide fetch;
+                    // preserve TYP_ADR so outer derefs know the base type.
+                    if (is[IS_PTRDEPTH] >= 2) {
+                        applyElemOffset(TYPE_UINT, ptr, is2, before);
+                        is[DIM_LEFT] = 0;
+                        is[IS_PTRDEPTH]--;      // one pointer level consumed
+                        is[TYP_OBJ] = TYPE_UINT; // result is a BPW-wide pointer value
+                        // is[TYP_ADR] stays: still the base element type
+                    }
+                    else {
+                        elemType = is[TYP_ADR] ? is[TYP_ADR] : ptr[TYPE];
+                        applyElemOffset(elemType, ptr, is2, before);
+                        is[DIM_LEFT] = 0;
+                        is[TYP_ADR] = 0;           // subscripted result is a scalar, not a pointer
+                        is[TYP_OBJ] = elemType;
+                    }
                     k = 1;                     // AX has element address; fetch needed
                 }
             }
@@ -948,7 +992,8 @@ int level14(int *is) {
             }
             else if (ptr && ptr[IDENT] == IDENT_PTR_FUNCTION) {
                 // pointer-returning function: propagate pointer type to caller
-                is[TYP_ADR]    = ptr[TYPE];
+                is[TYP_ADR]     = ptr[TYPE];
+                is[IS_PTRDEPTH] = ptr[PTRDEPTH] ? ptr[PTRDEPTH] : 1;
                 is[TYP_OBJ]    = 0;
                 is[TYP_CNST]   = is[VAL_CNST] = is[VAL_CNST_HI] = 0;
                 is[LAST_OP]    = is[STG_ADR]  = 0;
@@ -1016,6 +1061,7 @@ int structmember(char *ptr, int *is) {
     if (member[STRMEM_IDENT] == IDENT_POINTER) {
         is[TYP_OBJ] = TYPE_UINT;
         is[TYP_ADR] = member[STRMEM_TYPE];
+        is[IS_PTRDEPTH] = member[STRMEM_PTRDEPTH];
     }
     return 1;
 }
@@ -1175,15 +1221,20 @@ int trycast(int is[]) {
     }
 
     if (isMatch("*")) {
-        // Pointer cast: (type *)expr
+        // Pointer cast: (type **)expr or (type *)expr
+        // Count all '*' tokens to get the full pointer depth.
+        int castDepth;
+        castDepth = 1;
+        while (isMatch("*")) castDepth++;
         // The value in AX is left unchanged; only expression metadata is
         // updated to reflect "this is a pointer to casttype".
         require(")");
         if (level13(is)) fetch(is);
-        is[TYP_ADR]  = casttype;
-        is[TYP_OBJ]  = 0;
-        is[TYP_VAL]  = 0;
-        is[TYP_CNST] = 0;
+        is[TYP_ADR]     = casttype;
+        is[IS_PTRDEPTH] = castDepth;
+        is[TYP_OBJ]     = 0;
+        is[TYP_VAL]     = 0;
+        is[TYP_CNST]    = 0;
         return 1;
     }
 
@@ -1232,6 +1283,7 @@ int primary(int *is) {
                 }
                 if (ptr[IDENT] == IDENT_POINTER) {
                     is[TYP_ADR] = ptr[TYPE];
+                    is[IS_PTRDEPTH] = ptr[PTRDEPTH];
                     if (ptr[NDIM] > 1)
                         is[DIM_LEFT] = ptr[NDIM];
                 }
@@ -1253,6 +1305,7 @@ int primary(int *is) {
             if (ptr[IDENT] == IDENT_POINTER) {
                 is[TYP_OBJ] = TYPE_UINT;
                 is[TYP_ADR] = ptr[TYPE];
+                is[IS_PTRDEPTH] = ptr[PTRDEPTH];
                 if (ptr[NDIM] > 1)
                     is[DIM_LEFT] = ptr[NDIM];
             }
@@ -1282,6 +1335,7 @@ int primary(int *is) {
                 }
                 if (ptr[IDENT] == IDENT_POINTER) {
                     is[TYP_ADR] = ptr[TYPE];
+                    is[IS_PTRDEPTH] = ptr[PTRDEPTH];
                     if (ptr[NDIM] > 1)
                         is[DIM_LEFT] = ptr[NDIM];
                 }
@@ -1314,8 +1368,8 @@ void experr() {
 // ptr   — symbol table entry for the callee
 // userArgCount — number of user-visible arguments supplied at this call site
 //                (does NOT include the hidden struct-return pointer)
-void checkFnArgCount(char *ptr, int userArgCount) {
-    int protoIdx, nbyte, isVariadic, nfixed;
+void checkFnArgCountAndTypes(char *ptr, int userArgCount, int argDepths[]) {
+    int protoIdx, nbyte, isVariadic, nfixed, i, type_byte, depth_byte;
     // No prototype recorded: nothing to check.
     if (getint(ptr + FNPARAMPTR, 2) == 0)
         return;
@@ -1333,6 +1387,20 @@ void checkFnArgCount(char *ptr, int userArgCount) {
         if (userArgCount != nfixed)
             warningWithName("wrong number of arguments to '",
                             ptr + NAME, "'");
+    }
+#endif
+#ifdef ENABLE_WARNINGS
+    // Per-parameter pointer depth check. Stride is 2 bytes per param:
+    // [type_byte = TYPE_xxx][depth_byte = PTRDEPTH; >0 means pointer].
+    for (i = 0; i < nfixed && i < userArgCount; ++i) {
+        type_byte  = paramTypes[protoIdx + 1 + i*2];
+        depth_byte = paramTypes[protoIdx + 1 + i*2 + 1];
+        // Warn only when the prototype declares a multi-level pointer (depth >= 2)
+        // and the supplied argument has a different depth.  Depth-1 params are
+        // skipped because passing &ptr (depth 2) to an int* param is a normal
+        // Small-C idiom that would otherwise produce pervasive false positives.
+        if (depth_byte >= 2 && argDepths[i] != depth_byte)
+            warning("argument pointer depth mismatch");
     }
 #endif
 }
@@ -1410,8 +1478,9 @@ int collectOneArg(int is[], int argLens[], int argSizes[], int idx, int *pNargs)
 int callfunc(char *ptr) {      // symbol table entry or 0
     int nargs, is[ISSIZE];
     int retStructSize;
-    int argLens[MAX_CALL_ARGS];  // p-code slot count per user arg (for reverse walk)
-    int argSizes[MAX_CALL_ARGS]; // BPW or BPD per user arg (for PUSH selection)
+    int argLens[MAX_CALL_ARGS];   // p-code slot count per user arg (for reverse walk)
+    int argSizes[MAX_CALL_ARGS];  // BPW or BPD per user arg (for PUSH selection)
+    int argDepths[MAX_CALL_ARGS]; // IS_PTRDEPTH per user arg (for type check)
     int argbufBase;              // argbufcur at entry; restored after second pass
     int userArgCount;            // number of user (non-hidden) args collected
     int indSaveCsp;              // BP offset of saved funcptr (indirect calls)
@@ -1467,15 +1536,16 @@ int callfunc(char *ptr) {      // symbol table entry or 0
         }
         if (collectOneArg(is, argLens, argSizes, userArgCount, &nargs) == 0)
             break;
+        argDepths[userArgCount] = is[IS_PTRDEPTH];
         userArgCount++;
         if (isMatch(",") == 0)
             break;
     }
     require(")");
 
-    // --- Phase 3: prototype argument count check ---
+    // --- Phase 3: prototype argument count + type check ---
     if (ptr) {
-        checkFnArgCount(ptr, userArgCount);
+        checkFnArgCountAndTypes(ptr, userArgCount, argDepths);
     }
     // --- Phase 4: second pass — replay args in reverse for R-to-L push ---
     // Walk backward through argbuf using cumulative length subtraction,
@@ -1527,6 +1597,10 @@ int ptrScale(int oper, int is1[], int is2[]) {
         error("void pointer arithmetic not allowed");
         return 0;
     }
+    // Multi-level pointer (T** or deeper): the element is itself a pointer,
+    // always BPW bytes regardless of the ultimate base type.
+    if (is1[IS_PTRDEPTH] > 1)
+        return BPW;
     return is1[TYP_ADR] >> 2;
 }
 
@@ -1539,7 +1613,11 @@ void step(int oper, int is[], int oper2) {
     int longval, stepsize;
     longval = isLongVal(is);
     fetch(is);
-    stepsize = is[TYP_ADR] ? (is[TYP_ADR] >> 2) : 1;
+    // Multi-level pointer (T** or deeper): element is itself a pointer → always BPW.
+    if (is[TYP_ADR] && is[IS_PTRDEPTH] > 1)
+        stepsize = BPW;
+    else
+        stepsize = is[TYP_ADR] ? (is[TYP_ADR] >> 2) : 1;
     if (longval && !is[TYP_ADR]) {
         // 32-bit value increment/decrement
         gen(oper == rINC1 ? rINCd1 : rDECd1, stepsize);
@@ -2133,18 +2211,34 @@ void foldConst32(int oper, int leftLong, int rightLong, int is[], int is2[]) {
 // Called after both the constant-folding and variable code-emission paths in down2.
 void applyResultType(int oper, int is[], int is2[]) {
     char *ptr;
+#ifdef ENABLE_WARNINGS
+    // Warn when comparing two pointers whose depths differ.
+    // Null constant (0) is always allowed without warning.
+    if ((oper == EQ12 || oper == NE12 ||
+         oper == LT12 || oper == LE12 || oper == GT12 || oper == GE12 ||
+         oper == LT12u || oper == LE12u || oper == GT12u || oper == GE12u)
+        && is[TYP_ADR] && is2[TYP_ADR]
+        && is[IS_PTRDEPTH] >= 2 && is2[IS_PTRDEPTH] >= 2
+        && is[IS_PTRDEPTH] != is2[IS_PTRDEPTH]
+        && !(is[TYP_CNST]  && is[VAL_CNST]  == 0)
+        && !(is2[TYP_CNST] && is2[VAL_CNST] == 0))
+        warning("pointer comparison: depth mismatch");
+#endif
     // For add/subtract involving pointer operands, fix up the result address type.
     if (oper == SUB12 || oper == ADD12) {
         if (is[TYP_ADR] && is2[TYP_ADR]) {
             // pointer - pointer: result is a plain integer offset, not a pointer.
-            is[TYP_ADR] = 0;
+            is[TYP_ADR]     = 0;
+            is[IS_PTRDEPTH] = 0;
         }
         else if (is2[TYP_ADR]) {
             // integer +/- pointer: result inherits the RHS pointer type.
-            is[SYMTAB_ADR] = is2[SYMTAB_ADR];
-            is[TYP_OBJ]    = is2[TYP_OBJ];
-            is[TYP_ADR]    = is2[TYP_ADR];
+            is[SYMTAB_ADR]  = is2[SYMTAB_ADR];
+            is[TYP_OBJ]     = is2[TYP_OBJ];
+            is[TYP_ADR]     = is2[TYP_ADR];
+            is[IS_PTRDEPTH] = is2[IS_PTRDEPTH];
         }
+        // else: pointer +/- integer: IS_PTRDEPTH stays from the LHS (already in is[])
     }
     // Propagate SYMTAB_ADR from the RHS when the LHS has no symbol entry,
     // or when the RHS symbol is unsigned (unsigned-ness infects the result type).
@@ -2406,17 +2500,25 @@ void down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
         gen(loper, 0);
         // For pointer subtraction the raw result is a byte difference.
         // Divide it by the element size to produce an element count.
-        if (oper == SUB12 && is[TYP_ADR] >> 2 == BPW && is2[TYP_ADR] >> 2 == BPW) {
-            // Both pointers point to word-sized elements: divide raw difference by 2.
-            gen(SWAP12, 0);
-            gen(GETw1n, 1);
-            gen(ASR12, 0);
-        }
-        if (oper == SUB12 && is[TYP_ADR] >> 2 == BPD && is2[TYP_ADR] >> 2 == BPD) {
-            // Both pointers point to long-sized elements: divide raw difference by 4.
-            gen(SWAP12, 0);
-            gen(GETw1n, 2);
-            gen(ASR12, 0);
+        if (oper == SUB12 && is[TYP_ADR] && is2[TYP_ADR]) {
+            int elemsz;
+            // Multi-level pointer: elements are pointers themselves (BPW bytes).
+            // Single-level: use the element size encoded in TYP_ADR.
+            if (is[IS_PTRDEPTH] > 1)
+                elemsz = BPW;
+            else
+                elemsz = is[TYP_ADR] >> 2;
+            if (elemsz == BPW) {
+                gen(SWAP12, 0);
+                gen(GETw1n, 1);
+                gen(ASR12, 0);
+            }
+            else if (elemsz == BPD) {
+                gen(SWAP12, 0);
+                gen(GETw1n, 2);
+                gen(ASR12, 0);
+            }
+            // else elemsz == 1 (char* - char*): no division needed
         }
         // Record the emitted operator so test() can recognise "expr op 0" patterns
         // and choose a more compact jump sequence.

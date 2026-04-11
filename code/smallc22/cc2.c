@@ -301,6 +301,7 @@ int addSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, 
     cptr[TYPE] = type;
     cptr[CLASS] = class;
     cptr[NDIM] = 0;
+    cptr[PTRDEPTH] = 0;    // caller sets non-zero for IDENT_POINTER symbols
     putint(0, cptr + CLASSPTR, 2);
     putint(size, cptr + SIZE, 2);
     putint(offset, cptr + OFFSET, 2);
@@ -511,20 +512,23 @@ void warningWithName(char msg[], char *name, char suffix[]) {
 
 // paramTypes[] -- function parameter-type records.
 // Each entry is laid out as:
-//   [0] nparams_byte: (variadic<<7) | fixed_param_count
-//   [1..n] per param: (isPointer<<7) | (TYPE_xxx & 0x7F)
+//   [0]       nparams_byte: (variadic<<7) | fixed_param_count
+//   [1+i*2]   type_byte:    TYPE_xxx  (base/element type of the parameter)
+//   [1+i*2+1] depth_byte:   PTRDEPTH (0 = non-pointer, 1 = T*, 2 = T**, ...)
+// depth_byte > 0 means the parameter is a pointer; type_byte is its element type.
 // Index 0 is the reserved "no prototype" sentinel; entries start at 1.
 // paramTypes is defined in cc1.c and allocated in main() via calloc(256,2).
 int paramTypesPtr = 1;   // next free index; 0 is reserved as sentinel
 
 // Store function parameter types into paramTypes[].
 // nparams_byte = (variadic<<7) | fixed_param_count
-// typebuf = array of (isPtr<<7)|(TYPE_xxx&0x7F), one per fixed param.
+// typebuf  = array of TYPE_xxx values, one per fixed param.
+// depthbuf = array of PTRDEPTH values (0 = non-pointer, 1+ = pointer depth), one per fixed param.
 // Returns the index of the stored entry (>= 1), or 0 on overflow.
-int storeParamTypes(char *typebuf, int nparams_byte) {
+int storeParamTypes(char *typebuf, char *depthbuf, int nparams_byte) {
     int idx, n, k;
     n = nparams_byte & 0x7F;
-    if (paramTypesPtr + 1 + n > FNPARAMTS_SZ) {
+    if (paramTypesPtr + 1 + 2*n > FNPARAMTS_SZ) {
         error("function param table full");
         return 0;
     }
@@ -532,10 +536,11 @@ int storeParamTypes(char *typebuf, int nparams_byte) {
     paramTypes[idx] = (char)nparams_byte;
     k = 0;
     while (k < n) {
-        paramTypes[idx + 1 + k] = typebuf[k];
+        paramTypes[idx + 1 + k*2]     = typebuf[k];
+        paramTypes[idx + 1 + k*2 + 1] = depthbuf[k];
         ++k;
     }
-    paramTypesPtr += 1 + n;
+    paramTypesPtr += 1 + 2*n;
     return idx;
 }
 

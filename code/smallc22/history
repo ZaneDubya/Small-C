@@ -356,3 +356,13 @@ Small-C Revision History
     short-branch label table. Folded small internal helpers (keepch, ifline,
     noiferr) into their sole callers to reduce call overhead.
     Pre-processor code is now in ccpre.c.
+148 Add arbitrary pointer depth (int **, char ***, etc.) to Small-C compiler
+    by storing a pointer-depth byte in the existing pad byte (offset 10) of
+    the symbol table, adding a depth field to the is[] expression array, and
+    updating declaration parsing + expression handling to count and propagate
+    pointer depth.
+    Add local pointer array support: int *arr[N] and char *arr[N] may now
+    be declared as local (auto or static) variables. A new initLocPtrArray()
+    function handles the optional = { expr, ... } brace initializer, following
+    the same slot-by-slot pattern as initLocArray().
+    Add comprehensive multi-level pointer test suite (mlptrs.c).

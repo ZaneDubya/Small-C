@@ -27,7 +27,8 @@
 //   [4..5] CLASSPTR (2 bytes) — pointer to auxiliary metadata (struct def or dimdata)
 //   [6..7] SIZE     (2 bytes) — total object size in bytes
 //   [8..9] OFFSET   (2 bytes) — address offset (meaning depends on CLASS; see below)
-//   [10..22] NAME  (13 bytes) — null-terminated identifier (max NAMEMAX=12 chars + NUL)
+//   [10]   PTRDEPTH (1 byte)  — pointer depth: 1=T*, 2=T**, etc.; 0 for non-pointers
+//   [11..22] NAME  (12 bytes) — null-terminated identifier (max NAMEMAX=12 chars + NUL)
 //   [23]  (1 pad byte)
 // IDENT: the kind/category of the symbol.
 //   IDENT_LABEL      — a goto label (local table only); TYPE is 1 if defined, 0 if forward ref
@@ -96,9 +97,10 @@
 #define FNPARAMPTR SIZE // for IDENT_FUNCTION/IDENT_PTR_FUNCTION: index into paramTypes[]
 #define OFFSET    8     // GLOBAL=0; AUTO local=neg BP offset; AUTO arg=pos BP offset; ENUMCONST=value;
                         // STATIC local=ptr to global entry; LABEL=label number
-#define NAME      10
-#define SYMAVG    24    // local entry stride: NAME(10)+NAMEMAX(12)+NUL(1)+1pad = 24
-#define SYMMAX    24    // global entry stride: NAME(10)+NAMEMAX(12)+NUL(1)+1pad = 24
+#define PTRDEPTH  10    // pointer depth for IDENT_POINTER: 1=T*, 2=T**, 3=T***, etc.; 0 for all others
+#define NAME      11
+#define SYMAVG    24    // local entry stride: NAME(11)+NAMEMAX(12)+NUL(1) = 24
+#define SYMMAX    24    // global entry stride: NAME(11)+NAMEMAX(12)+NUL(1) = 24
 
 // symbol table parameters
 #define NUMLOCS   100
@@ -182,7 +184,7 @@
 // multi-dimensional array metadata buffer
 #define DIMDATSZ  500  // dimdata buffer size
 #define MAX_DIMS    8  // max dimensions per array
-#define FNPARAMTS_SZ 1024 // size of paramTypes[] function parameter-type buffer
+#define FNPARAMTS_SZ 2048 // size of paramTypes[] function parameter-type buffer
 
 // argument buffer for two-pass right-to-left argument pushing
 // First pass collects each arg's p-codes here; second pass emits them reversed.
@@ -272,7 +274,10 @@
                         // is signed or unsigned. Zero when no cast has been
                         // applied (e.g. bare function call return values).
 
-#define ISSIZE 10       // number of entries in is[] arrays
+#define IS_PTRDEPTH 10  // is[IS_PTRDEPTH]: pointer depth of expression
+                        // (0 = not a pointer/already dereferenced to base, 1=T*, 2=T**, etc.)
+
+#define ISSIZE 11       // number of entries in is[] arrays
 
 // input line
 #define LINEMAX  127
@@ -640,7 +645,7 @@ void reqSemicolon();
 void setstage(int *before, int *start);
 void skipToNextToken();
 int storeDimDat(int sptr, int ndim, int strides[]);
-int storeParamTypes(char *typebuf, int nparams_byte);
+int storeParamTypes(char *typebuf, char *depthbuf, int nparams_byte);
 void stowlit(int value, int size);
 int streq(char str1[], char str2[]);
 int string(int *offset);

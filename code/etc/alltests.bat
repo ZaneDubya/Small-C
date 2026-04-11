@@ -24,6 +24,9 @@ IF ERRORLEVEL 1 GOTO fail
 CALL mdarrays.bat
 IF ERRORLEVEL 1 GOTO fail
 
+CALL mlptrs.bat
+IF ERRORLEVEL 1 GOTO fail
+
 CALL optimize.bat
 IF ERRORLEVEL 1 GOTO fail
 
