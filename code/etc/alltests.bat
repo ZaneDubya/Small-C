@@ -63,6 +63,9 @@ IF ERRORLEVEL 1 GOTO fail
 CALL voidptrs.bat
 IF ERRORLEVEL 1 GOTO fail
 
+CALL subscr.bat
+IF ERRORLEVEL 1 GOTO fail
+
 ECHO ============================================================
 ECHO  ALL TESTS PASSED.
 ECHO ============================================================

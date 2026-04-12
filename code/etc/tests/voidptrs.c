@@ -739,12 +739,12 @@ void test_immed() {
 
     // NOTE: C90 allows subscripting a cast function-call result directly:
     //   ((int *)slabptr())[1] = 99;
-    // This is equivalent to *(((int *)slabptr()) + 1) = 99 per C90 §6.5.2.1.
+    // This is equivalent to *(((int *)slabptr()) + 1) = 99 per C90 6.5.2.1.
     // Small-C does not support applying [] to a non-variable expression (the
     // subscript operator requires its left operand to be a named variable or
     // array, not an arbitrary rvalue). This is a missing C90 feature.
-    // ((int *)slabptr())[1] = 99;
-    // check("immed idx",      ((int *)slabptr())[1] == 99);
+    ((int *)slabptr())[1] = 99;
+    check("immed idx",      ((int *)slabptr())[1] == 99);
 }
 
 // ============================================================================

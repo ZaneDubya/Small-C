@@ -378,3 +378,5 @@ Small-C Revision History
     storeBF() does a read-modify-write.
     genBFStep() does field ++/--: PUSH1 saves the address and blocks the
     POINT1s+MOVE21->LEA fold; separate prefix/postfix value save.
+150 Small-C can now subscript with constant expressions on lvalues.
+    Maybe it could do this before and I broke it? But it works now.

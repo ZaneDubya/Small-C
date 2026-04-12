@@ -824,8 +824,10 @@ int applyElemOffset(int elemType, char *ptr, int *is2, char *before) {
     if (is2[TYP_CNST]) {
         clearStage(before, 0);
         if (is2[VAL_CNST]) {
-            if (elemType == TYPE_STRUCT)
+            if (elemType == TYPE_STRUCT) {
+                if (ptr == 0) { error("can't subscript"); return 0; }
                 gen(GETw2n, is2[VAL_CNST] * getStructSize(getClsPtr(ptr)));
+            }
             else if (elemType >> 2 == BPD)
                 gen(GETw2n, is2[VAL_CNST] << LBPD);
             else if (elemType >> 2 == BPW)
@@ -837,6 +839,7 @@ int applyElemOffset(int elemType, char *ptr, int *is2, char *before) {
     }
     else {
         if (elemType == TYPE_STRUCT) {
+            if (ptr == 0) { error("can't subscript"); return 0; }
             gen(PUSH2, 0);
             gen(GETw2n, getStructSize(getClsPtr(ptr)));
             gen(MUL12, 0);
@@ -902,7 +905,7 @@ int level14(int *is) {
         }
         else if (isMatch("[")) {
             // [subscript]
-            if (ptr == 0) {
+            if (ptr == 0 && is[TYP_ADR] == 0) {
                 error("can't subscript");
                 skipToNextToken();
                 require("]");
@@ -924,7 +927,7 @@ int level14(int *is) {
             is2[TYP_CNST] = 0;
             down2(0, 0, level1, is2, is2);   // parse subscript expression into is2[]
             require("]");
-            if (is[DIM_LEFT] > 1) {
+            if (ptr && is[DIM_LEFT] > 1) {
                 // Intermediate dimension: scale by precomputed stride (not element size).
                 // ptr[NDIM]-is[DIM_LEFT] converts dims-remaining to the outer dim index.
                 int stride;
@@ -943,6 +946,8 @@ int level14(int *is) {
                     is[DIM_LEFT] = 0;
                     is[TYP_OBJ] = TYPE_UINT;   // element is a pointer value (unsigned int)
                     is[TYP_ADR] = ptr[TYPE];   // what that pointer points to
+                    is[SYMTAB_ADR] = 0;        // result is an anonymous fetched pointer
+                    ptr = 0;                   // refresh local; next subscript must not reuse IDENT
                     k = 1;                     // AX has element address; fetch needed
                 }
                 else {
@@ -960,7 +965,7 @@ int level14(int *is) {
                         // is[TYP_ADR] stays: still the base element type
                     }
                     else {
-                        elemType = is[TYP_ADR] ? is[TYP_ADR] : ptr[TYPE];
+                        elemType = is[TYP_ADR] ? is[TYP_ADR] : (ptr ? ptr[TYPE] : TYPE_INT);
                         applyElemOffset(elemType, ptr, is2, before);
                         is[DIM_LEFT] = 0;
                         is[TYP_ADR] = 0;           // subscripted result is a scalar, not a pointer
@@ -2565,6 +2570,7 @@ void down2(int oper, int oper2, int (*level)(), int is[], int is2[]) {
             else
                 csp += BPW;
             clearStage(before, 0);
+            if (oper == 0) return;  // subscript mode: applyElemOffset handles emission
             if (eitherLong) {
                 emitConst32Rhs(oper, leftLong, is, is2);
             }
