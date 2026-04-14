@@ -98,7 +98,6 @@ int
     files,    // true if file list specified on cmd line
     filearg,  // cur file arg index
     input = EOF, // fd for input file
-    input2 = EOF, // fd for "#include" file
     usexpr = YES, // true if value of expression is used
     ccode = YES, // true while parsing C code
     *snext,    // next addr in stage
@@ -109,7 +108,6 @@ int
     oldseg,   // current segment (0, DATASEG, CODESEG)
     errcount,    // number of errors emitted this compilation
     lineno,   // current line number in input file
-    inclno,   // current line number in include file
     lastNdim,               // array dimensions from last parseLocDecl (0 = scalar/1-D)
     lastStrides[MAX_DIMS],  // per-dim strides from last parseLocDecl (valid when lastNdim > 1)
     typeIsConst,            // set by dotype(): 1 if const qualifier was seen; cleared by dotype()
@@ -139,8 +137,7 @@ char
     *paramTypes, // function parameter-type records (allocated in main)
     ssname[NAMESIZE],   // symbol name (static locals mangled to _L<N> form)
     curfn[NAMESIZE],    // name of function currently being compiled
-    infn[30],    // current input filename
-    inclfn[30];  // current include filename
+    infn[30];    // current input filename
 
 int op[16] = {   // p-codes of signed binary operators
     OR12,                        // level5
@@ -191,7 +188,6 @@ extern char hasStaticLocal;  // set by emitLocStatic() when a local static is de
 extern int macptr;           // next write index in macq (preprocessor macro string buffer usage)
 extern int paramTypesPtr;
 extern char *structdata, *structdatnext;
-
 
 #ifdef ENABLE_WARNINGS
     int warncount; // number of warnings emitted this compilation

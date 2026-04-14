@@ -15,25 +15,40 @@
 
 #include "stdio.h"
 #include "cc.h"
+#include "ccstruct.h"
+
+char needLong,
+     hasInlineAsm,   // function contains #asm block(s): must not omit frame pointer
+     hasStaticLocal; // function contains local static variable(s): mid-function flushfunc() must not omit ENTER
+
+int *funcbuf,       // per-function p-code buffer (heap-allocated in header)
+    *fnext,         // next free slot in funcbuf
+    *fl_labnum,     // label numbers recorded by flushfunc (heap-allocated)
+    *fl_labpos;     // corresponding byte offsets
 
 
-char needLong;
-char hasInlineAsm;   // function contains #asm block(s): must not omit frame pointer
-char hasStaticLocal; // function contains local static variable(s): mid-function flushfunc() must not omit ENTER
+#ifdef ENABLE_OPTDEBUG
+int *optcount;   // per-rule optimization hit counts (calloc'd in header)
+int nrules;      // number of entries in seqdata[], counted at runtime
+#ifdef ENABLE_DIAGNOSTICS
+extern int glbcount,
+           litptrMax,
+           macptr,
+           paramTypesPtr;
+extern char *dimdata, 
+            *dimdatptr,
+            *structdatnext, 
+            *structBase;
+#endif
+#endif
 
 // === externals ==============================================================
 
 extern char
-*cptr, *litq, *symtab, optimize, ssname[NAMESIZE];
-
+    *cptr, *litq, *symtab, optimize, ssname[NAMESIZE];
 extern int
-*stage, litlab, litptr, csp, output, oldseg, usexpr,
-*snext, *stail, *slast;
-
-int *funcbuf;      // per-function p-code buffer (heap-allocated in header)
-int *fnext;        // next free slot in funcbuf
-int *fl_labnum;    // label numbers recorded by flushfunc (heap-allocated)
-int *fl_labpos;    // corresponding byte offsets
+    *stage, litlab, litptr, csp, output, oldseg, usexpr,
+    *snext, *stail, *slast;
 
 // forward declarations for this file:
 void outstr(char ptr[]);
@@ -87,12 +102,6 @@ int getpop(int *next);
 #define COMMUTES 0200    // commutative p-code
 #define SETSFLG  0004    // instruction leaves ZF = (result == 0), so OR AX,AX can be skipped
 
-
-#ifdef ENABLE_DISPOPT
-#define DISPOPT_HIGH   94
-int optcount[DISPOPT_HIGH + 1];   // per-rule optimization hit counts
-#endif
-
 // === seqdata[] — Peephole Optimizer Rule Table ==============================
 //
 // This is the documentation of the heart of the optimizer.
@@ -103,9 +112,9 @@ int optcount[DISPOPT_HIGH + 1];   // per-rule optimization hit counts
 //   [ <match-pattern...>,  0,  <action-commands...>,  0, 0 ]
 //
 // Rules are laid out consecutively in the flat int array, terminated by a
-// final double-zero after the double-zero of the last rule. All valid rules
-// will be executed; DISPOPT_HIGH is only used to limit the reporting of hit
-// counts for diagnostics.
+// final zero after the double-zero of the last rule. All valid rules are
+// scanned in sequence; if a rule is matched, its action commands are executed
+// and the optimizer restarts from the first rule at the same position.
 //
 // -- MATCH PATTERN (before the first zero) -----------------------------------
 //
@@ -689,6 +698,45 @@ int seqdata[] = {
     //     OUT: any  GETw2p(0)  ->  <any op>  MOV BX,[BX]
     PUSHp,any,POP2,0,go|p2,gc|m1,gv|m1,go|m1,GETw2p,gv|m1,0, 0,
 
+    // 045a Const Arithmetic-Left Shift Via MOVE21, BX Dead (sfree fold)
+    // Fold MOVE21+GETw1n(n)+ASL12 into SHL1n(n) when BX is dead after the shift.
+    //     IN:  MOVE21  GETw1n(n)  ASL12   (sfree: BX not live after ASL12)
+    //          BX=AX   AX=n       AX=BX<<AX  (MOV CX,AX / MOV AX,BX / SAL AX,CL)
+    //     NET: AX = old_AX << n (BX was a temporary staging register for the shifted value)
+    //     WHY: MOVE21 copies pr to sr only so ASL12 can read it back from sr. Since BX is dead
+    //          after the shift, the save/restore roundtrip MOV BX,AX / MOV AX,BX is pure waste.
+    //          SHL1n shifts AX in-place (MOV CL,n / SHL AX,CL), leaving BX untouched.
+    //          Net savings vs MOVE21+ASL1_1:  6 bytes -> 5 bytes (n==1)
+    //          Net savings vs MOVE21+ASLsn:   9 bytes -> 5 bytes (n>=2)
+    //     OUT: NOP_  NOP_  SHL1n(n)
+    MOVE21, GETw1n, ASL12, sfree, 0, NOP_, go|p1, NOP_, go|p1, SHL1n, gv|m1, go|m2, 0, 0,
+
+    // 045b Const Arithmetic-Right Shift Via MOVE21, BX Dead (sfree fold)
+    // Fold MOVE21+GETw1n(n)+ASR12 into SAR1n(n) when BX is dead after the shift.
+    //     IN:  MOVE21  GETw1n(n)  ASR12   (sfree: BX not live after ASR12)
+    //          BX=AX   AX=n       AX=BX>>AX  (signed; MOV CX,AX / MOV AX,BX / SAR AX,CL)
+    //     NET: AX = old_AX >> n  (signed; BX was only a temporary)
+    //     WHY: Same logic as 045a for signed right shift. SAR1n shifts AX in-place
+    //          (MOV CL,n / SAR AX,CL), BX unchanged, eliminating the MOV BX,AX/MOV AX,BX
+    //          round-trip that rules 047/047a/047b leave behind.
+    //          Net savings vs MOVE21+ASR1_1:  6 bytes -> 5 bytes (n==1)
+    //          Net savings vs MOVE21+ASR1_2:  8 bytes -> 5 bytes (n==2)
+    //          Net savings vs MOVE21+ASRsn:   9 bytes -> 5 bytes (n>=3)
+    //     OUT: NOP_  NOP_  SAR1n(n)
+    MOVE21, GETw1n, ASR12, sfree, 0, NOP_, go|p1, NOP_, go|p1, SAR1n, gv|m1, go|m2, 0, 0,
+
+    // 045c Const Logical-Right Shift Via MOVE21, BX Dead (sfree fold)
+    // Fold MOVE21+GETw1n(n)+LSR12 into SHR1n(n) when BX is dead after the shift.
+    //     IN:  MOVE21  GETw1n(n)  LSR12   (sfree: BX not live after LSR12)
+    //          BX=AX   AX=n       AX=BX>>AX  (unsigned; MOV CX,AX / MOV AX,BX / SHR AX,CL)
+    //     NET: AX = old_AX >> n  (unsigned; BX was only a temporary)
+    //     WHY: Same logic as 045a for unsigned right shift. SHR1n shifts AX in-place
+    //          (MOV CL,n / SHR AX,CL), BX unchanged.
+    //          Net savings vs MOVE21+LSR1_1:  6 bytes -> 5 bytes (n==1)
+    //          Net savings vs MOVE21+LSRsn:   9 bytes -> 5 bytes (n>=2)
+    //     OUT: NOP_  NOP_  SHR1n(n)
+    MOVE21, GETw1n, LSR12, sfree, 0, NOP_, go|p1, NOP_, go|p1, SHR1n, gv|m1, go|m2, 0, 0,
+
     // 046 Constant-1 Left Shift to Single-Bit Shift
     // Replace GETw1n(1)+ASL12 with ASL1_1 when the shift count is exactly 1.
     //     IN:  GETw1n(1)  ASL12
@@ -699,7 +747,18 @@ int seqdata[] = {
     //          Only fires when the shift count is exactly 1.
     //     OUT: ASL1_1  ->  MOV AX,BX / SHL AX,1
     GETw1n,ASL12,0,ife|p1,go|p1,ASL1_1,0, 0,
-    
+
+    // 046a General Constant Arithmetic Left Shift (N > 1)
+    // Replace GETw1n(n)+ASL12 with ASLsn(n) for any shift count n > 1.
+    // Rule 046 handles n==1 first; this catch-all fires for all remaining values.
+    //     IN:  GETw1n(n)  ASL12
+    //          AX=n       AX = BX << AX  (MOV CX,AX / MOV AX,BX / SAL AX,CL; 9 bytes)
+    //     NET: AX = BX << n
+    //     WHY: The 3-byte GETw1n is folded away; ASLsn(n) emits
+    //          MOV AX,BX / MOV CL,n / SHL AX,CL (6 bytes). Net: -3 bytes, -1 instruction.
+    //     OUT: ASLsn(n)  ->  MOV AX,BX / MOV CL,n / SHL AX,CL
+    GETw1n,ASL12,0,go|p1,ASLsn,gv|m1,0, 0,
+
     // 047 Constant-1 Right Shift to Single-Bit Shift
     // Same as Constant-1 Left Shift for arithmetic right shift: replace GETw1n(1)+ASR12 with ASR1_1.
     //     IN:  GETw1n(1)  ASR12
@@ -709,6 +768,28 @@ int seqdata[] = {
     //          vs ASR12's MOV CX,AX / MOV AX,BX / SAR AX,CL (6 bytes).
     //     OUT: ASR1_1  ->  MOV AX,BX / SAR AX,1
     GETw1n,ASR12,0,ife|p1,go|p1,ASR1_1,0, 0,
+
+    // 047a Constant-2 Arithmetic Right Shift (double-shift form, avoids CX)
+    // Replace GETw1n(2)+ASR12 with ASR1_2 when count == 2.
+    // Rule 047 handles n==1 first; this rule handles n==2 as a special case.
+    //     IN:  GETw1n(2)  ASR12
+    //          AX=2       AX = BX >> AX  (signed; MOV CX,AX / MOV AX,BX / SAR AX,CL; 9 bytes)
+    //     NET: AX = BX >> 2  (arithmetic)
+    //     WHY: ASR1_2 emits MOV AX,BX / SAR AX,1 / SAR AX,1 (6 bytes, no CX used).
+    //          Avoids CX entirely and is faster on 8086 (2 clks/shift vs ~16 for SAR AX,CL).
+    //     OUT: ASR1_2  ->  MOV AX,BX / SAR AX,1 / SAR AX,1
+    GETw1n,ASR12,0,ife|p2,go|p1,ASR1_2,0, 0,
+
+    // 047b General Constant Arithmetic Right Shift (N > 2)
+    // Replace GETw1n(n)+ASR12 with ASRsn(n) for any shift count n not already handled.
+    // Rules 047 and 047a handle n==1 and n==2; this catch-all fires for all remaining values.
+    //     IN:  GETw1n(n)  ASR12
+    //          AX=n       AX = BX >> AX  (signed; 9 bytes)
+    //     NET: AX = BX >> n  (arithmetic)
+    //     WHY: The 3-byte GETw1n(n) is folded away; ASRsn(n) emits
+    //          MOV AX,BX / MOV CL,n / SAR AX,CL (6 bytes). Net: -3 bytes, -1 instruction.
+    //     OUT: ASRsn(n)  ->  MOV AX,BX / MOV CL,n / SAR AX,CL
+    GETw1n,ASR12,0,go|p1,ASRsn,gv|m1,0, 0,
 
     // 048 Logical Negate Before False-Branch to True-Branch
     // Fold LNEG1+NE10f into EQ10f: eliminate boolean inversion before a conditional branch.
@@ -914,6 +995,17 @@ int seqdata[] = {
     //     OUT: LSR1_1  ->  MOV AX,BX / SHR AX,1
     GETw1n,LSR12,0,ife|p1,go|p1,LSR1_1,0, 0,
 
+    // 092a General Constant Logical Right Shift (N > 1)
+    // Replace GETw1n(n)+LSR12 with LSRsn(n) for any shift count n > 1.
+    // Rule 092 handles n==1 first; this catch-all fires for all remaining values.
+    //     IN:  GETw1n(n)  LSR12
+    //          AX=n       AX = BX >> AX  (unsigned; MOV CX,AX / MOV AX,BX / SHR AX,CL; 9 bytes)
+    //     NET: AX = BX >> n  (logical)
+    //     WHY: The 3-byte GETw1n(n) is folded away; LSRsn(n) emits
+    //          MOV AX,BX / MOV CL,n / SHR AX,CL (6 bytes). Net: -3 bytes, -1 instruction.
+    //     OUT: LSRsn(n)  ->  MOV AX,BX / MOV CL,n / SHR AX,CL
+    GETw1n,LSR12,0,go|p1,LSRsn,gv|m1,0, 0,
+
     // 093 Store Const Word, Stack Variable (5-to-2 fold)
     // Fold POINT1s+PUSH1+GETw1n+POP2+PUTwp1 into GETw1n+PUTws1: eliminate the
     // address-register round-trip when writing a value to a BP-relative slot.
@@ -952,6 +1044,42 @@ int seqdata[] = {
     //     GUARD: sfree
     POINT1s,PUSH1,GETw1n,POP2,PUTbp1,sfree,0,go|p3,GETw1n,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
 
+    // 095 Store Stack-Var Word through Ptr (4-to-3 fold)
+    // Replace PUSH1+GETw1s+POP2+PUTwp1 with MOVE21+GETw1s+NOP_+PUTwp1,
+    // eliminating the stack round-trip when writing a stack variable through a
+    // pointer whose address was already in AX.
+    // The front-end emits this 4-pcode sequence for  *ptr = auto_word_var:
+    //     PUSH1          AX=ptr, push ptr
+    //     GETw1s(o)      AX = auto_word_var
+    //     POP2           BX = ptr (restored)
+    //     PUTwp1         [BX]=AX
+    // PUSH+POP is replaced by MOV BX,AX; POP2 is killed with NOP_.
+    //     IN:  PUSH1    GETw1s(o)   POP2    PUTwp1
+    //          push AX  AX=o[BP]    BX=pop  [BX]=AX
+    //     NET: *ptr = auto_word_var;  BX = ptr
+    //     OUT: MOVE21   GETw1s(o)   NOP_    PUTwp1
+    //          BX=AX    AX=o[BP]    –       [BX]=AX
+    //     GUARD: sfree — BX must not be live after PUTwp1
+    //     ACTION (snext starts at pos0 = PUSH1):
+    //       MOVE21     overwrite pos0 pcode with MOVE21 (MOV BX,AX)
+    //       go|p2      advance to pos2 (POP2)
+    //       NOP_       overwrite pos2 pcode with NOP_ (kills POP2)
+    //       go|m2      retreat to pos0 — dumpstage emits pos0..pos3 in order
+    PUSH1,GETw1s,POP2,PUTwp1,sfree,0, MOVE21,go|p2,NOP_,go|m2, 0, 0,
+
+    // 096 Store Stack-Var Byte through Ptr (4-to-3 fold)
+    // Same as rule 095 but for byte stores: replaces PUSH1+GETw1s+POP2+PUTbp1
+    // with MOVE21+GETw1s+NOP_+PUTbp1. PUTbp1 emits MOV [BX],AL.
+    //     IN:  PUSH1    GETw1s(o)   POP2    PUTbp1
+    //          push AX  AX=o[BP]    BX=pop  [BX]=AL
+    //     NET: *(char *)ptr = (char)auto_word_var;  BX = ptr
+    //     OUT: MOVE21   GETw1s(o)   NOP_    PUTbp1
+    //          BX=AX    AX=o[BP]    –       [BX]=AL
+    //     GUARD: sfree
+    PUSH1,GETw1s,POP2,PUTbp1,sfree,0, MOVE21,go|p2,NOP_,go|m2, 0, 0,
+    
+    0  // end sentinel
+
     // These four _pop/topop rules eliminate PUSH/POP round-trips by reloading
     // the pop site. Disabled because the compiler crashes.
     // Point-Mem Push/Pop to Reload
@@ -962,7 +1090,6 @@ int seqdata[] = {
     //  0,PUSHm,_pop,0,topop|GETw2m,go|p1,0,
     // Stack-Var Push/Pop to Reload
     //  0,PUSHs,_pop,0,topop|GETw2s,go|p1,0,
-    0  // end sentinel
 };
 
 // === assembly-code strings ==================================================
@@ -1205,7 +1332,12 @@ char* code[PCODES] = {
     /* 208 AND1n      */ "\011AND AX,<n>\n",
     /* 209 SHL1n      */ "\011MOV CL,<n>\nSHL AX,CL\n",
     /* 210 SAR1n      */ "\011MOV CL,<n>\nSAR AX,CL\n",
-    /* 211 SHR1n      */ "\011MOV CL,<n>\nSHR AX,CL\n"
+    /* 211 SHR1n      */ "\011MOV CL,<n>\nSHR AX,CL\n",
+    /* optimizer-generated: constant shift by N (N>1) */
+    /* 212 ASR1_2     */ "\005MOV AX,BX\nSAR AX,1\nSAR AX,1\n",
+    /* 213 ASRsn      */ "\005MOV AX,BX\nMOV CL,<n>\nSAR AX,CL\n",
+    /* 214 ASLsn      */ "\005MOV AX,BX\nMOV CL,<n>\nSHL AX,CL\n",
+    /* 215 LSRsn      */ "\001MOV AX,BX\nMOV CL,<n>\nSHR AX,CL\n"
 
 };
 
@@ -1433,7 +1565,12 @@ int code_size[PCODES] = {
     /*208 AND1n    */  3,  // AND AX,imm16
     /*209 SHL1n    */  4,  // MOV CL,n / SHL AX,CL
     /*210 SAR1n    */  4,  // MOV CL,n / SAR AX,CL
-    /*211 SHR1n    */  4   // MOV CL,n / SHR AX,CL
+    /*211 SHR1n    */  4,  // MOV CL,n / SHR AX,CL
+    // optimizer-generated: constant shift by N (N>1)
+    /*212 ASR1_2   */  6,  // MOV AX,BX / SAR AX,1 / SAR AX,1
+    /*213 ASRsn    */  6,  // MOV AX,BX / MOV CL,n / SAR AX,CL
+    /*214 ASLsn    */  6,  // MOV AX,BX / MOV CL,n / SHL AX,CL
+    /*215 LSRsn    */  6   // MOV AX,BX / MOV CL,n / SHR AX,CL
 };
 
 // Map a long-branch p-code to its short-branch equivalent, or 0 if not a branch.
@@ -1475,6 +1612,19 @@ void header() {
     fl_labnum = calloc(256, BPW);
     fl_labpos = calloc(256, BPW);
     fnext = funcbuf;
+#ifdef ENABLE_OPTDEBUG
+    {
+        int *sp;
+        nrules = 0;
+        sp = seqdata;
+        while (*sp) {
+            while (*sp || *(sp + 1)) sp++;
+            sp += 2;
+            nrules++;
+        }
+        optcount = calloc(nrules, BPW);
+    }
+#endif
     toseg(CODESEG);
     outlines("extrn __eq: near\n"
              "extrn __ne: near\n"
@@ -1528,15 +1678,25 @@ void trailer() {
     }
     toseg(NULL);
     outline("END");
-#ifdef ENABLE_DISPOPT
+#ifdef ENABLE_OPTDEBUG
     {
         int i;
-        outstr("; opt   count"); newline();
-        for (i = 0; i <= DISPOPT_HIGH; i++) {
+        fprintf(output, "; --- compiler optimizations applied ---\n");
+        fprintf(output, "; opt   count\n");
+        for (i = 0; i < nrules; i++) {
             fprintf(output, "; %d   %d\n", i, optcount[i]);
-            poll(YES);
         }
     }
+#ifdef ENABLE_DIAGNOSTICS
+    fprintf(output, "; --- compiler buffer usage ---\n");
+    fprintf(output, "  globals:        %d/%d bytes\n", glbcount*SYMMAX, NUMGLBS*SYMMAX);
+    fprintf(output, "  globals:        %d/%d bytes\n", glbcount*SYMMAX, NUMGLBS*SYMMAX);
+    fprintf(output, "  literals:       %d/%d bytes\n", litptrMax, LITABSZ);
+    fprintf(output, "  macros:         %d/%d bytes\n", macptr, MACQSIZE);
+    fprintf(output, "  array dims:     %d/%d bytes\n", (int)dimdatptr-(int)dimdata, DIMDATSZ);
+    fprintf(output, "  param types:    %d/%d bytes\n", paramTypesPtr, FNPARAMTS_SZ);
+    fprintf(output, "  structs:        %d/%d bytes\n", (int)structdatnext-(int)structBase, STRUCTDATSZ);
+#endif
 #endif 
 }
 
@@ -1705,7 +1865,7 @@ static void canOptFPOpass() {
 // MOV SP,BP) to make consolidation worthwhile. Functions that passed FPO use
 // RETNOFP (1 byte) and are never eligible -- a JMPm would only cost more.
 // Guard fnext + 2 <= funcbuf + FUNCBUFSIZE: epilogue appends one new pair.
-static void epilogue_consolidation_pass() {
+static void tryEpilogueConsolidation() {
     int *pp, *lastRet, nret, nretN, epiLabel;
     nret = 0; nretN = 0; lastRet = 0;
     for (pp = funcbuf; pp < fnext; pp += 2) {
@@ -1734,22 +1894,90 @@ static void epilogue_consolidation_pass() {
     }
 }
 
+// Boxing Elimination: scan funcbuf for the 5-slot skim() boxing tail followed
+// by an NE10f consumer, and rewrite it to direct branches, eliminating the
+// 0/1 materialization entirely. Each site saves 10-14 machine bytes.
+// skim() in cc3.c always emits this exact 5-slot tail when || or && is found:
+//   GETw1n(endval) JMPm(L_end) LABm(L_drop) GETw1n(dropval) LABm(L_end)
+// followed by an NE10f(target) emitted by genTestAndJmp/dropout.
+//
+// Pattern A (|| : endval=0, dropval=1):
+//   slot 0: GETw1n(0)    -> JMPm(target)  false path branches directly
+//   slot 1: JMPm(L_end)  -> NOP_          no longer needed
+//   slot 2: LABm(L_drop)    (unchanged)   inner EQ10f branches still land here
+//   slot 3: GETw1n(1)    -> NOP_          no materialization
+//   slot 4: LABm(L_end)  -> NOP_          L_end dead (requires no other refs)
+//   slot 5: NE10f(target)-> NOP_          consumer eliminated
+//
+// Pattern B (&& : endval=1, dropval=0):
+//   slot 0: GETw1n(1)    -> NOP_          no materialization
+//   slot 1: JMPm(L_end)     (unchanged)   true path still skips L_drop+new JMPm
+//   slot 2: LABm(L_drop)    (unchanged)   inner NE10f branches still land here
+//   slot 3: GETw1n(0)    -> JMPm(target)  false path branches directly
+//   slot 4: LABm(L_end)     (unchanged)   true path lands here
+//   slot 5: NE10f(target)-> NOP_          consumer eliminated
+static void tryBoxingElimination() {
+    int *p, *q, L_end, target;
+    // Need at least 6 p-code pairs = 12 ints from p to end
+    for (p = funcbuf; p + 12 <= fnext; p += 2) {
+        // Guard: p-codes at each of the six slots
+        if (p[0]  != GETw1n) continue;
+        if (p[2]  != JMPm)   continue;
+        if (p[4]  != LABm)   continue;
+        if (p[6]  != GETw1n) continue;
+        if (p[8]  != LABm)   continue;
+        if (p[10] != NE10f)  continue;
+        // Guard: L_end is consistent between JMPm slot and closing LABm slot
+        L_end = p[3];
+        if (p[9] != L_end) continue;
+        // Guard: valid skim endval/dropval pair (0,1) or (1,0)
+        if (!((p[1] == 0 && p[7] == 1) || (p[1] == 1 && p[7] == 0))) continue;
+        target = p[11];    // NE10f's else-label target
+        if (p[1] == 0) {
+            // Pattern A: || (endval=0, dropval=1)
+            // Before NOP-ing LABm(L_end), verify no other slot branches to L_end.
+            // The only legitimate reference is the JMPm at slot 1 (p[2..3]).
+            for (q = funcbuf; q < fnext; q += 2) {
+                if (q == p + 2) continue;   // skip the JMPm at slot 1
+                if (q[1] == L_end) goto next;
+            }
+            p[0]  = JMPm; p[1]  = target; // slot 0: false path to else-label
+            p[2]  = NOP_; p[3]  = 0;      // slot 1: JMPm(L_end) killed
+            // slot 2: LABm(L_drop) unchanged
+            p[6]  = NOP_; p[7]  = 0;      // slot 3: GETw1n(1) killed
+            p[8]  = NOP_; p[9]  = 0;      // slot 4: LABm(L_end) killed
+            p[10] = NOP_; p[11] = 0;      // slot 5: NE10f consumer killed
+        } else {
+            // Pattern B: && (endval=1, dropval=0)
+            p[0]  = NOP_; p[1]  = 0;      // slot 0: GETw1n(1) killed
+            // slot 1: JMPm(L_end) unchanged
+            // slot 2: LABm(L_drop) unchanged
+            p[6]  = JMPm; p[7]  = target; // slot 3: false path to else-label
+            // slot 4: LABm(L_end) unchanged
+            p[10] = NOP_; p[11] = 0;      // slot 5: NE10f consumer killed
+        }
+        next:;
+    }
+}
+
 // Per-function p-code post-processor: runs optimization passes over funcbuf,
 // then emits the final instruction sequence via outcode() and resets the buffer.
 // Called by toseg() at every function-end or segment-change boundary.
 // Pass order is semantically fixed:
-//   1. canOptFPOpass():                   may replace ENTER/RETURN before epilogue runs
-//   2. epilogue_consolidation_pass(): introduces JMPm entries for short-branch pass
-//   3. Short-branch loop:            iterates to fixpoint; convergence is guaranteed
+//   1. canOptFPOpass():              may replace ENTER/RETURN before epilogue runs
+//   2. tryEpilogueConsolidation():   introduces JMPm entries for short-branch pass
+//   3. tryBoxingElimination():       eliminates || / && 0/1 boxing tails
+//   4. Short-branch loop:            iterates to fixpoint; convergence is guaranteed
 //                                    because code size is monotonically non-increasing
-//   4. Emit:                         walk funcbuf, call outcode() per pair, reset fnext
+//   5. Emit:                         walk funcbuf, call outcode() per pair, reset fnext
 void flushfunc() {
     int *p, pc, val, spc, pos, ref_pos, delta, changed;
     int i, lpos, nflab;
     if (fnext == funcbuf)
         return;
     canOptFPOpass();
-    epilogue_consolidation_pass();
+    tryEpilogueConsolidation();
+    tryBoxingElimination();
     // Short-branch loop: each substitution may bring further targets into ±127-byte
     // range, so repeat until a full pass produces no changes (fixpoint).
     do {
@@ -1809,7 +2037,7 @@ void dumpstage() {
             rulenum = 0;
             while (*seq) {
                 if (peep(seq)) {
-#ifdef ENABLE_DISPOPT
+#ifdef ENABLE_OPTDEBUG
                     optcount[rulenum]++;
                     fprintf(output, ";                  optimized %d\n", rulenum);
 #endif

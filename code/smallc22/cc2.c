@@ -316,26 +316,49 @@ int addSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, 
     return cptr;
 }
 
-// search for symbol match.
-// on return, cptr points to slot found or empty slot
-// sname: string we are trying to match
-// buf: table of strings to match against
-// len: max length to check for each symbol
-// end: end of table of strings
-// max: max count of strings in table
-// off: ???
+// Search for a symbol in an open-addressing hash table.
+// Returns 1 with cptr -> matching slot if sname is found.
+// Returns 0 with cptr -> best available insertion slot if sname is absent:
+//   - if a TOMBSTONE slot was passed during probing, cptr points to it
+//     (reclaim deleted slot rather than growing the chain further);
+//   - otherwise cptr points to the first empty NULL slot.
+//   - cptr == 0 if the table is completely full with no empty or tombstone slot.
+// sname:   identifier to look up
+// buf:     start of the hash table
+// len:     byte stride of each slot
+// end:     one-past-end of the table
+// max:     total slot count
+// off:     byte offset of the name field within each slot
+// namelen: max significant identifier length
 int findSymbol(char *sname, char *buf, int len, char *end, int max, int off, int namelen) {
     unsigned int ihash, imax;
+    char *tomb;
     imax = (max - 1);
     ihash = hash(sname) % imax;
     cptr = cptr2 = buf + ihash * len;
+    tomb = 0;
     while (*cptr != NULL) {
-        if (astreq(sname, cptr + off, namelen)) 
+        if (*cptr == TOMBSTONE) {
+            // Deleted slot: keep probing, but remember the first one for reuse.
+            if (tomb == 0) {
+                tomb = cptr;
+            }
+        }
+        else if (astreq(sname, cptr + off, namelen)) {
             return 1;
-        if ((cptr = cptr + len) >= end) 
+        }
+        if ((cptr = cptr + len) >= end) {
             cptr = buf;
-        if (cptr == cptr2) 
-            return (cptr = 0);
+        }
+        if (cptr == cptr2) {
+            // Full wrap: table has no empty slot; use tombstone if any.
+            cptr = tomb;
+            return 0;
+        }
+    }
+    // Empty slot: prefer the earlier tombstone if one was seen.
+    if (tomb) {
+        cptr = tomb;
     }
     return 0;
 }

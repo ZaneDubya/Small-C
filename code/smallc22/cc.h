@@ -1,11 +1,11 @@
 // CC.H -- Symbol Definitions for Small-C compiler.
 
 // #define ENABLE_DIAGNOSTICS      // verbose compiler diagnostics
-#define ENABLE_OPTDEBUG   // verbose optimizer diagnostics
-#define ENABLE_WARNINGS  // enable optional compiler warnings
+// #define ENABLE_OPTDEBUG         // verbose optimizer diagnostics
+// #define ENABLE_WARNINGS         // enable optional compiler warnings
 #ifdef ENABLE_WARNINGS
-#define WARN_IMPLICIT    // warn about implicit int and undeclared functions
-#define WARN_ARGCOUNT    // warn about wrong number of arguments in function calls
+#define WARN_IMPLICIT           // warn about implicit int / undeclared fns
+#define WARN_ARGCOUNT           // warn about wrong number of args in fn calls
 #endif
 
 // machine dependent parameters
@@ -17,7 +17,7 @@
 #define ERRCODE   7   // op sys return code
 
 // === The Symbol Table =======================================================
-// ============================================================================
+//
 // The symbol table is a single flat byte array. As the compiler processes the
 // source code, it adds entries for identifiers to this table.
 // Each entry in the table is a flat 24-byte record laid out as follows:
@@ -107,7 +107,7 @@
 #define NUMLOCS   100
 #define STARTLOC  symtab
 #define ENDLOC    (symtab+NUMLOCS*SYMAVG)
-#define NUMGLBS   500
+#define NUMGLBS   400
 
 #define STARTGLB  ENDLOC
 #define ENDGLB    (ENDLOC+(NUMGLBS-1)*SYMMAX)
@@ -158,6 +158,8 @@
 // To test: ptr[CLASS] & CONST_FLAG  (non-zero == const-qualified)
 // To strip: ptr[CLASS] & 0x7F      (yields the raw storage class)
 #define CONST_FLAG  0x80
+
+// ============================================================================
 
 // segment types
 #define DATASEG 1
@@ -288,6 +290,7 @@
 // input line
 #define LINEMAX  127
 #define LINESIZE 128
+#define LINELAST (LINEMAX-2)  // last data byte index; sentinel pos for fgets overrun check
 
 // entries in staging buffer
 #define STAGESIZE   300
@@ -296,10 +299,24 @@
 // macro (#define) pool
 #define MACNBR   500
 
+// nested-include stack depth (G2-1)
+#define MAXINCLUDE 4
+
+// #pragma once table size (G1-2)
+#define PRAGMA_ONCE_MAX 16
+
 #define MACNSIZE (MACNBR*(NAMESIZE+2))
 #define MACNEND  (macn+MACNSIZE)
 #define MACQSIZE (MACNBR*7)
 #define MACMAX   (MACQSIZE-1)
+// Deleted-macro sentinel for the open-addressing macro name table.
+// A #undef writes this byte to slot[0], keeping the probe chain intact
+// while marking the slot available for reuse by a later #define.
+// Value 8 (BS control char) is chosen because:
+//   - valid IDENT field values are 0-6 (symbol table, never deleted)
+//   - valid macro name first chars are >= '0' (48)
+//   so 8 is unambiguous in both tables.
+#define TOMBSTONE '\x08'
 
 // statement types
 #define STIF      1
@@ -574,7 +591,12 @@
 #define SHL1n   209   // MOV CL,n / SHL AX,CL  (shift AX left by n; BX unchanged)
 #define SAR1n   210   // MOV CL,n / SAR AX,CL  (arithmetic shift AX right by n; BX unchanged)
 #define SHR1n   211   // MOV CL,n / SHR AX,CL  (logical shift AX right by n; BX unchanged)
-#define PCODES  212   // size of code[]
+// optimizer-generated: constant shift by N (N>1)
+#define ASR1_2  212   // shift arithmetic right sr by 2 into pr (double SAR; no CX)
+#define ASRsn   213   // shift arithmetic right sr by n into pr (MOV CL,n / SAR AX,CL)
+#define ASLsn   214   // shift arithmetic left sr by n into pr (MOV CL,n / SHL AX,CL)
+#define LSRsn   215   // logical shift right sr by n into pr (MOV CL,n / SHR AX,CL)
+#define PCODES  216   // size of code[]
 
 // === function prototypes for Small-C ========================================
 // ============================================================================
@@ -591,6 +613,9 @@ void clearStage(int *before, int *start);
 void decGlobal(int ident, int isGlobal);
 void delwhile();
 void dodefine();
+void dodefineStr(char *name, char *val);
+void doundef();
+int  evalIfExpr();
 int doEnum(int *typeSubPtr);
 int dofunction(int class);
 void doinclude();
@@ -624,6 +649,8 @@ void illname();
 int inbyte();
 void initEnums();
 void initPreprocessor();
+void initPredefined();
+int  tryExpandPredefined(char *name);
 void initStructs();
 int isCExpr32(int *val, int *val_hi);
 int isConstExpr(int *val);

@@ -380,3 +380,58 @@ Small-C Revision History
     POINT1s+MOVE21->LEA fold; separate prefix/postfix value save.
 150 Small-C can now subscript with constant expressions on lvalues.
     Maybe it could do this before and I broke it? But it works now.
+151 Added #undef directive. A macro may now be undefined after definition.
+    #undef writes a tombstone sentinel byte to the macro name table, marking
+    the slot as available for reuse. findSymbol() skips tombstone slots during
+    lookup, and chooses the first tombstone encountered as the preferred slot
+    for a subsequent #define, so deleted slots are reclaimed.
+152 Added #error directive. A #error line terminates compilation immediately,
+    reporting the remainder of the directive line as the error message. The
+    directive is suppressed when it appears inside a false #ifdef/#ifndef block
+    so guards like #ifndef SUPPORTED / #error ... / #endif work as expected.
+153 Added #line directive. "#line n" resets the current line counter to n,
+    taking effect on the next source line read; #line n "filename" additionally
+    replaces the current filename used in error messages.
+154 Added nested #include support, up to MAXINCLUDE (4) levels deep. Previously
+    only a single include file could be open at one time. The preprocessor now
+    maintains a stack of file descriptors, line numbers, filenames. Exceeding
+    the nesting limit is a compile error.
+155 Added the four C89 predefined macros: __FILE__, __LINE__, __DATE__, and
+    __TIME__. __FILE__ expands to a string literal of the current source file,
+    or the include file when inside an #include. __LINE__ expands to the line
+    number as a decimal integer. __DATE__ and __TIME__ are captured from the
+    DOS real-time clock at startup and expand to string literals in the format
+    "Mmm DD YYYY" and "HH:MM:SS" respectively.
+    __STDC__ is deliberately not defined, as Small-C is not a fully conforming
+    ANSI C implementation.
+156 Extended the peephole optimizer with constant-shift folding rules. When the
+    shift count is a compile-time constant the three-instruction sequence
+    (MOV CX,AX / MOV AX,BX / SAL/SAR/SHR AX,CL, 9 bytes) can be shortened to
+    e.g. MOV AX,BX / MOV CL,n / SHL AX,CL, 6 bytes.
+    Additionally, when BX is dead after the shift (rules 045a/b/c), the MOVE21
+    staging register round-trip is also eliminated: the shift is performed
+    directly on AX, saving a further 4 bytes per site.
+    Four new p-codes for these forms: ASR1_2, ASRsn, ASLsn, LSRsn.
+157 Added a Boolean-boxing elimination pass to flushfunc(). Previously, the ||
+    and && operators created a 0 or 1 result in AX and then tested it. The new
+    tryBoxingElimination() scans the per-function p-code buffer for the fixed
+    five-slot tail that skim() emits at the end of every || or && expression,
+    followed immediately by a NE10f consumer. When found, the 0/1 creation is
+    eliminated entirely: the false path branches directly to the NE10f target,
+    and the now-dead label and load instructions are replaced with NOPs. Each
+    eliminated site saves 10-14 code bytes!
+    Added two new peephole rules for indirect stores through a pointer where
+    the value comes from a stack variable. The front-end emits
+    PUSH1+GETw1s+POP2+PUTwp1 for *ptr = auto_var; the new rules replace the
+    PUSH/POP stack round-trip with MOVE21 (MOV BX,AX), saving 2 bytes per
+    word or byte store site.
+    The ENABLE_OPTDEBUG rule-hit counters are now sized dynamically: the rule
+    count is determined at startup by walking seqdata[], and the counter array
+    is allocated to exactly that size. This removes the DISPOPT_HIGH constant
+    that previously had to be updated manually whenever rules were added!
+158 Reduced the size of STRMEM by two bytes; the STRMEM_BITFIELD flag byte was
+    redundant with STRMEM_BITWIDTH (non-zero for any bit-field member).
+    Fixed string literal subscripting. The constant() function now records
+    TYPE_CHR in the expression type fields when a string literal is matched,
+    so that expressions such as "hello"[0] are correctly typed as char* and
+    can be subscripted without a type error.

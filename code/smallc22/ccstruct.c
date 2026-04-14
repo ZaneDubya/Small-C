@@ -219,7 +219,6 @@ int doStruct(int kind) {
             structmemnext[STRMEM_IDENT]    = id;
             structmemnext[STRMEM_TYPE]     = type;
             putint(BPW, structmemnext + STRMEM_SIZE, 2);
-            structmemnext[STRMEM_BITFIELD] = 1;
             structmemnext[STRMEM_BITWIDTH] = bit_width;
             structmemnext[STRMEM_BITOFF]   = bit_off;
           }
