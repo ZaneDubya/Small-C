@@ -1,9 +1,8 @@
 /*
 ** ltoab(n, s, b) - Convert unsigned 32-bit long to string in base b.
 ** Supports bases 2, 8, 10, 16.
-** Returns pointer to s.
 */
-int ltoab(long n, char *s, int b) {
+void ltoab(long n, char *s, int b) {
   int lo, hi, rem;
   char *ptr;
   int *p;

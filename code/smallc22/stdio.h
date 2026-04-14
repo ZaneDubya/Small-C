@@ -70,7 +70,7 @@ extern int itox(int nbr, char str[], int sz);
 extern void left(char *str);
 extern int lexcmp(char *s, char *t);
 extern int ltoa(long n, char *s);
-extern int ltoab(long n, char *s, int b);
+extern void ltoab(long n, char *s, int b);
 extern int malloc(unsigned size);
 extern int otoi(char *octstr, int *nbr);
 extern void pad(char *dest, unsigned ch, unsigned n);
