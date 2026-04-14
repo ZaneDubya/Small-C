@@ -1,10 +1,12 @@
-// subscr.c -- Test subscript E1[E2] as lvalue for all E1 pointer forms
-//             and all element types (element-size scaling paths).
+// subscr.c -- Test subscript E1[E2] as lvalue: all base forms, all element
+//             types, compound ops, increment/decrement, and 2D arrays.
 //
 // Purpose:
 //   Verify that subscript expressions work as lvalues (assignable) when
 //   the base expression is not a simple named symbol, and that element-size
-//   scaling is correct for every supported element type.
+//   scaling is correct for every supported element type.  Also verifies
+//   correct lvalue behaviour for global storage, compound assignment,
+//   prefix/postfix increment, and multi-dimensional arrays.
 //
 // Functionality covered:
 //   - Named array subscript: arr[0], arr[n]  (regression baseline)
@@ -21,12 +23,30 @@
 //   - Cast to (int *) subscript (BPW scale on byte buffer)
 //   - Cast to (long *) subscript (BPD scale on byte buffer)
 //   - Struct array subscript (element scale = sizeof struct)
+//   - char array subscript lvalue: local, global, constant index, variable index
+//   - int array subscript lvalue: local, global, constant index, variable index
+//   - long array subscript lvalue: local, global (catches 32-bit store errors)
+//   - char pointer subscript lvalue (ptr[i] = ch form)
+//   - int pointer subscript lvalue
+//   - long pointer subscript lvalue
+//   - #define constant as subscript index (LAST, MID constants)
+//   - Expression as subscript index (i+1, i*2)
+//   - Compound assignment through subscript (+=, -=, *=)
+//   - Prefix ++ and -- through subscript
+//   - Postfix ++ and -- through subscript
+//   - 2D int array: arr[row][col] = val (row-major lvalue)
+//   - 2D long array: same, checks 32-bit element stores in 2D context
+//   - Global pointer subscript lvalue (pointer defined globally,
+//     assigned to a local array, then written via ptr[idx])
 
 #include "../../smallc22/stdio.h"
 
 int passed, failed;
 
-#define SZ 8
+#define SZ   8
+#define LAST 4
+#define MID  2
+#define ZERO 0
 
 void check(char *desc, int cond) {
     if (cond) {
@@ -39,6 +59,18 @@ void check(char *desc, int cond) {
         getchar();
     }
 }
+
+// ============================================================================
+// Global arrays and pointers
+// ============================================================================
+
+char  gc[5];
+int   gi[5];
+long  gl[5];
+
+char  *gcp;
+int   *gip;
+long  *glp;
 
 // ============================================================================
 // Phase 1: Named array -- regression baseline
@@ -540,10 +572,444 @@ void test_struct() {
 }
 
 // ============================================================================
+// Phase 17 (merged): char array lvalue -- local and global
+// ============================================================================
+
+void test_chrarr() {
+    char loc[5];
+    int  i;
+
+    printf("--- char array lvalue ---\n");
+
+    // local: variable index
+    i = 0;
+    while (i < 5) { loc[i] = 0; i++; }
+    loc[0] = 'A';
+    loc[1] = 'B';
+    loc[2] = 'C';
+    loc[3] = 'D';
+    loc[4] = 'E';
+    check("loc[0]='A'",   loc[0] == 'A');
+    check("loc[4]='E'",   loc[4] == 'E');
+
+    // local: #define constant index
+    loc[LAST] = 'Z';
+    check("loc[LAST]='Z'", loc[LAST] == 'Z');
+    loc[MID]  = 'M';
+    check("loc[MID]='M'",  loc[MID]  == 'M');
+    loc[ZERO] = 'X';
+    check("loc[ZERO]='X'", loc[ZERO] == 'X');
+
+    // local: expression index
+    i = 1;
+    loc[i + 1] = 'Q';
+    check("loc[i+1]='Q'", loc[2] == 'Q');
+
+    // global: same checks
+    gc[0] = 'a';
+    gc[4] = 'e';
+    check("gc[0]='a'",    gc[0] == 'a');
+    check("gc[4]='e'",    gc[4] == 'e');
+    gc[LAST] = 'z';
+    check("gc[LAST]='z'", gc[LAST] == 'z');
+    gc[MID]  = 'm';
+    check("gc[MID]='m'",  gc[MID]  == 'm');
+}
+
+// ============================================================================
+// Phase 18 (merged): int array lvalue -- local and global
+// ============================================================================
+
+void test_intarr() {
+    int  loc[5];
+    int  i;
+
+    printf("--- int array lvalue ---\n");
+
+    i = 0;
+    while (i < 5) { loc[i] = 0; i++; }
+
+    loc[0] = 10;
+    loc[1] = 20;
+    loc[2] = 30;
+    loc[3] = 40;
+    loc[4] = 50;
+    check("loc[0]=10",    loc[0] == 10);
+    check("loc[4]=50",    loc[4] == 50);
+
+    // #define constant index
+    loc[LAST] = 999;
+    check("loc[LAST]=999", loc[LAST] == 999);
+    loc[MID]  = 500;
+    check("loc[MID]=500",  loc[MID]  == 500);
+    loc[ZERO] = -1;
+    check("loc[ZERO]=-1",  loc[ZERO] == -1);
+
+    // expression index
+    i = 2;
+    loc[i * 2] = 88;
+    check("loc[i*2]=88", loc[4] == 88);
+
+    // global
+    gi[0] = 100;
+    gi[4] = 400;
+    check("gi[0]=100",   gi[0] == 100);
+    check("gi[4]=400",   gi[4] == 400);
+    gi[LAST] = 777;
+    check("gi[LAST]=777", gi[LAST] == 777);
+    gi[MID]  = 222;
+    check("gi[MID]=222",  gi[MID]  == 222);
+}
+
+// ============================================================================
+// Phase 19 (merged): long array lvalue -- local and global
+// Bug risk: 32-bit store may only write 16 bits when subscript is constant.
+// ============================================================================
+
+void test_longarr() {
+    long loc[5];
+    int  i;
+
+    printf("--- long array lvalue ---\n");
+
+    i = 0;
+    while (i < 5) { loc[i] = 0L; i++; }
+
+    loc[0] = 100000L;
+    loc[4] = 200000L;
+    check("loc[0]=100000", loc[0] == 100000L);
+    check("loc[4]=200000", loc[4] == 200000L);
+
+    // #define constant index -- catches 16-bit truncation of 32-bit value
+    loc[LAST] = 999999L;
+    check("loc[LAST]=999999", loc[LAST] == 999999L);
+    loc[MID]  = -32769L;
+    check("loc[MID]=-32769",  loc[MID]  == -32769L);
+    loc[ZERO] = 65536L;
+    check("loc[ZERO]=65536",  loc[ZERO] == 65536L);
+
+    // expression index
+    i = 1;
+    loc[i + 1] = 131072L;
+    check("loc[i+1]=131072", loc[2] == 131072L);
+
+    // global
+    gl[0] = 1000000L;
+    gl[4] = 2000000L;
+    check("gl[0]=1000000", gl[0] == 1000000L);
+    check("gl[4]=2000000", gl[4] == 2000000L);
+    gl[LAST] = 888888L;
+    check("gl[LAST]=888888", gl[LAST] == 888888L);
+    gl[MID]  = -65537L;
+    check("gl[MID]=-65537",  gl[MID]  == -65537L);
+}
+
+// ============================================================================
+// Phase 20 (merged): char pointer subscript lvalue
+// Bug risk: ptr[CONST] = val may error "lvalue cannot be assigned" when
+// ptr is a pointer (not array) and the index is a preprocessor constant.
+// ============================================================================
+
+void test_chrptr() {
+    char  buf[5];
+    char  *p;
+    int   i;
+
+    printf("--- char ptr subscript lvalue ---\n");
+
+    i = 0;
+    while (i < 5) { buf[i] = 0; i++; }
+    p = buf;
+
+    // variable index
+    p[0] = 'a';
+    p[3] = 'd';
+    check("p[0]='a'",    p[0] == 'a' && buf[0] == 'a');
+    check("p[3]='d'",    p[3] == 'd' && buf[3] == 'd');
+
+    // #define constant index (the bug case)
+    p[LAST] = 'z';
+    check("p[LAST]='z'", p[LAST] == 'z' && buf[LAST] == 'z');
+    p[MID]  = 'm';
+    check("p[MID]='m'",  p[MID]  == 'm' && buf[MID]  == 'm');
+    p[ZERO] = 'x';
+    check("p[ZERO]='x'", p[ZERO] == 'x' && buf[ZERO] == 'x');
+
+    // expression index
+    i = 1;
+    p[i + 2] = 'Q';
+    check("p[i+2]='Q'", buf[3] == 'Q');
+
+    // global pointer
+    gcp = buf;
+    gcp[0] = 'G';
+    check("gcp[0]='G'", buf[0] == 'G');
+    gcp[LAST] = 'L';
+    check("gcp[LAST]='L'", buf[LAST] == 'L');
+}
+
+// ============================================================================
+// Phase 21 (merged): int pointer subscript lvalue
+// ============================================================================
+
+void test_intptr() {
+    int  buf[5];
+    int  *p;
+    int  i;
+
+    printf("--- int ptr subscript lvalue ---\n");
+
+    i = 0;
+    while (i < 5) { buf[i] = 0; i++; }
+    p = buf;
+
+    p[0] = 11;
+    p[3] = 33;
+    check("p[0]=11",    p[0] == 11 && buf[0] == 11);
+    check("p[3]=33",    p[3] == 33 && buf[3] == 33);
+
+    p[LAST] = 55;
+    check("p[LAST]=55", p[LAST] == 55 && buf[LAST] == 55);
+    p[MID]  = 22;
+    check("p[MID]=22",  p[MID]  == 22 && buf[MID]  == 22);
+    p[ZERO] = -7;
+    check("p[ZERO]=-7", p[ZERO] == -7 && buf[ZERO] == -7);
+
+    i = 2;
+    p[i + 1] = 99;
+    check("p[i+1]=99", buf[3] == 99);
+
+    // global pointer to local buffer
+    gip = buf;
+    gip[0] = 101;
+    check("gip[0]=101", buf[0] == 101);
+    gip[LAST] = 505;
+    check("gip[LAST]=505", buf[LAST] == 505);
+}
+
+// ============================================================================
+// Phase 22 (merged): long pointer subscript lvalue
+// ============================================================================
+
+void test_lngptr() {
+    long buf[5];
+    long *p;
+    int  i;
+
+    printf("--- long ptr subscript lvalue ---\n");
+
+    i = 0;
+    while (i < 5) { buf[i] = 0L; i++; }
+    p = buf;
+
+    p[0] = 100000L;
+    p[3] = 300000L;
+    check("p[0]=100000", p[0] == 100000L && buf[0] == 100000L);
+    check("p[3]=300000", p[3] == 300000L && buf[3] == 300000L);
+
+    p[LAST] = 999999L;
+    check("p[LAST]=999999", p[LAST] == 999999L && buf[LAST] == 999999L);
+    p[MID]  = -65537L;
+    check("p[MID]=-65537",  p[MID]  == -65537L && buf[MID]  == -65537L);
+    p[ZERO] = 131072L;
+    check("p[ZERO]=131072", p[ZERO] == 131072L && buf[ZERO] == 131072L);
+
+    // global pointer
+    glp = buf;
+    glp[0] = 111111L;
+    check("glp[0]=111111", buf[0] == 111111L);
+    glp[LAST] = 444444L;
+    check("glp[LAST]=444444", buf[LAST] == 444444L);
+}
+
+// ============================================================================
+// Phase 23 (merged): Compound assignment through subscript (+=, -=, *=)
+// Bug risk: compound op may not treat subscript as lvalue for the store half.
+// ============================================================================
+
+void test_compnd() {
+    int  arr[5];
+    int  *p;
+    int  i;
+
+    printf("--- compound assign via subscript ---\n");
+
+    i = 0;
+    while (i < 5) { arr[i] = 10; i++; }
+    p = arr;
+
+    arr[0] += 5;
+    check("arr[0]+=5",  arr[0] == 15);
+    arr[1] -= 3;
+    check("arr[1]-=3",  arr[1] == 7);
+    arr[2] *= 2;
+    check("arr[2]*=2",  arr[2] == 20);
+
+    // constant index
+    arr[LAST] += 100;
+    check("arr[LAST]+=100", arr[LAST] == 110);
+    arr[MID]  -= 1;
+    check("arr[MID]-=1",    arr[MID]  == 19);  // arr[2] was 20 after *=2
+
+    // pointer form
+    p[0] += 1;
+    check("p[0]+=1",    arr[0] == 16);
+    p[LAST] += 1;
+    check("p[LAST]+=1", arr[LAST] == 111);
+    p[MID]  *= 3;
+    check("p[MID]*=3",  arr[MID] == 57);  // arr[2] was 19 after -=1
+}
+
+// ============================================================================
+// Phase 24 (merged): Prefix ++ and -- through subscript
+// ============================================================================
+
+void test_preinc() {
+    int  arr[5];
+    int  *p;
+
+    printf("--- prefix ++/-- via subscript ---\n");
+
+    arr[0] = 10; arr[1] = 20; arr[2] = 30; arr[3] = 40; arr[4] = 50;
+    p = arr;
+
+    ++arr[0];
+    check("++arr[0]",     arr[0] == 11);
+    --arr[1];
+    check("--arr[1]",     arr[1] == 19);
+    ++arr[LAST];
+    check("++arr[LAST]",  arr[LAST] == 51);
+    --arr[MID];
+    check("--arr[MID]",   arr[MID]  == 29);
+
+    ++p[0];
+    check("++p[0]",       arr[0] == 12);
+    --p[4];
+    check("--p[4]",       arr[4] == 50);
+    ++p[LAST];
+    check("++p[LAST]",    arr[LAST] == 51);
+    --p[MID];
+    check("--p[MID]",     arr[MID]  == 28);
+}
+
+// ============================================================================
+// Phase 25 (merged): Postfix ++ and -- through subscript
+// ============================================================================
+
+void test_postinc() {
+    int  arr[3];
+    int  *p;
+    int  v;
+
+    printf("--- postfix ++/-- via subscript ---\n");
+
+    arr[0] = 5; arr[1] = 10; arr[2] = 15;
+    p = arr;
+
+    // postfix returns old value
+    v = arr[0]++;
+    check("arr[0]++ ret",  v == 5);
+    check("arr[0]++ side", arr[0] == 6);
+
+    v = arr[1]--;
+    check("arr[1]-- ret",  v == 10);
+    check("arr[1]-- side", arr[1] == 9);
+
+    v = p[MID]++;
+    check("p[MID]++ ret",  v == 15);
+    check("p[MID]++ side", arr[MID] == 16);
+}
+
+// ============================================================================
+// Phase 26 (merged): 2D int array subscript lvalue
+// Bug risk: stride calculation wrong; arr[1][0] aliases arr[0][N-1].
+// ============================================================================
+
+void test_2dint() {
+    int  m[3][4];
+    int  r, c;
+
+    printf("--- 2D int array lvalue ---\n");
+
+    // zero-fill
+    r = 0;
+    while (r < 3) {
+        c = 0;
+        while (c < 4) { m[r][c] = 0; c++; }
+        r++;
+    }
+
+    // write each cell with a unique value
+    r = 0;
+    while (r < 3) {
+        c = 0;
+        while (c < 4) { m[r][c] = r * 10 + c; c++; }
+        r++;
+    }
+
+    check("m[0][0]=0",   m[0][0] == 0);
+    check("m[0][3]=3",   m[0][3] == 3);
+    check("m[1][0]=10",  m[1][0] == 10);
+    check("m[1][3]=13",  m[1][3] == 13);
+    check("m[2][0]=20",  m[2][0] == 20);
+    check("m[2][3]=23",  m[2][3] == 23);
+
+    // overwrite corner cells and verify no aliasing
+    m[0][3] = 99;
+    m[1][0] = 88;
+    check("m[0][3]=99",  m[0][3] == 99);
+    check("m[1][0]=88",  m[1][0] == 88);
+    m[0][3] = 3;
+    m[1][0] = 10;
+    check("m[0][3] rest", m[0][3] == 3);
+    check("m[1][0] rest", m[1][0] == 10);
+}
+
+// ============================================================================
+// Phase 27 (merged): 2D long array subscript lvalue
+// ============================================================================
+
+void test_2dlong() {
+    long m[2][3];
+    int  r, c;
+
+    printf("--- 2D long array lvalue ---\n");
+
+    r = 0;
+    while (r < 2) {
+        c = 0;
+        while (c < 3) { m[r][c] = 0L; c++; }
+        r++;
+    }
+
+    m[0][0] = 100000L;
+    m[0][1] = 200000L;
+    m[0][2] = 300000L;
+    m[1][0] = 400000L;
+    m[1][1] = 500000L;
+    m[1][2] = 600000L;
+
+    check("m[0][0]",  m[0][0] == 100000L);
+    check("m[0][2]",  m[0][2] == 300000L);
+    check("m[1][0]",  m[1][0] == 400000L);
+    check("m[1][2]",  m[1][2] == 600000L);
+
+    // overwrite, check no bleed between neighbouring longs
+    m[0][2] = -32769L;
+    m[1][0] = 65536L;
+    check("m[0][2] neg",    m[0][2] == -32769L);
+    check("m[1][0] 65536",  m[1][0] == 65536L);
+    check("m[0][1] intact", m[0][1] == 200000L);
+    check("m[1][1] intact", m[1][1] == 500000L);
+}
+
+// ============================================================================
 
 int main() {
     passed = 0;
     failed = 0;
+
+    printf("=== subscr.c: lvalue subscript tests ===\n");
 
     test_named();
     test_ptrvar();
@@ -561,9 +1027,21 @@ int main() {
     test_castp_int();
     test_castp_long();
     test_struct();
+    test_chrarr();
+    test_intarr();
+    test_longarr();
+    test_chrptr();
+    test_intptr();
+    test_lngptr();
+    test_compnd();
+    test_preinc();
+    test_postinc();
+    test_2dint();
+    test_2dlong();
 
-    printf("\n%d passed, %d failed\n", passed, failed);
+    printf("\n=== Results: %d passed, %d failed ===\n", passed, failed);
     if (failed) getchar();
     if (failed) return 1;
     return 0;
 }
+

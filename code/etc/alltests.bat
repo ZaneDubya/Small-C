@@ -9,6 +9,12 @@ ECHO ============================================================
 ECHO  Running all Small-C tests
 ECHO ============================================================
 
+CALL bitfield.bat
+IF ERRORLEVEL 1 GOTO fail
+
+CALL boolean.bat
+IF ERRORLEVEL 1 GOTO fail
+
 CALL enums.bat
 IF ERRORLEVEL 1 GOTO fail
 
@@ -48,7 +54,7 @@ IF ERRORLEVEL 1 GOTO fail
 CALL structs.bat
 IF ERRORLEVEL 1 GOTO fail
 
-CALL bitfield.bat
+CALL subscr.bat
 IF ERRORLEVEL 1 GOTO fail
 
 CALL typedef.bat
@@ -61,9 +67,6 @@ CALL unions.bat
 IF ERRORLEVEL 1 GOTO fail
 
 CALL voidptrs.bat
-IF ERRORLEVEL 1 GOTO fail
-
-CALL subscr.bat
 IF ERRORLEVEL 1 GOTO fail
 
 ECHO ============================================================
