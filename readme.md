@@ -36,7 +36,7 @@ Enhancements from Small-C Version 2.2 Revision 117:
 * Longer variable names (8 > 12 characters).
 * Reserved keyword checks.
 * Preprocessor: nested #include (up to 4 levels), #undef, #error, and #line.
-* Predefined macros: __FILE__, __LINE__, __DATE__, __TIME__.
+* Predefined macros: `__FILE__, __LINE__, __DATE__, __TIME__`.
 * Optimizer improvements: per-function second pass with short-branch substitution, frame pointer omission, epilogue consolidation, boolean-boxing elimination, and constant-shift folding, many new peephole optimization rules; output 8086 assembly is 23% smaller than Revision 117.
 
 ## Small-Assembler
