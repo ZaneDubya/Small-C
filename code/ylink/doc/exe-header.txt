@@ -1,7 +1,7 @@
 Offset Size	 Description
 	00   word  "MZ" - Link file .EXE signature (Mark Zbikowski?)
 	02   word  length of image mod 512
-	04   word  size of file in 512 byte pages
+	04   word  size of file in 512 byte pages (rounded up)
 	06   word  number of relocation items following header
 	08   word  size of header in 16 byte paragraphs, used to locate
              the beginning of the load module
@@ -26,9 +26,9 @@ Offset Size	 Description
 	AX:	contains number of characters in command tail, or 0
 	BX:CX	32 bit value indicating the load module memory size
 	DX	zero
-	SS:SP	set to stack segment if defined else,  SS = CS and
-		SP=FFFFh or top of memory.
-	DS	set to segment address of EXE header
-	ES	set to segment address of EXE header
+	SS:SP	set to stack segment, if defined,  else SS = CS and
+		SP = FFFFh (or top of memory).
+	DS	set to segment address of EXE prefix (= CODE - 16?)
+	ES	set to segment address of PSP (Program Segment Prefix)
 	CS:IP	far address of program entry point, (label on "END"
 		statement of program)
