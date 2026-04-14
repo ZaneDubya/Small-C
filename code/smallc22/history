@@ -380,7 +380,11 @@ Small-C Revision History
     POINT1s+MOVE21->LEA fold; separate prefix/postfix value save.
 150 Small-C can now subscript with constant expressions on lvalues.
     Maybe it could do this before and I broke it? But it works now.
-151 Added #undef directive. A macro may now be undefined after definition.
+
+ -- included in version 2.5
+
+151 Significant expansion of the Small C pre-processor.
+    Added #undef directive. A macro may now be undefined after definition.
     #undef writes a tombstone sentinel byte to the macro name table, marking
     the slot as available for reuse. findSymbol() skips tombstone slots during
     lookup, and chooses the first tombstone encountered as the preferred slot

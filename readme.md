@@ -13,20 +13,31 @@ website is [deturbulator.org](http://www.deturbulator.org/Jim.asp).
 YLink was written by Zane Wagner in 2017.
 
 ## Small-C Compiler
-Version 2.3
+Version 2.5
 Copyright 1982, 1983, 1985, 1988 J. E. Hendrix
 
-Enhancements from Small-C Version 2.2:
-* Reserved keyword checks.
-* C99 style comments (//).
+Enhancements from Small-C Version 2.2 Revision 117:
+* 32-bit long and unsigned long integer types.
+* C90 function prototypes: typed parameter lists, f(void), and variadic f(...).
+* cdecl (right-to-left) calling convention: first argument always at [BP+4], which may be compatible with standard C ABI.
+* Structs and unions, including nested declarations, pointer-to-struct, and bitfield members.
+* C90 enum support: named integer constants with optional explicit values.
+* typedef declarations.
+* Arbitrary pointer depth: int **, char ***, etc.
+* Multi-dimensional arrays of ints, chars, longs, and structs, with initialization.
+* Pointer arrays (char *arr[]) with initialization.
+* Void pointers (void *): pointer arithmetic and dereferencing behave as char *.
+* Static local variables: function-scoped names with permanent (data-segment) lifetime.
+* Local variable initialization, including structs and arrays.
+* C90 type qualifiers: const (compiler-enforced), signed, short.
+* Adjacent string literal concatenation.
+* C99 style // comments.
 * C90 argument list types.
-* C90 type qualifiers: const, signed, short, volatile, register, static.
-* Structs.
-* Pointers: Void pointers, Pointer arrays.
-* Local variable initialization.
-* Longer variable names.
-* Multi-dimensional arrays (and initialization).
-* New peephole optimizations and a second pass optimizer.
+* Longer variable names (8 > 12 characters).
+* Reserved keyword checks.
+* Preprocessor: nested #include (up to 4 levels), #undef, #error, and #line.
+* Predefined macros: __FILE__, __LINE__, __DATE__, __TIME__.
+* Optimizer improvements: per-function second pass with short-branch substitution, frame pointer omission, epilogue consolidation, boolean-boxing elimination, and constant-shift folding, many new peephole optimization rules; output 8086 assembly is 23% smaller than Revision 117.
 
 ## Small-Assembler
 Version 1.2, Revision Level 14
