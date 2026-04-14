@@ -12,7 +12,7 @@ Small Assembler (smallmac, by James Hendrix) barely fits within these limits.
 
 The command line for YLINK is as follows:
 
-  ylink objs [-d=debug.txt] [-e=output.exe/-l=output.lib]
+  ylink objs [-d=debug[.ext]] [-e=output[.ext]] [-l=libin[.ext]]
 
 YLINK expects that the first parameter will be a list of object and library
 files, separated by the comma ',' character without any intervening spaces.
@@ -25,19 +25,20 @@ The switches d, e, and l may be optionally used as follows:
          used, no debug information will be created.
   -e=xxx will output the final exe or lib file to xxx.
   -l=xxx will take a list of files from file xxx, and output a library file.
-         -e and -l are mutually exclusive. If neither option is used, ylink
-         will output an executable file named out.exe.
+
+The options -e and -l are mutually exclusive. If neither option is used, ylink
+will output an executable file named out.exe.
 
 Examples of invoking YLINK follow:
 
-  YLINK a.obj,b.obj                         links a and b, outputs out.exe
+  YLINK a.obj,b.obj                         links a and b, outputs out.exe.
   
   YLINK a.obj,b.obj,c.lib                   links a and b with library c.lib,
                                             outputs out.exe
                                             
   YLINK a.obj,b.obj,clib -e=a.exe           links a and b with library c.lib,
-                                            outputs a.exe
+                                            outputs a.exe.
                                             
   YLINK -l=lib.txt -e=clib.lib              concatenates all the object files
                                             listed in lib.txt, outputs library
-                                            file clib.lib
+                                            file clib.lib.
