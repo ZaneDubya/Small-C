@@ -9,7 +9,7 @@ SET LIB=..\..\smalllib
 
 REM STRUCTS
 ECHO === Compiling structs test ===
-%BIN%\cc structs -a -p -w
+%BIN%\cc structs -a -p
 if errorlevel 1 goto exit
 %BIN%\asm structs /p
 if errorlevel 1 goto exit

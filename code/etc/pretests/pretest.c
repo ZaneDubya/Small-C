@@ -23,7 +23,7 @@
  *  20.  Nested #include 4 levels deep
  */
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 #include "pretest.h"
 
 int passed, failed;

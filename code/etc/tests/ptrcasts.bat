@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM PTRCASTS
 ECHO === Compiling ptrcasts ===
-%BIN%\cc ptrcasts -a -p -w
+%BIN%\cc ptrcasts -a -p
 if errorlevel 1 goto exit
 %BIN%\asm ptrcasts /p
 if errorlevel 1 goto exit

@@ -20,7 +20,7 @@
 //   - Enum in switch/case statements
 //   - Enum as function parameter and return type
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 

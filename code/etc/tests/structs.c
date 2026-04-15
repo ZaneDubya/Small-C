@@ -22,7 +22,7 @@
 //   - Struct with int array member (struct withArr)
 //   - Struct with long member (struct withLong)
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 

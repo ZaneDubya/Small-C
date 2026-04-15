@@ -22,7 +22,7 @@
 
 // All variable and function names are at most 12 characters (Small-C limit).
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 

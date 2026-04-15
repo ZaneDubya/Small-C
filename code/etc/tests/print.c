@@ -9,7 +9,7 @@
 ** Width/prec:        decimal literal, * (runtime argument)
 */
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 char buf[128];

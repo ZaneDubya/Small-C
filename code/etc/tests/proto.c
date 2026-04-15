@@ -32,7 +32,7 @@
 //   asm proto /p
 //   ylink proto.obj,<clib.lib> -e=proto.exe
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 // ============================================================================
 // Forward prototypes (functions defined later in this file)

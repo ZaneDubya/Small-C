@@ -22,7 +22,7 @@
 //   - Struct argument (hidden-pointer transformation: IDENT_VARIABLE -> IDENT_POINTER)
 //   - Struct argument member access via the hidden pointer
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 

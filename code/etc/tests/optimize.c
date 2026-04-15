@@ -19,7 +19,7 @@
 //   - SETSFLG flag propagation: each optimized op emits NE10fp/EQ10fp
 //     instead of NE10f/EQ10f, removing the intervening OR AX,AX
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 

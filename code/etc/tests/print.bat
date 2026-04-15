@@ -5,7 +5,7 @@ SET BIN=..\..\bin
 SET LIB=..\..\smalllib
 
 ECHO === Compiling print ===
-%BIN%\cc print -a -p -w
+%BIN%\cc print -a -p
 if errorlevel 1 goto exit
 
 ECHO === Assembling print ===

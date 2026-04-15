@@ -16,7 +16,7 @@
 //   - void * cast compatibility with other typed casts
 //   - All identifiers are at most 12 characters (Small-C identifier limit)
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 

@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM SUBSCR
 ECHO === Compiling subscr ===
-%BIN%\cc subscr -a -p -w
+%BIN%\cc subscr -a -p
 if errorlevel 1 goto exit
 %BIN%\asm subscr /p
 if errorlevel 1 goto exit

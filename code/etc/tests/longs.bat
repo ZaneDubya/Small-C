@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM LONGTEST
 ECHO === Compiling longs ===
-%BIN%\cc longs -a -p -w
+%BIN%\cc longs -a -p
 if errorlevel 1 goto exit
 %BIN%\asm longs /p
 if errorlevel 1 goto exit

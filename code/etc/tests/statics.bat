@@ -9,7 +9,7 @@ SET LIB=..\..\smalllib
 
 REM statics
 ECHO === Compiling statics ===
-%BIN%\cc statics -a -p -w
+%BIN%\cc statics -a -p
 if errorlevel 1 goto exit
 %BIN%\asm statics /p
 if errorlevel 1 goto exit

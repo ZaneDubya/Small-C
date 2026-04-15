@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM TYPEDEFTEST
 ECHO === Compiling typedef ===
-%BIN%\cc typedef -a -p -w
+%BIN%\cc typedef -a -p
 if errorlevel 1 goto exit
 %BIN%\asm typedef /p
 if errorlevel 1 goto exit

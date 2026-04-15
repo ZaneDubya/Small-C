@@ -17,7 +17,7 @@
 // Verifies that >> on unsigned types emits SHR (logical, zero-fill)
 // and >> on signed types emits SAR (arithmetic, sign-fill).
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 

@@ -20,7 +20,7 @@
 //   - Typedef interaction with arrays (array of typedef'd type)
 //   - Typedef used in function parameter and return type positions
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 

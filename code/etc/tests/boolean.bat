@@ -7,7 +7,7 @@ SET BIN=..\..\bin
 SET LIB=..\..\smalllib
 
 ECHO === Compiling boolean ===
-%BIN%\cc boolean -a -p -w
+%BIN%\cc boolean -a -p
 if errorlevel 1 goto exit
 %BIN%\asm boolean /p
 if errorlevel 1 goto exit

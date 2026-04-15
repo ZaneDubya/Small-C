@@ -26,7 +26,7 @@
 //   - char-base bit-field (stored in 16-bit unit per spec)
 //   - Full-width bit-field (16 bits, occupies entire allocation unit)
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 

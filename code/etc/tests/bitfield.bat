@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM bitfield
 ECHO === Compiling bitfield test ===
-%BIN%\cc bitfield -a -p -w
+%BIN%\cc bitfield -a -p
 if errorlevel 1 goto exit
 %BIN%\asm bitfield /p
 if errorlevel 1 goto exit

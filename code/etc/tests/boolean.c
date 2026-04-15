@@ -19,7 +19,7 @@
 //   - r = a || b               value context: NO transformation (not NE10f consumer)
 //   - r = a && b               value context: NO transformation
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 

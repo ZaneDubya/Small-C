@@ -20,7 +20,7 @@
 //   - Pointer-to-static variable (address stability across calls)
 //   - Multiple static locals in the same function
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 

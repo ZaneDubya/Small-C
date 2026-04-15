@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM knr
 ECHO === Compiling knr ===
-%BIN%\cc knr -a -p -w
+%BIN%\cc knr -a -p
 if errorlevel 1 goto exit
 %BIN%\asm knr /p
 if errorlevel 1 goto exit

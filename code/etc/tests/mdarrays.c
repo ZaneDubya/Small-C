@@ -21,7 +21,7 @@
 //   - Local 2D long array (nested brace init) — regression for BPD store bug
 //   - Local 2D long array (flat init)           — regression for BPD store bug
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 

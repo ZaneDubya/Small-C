@@ -20,7 +20,7 @@
 //   - Union as function parameter (passed by pointer)
 //   - Union-returning function
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 

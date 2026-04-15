@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM types
 ECHO === Compiling types ===
-%BIN%\cc types -a -p -w
+%BIN%\cc types -a -p
 if errorlevel 1 goto exit
 %BIN%\asm types /p
 if errorlevel 1 goto exit

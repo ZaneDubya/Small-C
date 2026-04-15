@@ -1,7 +1,7 @@
 /******************************************************************************
 * ylink - a small dos linker (c) 2017, 2026 Zane Wagner
 ******************************************************************************/
-#include "stdio.h"
+#include <stdio.h>
 #include "notice.h"
 #include "link.h"
 
@@ -79,6 +79,91 @@ char *extBuffer; // In Pass2, list of all unresolved extdefs;
 int extCount, extNext; // In Pass4, list of extdefs in this module.
 #define NOT_INCLUDED -2 // this extdef is defined but not included
 #define NOT_DEFINED -1 // this extdef is not defined
+
+// forward declarations for this file:
+int _read(int fd);
+void _write(int ch, int fd);
+void Add1632(uint a, uint b[]);
+void AddModule(uint fileIndex, uint fd);
+int AddName(char *name, char *names, uint *next, uint max);
+int AlignSegments(int amount);
+void AllocAll();
+int AllocMem(int nItems, int itemSize);
+int CalcChecksum();
+void ClearPara(uint fd);
+void clearsilent(uint length, uint fd);
+void DeAllocAll();
+void fatal(char *str);
+void fatalf(char *format, char *arg);
+void fatalf2(char *format, char *arg0, char *arg1);
+void fatalfl(char *msg, long arg);
+int FindPubDef(char *name, int retAllDefined);
+void forward(uint fd, uint offset);
+int GetName(int index, char *names, uint max);
+void Initialize();
+int IsLibrary();
+int MatchName(char *name, char *names, uint max);
+void offsetfd(uint fd, uint base[], uint offset[]);
+void P1_DoRecord(uint fileIndex, byte recType, uint length, uint fd);
+void P1_LIBEND(uint length, uint fd);
+int P1_LIBHDR(uint length, uint fd);
+void P1_LNAMES(uint length, uint fd);
+void P1_MODEND(uint length, uint fd);
+void P1_PUBDEF(uint length, uint fd);
+void P1_RdFile(uint fileIndex, uint fd);
+void P1_SEGDEF(uint length, uint fd, uint pass1);
+void P1_THEADR(uint fileIndex, uint length, uint fd);
+void P2_EXTDEF(uint length, uint fd);
+void P2_DoMod(uint fd);
+void P2_Resolve();
+void P2L_ADD(uint fdout, uint fdmod);
+void P2L_LIBEND(uint fd);
+void P2L_LIBHDR(uint fd);
+void P4_DoFixupp(uint fd, uint what, uint whatOff, uint whatRelative, uint *where, 
+    uint whereOff);
+void P4_DoMod(uint fd, uint outfd, uint *codeBase, uint *dataBase);
+void P4_EXTDEF(uint length, uint fd);
+void P4_FixCheckMatch(byte tFrame, byte tTarget);
+void P4_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt, 
+    uint fixOffset, uint *codeBase, uint *dataBase, byte segType, uint segOffset);
+void P4_FixMix(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte frmSeg, 
+    byte frmExt, uint fixOffset, uint *codeBase, uint *dataBase, byte segType, 
+    uint segOffset);
+void P4_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg, 
+    uint fixOffset, uint *codeBase, uint *dataBase, byte segType, uint segOffset);
+void P4_FIXUPP(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase, 
+    byte segType, uint segOffset);
+void P4_LEDATA(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase, 
+    byte *segType, uint *segOffset);
+void P4_LIDATA(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase, 
+    byte *segType, uint *segOffset);
+void P4_LIINNER(uint fd, uint outfd, uint repeat, uint *length);
+void P4_SetBase(byte segType, uint *codeBase, uint *dataBase, uint *segBase);
+void Pass1();
+void Pass2();
+void Pass2Lib();
+void Pass3();
+void Pass4();
+int rd_fix_locat(uint length, uint fd, uint *offset, byte *locat, byte *lRefType);
+int rd_fix_target(uint length, uint fd, uint *offset, byte *frmType, byte *tgtType,
+    byte *frame, byte *target);
+void RdArgDebug(char *str);
+void RdArgExe(char *str);
+void RdArgLibrary(char *str);
+void RdArgObj(char *start, char *end);
+void RdArgs(int argc, int *argv);
+uint read_u16(uint fd);
+int read_u8(uint fd);
+int readstr(char *str, uint size, uint fd);
+int readstrpre(char *str, uint fd);
+void ResetSegments();
+void safefclose(uint fd);
+int safefopen(char *path, char *opts);
+void WriteExeHeader(uint checksum);
+void write_f16(uint fd, uint value);
+void write_f8(uint fd, char value);
+void write_x16(uint fd, uint value);
+void write_x8(uint fd, byte value);
 
 int main(int argc, int *argv) {
   int i;

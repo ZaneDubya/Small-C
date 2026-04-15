@@ -19,7 +19,7 @@
 //   - Local long variables and local long arrays
 //   - Long constants and initializers (values exceeding 16 bits)
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 
@@ -900,7 +900,7 @@ void test9_unsign() {
 
     // int to unsigned long: signed source is sign-extended
     i = -1;
-    ul = (unsigned long)i;
+    ul = (unsigned long)(long)i;
     p = &ul;
     check("(ulong)-1 lo", *p == -1);
     check("(ulong)-1 hi", *(p+1) == -1);
@@ -1108,7 +1108,7 @@ void test9_char() {
 
     // char to unsigned long
     c = -1;
-    l = (unsigned long)c;
+    l = (unsigned long)(long)c;
     p = &l;
     check("(ulong)c-1 lo", *p == -1);
     check("(ulong)c-1 hi", *(p+1) == -1);
@@ -1130,7 +1130,7 @@ void test9_syntax() {
 
     // (unsigned long int) syntax
     i = 50;
-    l = (unsigned long int)i;
+    l = (unsigned long int)(long)i;
     p = &l;
     check("(ulong int)50 lo", *p == 50);
     check("(ulong int)50 hi", *(p+1) == 0);
@@ -1519,7 +1519,7 @@ unsigned long widen_uint(int arr[], int idx) {
 
 // Helper: widen directly from int (exposes sign-extension if value >= 0x8000)
 unsigned long widen_int(int arr[], int idx) {
-    return (unsigned long)arr[idx];
+    return (unsigned long)(long)arr[idx];
 }
 
 void test12_widen() {

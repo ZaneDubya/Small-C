@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM enums
 ECHO === Compiling enums ===
-%BIN%\cc enums -a -p -w
+%BIN%\cc enums -a -p
 if errorlevel 1 goto exit
 %BIN%\asm enums /p
 if errorlevel 1 goto exit

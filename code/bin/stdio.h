@@ -29,6 +29,7 @@ extern int calloc(unsigned n, unsigned size);
 extern void clearerr(int fd);
 extern int cseek(int fd, int offset, int base);
 extern int ctell(int fd);
+extern int ctellc(int fd);
 extern int dtoi(char *decstr, int *nbr);
 extern void exit(int ec);
 extern int fclose(int fd);

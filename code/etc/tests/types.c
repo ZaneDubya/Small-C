@@ -21,7 +21,7 @@
 //   - Signed arithmetic with negative values and overflow behavior
 
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 

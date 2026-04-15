@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM LOCALS
 ECHO === Compiling locals test ===
-%BIN%\cc locals -a -p -w
+%BIN%\cc locals -a -p
 if errorlevel 1 goto exit
 %BIN%\asm locals /p
 if errorlevel 1 goto exit

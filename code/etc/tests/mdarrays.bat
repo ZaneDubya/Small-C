@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM MDARRAYS
 ECHO === Compiling mdarrays test ===
-%BIN%\cc mdarrays -a -p -w
+%BIN%\cc mdarrays -a -p
 if errorlevel 1 goto exit
 %BIN%\asm mdarrays /p
 if errorlevel 1 goto exit

@@ -39,7 +39,7 @@
 //   - Global pointer subscript lvalue (pointer defined globally,
 //     assigned to a local array, then written via ptr[idx])
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 int passed, failed;
 

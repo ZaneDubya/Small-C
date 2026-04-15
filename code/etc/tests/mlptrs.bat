@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM MLPTRS
 ECHO === Compiling mlptrs ===
-%BIN%\cc mlptrs -a -p -w
+%BIN%\cc mlptrs -a -p
 if errorlevel 1 goto exit
 %BIN%\asm mlptrs /p
 if errorlevel 1 goto exit

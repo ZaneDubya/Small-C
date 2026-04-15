@@ -10,7 +10,7 @@
  * Nothing in this file is ever assembled, linked, or run.
  */
 
-#include "../../smallc22/stdio.h"
+#include <stdio.h>
 
 /* This #error must fire -- ALWAYS_DEFINED is defined right above it. */
 #define ALWAYS_DEFINED 1

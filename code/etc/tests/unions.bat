@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM UNIONS
 ECHO === Compiling unions test ===
-%BIN%\cc unions -a -p -w
+%BIN%\cc unions -a -p
 if errorlevel 1 goto exit
 %BIN%\asm unions /p
 if errorlevel 1 goto exit

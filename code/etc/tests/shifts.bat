@@ -8,7 +8,7 @@ SET LIB=..\..\smalllib
 
 REM SHIFTS
 ECHO === Compiling shifts ===
-%BIN%\cc shifts -a -p -w
+%BIN%\cc shifts -a -p
 if errorlevel 1 goto exit
 %BIN%\asm shifts /p
 if errorlevel 1 goto exit
