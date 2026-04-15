@@ -683,13 +683,17 @@ int parseArrayDims(int dims[]) {
 
 // Parse a global variable declaration
 void parseGlbDecl(int type, int class, int typeSubPtr) {
-    int id, dim, ptrDepth;
+    int id, dim, ptrDepth, hasFnPtrParen, depth;
     int dims[MAX_DIMS], ndim;
     while (1) {
         if (endst()) {
             return;  // do line
         }
         ptrDepth = 0;
+        // Detect function-pointer declarator: type (*name)(<params>).
+        // The leading '(' must be consumed before the '*' check so that
+        // void (*fn)() is not confused with a plain void variable.
+        hasFnPtrParen = isMatch("(") ? 1 : 0;
         if (typeIsPtr || isMatch("*")) {
             typeIsPtr = 0;
             id = IDENT_POINTER; 
@@ -712,21 +716,41 @@ void parseGlbDecl(int type, int class, int typeSubPtr) {
             error("reserved keyword used as name");
         if (findglb(ssname)) 
             multidef(ssname);
-        if (id == IDENT_POINTER && isMatch("[")) {
-            id = IDENT_PTR_ARRAY;
-            dims[0] = parseArraySz();
-            ndim = 1;
-            dim = dims[0];
-        }
-        if (id == IDENT_VARIABLE) {
-            if (isMatch("(")) { 
-                id = IDENT_FUNCTION; 
-                require(")"); 
+        if (hasFnPtrParen) {
+            // Consume the closing ')' of (*name) and the parameter list.
+            // Parameter types are accepted but discarded: all function pointer
+            // variables are treated as plain pointers in Small-C.
+            isMatch(")");
+            if (id == IDENT_POINTER && isMatch("(")) {
+                if (isMatch(")") == 0) {
+                    depth = 1;
+                    while (depth > 0) {
+                        if (isMatch("("))      depth++;
+                        else if (isMatch(")")) depth--;
+                        else if (ch == 0)      break;
+                        else                   gch();
+                    }
+                }
             }
-            else if (isMatch("[")) { 
-                id = IDENT_ARRAY;
-                ndim = parseArrayDims(dims);
+            // Fall through: id == IDENT_POINTER, continue to init/addSymbol.
+        }
+        else {
+            if (id == IDENT_POINTER && isMatch("[")) {
+                id = IDENT_PTR_ARRAY;
+                dims[0] = parseArraySz();
+                ndim = 1;
                 dim = dims[0];
+            }
+            if (id == IDENT_VARIABLE) {
+                if (isMatch("(")) { 
+                    id = IDENT_FUNCTION; 
+                    require(")"); 
+                }
+                else if (isMatch("[")) { 
+                    id = IDENT_ARRAY;
+                    ndim = parseArrayDims(dims);
+                    dim = dims[0];
+                }
             }
         }
         if (class == EXTERNAL && id != IDENT_FUNCTION && id != IDENT_PTR_FUNCTION)
@@ -983,7 +1007,7 @@ void initUnionBody(int typeSubPtr) {
 // Emits the DATA label, parses the optional "= { ... }" initializer by
 // calling body(typeSubPtr) for the type-specific inner logic, then flushes
 // the literal pool and zero-fills any remaining bytes.
-void initAggregate(int typeSubPtr, int class, int (*body)()) {
+void initAggregate(int typeSubPtr, int class, int (*body)(int)) {
     int totalSize;
     litptr = 0;
     totalSize = getStructSize(typeSubPtr);
@@ -1316,10 +1340,11 @@ void doArgsTyped(int type, int typeSubPtr) {
     // after each comma-triggered dotype() call in the loop below.
     argConst = typeIsConst;
     // Handle f(void) -- explicit zero-parameter prototype or definition.
-    // But only when 'void' is NOT followed by '*': void* is a valid param type.
+    // But only when 'void' is NOT followed by '*' or '(': void* is a valid
+    // param type, and void (*fn)(...) is a function-pointer parameter.
     if (type == TYPE_VOID) {
         blanks();
-        if (ch != '*') {
+        if (ch != '*' && ch != '(') {
             if (isMatch(")") == 0)
                 error("void must be only parameter");
             argstk = 0;
@@ -1328,7 +1353,7 @@ void doArgsTyped(int type, int typeSubPtr) {
             protoVoidList = 1;
             return;
         }
-        // Fall through: 'void *' -- pointer-to-void parameter.
+        // Fall through: 'void *' or 'void (*name)(...)' parameter.
     }
     // Walk the parameter list. Register each param in the local symbol table
     // using offset argstk + 2*BPW, yielding sequential cdecl BP-relative
@@ -1603,28 +1628,30 @@ int parseLocDecl(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
         nameIsValid = 0;
     }
 
-    // Function-pointer declarator: (*fnName)().
-    // The only currently supported form is an empty parameter list: (*name)().
-    // TODO: typed parameter lists in function-pointer declarations, e.g.
-    //       int (*cmp)(int a, int b), are not yet implemented.
+    // Function-pointer declarator: (*fnName)(<params>).
+    // The parameter list may be empty or typed (C90 prototype style).
+    // Small-C treats all function pointer variables as plain pointers;
+    // the parameter type annotations are consumed and discarded.
     // *id is already IDENT_POINTER (set above when '*' was consumed); the
     // symbol is registered as a plain pointer variable.
     if (hasFnPtrParen) {
         isMatch(")");           // consume the closing ')' of (*fnName)
         if (*id == IDENT_POINTER) {
             if (isMatch("(")) {
-                // require an immediately following ')': no parameter tokens allowed.
-                // A non-empty list means typed parameters which are not yet supported;
-                // skip to the closing ')' to avoid cascading parse errors.
+                // Consume the parameter list, tracking nested parentheses
+                // to handle e.g. void (*fn)(int (*)(int)) correctly.
                 if (isMatch(")") == 0) {
-                    error("typed parameters in function pointer declarations not yet supported");
-                    while (ch && ch != ')')
-                        gch();
-                    isMatch(")");   // consume the closing ')'
-                    return 0;
+                    int depth;
+                    depth = 1;
+                    while (depth > 0) {
+                        if (isMatch("("))      depth++;
+                        else if (isMatch(")")) depth--;
+                        else if (ch == 0)      break;
+                        else                   gch();
+                    }
                 }
             }
-            // (*fnName)() with empty parens — accepted; continue as plain pointer.
+            // (*fnName)(...) accepted; treated as a plain pointer variable.
         }
         // else: int (x) — parenthesized plain declarator name, valid C90;
         // paren was already consumed above, continue normally.

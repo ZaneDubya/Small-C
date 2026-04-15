@@ -51,10 +51,12 @@ int
                                     // as sentinel; a char round-trip zero-extends
                                     // 0xFF to 0x00FF != EOF, breaking the test.
 
+int
+    input2 = EOF;       // include-file descriptor; EOF (-1) means "none open".
+                        // Must be int: char zero-extends 0xFF to 0x00FF != EOF,
+                        // breaking the "if (input2 != EOF)" sentinel test.
+
 char
-    input2 = EOF,       // include-file descriptor; EOF (-1) means "none open".
-                        // Valid DOS fd values are small positive integers that
-                        // fit in a signed char, so -1 is an unambiguous sentinel.
     *macn,              // macro name buffer  (MACNSIZE bytes, heap-alloc'd)
     *macq,              // macro string buffer (MACQSIZE bytes, heap-alloc'd)
     *pline,             // macro-expanded line buffer (LINESIZE bytes)

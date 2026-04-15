@@ -439,3 +439,6 @@ Small-C Revision History
     TYPE_CHR in the expression type fields when a string literal is matched,
     so that expressions such as "hello"[0] are correctly typed as char* and
     can be subscripted without a type error.
+159 Function-pointer declarators now accept typed C90 prototype parameter
+    lists and void as the return type, but they are just parsed and discarded;
+    they are decarators only. e.g. (*name)(T1, T2) is parsed as (*name)().

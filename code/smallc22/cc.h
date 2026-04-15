@@ -2,8 +2,8 @@
 
 // #define ENABLE_DIAGNOSTICS      // verbose compiler diagnostics
 // #define ENABLE_OPTDEBUG         // verbose optimizer diagnostics
-// #define ENABLE_WARNINGS         // enable optional compiler warnings
-#ifdef ENABLE_WARNINGS
+#define ENABLE_WARNINGS         // enable optional compiler warnings
+#ifdef ENABLE_WARNINGS          // approx 1000b of extra code for all warnings
 #define WARN_IMPLICIT           // warn about implicit int / undeclared fns
 #define WARN_ARGCOUNT           // warn about wrong number of args in fn calls
 #endif
@@ -181,18 +181,73 @@
 
 // literal pool
 #define LITABSZ 4200
-
 #define LITMAX  (LITABSZ-1)
 
 // multi-dimensional array metadata buffer
 #define DIMDATSZ  500  // dimdata buffer size
 #define MAX_DIMS    8  // max dimensions per array
+
+// paramTypes[] — function parameter-type record buffer
+// A flat byte array (size FNPARAMTS_SZ) shared by all functions in the
+// translation unit.  Index 0 is reserved as the "not recorded" sentinel;
+// all valid entries start at index >= 1.
+// Each function's parameter signature occupies a contiguous byte block.
+// The starting index is stored in the function symbol's FNPARAMPTR field.
+// storeParamTypes() (cc2.c) writes entries; recordParamTypes() (cc1.c)
+// collects the types from the local symbol table and calls storeParamTypes().
+// checkFnArgCountAndTypes() (cc3.c) reads entries at call sites.
+// Entry layout (1 + 2*nfixed bytes):
+//   [idx + 0]          nparams_byte
+//                        bit 7 : 1 if function is variadic (has ... parameter)
+//                        bits 6–0 : number of fixed parameters (max 127)
+//   [idx + 1 + i*2]    typebuf[i]   — TYPE_xxx constant for parameter i
+//   [idx + 2 + i*2]    depthbuf[i]  — PTRDEPTH for parameter i
+//                                      0 = not a pointer
+//                                      1 = T *   (single indirection)
+//                                      2 = T **  (double indirection), etc.
+// Parameters are stored in declaration order (left to right).
+// Struct/union parameters are stored as TYPE_STRUCT with depth 1 (hidden
+// pointer convention: caller passes an address, callee receives a pointer).
+// Limitations:
+//   - Function-pointer parameters (e.g. int (*fn)(int)) are stored with
+//     depth 1 and the base return type, indistinguishable from a plain
+//     pointer.  Their own parameter signatures are NOT nested here.
+//   - Theoretical 127 fixed parameters per function (7-bit field).
+//   - Maximum 32 parameters are collected by recordParamTypes() (local
+//     typebuf/depthbuf arrays are char[32]).
 #define FNPARAMTS_SZ 2048 // size of paramTypes[] function parameter-type buffer
 
-// argument buffer for two-pass right-to-left argument pushing
-// First pass collects each arg's p-codes here; second pass emits them reversed.
-// argbufcur is saved/restored per callfunc nesting level, so this only needs
-// to hold the peak concurrent usage across all active nesting levels at once.
+// argbuf[] — two-pass left-to-right / right-to-left argument buffer
+//
+// A flat int array (size ARGBUF_SIZE) used by callfunc() (cc3.c) to
+// implement cdecl right-to-left push order while evaluating arguments
+// left-to-right (as required by C's evaluation model).
+//
+// Declared as: int *argbuf  (heap-allocated in main(), cc1.c)
+// Cursor:      int  argbufcur  (next free slot index; 0 at program start)
+//
+// Two-pass scheme:
+//   FIRST PASS  — each argument expression is evaluated left-to-right
+//                 inside the staging buffer.  The resulting p-code slice
+//                 is copied into argbuf[argbufcur .. argbufcur+len-1] and
+//                 argbufcur is advanced by len.  Per-argument metadata is
+//                 saved in three parallel local arrays in callfunc():
+//                   argLens[i]   — p-code slot count for argument i
+//                   argSizes[i]  — BPW (2) or BPD (4) for argument i
+//                   argDepths[i] — IS_PTRDEPTH of argument i (for type check)
+//
+//   SECOND PASS — argbuf is replayed in reverse: argument N-1 first, then
+//                 N-2, ..., then 0.  Each chunk is copied back into the
+//                 staging buffer followed by PUSH1 (BPW arg) or PUSHd1
+//                 (BPD arg).  This produces the cdecl right-to-left stack
+//                 layout so the first argument lands at [BP+4].
+//
+// Nesting (calls-as-arguments):
+//   argbufBase = argbufcur is saved on entry to every callfunc() call.
+//   Nested calls write above the parent's data (argbufcur keeps growing).
+//   On exit, argbufcur is restored to argbufBase, freeing the region.
+//   Peak concurrent usage = sum of p-code counts for all arguments of
+//   all simultaneously active (nested) calls, which ARGBUF_SIZE must cover.
 #define MAX_CALL_ARGS  12   // max arguments to any one function call
 #define ARGBUF_SIZE   400   // int slots (peak concurrent p-codes in flight)
 
@@ -606,6 +661,7 @@ void addwhile(int ptr[]);
 int alpha(char c);
 int amatch(char *lit, int len);
 int an(char c);
+int astreq(char str1[], char str2[], int len);
 void blanks();
 void bump(int n);
 int callfunc(char *ptr);

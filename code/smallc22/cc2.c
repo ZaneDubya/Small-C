@@ -49,7 +49,6 @@ extern int warncount;
 extern int glbcount;
 #endif
 // forward declarations for this file:
-int astreq(char str1[], char str2[], int len);
 void errout(char msg[], int fp, char *path, int ln);
 int hash(char *sname);
 
@@ -501,8 +500,7 @@ void errout(char msg[], int fp, char *path, int ln) {
         fputc(' ', fp);
     }
     lout("/\\", fp);
-    fputs("Error at ", fp);
-    fprintf(fp, "%s(%d): ", path, ln);
+    fprintf(fp, "%s:%d Error: ", path, ln);
     lout(msg, fp);
 }
 
