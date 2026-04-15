@@ -95,7 +95,8 @@
 #define NDIM      3     // number of dimensions: 0/1 = scalar/pointer/1D array; 2+ = multi-dim
 #define CLASSPTR  4     // ptr to structdata[] (TYPE_STRUCT, NDIM<=1), dimdata[] (NDIM>1), or 0
 #define SIZE      6     // for objects, total object size in bytes (sizeof); for functions, this is FNPARAMPTR
-#define FNPARAMPTR SIZE // for IDENT_FUNCTION/IDENT_PTR_FUNCTION: index into paramTypes[]
+#define FNPARAMPTR SIZE    // for IDENT_FUNCTION/IDENT_PTR_FUNCTION: index into paramTypes[]
+#define FNPTRPARAMPTR CLASSPTR // for IDENT_FNPTR_VAR: sub-sig index into paramTypes[]
 #define OFFSET    8     // GLOBAL=0; AUTO local=neg BP offset; AUTO arg=pos BP offset; ENUMCONST=value;
                         // STATIC local=ptr to global entry; LABEL=label number
 #define PTRDEPTH  10    // pointer depth for IDENT_POINTER: 1=T*, 2=T**, 3=T***, etc.; 0 for all others
@@ -129,6 +130,7 @@
 #define IDENT_FUNCTION      4
 #define IDENT_PTR_ARRAY     5
 #define IDENT_PTR_FUNCTION  6
+#define IDENT_FNPTR_VAR     7   // function pointer as a variable (e.g. int (*fnptr)(int))
 
 // values for "TYPE"
 //    high order 6 bits give length of object
@@ -346,10 +348,10 @@
 #define LINEMAX  127
 #define LINESIZE 128
 #define LINELAST (LINEMAX-2)  // last data byte index; sentinel pos for fgets overrun check
+#define FNSIZE   128          // max filename/path buffer length (infn, inclfn, inclstk slot)
 
 // entries in staging buffer
 #define STAGESIZE   300
-
 
 // macro (#define) pool
 #define MACNBR   500
@@ -391,6 +393,56 @@
 
 #define FUNCBUFSIZE 2000  // int slots in per-function buffer (1000 p-code pairs, 4000 bytes)
 #define FL_LABMAX    256  // max labels tracked by flushfunc() for short-branch optimization
+
+// === Struct/Union data ======================================================
+// ============================================================================
+// struct/union tag data format
+#define STRDAT_SIZE   0     // size of data in struct/union
+#define STRDAT_MBEG   2     // ptr to beginning of struct/union member data
+#define STRDAT_MEND   4     // ptr to end of struct/union member data
+#define STRDAT_NAME   6     // name, length equal to NAMEMAX (13), null terminated
+#define STRDAT_KIND   19    // 0 = struct, 1 = union
+#define STRDAT_MAX    20    // NAMEMAX is 12, 6+12+1=19, 1b kind
+
+// STRDAT_KIND values
+#define KIND_STRUCT  0
+#define KIND_UNION   1
+
+// struct member data format
+#define STRMEM_SIZE     0   // size of member in bytes, including padding for alignment.
+                            // (bitfields: size of underlying type)
+#define STRMEM_OFFSET   2   // offset of member within struct in bytes, incl alignment padding.
+                            // (bitfields: offset of underlying type)
+#define STRMEM_CLASSPTR 4   // ptr to struct def if member is TYPE_STRUCT
+#define STRMEM_IDENT    6   // ident as in cc.h, type as in cc.h. struct
+#define STRMEM_TYPE     7   // members do not need class, all are auto.
+#define STRMEM_PTRDEPTH 8   // pointer depth of member: 1=T*, 2=T**, etc.; 0 for non-pointers
+#define STRMEM_BITWIDTH 9   // bit-field width in bits (1..16); 0 = not a bit-field
+#define STRMEM_BITOFF   10  // bit offset of bit-field within allocation unit (0..15); 0 if not a bit-field
+#define STRMEM_NAME     11   // name, length equal to NAMEMAX (13), null terminated
+#define STRMEM_MAX      24
+
+// struct data and member data definitions
+#define STRDAT_NUM      20  // max 254
+#define STRMEM_NUM      100
+#define STRDAT_START    structdata
+#define STRDAT_END      (structdata+STRDAT_NUM*STRDAT_MAX)
+#define STRMEM_START    STRDAT_END
+#define STRMEM_END      (STRMEM_START+STRMEM_NUM*STRMEM_MAX)
+#define STRUCTDATSZ     (STRDAT_NUM*STRDAT_MAX+STRMEM_NUM*STRMEM_MAX) // 2800 bytes
+
+// === Enum data layout =======================================================
+// ============================================================================
+// Enum tag table: tracks defined enum tag names so that
+// "enum tag var;" (use without body) can be validated.
+// Each entry is a fixed-size slot storing the tag name.
+#define EDAT_NAME   0       // tag name, null-terminated, up to NAMEMAX chars
+#define EDAT_MAX   14       // NAMEMAX(12) + null(1) + pad(1) = 14
+
+#define EDAT_NUM   20       // max distinct enum tags
+#define EDAT_START  enumdata
+#define EDAT_END    (enumdata + EDAT_NUM * EDAT_MAX)
+#define ENUMDATSZ   (EDAT_NUM * EDAT_MAX)   // 280 bytes
 
 // === P-code definitions =====================================================
 // ============================================================================

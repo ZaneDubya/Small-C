@@ -23,9 +23,8 @@
 // No code or data is emitted for enum constants; primary() in cc3.c
 // recognises ENUMCONST entries and folds them as compile-time integers.
 
-#include "stdio.h"
+#include <stdio.h>
 #include "cc.h"
-#include "ccenum.h"
 extern char ssname[], *glbptr;
 extern int  ch, eof;
 

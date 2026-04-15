@@ -13,10 +13,8 @@
 // James E. Hendrix Jr.
 // ============================================================================
 
-#include "stdio.h"
+#include <stdio.h>
 #include "cc.h"
-#include "ccstruct.h"
-#include "ccenum.h"
 
 // Starting with level1(), this code places information about the expression
 // under analysis into the is[] and is2[] arrays. These are local arrays of
@@ -50,7 +48,7 @@ int calcConst(int left, int oper, int right);
 void calcConst32(int lhi, int llo, int oper, int rhi, int rlo, int *reshi, int *reslo);
 int calcUConst(unsigned left, int oper, unsigned right);
 void calcUConst32(int lhi, int llo, int oper, int rhi, int rlo, int *reshi, int *reslo);
-void checkFnArgCountAndTypes(char *ptr, int userArgCount, int argDepths[]);
+void checkFnArgCountAndTypes(char *ptr, int userArgCount, int argDepths[], char **argSyms);
 int chrcon(int *lo, int *hi);
 int collectOneArg(int is[], int argLens[], int argSizes[], int idx, int *pNargs);
 int constant(int is[]);
@@ -67,6 +65,7 @@ void foldConst32(int oper, int leftLong, int rightLong, int is[], int is2[]);
 void genBFStep(int oper, int is[], int oper2);
 void genConstLoad(int is[]);
 void genJmpIfZero(int oper, int label, int is[]);
+int isPtrLike(char *ptr);
 int level14(int *is);
 int litchar();
 void negate32(int *hi, int *lo);
@@ -970,7 +969,10 @@ int level14(int *is) {
                 if (k && !is[VAL_CNST]) {
                     fetch(is);             // load the function-pointer value into AX
                 }
-                callfunc(0);               // indirect call through value in AX
+                if (ptr[IDENT] == IDENT_FNPTR_VAR)
+                    callfunc(ptr);         // pass ptr for sig-check; callfunc emits CALL1
+                else
+                    callfunc(0);           // indirect call through value in AX
             }
             else {
                 callfunc(ptr);             // direct call to named function
@@ -1292,7 +1294,7 @@ int primary(int *is) {
                     is[TYP_OBJ] = is[TYP_ADR] = TYPE_UINT;
                     return 0;
                 }
-                if (ptr[IDENT] == IDENT_POINTER) {
+                if (isPtrLike(ptr)) {
                     is[TYP_ADR] = ptr[TYPE];
                     is[IS_PTRDEPTH] = ptr[PTRDEPTH];
                     if (ptr[NDIM] > 1)
@@ -1313,7 +1315,7 @@ int primary(int *is) {
                 is[TYP_ADR] = TYPE_UINT;
                 return 0;
             }
-            if (ptr[IDENT] == IDENT_POINTER) {
+            if (isPtrLike(ptr)) {
                 is[TYP_OBJ] = TYPE_UINT;
                 is[TYP_ADR] = ptr[TYPE];
                 is[IS_PTRDEPTH] = ptr[PTRDEPTH];
@@ -1344,7 +1346,7 @@ int primary(int *is) {
                     is[TYP_OBJ] = is[TYP_ADR] = TYPE_UINT;
                     return 0;
                 }
-                if (ptr[IDENT] == IDENT_POINTER) {
+                if (isPtrLike(ptr)) {
                     is[TYP_ADR] = ptr[TYPE];
                     is[IS_PTRDEPTH] = ptr[PTRDEPTH];
                     if (ptr[NDIM] > 1)
@@ -1375,17 +1377,38 @@ void experr() {
     skipToNextToken();
 }
 
+// True when ptr's IDENT marks it as a pointer-like lvalue
+// (plain pointer variable or function-pointer variable).
+int isPtrLike(char *ptr) {
+    int id;
+    id = ptr[IDENT];
+    return id == IDENT_POINTER || id == IDENT_FNPTR_VAR;
+}
+
 // Phase D helper: check caller's argument count against prototype.
 // ptr   — symbol table entry for the callee
 // userArgCount — number of user-visible arguments supplied at this call site
 //                (does NOT include the hidden struct-return pointer)
-void checkFnArgCountAndTypes(char *ptr, int userArgCount, int argDepths[]) {
-    int protoIdx, nbyte, isVariadic, nfixed, i, type_byte, depth_byte;
-    // No prototype recorded: nothing to check.
-    if (getint(ptr + FNPARAMPTR, 2) == 0)
-        return;
-    protoIdx = getint(ptr + FNPARAMPTR, 2);
-    nbyte    = (int)(paramTypes[protoIdx]) & 0xFF;
+// argSyms      — symbol table entry for each actual argument (SYMTAB_ADR),
+//                or NULL when the argument is not a simple named symbol
+void checkFnArgCountAndTypes(char *ptr, int userArgCount, int argDepths[], char **argSyms) {
+    int nbyte, isVariadic, nfixed;
+    int sigBase;    /* index into paramTypes[] where nparams_byte lives */
+
+    /* Select the right base depending on symbol kind. */
+    if (ptr[IDENT] == IDENT_FNPTR_VAR) {
+        /* FNPTRPARAMPTR (= CLASSPTR) holds the sub-sig index. */
+        /* Sub-sig layout: [retType][nparams_byte][pairs...] */
+        sigBase = getint(ptr + FNPTRPARAMPTR, 2);
+        if (sigBase == 0) return;  /* no sub-sig recorded */
+        sigBase++;                 /* skip retType; nparams_byte is at +1 */
+    } else {
+        /* Regular function: FNPARAMPTR (= SIZE) holds the proto index. */
+        sigBase = getint(ptr + FNPARAMPTR, 2);
+        if (sigBase == 0) return;
+    }
+
+    nbyte      = (int)(paramTypes[sigBase]) & 0xFF;
     isVariadic = (nbyte >> 7) & 1;
     nfixed     = nbyte & 0x7F;
 #ifdef WARN_ARGCOUNT
@@ -1401,22 +1424,11 @@ void checkFnArgCountAndTypes(char *ptr, int userArgCount, int argDepths[]) {
     }
 #endif
 #ifdef ENABLE_WARNINGS
-    // Per-parameter pointer depth check. Stride is 2 bytes per param:
-    // [type_byte = TYPE_xxx][depth_byte = PTRDEPTH; >0 means pointer].
-    for (i = 0; i < nfixed && i < userArgCount; ++i) {
-        type_byte  = paramTypes[protoIdx + 1 + i*2];
-        depth_byte = paramTypes[protoIdx + 1 + i*2 + 1];
-        // Warn only when the prototype declares a multi-level pointer (depth >= 2)
-        // and the supplied argument has a different depth.  Depth-1 params are
-        // skipped because passing &ptr (depth 2) to an int* param is a normal
-        // Small-C idiom that would otherwise produce pervasive false positives.
-        if (depth_byte >= 2 && argDepths[i] != depth_byte)
-            warning("argument pointer depth mismatch");
-    }
+    /* TODO: per-parameter type/depth check using argDepths[] and argSyms[] */
 #endif
 }
 
-// Phase E helper: evaluate one call argument and store its p-codes in argbuf.
+// collectOneArg(): evaluate one call argument and store its p-codes in argbuf.
 // Returns 1 on success; 0 if the argument buffer would overflow (error issued).
 //
 // is[]        — expression state; written by level1()/fetch() inside
@@ -1492,9 +1504,11 @@ int callfunc(char *ptr) {      // symbol table entry or 0
     int argLens[MAX_CALL_ARGS];   // p-code slot count per user arg (for reverse walk)
     int argSizes[MAX_CALL_ARGS];  // BPW or BPD per user arg (for PUSH selection)
     int argDepths[MAX_CALL_ARGS]; // IS_PTRDEPTH per user arg (for type check)
+    char *argSyms[MAX_CALL_ARGS]; // SYMTAB_ADR per user arg (for fn-ptr sub-sig check)
     int argbufBase;              // argbufcur at entry; restored after second pass
     int userArgCount;            // number of user (non-hidden) args collected
     int indSaveCsp;              // BP offset of saved funcptr (indirect calls)
+    int isFnPtrVar;              // 1 when ptr is IDENT_FNPTR_VAR (checked call + indirect emit)
     int i;
 
     // --- Phase 0: initialise ---
@@ -1503,6 +1517,7 @@ int callfunc(char *ptr) {      // symbol table entry or 0
     argbufBase   = argbufcur;   // mark our region; nested calls write above this
     userArgCount = 0;
     indSaveCsp   = 0;
+    isFnPtrVar   = (ptr && ptr[IDENT] == IDENT_FNPTR_VAR);
     blanks();                   // consume whitespace after the open paren already consumed
 
     // --- Phase 1: entry-side effects ---
@@ -1510,18 +1525,21 @@ int callfunc(char *ptr) {      // symbol table entry or 0
 #ifdef ENABLE_WARNINGS
 #ifdef WARN_IMPLICIT
     // Warn if the function was called without a prior prototype or declaration.
-    if (ptr && (ptr[CLASS] & 0x7F) == AUTOEXT && getint(ptr + FNPARAMPTR, 2) == 0)
+    if (ptr && !isFnPtrVar
+        && (ptr[CLASS] & 0x7F) == AUTOEXT && getint(ptr + FNPARAMPTR, 2) == 0)
         warningWithName("implicit declaration of function '", ptr + NAME, "'");
 #endif
 #endif
     // Upgrade PROTOEXT -> AUTOEXT on first call so trailer() emits EXTRN.
-    if (ptr && (ptr[CLASS] & 0x7F) == PROTOEXT)
+    if (ptr && !isFnPtrVar && (ptr[CLASS] & 0x7F) == PROTOEXT)
         ptr[CLASS] = AUTOEXT;
 
     // Struct-returning function: allocate the return buffer on the caller's
     // stack and push a hidden pointer to it as the LAST-pushed (outermost)
     // argument (highest BP offset).  User arguments follow at lower offsets.
-    if (ptr && ptr[TYPE] == TYPE_STRUCT) {
+    // Not applied to fn-ptr variables (their struct-return calling convention
+    // is not tracked; fall back to plain indirect for those).
+    if (!isFnPtrVar && ptr && ptr[TYPE] == TYPE_STRUCT) {
         retStructSize = getStructSize(getClsPtr(ptr));
         gen(ADDSP, csp - retStructSize);
         gen(POINT1s, csp);
@@ -1530,7 +1548,7 @@ int callfunc(char *ptr) {      // symbol table entry or 0
     }
     // Indirect call: save funcptr from AX into a temp stack slot now,
     // before argument evaluation clobbers AX.
-    if (ptr == 0) {
+    if (ptr == 0 || isFnPtrVar) {
         gen(ADDSP, csp - BPW);   // allocate one-word temp slot
         indSaveCsp = csp;        // BP offset of the temp slot
         gen(PUTws1, indSaveCsp); // [BP + indSaveCsp] = AX
@@ -1548,6 +1566,7 @@ int callfunc(char *ptr) {      // symbol table entry or 0
         if (collectOneArg(is, argLens, argSizes, userArgCount, &nargs) == 0)
             break;
         argDepths[userArgCount] = is[IS_PTRDEPTH];
+        argSyms[userArgCount]   = (char *)is[SYMTAB_ADR];
         userArgCount++;
         if (isMatch(",") == 0)
             break;
@@ -1556,7 +1575,7 @@ int callfunc(char *ptr) {      // symbol table entry or 0
 
     // --- Phase 3: prototype argument count + type check ---
     if (ptr) {
-        checkFnArgCountAndTypes(ptr, userArgCount, argDepths);
+        checkFnArgCountAndTypes(ptr, userArgCount, argDepths, argSyms);
     }
     // --- Phase 4: second pass — replay args in reverse for R-to-L push ---
     // Walk backward through argbuf using cumulative length subtraction,
@@ -1583,10 +1602,10 @@ int callfunc(char *ptr) {      // symbol table entry or 0
     }
 
     // --- Phase 5: emit call and stack cleanup ---
-    // For indirect calls: reload saved funcptr into AX before CALL1.
-    if (ptr == 0)
+    // For indirect calls (ptr==0 or isFnPtrVar): reload saved funcptr into AX.
+    if (ptr == 0 || isFnPtrVar)
         gen(GETw1s, indSaveCsp);
-    if (ptr)
+    if (ptr && !isFnPtrVar)
         gen(CALLm, ptr);
     else
         gen(CALL1, 0);
@@ -1662,7 +1681,7 @@ int isLongVal(int is[]) {
         return 1;
     ptr = is[SYMTAB_ADR];
     if (ptr && is[TYP_OBJ] == 0 && is[TYP_ADR] == 0
-        && ptr[IDENT] != IDENT_POINTER
+        && !isPtrLike(ptr)
         && ptr[TYPE] >> 2 == BPD)
         return 1;
     return 0;
@@ -1865,10 +1884,10 @@ void store(int is[]) {
     }
     else {                          // putmem
         ptr = is[SYMTAB_ADR];
-        if (ptr[IDENT] != IDENT_POINTER && ptr[TYPE] >> 2 == BPD) {
+        if (!isPtrLike(ptr) && ptr[TYPE] >> 2 == BPD) {
             gen(PUTdm1, ptr);
         }
-        else if (ptr[IDENT] != IDENT_POINTER && ptr[TYPE] >> 2 == 1) {
+        else if (!isPtrLike(ptr) && ptr[TYPE] >> 2 == 1) {
             gen(PUTbm1, ptr);
         }
         else {
@@ -1900,7 +1919,7 @@ void fetch(int is[]) {
         }
     }
     else {                                         // direct
-        if (ptr[IDENT] == IDENT_POINTER || ptr[TYPE] >> 2 == BPW) {
+        if (isPtrLike(ptr) || ptr[TYPE] >> 2 == BPW) {
             gen(GETw1m, ptr);
         }
         else if (ptr[TYPE] >> 2 == BPD) {

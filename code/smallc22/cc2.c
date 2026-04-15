@@ -13,7 +13,7 @@
 // James E. Hendrix Jr.
 // ============================================================================
 
-#include "stdio.h"
+#include <stdio.h>
 #include "cc.h"
 
 // reserved keywords -- may not be used as identifiers

@@ -13,10 +13,9 @@
 // James E. Hendrix Jr.
 // ============================================================================
 
-#include "stdio.h"
+#include <stdio.h>
 #include "notice.h"
 #include "cc.h"
-#include "ccstruct.h"
 
 // forward declarations for this file:
 int addLabel(int def);
@@ -137,7 +136,7 @@ char
     *paramTypes, // function parameter-type records (allocated in main)
     ssname[NAMESIZE],   // symbol name (static locals mangled to _L<N> form)
     curfn[NAMESIZE],    // name of function currently being compiled
-    infn[30];    // current input filename
+    infn[FNSIZE];       // current input filename
 
 int op[16] = {   // p-codes of signed binary operators
     OR12,                        // level5

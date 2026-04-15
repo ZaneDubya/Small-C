@@ -442,3 +442,10 @@ Small-C Revision History
 159 Function-pointer declarators now accept typed C90 prototype parameter
     lists and void as the return type, but they are just parsed and discarded;
     they are decarators only. e.g. (*name)(T1, T2) is parsed as (*name)().
+160 Preprocessor can get ENVVARS, and can now include files from compiler
+    directory with <filename> format, e.g. #include <stdio.h>.
+    One header file: merged ccenum.h and ccstruct.h into cc.h.
+    Recognize fnptr variables with parameter type lists. Currently they are
+    only decorations, but in the future the compiler could be expanded to
+    consume, record, and check calls against these parameters.
+    Current state: int (*body)() and int (*body)(int) are equivalent.

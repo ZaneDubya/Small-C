@@ -28,12 +28,12 @@
 //   [macro expand] -- replaces #define tokens inline with their values;
 //                     predefined macros (__FILE__ etc.) are checked first.
 //       dodefine()     -- processes #define directives on the expanded line.
-//       doinclude()    -- processes #include directives on the expanded line.
+//       doInclude()    -- processes #include directives on the expanded line.
 //
 //   blanks() [cc2.c]   -- skips whitespace; calls preprocess() as needed.
 // ============================================================================
 
-#include "stdio.h"
+#include <stdio.h>
 #include "cc.h"
 
 // === preprocessor-private globals ==========================================
@@ -51,10 +51,11 @@ int
                                     // as sentinel; a char round-trip zero-extends
                                     // 0xFF to 0x00FF != EOF, breaking the test.
 
-int
-    input2 = EOF;       // include-file descriptor; EOF (-1) means "none open".
-                        // Must be int: char zero-extends 0xFF to 0x00FF != EOF,
-                        // breaking the "if (input2 != EOF)" sentinel test.
+// include-file descriptor.  EOF (-1) means no include is active.
+// Must be int (not char) to match "extern int input2" in cc2.c:
+// a char 0xFF (== -1) loaded as a 2-byte word gives 0x??FF which
+// fails the != EOF (0xFFFF) test, printing ":0" in warning/error output.
+int input2 = EOF;
 
 char
     *macn,              // macro name buffer  (MACNSIZE bytes, heap-alloc'd)
@@ -62,14 +63,15 @@ char
     *pline,             // macro-expanded line buffer (LINESIZE bytes)
     *mline,             // raw physical line buffer   (LINESIZE bytes)
     msname[NAMESIZE],   // buffer for parsing macro names
-    inclfn[30],         // current include filename
+    inclfn[FNSIZE],     // current include filename
     predef_date[14],    // __DATE__ token: "\"Mmm DD YYYY\"" (13 chars + NUL)
     predef_time[11];    // __TIME__ token: "\"HH:MM:SS\""   (10 chars + NUL)
 
-// Flat filename stack: MAXINCLUDE slots of 30 bytes each.
+// Flat filename stack: MAXINCLUDE slots of FNSIZE bytes each.
 // Declared separately to avoid multi-dim array in comma list (Small-C codegen
 // does not reliably compute row addresses for char arr[M][N] in that context).
-char inclstk[120];                  // saved filenames for outer include levels
+char inclstk[512];                  // saved filenames for outer include levels (MAXINCLUDE * FNSIZE)
+char bindir[FNSIZE];                // directory containing cc.exe; set by initBinDir()
 
 // Month abbreviation table: 3 chars per month
 char monnam[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
@@ -81,7 +83,7 @@ extern char
     *lptr,        // current character pointer within line
     *cptr,        // work pointer -- set by findSymbol, read by callers
     *cptr2,       // secondary work pointer (used by dodefine)
-    infn[30];     // current input filename
+    infn[FNSIZE]; // current input filename
 
 extern int
     ccode,        // true while parsing C code; false inside #asm blocks
@@ -94,26 +96,21 @@ extern int
     lineno,       // current line number in input file
     output;       // fd for output file
 
-// === functions used from cc2.c (no declarations; resolved at link time) =======
-//   an(c)              -- true if c is alphanumeric or underscore
-//   alpha(c)           -- true if c is alphabetic or underscore
-//   astreq(s1,s2,len)  -- compare up to len significant chars; returns 0 on mismatch
-//                         (used by tryExpandPredefined for exact identifier matching)
-//   blanks()           -- skip whitespace; calls preprocess() when line empties
-//   bump(n)            -- advance lptr by n; or reset to line when n == 0
-//   findSymbol(...)    -- hash-table lookup in a named symbol/macro buffer
-//                         (tombstone-aware: skips deleted slots, reclaims them
-//                          for new insertions -- see TOMBSTONE in cc.h)
-//   gch()              -- return ch and advance lptr by one character
-//   getint(addr, len)  -- read a little-endian integer of len bytes
-//   illname()          -- report "illegal symbol" and skip to the next token
-//   isMatch(lit)       -- skip blanks, then match and consume a literal string
-//   kill()             -- zero line[0] and call bump(0), discarding the line
-//   putint(i, addr, n) -- write integer i as n little-endian bytes at addr
-//   symname(buf)       -- skip blanks and read an identifier into buf
-//   white()            -- true if the character at lptr is a whitespace byte
+// forward declarations for this file:
+int getDosExePath(char *buf, int bufsz);
+void getDirPath(char *path, char *dir, int dirsz);
 
 // === initialization =========================================================
+
+// Populate bindir[] with the directory that contains cc.exe.
+// Called once from initPreprocessor().  If discovery fails, bindir stays "".
+void initBinDir() {
+    char exepath[FNSIZE];
+    if (getDosExePath(exepath, FNSIZE))
+        getDirPath(exepath, bindir, FNSIZE);
+    else
+        bindir[0] = 0;
+}
 
 // Allocate preprocessor buffers and point the shared line pointer at the raw
 // line buffer. Must be called from main() before getRunArgs() or openfile().
@@ -124,6 +121,7 @@ void initPreprocessor() {
     mline  = calloc(LINESIZE, 1);
     line   = mline;   // point current-line ptr at raw-input buffer
     initPredefined();
+    initBinDir();     // find compiler directory for <...> includes
 }
 
 // === build-time constant helpers ============================================
@@ -312,13 +310,103 @@ void dodefine() {
     }
 }
 
+// === include path helpers ===================================================
+
+// Return the segment address of the DOS environment block.
+// Uses INT 21h AH=62h (get PSP, DOS 3.0+); PSP[2Ch] holds env segment.
+int dos_env_seg() {
+#asm
+    push    es
+    mov     ah,62h
+    int     21h
+    mov     es,bx
+    mov     ax,es:[2Ch]
+    pop     es
+#endasm
+}
+
+// Read one byte from a far pointer (segment:offset).
+int dos_peek(int seg, int off) {
+#asm
+    push    es
+    push    bx
+    mov     es,[bp+4]
+    mov     bx,[bp+6]
+    xor     ax,ax
+    mov     al,es:[bx]
+    pop     bx
+    pop     es
+#endasm
+}
+
+// Fill buf with the running program's full path from the DOS env-block trailer.
+// DOS 3.0+ appends after variables: [2-byte count=1][path NUL-terminated].
+// Returns 1 on success, 0 if the count word is 0.
+int getDosExePath(char *buf, int bufsz) {
+    int seg, off, count, i, c;
+    seg = dos_env_seg();
+    off = 0;
+    while (dos_peek(seg, off) != 0) {
+        while (dos_peek(seg, off) != 0)
+            off++;
+        off++;
+    }
+    off++;
+    count = dos_peek(seg, off);
+    off += 2;
+    if (count == 0) { buf[0] = 0; return 0; }
+    i = 0;
+    while (i < bufsz - 1) {
+        c = dos_peek(seg, off + i);
+        if (c == 0) break;
+        buf[i] = c;
+        i++;
+    }
+    buf[i] = 0;
+    return (i > 0);
+}
+
+// Extract the directory prefix of path into dir (trailing backslash included).
+// If path has no separator, dir is set to "".
+void getDirPath(char *path, char *dir, int dirsz) {
+    int i, last;
+    last = -1;
+    i = 0;
+    while (path[i]) {
+        if (path[i] == '\\' || path[i] == '/') last = i;
+        i++;
+    }
+    if (last < 0) { dir[0] = 0; return; }
+    i = 0;
+    while (i <= last && i < dirsz - 1) { dir[i] = path[i]; i++; }
+    dir[i] = 0;
+}
+
+// Join dir and file into buf, inserting '\' if dir lacks a trailing separator.
+void appendPath(char *dir, char *file, char *buf, int bufsz) {
+    int i, j;
+    i = 0;
+    while (dir[i] && i < bufsz - 1) { buf[i] = dir[i]; i++; }
+    if (i > 0 && buf[i-1] != '\\' && buf[i-1] != '/' && i < bufsz - 1)
+        buf[i++] = '\\';
+    j = 0;
+    while (file[j] && i < bufsz - 1) { buf[i++] = file[j++]; }
+    buf[i] = 0;
+}
+
 // Open an include file and push the current include state onto the stack.
 // Nesting is limited to MAXINCLUDE levels; a deeper attempt is an error.
-void doinclude() {
-    int i;
-    char str[30];
-    blanks();       // skip over to name
-    if (*lptr == '"' || *lptr == '<')  {
+//
+//   "..."  Search the directory of the current source/include file.
+//   <...>  Search bindir (the directory containing cc.exe).
+void doInclude() {
+    int i, angle;
+    char str[FNSIZE];
+    char path[FNSIZE];
+    char srcdir[FNSIZE];
+    blanks();
+    angle = (*lptr == '<');
+    if (*lptr == '"' || *lptr == '<') {
         ++lptr;
     }
     i = 0;
@@ -332,22 +420,25 @@ void doinclude() {
         kill();
         return;
     }
-    // Push the current include state before switching to the new file.
-    // At depth 0, input2==EOF and inclfn/inclno are irrelevant but saved
-    // anyway so the pop is uniform at all levels.
+    if (angle) {
+        appendPath(bindir, str, path, FNSIZE);
+    } else {
+        getDirPath((input2 != EOF ? inclfn : infn), srcdir, FNSIZE);
+        appendPath(srcdir, str, path, FNSIZE);
+    }
     inclfds[incldepth]  = input2;
     inclnostk[incldepth] = inclno;
-    strcpy(inclstk + incldepth * 30, inclfn);
-    if ((input2 = fopen(str, "r")) == NULL) {
-        input2 = inclfds[incldepth];   // restore before reporting error
+    strcpy(inclstk + incldepth * FNSIZE, inclfn);
+    if ((input2 = fopen(path, "r")) == NULL) {
+        input2 = inclfds[incldepth];
         error("open failure on include file");
     }
     else {
         ++incldepth;
-        strcpy(inclfn, str);
+        strcpy(inclfn, path);
         inclno = 0;
     }
-    kill();   // make next read come from new file (if open)
+    kill();
 }
 
 // === line buffer management =================================================
@@ -392,7 +483,7 @@ void doInline() {
             --incldepth;
             input2 = inclfds[incldepth];
             inclno = inclnostk[incldepth];
-            strcpy(inclfn, inclstk + incldepth * 30);
+            strcpy(inclfn, inclstk + incldepth * FNSIZE);
         }
         else {
             input = EOF;
@@ -734,7 +825,7 @@ int tryExpandPredefined(char *name) {
 // ch/nch/lptr are positioned at the first character of the expanded line.
 // Loops internally to consume #define and #include directives so that
 // callers always receive a non-directive line (or eof). This preserves
-// the invariant that dodefine/doinclude see an already macro-expanded
+// the invariant that dodefine/doInclude see an already macro-expanded
 // pline, matching the original architecture.
 // In asm-passthrough mode (ccode == 0), just reads the raw line and returns.
 void preprocess() {
@@ -831,7 +922,7 @@ void preprocess() {
                 continue;
             }
             if (isMatch("#include")) {
-                doinclude();
+                doInclude();
                 continue;
             }
         }

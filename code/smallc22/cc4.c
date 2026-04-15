@@ -13,9 +13,8 @@
 // James E. Hendrix Jr.
 // ============================================================================
 
-#include "stdio.h"
+#include <stdio.h>
 #include "cc.h"
-#include "ccstruct.h"
 
 char needLong,
      hasInlineAsm,   // function contains #asm block(s): must not omit frame pointer

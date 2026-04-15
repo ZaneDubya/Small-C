@@ -23,9 +23,8 @@
 //                        CLASS == STATIC/AUTOMATIC/EXTERNAL
 //                        CLASSIDX == index of structure definition.
 
-#include "stdio.h"
+#include <stdio.h>
 #include "cc.h"
-#include "ccstruct.h"
 
 extern char *symtab, *locptr, *lptr, ssname[];
 extern int ch, eof, rettype, rettypeSubPtr, lastPtrDepth;
@@ -70,7 +69,7 @@ int doStructBlock(int kind) {
 // Define a single struct or union if '{' follows the tag name,
 // otherwise look up an existing definition by tag name.
 // kind: KIND_STRUCT or KIND_UNION
-// @return pointer to tag definition, or -1 on error.
+// return pointer to tag definition, or -1 on error.
 int doStruct(int kind) {
   int i, totalsize, typeSubIdx;
   int cur_unit_offset, next_free_bit;
@@ -271,9 +270,7 @@ int doStruct(int kind) {
 }
 
 // Find a tag definition by name and kind (KIND_STRUCT or KIND_UNION).
-// @param kind  KIND_STRUCT or KIND_UNION
-// @param sname the tag name to search for
-// @return pointer to tag data if found, else -1
+// return pointer to tag data if found, else -1
 int findStructByName(int kind, char *sname) {
   char *current, *end;
   current = STRDAT_START;
