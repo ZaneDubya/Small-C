@@ -41,14 +41,14 @@ void check(char *desc, int cond) {
 int test_and(int a, int b) {
     int r;
     r = 0;
-    if (a & b) r = 1;        // AND12 + NE10f → NE10fp expected
+    if (a & b) r = 1;        // AND12 + NE10f -> NE10fp expected
     return r;
 }
 
 int test_and_eq(int a, int b) {
     int r;
     r = 0;
-    if (!(a & b)) r = 1;     // AND12 + EQ10f → EQ10fp expected
+    if (!(a & b)) r = 1;     // AND12 + EQ10f -> EQ10fp expected
     return r;
 }
 
@@ -121,7 +121,7 @@ int test_neg(int a) {
 int test_dbl(int a) {
     int r;
     r = 0;
-    if (a + a) r = 1;        // ADD12 on same var → DBL1 if optimized, else ADD12+NE10f
+    if (a + a) r = 1;        // ADD12 on same var -> DBL1 if optimized, else ADD12+NE10f
     return r;
 }
 
@@ -172,10 +172,10 @@ void main() {
     printf("=== SETSFLG/fset optimization tests ===\n");
 
     // AND
-    check("and(3,5)!=0",  test_and(3, 5));     // 3 & 5 = 1 → truthy
-    check("and(2,5)==0", !test_and(2, 5));     // 2 & 5 = 0 → falsy
-    check("!and(2,5)",    test_and_eq(2, 5));  // !(2 & 5) → 1
-    check("!and(3,5)",   !test_and_eq(3, 5)); // !(3 & 5) → 0
+    check("and(3,5)!=0",  test_and(3, 5));     // 3 & 5 = 1 -> truthy
+    check("and(2,5)==0", !test_and(2, 5));     // 2 & 5 = 0 -> falsy
+    check("!and(2,5)",    test_and_eq(2, 5));  // !(2 & 5) -> 1
+    check("!and(3,5)",   !test_and_eq(3, 5)); // !(3 & 5) -> 0
 
     // OR
     check("or(0,0)==0",  !test_or(0, 0));      // 0|0=0 falsy

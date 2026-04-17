@@ -594,7 +594,7 @@ int doGlbDeclare(int class) {
             if (*p == '(') {
                 rettype = type;
                 rettypeSubPtr = (type == TYPE_STRUCT) ? typeSubPtr : 0;
-                rettypeIsPtr = typeIsPtr;    // pointer typedef → pointer-returning fn
+                rettypeIsPtr = typeIsPtr;    // pointer typedef -> pointer-returning fn
                 dofunction(class);   // functions are never const
                 rettypeIsPtr = 0;
                 rettype = TYPE_INT;

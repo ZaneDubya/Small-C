@@ -586,7 +586,7 @@ void test_tricohr() {
     check("**pp==42",       **pp == 42);
     check("***ppp==42",     ***ppp == 42);
 
-    // redirect middle level: *pp = &y  makes p → y, decoupling x from chain
+    // redirect middle level: *pp = &y  makes p -> y, decoupling x from chain
     *pp = &y;
     check("p==&y",          p == &y);
     check("***ppp==y(99)",  ***ppp == 99);

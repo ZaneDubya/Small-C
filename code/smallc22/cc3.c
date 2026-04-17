@@ -672,7 +672,7 @@ int level13(int is[]) {
             // Multi-level: removing one pointer indirection still leaves a pointer.
             // After decrement the result is still an lvalue: AX holds the intermediate
             // pointer value (always word-sized).  The next fetch (outer * or caller)
-            // will load the pointer via GETw1p (TYPE_UINT → BPW), then resolveDerefType
+            // will load the pointer via GETw1p (TYPE_UINT -> BPW), then resolveDerefType
             // handles the final element type when IS_PTRDEPTH reaches 1.
             is[IS_PTRDEPTH]--;
             is[TYP_OBJ] = TYPE_UINT;   // intermediate pointer is always word-sized
@@ -1650,7 +1650,7 @@ void step(int oper, int is[], int oper2) {
     }
     longval = isLongVal(is);
     fetch(is);
-    // Multi-level pointer (T** or deeper): element is itself a pointer → always BPW.
+    // Multi-level pointer (T** or deeper): element is itself a pointer -> always BPW.
     if (is[TYP_ADR] && is[IS_PTRDEPTH] > 1)
         stepsize = BPW;
     else
@@ -1821,7 +1821,7 @@ void storeBF(int is[]) {
 //   PUSH1           barrier + save addr;            stack=[addr]
 //   GETw1p          BX=addr, AX=curr_word           (MOVE21 inside GETw1p cannot
 //                                                    fold with POINT1s across PUSH1)
-//   extract field → AX=field_value, BX=addr
+//   extract field -> AX=field_value, BX=addr
 //   postfix: PUSH1  save old field value;            stack=[addr, old_fv]
 //   gen(oper,1)     AX = new_field_value, BX=addr
 //   prefix:  PUSH1  save new field value;            stack=[addr, new_fv]
@@ -1842,7 +1842,7 @@ void genBFStep(int oper, int is[], int oper2) {
     /* Push address: acts as optimizer barrier AND saves addr for cleanup */
     gen(PUSH1, 0);               /* stack=[addr]; AX=addr                      */
     /* GETw1p auto-emits its own MOVE21; PUSH1 above prevents the peephole    */
-    /* optimizer from folding POINT1s+MOVE21 → LEA BX (which would leave AX  */
+    /* optimizer from folding POINT1s+MOVE21 -> LEA BX (which would leave AX  */
     /* stale and break the entire extract/modify/store sequence).              */
     gen(GETw1p, 0);              /* MOVE21: BX=addr; MOV AX,[BX]: AX=curr_word */
     /* Extract field from AX (all *1n p-codes are BX-preserving): */

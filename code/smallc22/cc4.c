@@ -1855,6 +1855,19 @@ void bufout(int pcode, int value) {
 #endif
 }
 
+// POINT1s + MOVE21 Fold: staging rule 033 catches POINT1s MOVE21 -> POINT2s,
+// but when rule 044 converts PUSH1 <rhs> POP2 -> MOVE21 <rhs> after POINT1s has
+// already been emitted to funcbuf, the pair escapes staging.  Fold it here.
+static void tryPointMoveFold() {
+    int *p;
+    for (p = funcbuf; p + 2 < fnext; p += 2) {
+        if (p[0] == POINT1s && p[2] == MOVE21) {
+            p[0] = POINT2s;
+            p[2] = NOP_;  p[3] = 0;
+        }
+    }
+}
+
 // Frame Pointer Omission (FPO): determines whether BP is provably unused by
 // this function and, if so, rewrites ENTER -> NOP_ and RETURN -> RETNOFP.
 // BP is required for two independent reasons; either is sufficient to block FPO:
@@ -2006,8 +2019,10 @@ static void tryBoxingElimination() {
 void flushfunc() {
     int *p, pc, val, spc, pos, ref_pos, delta, changed;
     int i, lpos, nflab;
-    if (fnext == funcbuf)
+    if (fnext == funcbuf) {
         return;
+    }
+    tryPointMoveFold();
     canOptFPOpass();
     tryEpilogueConsolidation();
     tryBoxingElimination();
