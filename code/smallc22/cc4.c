@@ -2048,7 +2048,7 @@ void flushfunc() {
 
 // dump the staging buffer
 void dumpstage() {
-    int *seq, rulenum;
+    int *seq, *src, *dst, rulenum;
     stail = snext;
     snext = stage;
     while (snext < stail) {
@@ -2059,7 +2059,6 @@ void dumpstage() {
             while (*seq) {
                 if (peep(seq)) {
                     // compact NOP_ slots out of the remaining buffer
-                    int *src, *dst;
                     dst = snext;
                     for (src = snext; src < stail; src += 2) {
                         if (src[0] != NOP_) {
