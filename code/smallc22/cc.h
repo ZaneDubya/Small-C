@@ -706,7 +706,8 @@
 #define ASRsn   213   // shift arithmetic right sr by n into pr (MOV CL,n / SAR AX,CL)
 #define ASLsn   214   // shift arithmetic left sr by n into pr (MOV CL,n / SHL AX,CL)
 #define LSRsn   215   // logical shift right sr by n into pr (MOV CL,n / SHR AX,CL)
-#define PCODES  216   // size of code[]
+#define POINT1m_ 216  // point pr to mem thru label (part 1, no newline; paired with PLUSn)
+#define PCODES  217   // size of code[]
 
 // === function prototypes for Small-C ========================================
 // ============================================================================

@@ -551,6 +551,15 @@ int seqdata[] = {
     //     OUT: POINT2m_(m)  PLUSn(n)  ->  MOV BX, OFFSET m+n
     POINT1m,GETw2n,ADD12,MOVE21,0,go|p3,PLUSn,gv|m2,go|m1,POINT2m_,gv|m2,0, 0,
 
+    // 029b Point-Mem Offset Fold (address stays in AX)
+    // Fold address-of-global + constant offset into a two-part pr-pointer-with-displacement.
+    //     IN:  POINT1m(m)  GETw2n(n)  ADD12
+    //          AX=&m        BX=n      AX+=BX
+    //     NET: AX = &m + n
+    //     WHY: POINT1m_ + PLUSn encode MOV AX,OFFSET m+n as a two-part p-code; no register add needed.
+    //     OUT: POINT1m_(m)  PLUSn(n)  ->  MOV AX, OFFSET m+n
+    POINT1m,GETw2n,ADD12,0, go|p2,PLUSn,gv|m1,go|m1,POINT1m_,gv|m1,0, 0,
+
     // 030 Point-Mem Direct to Sr
     // Load address of a global directly into sr when pr is not needed afterward.
     //     IN:  POINT1m(m)  MOVE21  (pfree: pr not live after this point)
@@ -1348,7 +1357,9 @@ char* code[PCODES] = {
     /* 212 ASR1_2     */ "\005MOV AX,BX\nSAR AX,1\nSAR AX,1\n",
     /* 213 ASRsn      */ "\005MOV AX,BX\nMOV CL,<n>\nSAR AX,CL\n",
     /* 214 ASLsn      */ "\005MOV AX,BX\nMOV CL,<n>\nSHL AX,CL\n",
-    /* 215 LSRsn      */ "\005MOV AX,BX\nMOV CL,<n>\nSHR AX,CL\n"
+    /* 215 LSRsn      */ "\005MOV AX,BX\nMOV CL,<n>\nSHR AX,CL\n",
+    // optimizer-generated: two-part label+offset (paired with PLUSn)
+    /* 216 POINT1m_    */ "\020MOV AX,OFFSET <m>"
 
 };
 
@@ -1581,7 +1592,8 @@ int code_size[PCODES] = {
     /*212 ASR1_2   */  6,  // MOV AX,BX / SAR AX,1 / SAR AX,1
     /*213 ASRsn    */  6,  // MOV AX,BX / MOV CL,n / SAR AX,CL
     /*214 ASLsn    */  6,  // MOV AX,BX / MOV CL,n / SHL AX,CL
-    /*215 LSRsn    */  6   // MOV AX,BX / MOV CL,n / SHR AX,CL
+    /*215 LSRsn    */  6,  // MOV AX,BX / MOV CL,n / SHR AX,CL
+    /*216 POINT1m_  */255   // partial (paired with PLUSn)
 };
 
 // Map a long-branch p-code to its short-branch equivalent, or 0 if not a branch.
