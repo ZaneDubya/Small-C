@@ -29,7 +29,7 @@ Enhancements from Small-C Version 2.2 Revision 117:
 * Void pointers (void *): pointer arithmetic and dereferencing behave as char *.
 * Static local variables: function-scoped names with permanent (data-segment) lifetime.
 * Local variable initialization, including structs and arrays.
-* C90 type qualifiers: const (compiler-enforced), signed, short.
+* C90 type qualifiers: const (compiler-enforced), signed, unsigned, short.
 * Adjacent string literal concatenation.
 * C99 style // comments.
 * C90 argument list types.

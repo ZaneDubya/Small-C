@@ -50,6 +50,9 @@ int
                                     // Must be int: stores input2 which uses EOF==-1
                                     // as sentinel; a char round-trip zero-extends
                                     // 0xFF to 0x00FF != EOF, breaking the test.
+#ifdef ENABLE_DIAGNOSTICS
+extern int macnMax;    // high-water mark of macro name slots used (new unique defines)
+#endif
 
 // include-file descriptor.  EOF (-1) means no include is active.
 // Must be int (not char) to match "extern int input2" in cc2.c:
@@ -278,6 +281,9 @@ void dodefine() {
             while (*cptr2++ = msname[k++]) {
                 // copy the macro name into the name buffer; cptr2 advances
             }
+#ifdef ENABLE_DIAGNOSTICS
+        macnMax = macnMax + 1;
+#endif
         }
         else {
             error("macro name table full");

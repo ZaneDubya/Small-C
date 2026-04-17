@@ -29,16 +29,20 @@ int *funcbuf,       // per-function p-code buffer (heap-allocated in header)
 #ifdef ENABLE_OPTDEBUG
 int *optcount;   // per-rule optimization hit counts (calloc'd in header)
 int nrules;      // number of entries in seqdata[], counted at runtime
+#endif
 #ifdef ENABLE_DIAGNOSTICS
 extern int glbcount,
            litptrMax,
            macptr,
-           paramTypesPtr;
+           macnMax,
+           paramTypesPtr,
+           locptrMax,
+           argbufcurMax;
 extern char *dimdata, 
             *dimdatptr,
             *structdatnext, 
             *structBase;
-#endif
+int funcbufMax;         // high-water mark of funcbuf usage (int slots)
 #endif
 
 // === externals ==============================================================
@@ -1686,17 +1690,20 @@ void trailer() {
             fprintf(output, "; %d   %d\n", i, optcount[i]);
         }
     }
+#endif 
 #ifdef ENABLE_DIAGNOSTICS
     fprintf(output, "; --- compiler buffer usage ---\n");
     fprintf(output, "  globals:        %d/%d bytes\n", glbcount*SYMMAX, NUMGLBS*SYMMAX);
-    fprintf(output, "  globals:        %d/%d bytes\n", glbcount*SYMMAX, NUMGLBS*SYMMAX);
+    fprintf(output, "  locals peak:    %d/%d bytes\n", locptrMax, NUMLOCS*SYMAVG);
     fprintf(output, "  literals:       %d/%d bytes\n", litptrMax, LITABSZ);
     fprintf(output, "  macros:         %d/%d bytes\n", macptr, MACQSIZE);
+    fprintf(output, "  macro names:    %d/%d slots\n", macnMax, MACNBR);
     fprintf(output, "  array dims:     %d/%d bytes\n", (int)dimdatptr-(int)dimdata, DIMDATSZ);
-    fprintf(output, "  param types:    %d/%d bytes\n", paramTypesPtr, FNPARAMTS_SZ);
+    fprintf(output, "  param types:    %d/%d bytes\n", paramTypesPtr, FNPARAMSZ);
     fprintf(output, "  structs:        %d/%d bytes\n", (int)structdatnext-(int)structBase, STRUCTDATSZ);
+    fprintf(output, "  funcbuf peak:   %d/%d slots\n", funcbufMax, FUNCBUFSIZE);
+    fprintf(output, "  argbuf peak:    %d/%d slots\n", argbufcurMax, ARGBUFSZ);
 #endif
-#endif 
 }
 
 // remember where we are in the queue in case we have to back up.
@@ -1810,6 +1817,9 @@ void bufout(int pcode, int value) {
     if (fnext >= funcbuf + FUNCBUFSIZE) {
         // overflow: emit buffer and new entry directly, skip optimization
         int *p;
+#ifdef ENABLE_DIAGNOSTICS
+        fputs("funcbuf overflow: optimizer bypassed\n", stderr);
+#endif
         p = funcbuf;
         while (p < fnext) { outcode(p[0], p[1]); p += 2; }
         fnext = funcbuf;
@@ -1819,6 +1829,10 @@ void bufout(int pcode, int value) {
     fnext[0] = pcode;
     fnext[1] = value;
     fnext += 2;
+#ifdef ENABLE_DIAGNOSTICS
+    if (fnext - funcbuf > funcbufMax)
+        funcbufMax = fnext - funcbuf;
+#endif
 }
 
 // Frame Pointer Omission (FPO): determines whether BP is provably unused by

@@ -194,9 +194,11 @@ extern char *structdata, *structdatnext;
 #endif
 
 #ifdef ENABLE_DIAGNOSTICS
-int litptrMax,   // high-water mark of litptr
-    glbcount;    // number of global symbol table slots used
-char *structBase;        // snapshot of structdata base, for usage stats
+int litptrMax,      // high-water mark of litptr
+    glbcount,       // number of global symbol table slots used
+    locptrMax,      // high-water mark of local symbol table bytes used
+    macnMax;        // high-water mark of macro name slots used (new unique defines)
+char *structBase;   // snapshot of structdata base, for usage stats
 #endif
 
 
@@ -212,7 +214,7 @@ void main(int argc, int *argv) {
     swnext = calloc(SWTABSZ, 1);
     swend = swnext + (SWTABSZ - SWSIZ) / BPW;
     stage = calloc(STAGESIZE, 2 * BPW);
-    argbuf = calloc(ARGBUF_SIZE, sizeof(int));
+    argbuf = calloc(ARGBUFSZ, sizeof(int));
     argbufcur = 0;
     wqptr = wq = calloc(WQTABSZ, BPW);
     litq = calloc(LITABSZ, 1);
@@ -222,18 +224,18 @@ void main(int argc, int *argv) {
     locptr = STARTLOC;
     glbptr = STARTGLB;
     dimdatptr = dimdata = calloc(DIMDATSZ, 1);
-    paramTypes = calloc(FNPARAMTS_SZ, 1);
+    paramTypes = calloc(FNPARAMSZ, 1);
     initStructs();
     initEnums();
+    availMem = avail(0);
 #ifdef ENABLE_DIAGNOSTICS
     structBase = structdata;
-    availMem = avail(0);
     fprintf(stderr, "  Memory available: %d b\n", availMem);
-    if (availMem < 2000) {
+#endif
+    if (availMem < 4000) {
         fputs("out of memory\n", stderr);
         exit(1);
     }
-#endif
     rettype = TYPE_INT;
     rettypeSubPtr = 0;
 #ifdef ENABLE_WARNINGS
@@ -250,16 +252,6 @@ void main(int argc, int *argv) {
     if (warncount > 0) {
         fprintf(stderr, "  %d warning(s). Press any key to continue...\n", warncount);
         fgetc(stderr);
-    }
-#endif
-#ifdef ENABLE_DIAGNOSTICS
-    if (errcount == 0) {
-        fprintf(stderr, "  globals:        %d/%d bytes\n", glbcount*SYMMAX, NUMGLBS*SYMMAX);
-        fprintf(stderr, "  literals:       %d/%d bytes\n", litptrMax, LITABSZ);
-        fprintf(stderr, "  macros:         %d/%d bytes\n", macptr, MACQSIZE);
-        fprintf(stderr, "  array dims:     %d/%d bytes\n", (int)dimdatptr-(int)dimdata, DIMDATSZ);
-        fprintf(stderr, "  param types:    %d/%d bytes\n", paramTypesPtr, FNPARAMTS_SZ);
-        fprintf(stderr, "  structs:        %d/%d bytes\n", (int)structdatnext-(int)structBase, STRUCTDATSZ);
     }
 #endif
 }

@@ -46,7 +46,7 @@ extern int warncount;
 #endif
 
 #ifdef ENABLE_DIAGNOSTICS
-extern int glbcount;
+extern int glbcount, locptrMax;
 #endif
 // forward declarations for this file:
 void errout(char msg[], int fp, char *path, int ln);
@@ -311,6 +311,10 @@ int addSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, 
     if (lgpp == &locptr) {
         *cptr2 = cptr2 - cptr3;         // set length
         *lgpp = ++cptr2;
+#ifdef ENABLE_DIAGNOSTICS
+        if (locptr - STARTLOC > locptrMax)
+            locptrMax = locptr - STARTLOC;
+#endif
     }
     return cptr;
 }
@@ -549,7 +553,7 @@ int paramTypesPtr = 1;   // next free index; 0 is reserved as sentinel
 int storeParamTypes(char *typebuf, char *depthbuf, int nparams_byte) {
     int idx, n, k;
     n = nparams_byte & 0x7F;
-    if (paramTypesPtr + 1 + 2*n > FNPARAMTS_SZ) {
+    if (paramTypesPtr + 1 + 2*n > FNPARAMSZ) {
         error("function param table full");
         return 0;
     }

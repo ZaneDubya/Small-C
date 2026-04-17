@@ -1,9 +1,9 @@
 // CC.H -- Symbol Definitions for Small-C compiler.
 
-// #define ENABLE_DIAGNOSTICS      // verbose compiler diagnostics
+#define ENABLE_DIAGNOSTICS      // verbose compiler diagnostics, ~500b code
 // #define ENABLE_OPTDEBUG         // verbose optimizer diagnostics
 #define ENABLE_WARNINGS         // enable optional compiler warnings
-#ifdef ENABLE_WARNINGS          // approx 1000b of extra code for all warnings
+#ifdef ENABLE_WARNINGS          // ~1000b code for all warnings
 #define WARN_IMPLICIT           // warn about implicit int / undeclared fns
 #define WARN_ARGCOUNT           // warn about wrong number of args in fn calls
 #endif
@@ -105,7 +105,7 @@
 #define SYMMAX    24    // global entry stride: NAME(11)+NAMEMAX(12)+NUL(1) = 24
 
 // symbol table parameters
-#define NUMLOCS   100
+#define NUMLOCS   50
 #define STARTLOC  symtab
 #define ENDLOC    (symtab+NUMLOCS*SYMAVG)
 #define NUMGLBS   400
@@ -186,11 +186,11 @@
 #define LITMAX  (LITABSZ-1)
 
 // multi-dimensional array metadata buffer
-#define DIMDATSZ  500  // dimdata buffer size
+#define DIMDATSZ  240  // dimdata buffer size
 #define MAX_DIMS    8  // max dimensions per array
 
 // paramTypes[] — function parameter-type record buffer
-// A flat byte array (size FNPARAMTS_SZ) shared by all functions in the
+// A flat byte array (size FNPARAMSZ) shared by all functions in the
 // translation unit.  Index 0 is reserved as the "not recorded" sentinel;
 // all valid entries start at index >= 1.
 // Each function's parameter signature occupies a contiguous byte block.
@@ -217,11 +217,11 @@
 //   - Theoretical 127 fixed parameters per function (7-bit field).
 //   - Maximum 32 parameters are collected by recordParamTypes() (local
 //     typebuf/depthbuf arrays are char[32]).
-#define FNPARAMTS_SZ 2048 // size of paramTypes[] function parameter-type buffer
+#define FNPARAMSZ 1600 // size of paramTypes[] function parameter-type buffer
 
 // argbuf[] — two-pass left-to-right / right-to-left argument buffer
 //
-// A flat int array (size ARGBUF_SIZE) used by callfunc() (cc3.c) to
+// A flat int array (size ARGBUFSZ) used by callfunc() (cc3.c) to
 // implement cdecl right-to-left push order while evaluating arguments
 // left-to-right (as required by C's evaluation model).
 //
@@ -249,9 +249,9 @@
 //   Nested calls write above the parent's data (argbufcur keeps growing).
 //   On exit, argbufcur is restored to argbufBase, freeing the region.
 //   Peak concurrent usage = sum of p-code counts for all arguments of
-//   all simultaneously active (nested) calls, which ARGBUF_SIZE must cover.
+//   all simultaneously active (nested) calls, which ARGBUFSZ must cover.
 #define MAX_CALL_ARGS  12   // max arguments to any one function call
-#define ARGBUF_SIZE   400   // int slots (peak concurrent p-codes in flight)
+#define ARGBUFSZ       400  // int slots (peak concurrent p-codes in flight)
 
 // is[] array -- expression state (8 ints)
 // Starting with level1(), this code places information about the expression
@@ -423,13 +423,13 @@
 #define STRMEM_MAX      24
 
 // struct data and member data definitions
-#define STRDAT_NUM      20  // max 254
-#define STRMEM_NUM      100
+#define STRDAT_NUM      20  // at max, this could be 254
+#define STRMEM_NUM      80
 #define STRDAT_START    structdata
 #define STRDAT_END      (structdata+STRDAT_NUM*STRDAT_MAX)
 #define STRMEM_START    STRDAT_END
 #define STRMEM_END      (STRMEM_START+STRMEM_NUM*STRMEM_MAX)
-#define STRUCTDATSZ     (STRDAT_NUM*STRDAT_MAX+STRMEM_NUM*STRMEM_MAX) // 2800 bytes
+#define STRUCTDATSZ     (STRDAT_NUM*STRDAT_MAX+STRMEM_NUM*STRMEM_MAX)
 
 // === Enum data layout =======================================================
 // ============================================================================

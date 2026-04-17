@@ -36,9 +36,9 @@ extern char *litq, *glbptr, *locptr, *lptr, *dimdata, *dimdatptr,
 extern int ch, csp, litlab, litptr, nch, op[16], op2[16], opd[16], opd2[16],
     opindex, opsize, *snext, *slast, *argbuf, argbufcur, argtop, rettype,
     rettypeSubPtr, lastNdim, lastStrides[MAX_DIMS];
-
 #ifdef ENABLE_DIAGNOSTICS
-    extern int litptrMax;
+int argbufcurMax;       // high-water mark of argbufcur (int slots)
+extern int litptrMax;
 #endif
 
 // forward declarations for this file:
@@ -1468,7 +1468,7 @@ int collectOneArg(int is[], int argLens[], int argSizes[], int idx, int *pNargs)
     locptr = savedlocptr;
     // Copy this arg's p-codes from the staging buffer into argbuf.
     alen = (int)(snext - exprStart);
-    if (argbufcur + alen + 2 > ARGBUF_SIZE) {
+    if (argbufcur + alen + 2 > ARGBUFSZ) {
         error("argument buffer overflow");
         return 0;
     }
@@ -1477,6 +1477,9 @@ int collectOneArg(int is[], int argLens[], int argSizes[], int idx, int *pNargs)
     argLens[idx]  = alen;
     argSizes[idx] = isLongVal(is) ? BPD : BPW;
     argbufcur += alen;   // advance global cursor: nested calls start above here
+#ifdef ENABLE_DIAGNOSTICS
+    if (argbufcur > argbufcurMax) argbufcurMax = argbufcur;
+#endif
     *pNargs   += argSizes[idx];
     // Discard this arg's p-codes from stage[]; the next arg reuses the slot.
     snext = exprStart;
