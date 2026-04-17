@@ -45,13 +45,11 @@ void checkn(char *desc, int got, int expect) {
     }
 }
 
-int main() {
-    int n;
-    long lv, ln;
-    int *lnp;
+/* ========================== test group 1 ===========================
+** Tests 1-21: plain string, %%, %d, %i, %u, %o, %x, %X
+** =================================================================== */
 
-    passed = 0;
-    failed = 0;
+void test_integers() {
 
     /* ===================== Plain string ===================== */
 
@@ -150,6 +148,13 @@ int main() {
     /* 21: %X mixed digits */
     sprintf(buf, "%X", 0x1ABC);
     check("%X (0x1ABC)", buf, "1ABC");
+}
+
+/* ========================== test group 2 ===========================
+** Tests 22-41: %c, %s, %b, %p, flags (+, space, #)
+** =================================================================== */
+
+void test_misc_convs() {
 
     /* ===================== %c ===================== */
 
@@ -244,6 +249,13 @@ int main() {
     /* 41: %#o of 0 (already has leading zero, no extra) */
     sprintf(buf, "%#o", 0);
     check("%#o (0)", buf, "0");
+}
+
+/* ========================== test group 3 ===========================
+** Tests 42-57: field width, runtime *, precision, - and 0 flags
+** =================================================================== */
+
+void test_width_prec() {
 
     /* ===================== Field width ===================== */
 
@@ -318,6 +330,16 @@ int main() {
     /* 57: left-justify overrides zero-pad */
     sprintf(buf, "%-05d", 42);
     check("%-05d (- beats 0)", buf, "42   ");
+}
+
+/* ========================== test group 4 ===========================
+** Tests 58-73: %n, long conversions, h modifier
+** =================================================================== */
+
+void test_n_and_long() {
+    int n;
+    long lv, ln;
+    int *lnp;
 
     /* ===================== %n ===================== */
 
@@ -399,6 +421,16 @@ int main() {
     /* 73: %hu same as %u on this target */
     sprintf(buf, "%hu", 65535);
     check("%hu (65535)", buf, "65535");
+}
+
+int main() {
+    passed = 0;
+    failed = 0;
+
+    test_integers();
+    test_misc_convs();
+    test_width_prec();
+    test_n_and_long();
 
     /* ===================== Summary ===================== */
 
