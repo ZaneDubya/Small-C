@@ -983,12 +983,20 @@ int seqdata[] = {
     // 089 GE12u+EQ10f -> CMP12+JccA (branch when sr >= pr unsigned)
     GE12u,EQ10f,0,CMP12,go|p1,JccA,go|m1,0, 0,
 
+    // Eliminate shift-by-zero (safety: SHx AX,CL with CL=0 does not set flags)
+    // 090 SHL1n(0) -> NOP_ (no-op shift left by zero)
+    SHL1n,0,ife,NOP_,0, 0,
+    // 091 SAR1n(0) -> NOP_ (no-op shift right by zero, signed)
+    SAR1n,0,ife,NOP_,0, 0,
+    // 092 SHR1n(0) -> NOP_ (no-op shift right by zero, unsigned)
+    SHR1n,0,ife,NOP_,0, 0,
+
     // Eliminate OR AX,AX when preceding ALU op already sets ZF correctly
-    // 090 ALU-with-SETSFLG + NE10f -> NE10fp (remove redundant OR AX,AX)
+    // 093 ALU-with-SETSFLG + NE10f -> NE10fp (remove redundant OR AX,AX)
     fset,NE10f,0,go|p1,NE10fp,go|m1,0, 0,
-    // 091 ALU-with-SETSFLG + EQ10f -> EQ10fp (remove redundant OR AX,AX)
+    // 094 ALU-with-SETSFLG + EQ10f -> EQ10fp (remove redundant OR AX,AX)
     fset,EQ10f,0,go|p1,EQ10fp,go|m1,0, 0,
-    // 092 Constant-1 Logical Right Shift to Single-Bit Logical Shift
+    // 095 Constant-1 Logical Right Shift to Single-Bit Logical Shift
     // Same as Constant-1 Right Shift but for unsigned: replace GETw1n(1)+LSR12 with LSR1_1.
     //     IN:  GETw1n(1)  LSR12
     //          AX=1       AX = BX >> AX  (unsigned; MOV CX,AX / MOV AX,BX / SHR AX,CL)
@@ -998,9 +1006,9 @@ int seqdata[] = {
     //     OUT: LSR1_1  ->  MOV AX,BX / SHR AX,1
     GETw1n,LSR12,0,ife|p1,go|p1,LSR1_1,0, 0,
 
-    // 092a General Constant Logical Right Shift (N > 1)
+    // 095a General Constant Logical Right Shift (N > 1)
     // Replace GETw1n(n)+LSR12 with LSRsn(n) for any shift count n > 1.
-    // Rule 092 handles n==1 first; this catch-all fires for all remaining values.
+    // Rule 095 handles n==1 first; this catch-all fires for all remaining values.
     //     IN:  GETw1n(n)  LSR12
     //          AX=n       AX = BX >> AX  (unsigned; MOV CX,AX / MOV AX,BX / SHR AX,CL; 9 bytes)
     //     NET: AX = BX >> n  (logical)
@@ -1009,7 +1017,7 @@ int seqdata[] = {
     //     OUT: LSRsn(n)  ->  MOV AX,BX / MOV CL,n / SHR AX,CL
     GETw1n,LSR12,0,go|p1,LSRsn,gv|m1,0, 0,
 
-    // 093 Store Const Word, Stack Variable (5-to-2 fold)
+    // 096 Store Const Word, Stack Variable (5-to-2 fold)
     // Fold POINT1s+PUSH1+GETw1n+POP2+PUTwp1 into GETw1n+PUTws1: eliminate the
     // address-register round-trip when writing a value to a BP-relative slot.
     // Note: for local_var = constant; the front end generates:
@@ -1038,7 +1046,7 @@ int seqdata[] = {
     //       go|m1      retreat to pos3  — dumpstage emits pos3,pos4 in order
     POINT1s,PUSH1,GETw1n,POP2,PUTwp1,sfree,0,go|p3,GETw1n,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
 
-    // 094 Store Const Byte, Stack Variable (5-to-2 fold)
+    // 097 Store Const Byte, Stack Variable (5-to-2 fold)
     // Same as rule 093 but for byte stores: POINT1s+PUSH1+GETw1n+POP2+PUTbp1
     // -> GETw1n+PUTbs1. PUTbs1 emits MOV BYTE PTR o[BP],AL.
     //     IN:  POINT1s(o)    PUSH1        GETw1n(n)  POP2      PUTbp1
@@ -1047,7 +1055,7 @@ int seqdata[] = {
     //     GUARD: sfree
     POINT1s,PUSH1,GETw1n,POP2,PUTbp1,sfree,0,go|p3,GETw1n,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
 
-    // 095 Store Stack-Var Word through Ptr (4-to-3 fold)
+    // 098 Store Stack-Var Word through Ptr (4-to-3 fold)
     // Replace PUSH1+GETw1s+POP2+PUTwp1 with MOVE21+GETw1s+NOP_+PUTwp1,
     // eliminating the stack round-trip when writing a stack variable through a
     // pointer whose address was already in AX.
@@ -1070,7 +1078,7 @@ int seqdata[] = {
     //       go|m2      retreat to pos0 — dumpstage emits pos0..pos3 in order
     PUSH1,GETw1s,POP2,PUTwp1,sfree,0, MOVE21,go|p2,NOP_,go|m2, 0, 0,
 
-    // 096 Store Stack-Var Byte through Ptr (4-to-3 fold)
+    // 099 Store Stack-Var Byte through Ptr (4-to-3 fold)
     // Same as rule 095 but for byte stores: replaces PUSH1+GETw1s+POP2+PUTbp1
     // with MOVE21+GETw1s+NOP_+PUTbp1. PUTbp1 emits MOV [BX],AL.
     //     IN:  PUSH1    GETw1s(o)   POP2    PUTbp1
@@ -1330,17 +1338,17 @@ char* code[PCODES] = {
     /* 205 RETNOFP    */ "\000RET\n",                 // bare RET (frame pointer omitted)
     // logical (unsigned) right shift
     /* 206 LSR12      */ "\011MOV CX,AX\nMOV AX,BX\nSHR AX,CL\n",
-    /* 207 LSR1_1     */ "\001MOV AX,BX\nSHR AX,1\n",
+    /* 207 LSR1_1     */ "\005MOV AX,BX\nSHR AX,1\n",
     // bit-field manipulation (AX-only; BX preserved)
     /* 208 AND1n      */ "\011AND AX,<n>\n",
-    /* 209 SHL1n      */ "\011MOV CL,<n>\nSHL AX,CL\n",
-    /* 210 SAR1n      */ "\011MOV CL,<n>\nSAR AX,CL\n",
-    /* 211 SHR1n      */ "\011MOV CL,<n>\nSHR AX,CL\n",
+    /* 209 SHL1n      */ "\015MOV CL,<n>\nSHL AX,CL\n",
+    /* 210 SAR1n      */ "\015MOV CL,<n>\nSAR AX,CL\n",
+    /* 211 SHR1n      */ "\015MOV CL,<n>\nSHR AX,CL\n",
     /* optimizer-generated: constant shift by N (N>1) */
     /* 212 ASR1_2     */ "\005MOV AX,BX\nSAR AX,1\nSAR AX,1\n",
     /* 213 ASRsn      */ "\005MOV AX,BX\nMOV CL,<n>\nSAR AX,CL\n",
     /* 214 ASLsn      */ "\005MOV AX,BX\nMOV CL,<n>\nSHL AX,CL\n",
-    /* 215 LSRsn      */ "\001MOV AX,BX\nMOV CL,<n>\nSHR AX,CL\n"
+    /* 215 LSRsn      */ "\005MOV AX,BX\nMOV CL,<n>\nSHR AX,CL\n"
 
 };
 
@@ -2050,6 +2058,16 @@ void dumpstage() {
             rulenum = 0;
             while (*seq) {
                 if (peep(seq)) {
+                    // compact NOP_ slots out of the remaining buffer
+                    int *src, *dst;
+                    dst = snext;
+                    for (src = snext; src < stail; src += 2) {
+                        if (src[0] != NOP_) {
+                            if (dst != src) { dst[0] = src[0]; dst[1] = src[1]; }
+                            dst += 2;
+                        }
+                    }
+                    stail = dst;
 #ifdef ENABLE_OPTDEBUG
                     optcount[rulenum]++;
                     fprintf(output, ";                  optimized %d\n", rulenum);

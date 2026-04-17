@@ -2,7 +2,7 @@
 
 #define ENABLE_DIAGNOSTICS      // verbose compiler diagnostics, ~500b code
 // #define ENABLE_OPTDEBUG         // verbose optimizer diagnostics
-#define ENABLE_WARNINGS         // enable optional compiler warnings
+// #define ENABLE_WARNINGS         // enable optional compiler warnings
 #ifdef ENABLE_WARNINGS          // ~1000b code for all warnings
 #define WARN_IMPLICIT           // warn about implicit int / undeclared fns
 #define WARN_ARGCOUNT           // warn about wrong number of args in fn calls
@@ -477,7 +477,8 @@
 #define BYTEr0   12   // define r bytes of value 0
 #define COM1     13   // ones complement pr
 #define DBL1     14   // double pr
-#define DBL2     15   // double sr
+#define DBL2     15   // double sr. Note: do not add SETSFLG to DBL2, as this
+                      // shifts BX, not AX; Small-C's codegen tests AX.
 #define DIV12    16   // div pr by sr
 #define DIV12u   17   // div pr by sr unsigned
 #define ENTER    18   // set stack frame on function entry
@@ -514,8 +515,10 @@
 #define MOD12    49   // modulo pr by sr
 #define MOD12u   50   // modulo pr by sr unsigned
 #define MOVE21   51   // move pr to sr
-#define MUL12    52   // multiply pr by sr
-#define MUL12u   53   // multiply pr by sr unsigned
+#define MUL12    52   // multiply pr by sr. Note: only set CF/OF on 8086, does
+                      // not reliably set ZF. Do not add SETSFLG to MUL12u.
+#define MUL12u   53   // multiply pr by sr unsigned. Note: do not add SETSFLG
+                      // to MUL12u, see note on MUL12.
 #define NE10f    54   // jump if (pr != 0) is false
 #define NE12     55   // set pr TRUE if (sr != pr)
 #define NEARm    56   // define near pointer thru label
