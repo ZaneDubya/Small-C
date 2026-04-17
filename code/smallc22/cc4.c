@@ -1097,7 +1097,101 @@ int seqdata[] = {
     //          BX=AX    AX=o[BP]    –       [BX]=AL
     //     GUARD: sfree
     PUSH1,GETw1s,POP2,PUTbp1,sfree,0, MOVE21,go|p2,NOP_,go|m2, 0, 0,
-    
+
+    // Store Global Word to Stack Variable  (local = global;)
+    // Fold POINT1s+PUSH1+GETw1m+POP2+PUTwp1 into GETw1m+PUTws1.
+    //     IN:  POINT1s(o)  PUSH1  GETw1m(g)  POP2  PUTwp1
+    //     OUT: GETw1m(g)  PUTws1(o)
+    //     GUARD: sfree
+    POINT1s,PUSH1,GETw1m,POP2,PUTwp1,sfree,0,go|p3,GETw1m,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
+
+    // Store Global Byte to Stack Variable  (local_char = global;)
+    // Same as above but for byte stores: PUTbp1 -> PUTbs1.
+    //     IN:  POINT1s(o)  PUSH1  GETw1m(g)  POP2  PUTbp1
+    //     OUT: GETw1m(g)  PUTbs1(o)
+    //     GUARD: sfree
+    POINT1s,PUSH1,GETw1m,POP2,PUTbp1,sfree,0,go|p3,GETw1m,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
+
+    // Store Global Address Word to Stack Variable  (local = &global;)
+    // Fold POINT1s+PUSH1+POINT1m+POP2+PUTwp1 into POINT1m+PUTws1.
+    //     IN:  POINT1s(o)  PUSH1  POINT1m(g)  POP2  PUTwp1
+    //     OUT: POINT1m(g)  PUTws1(o)
+    //     GUARD: sfree
+    POINT1s,PUSH1,POINT1m,POP2,PUTwp1,sfree,0,go|p3,POINT1m,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
+
+    // Store Global Address Byte to Stack Variable  (local_char = &global;)
+    // Same as above but for byte stores: PUTbp1 -> PUTbs1.
+    //     IN:  POINT1s(o)  PUSH1  POINT1m(g)  POP2  PUTbp1
+    //     OUT: POINT1m(g)  PUTbs1(o)
+    //     GUARD: sfree
+    POINT1s,PUSH1,POINT1m,POP2,PUTbp1,sfree,0,go|p3,POINT1m,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
+
+    // Store Stack Var Word to Stack Variable  (local1 = local2;)
+    // Fold POINT1s+PUSH1+GETw1s+POP2+PUTwp1 into GETw1s+PUTws1.
+    //     IN:  POINT1s(o)  PUSH1  GETw1s(s)  POP2  PUTwp1
+    //     OUT: GETw1s(s)  PUTws1(o)
+    //     GUARD: sfree
+    POINT1s,PUSH1,GETw1s,POP2,PUTwp1,sfree,0,go|p3,GETw1s,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
+
+    // Store Stack Var Byte to Stack Variable  (local1_char = local2;)
+    // Same as above but for byte stores: PUTbp1 -> PUTbs1.
+    //     IN:  POINT1s(o)  PUSH1  GETw1s(s)  POP2  PUTbp1
+    //     OUT: GETw1s(s)  PUTbs1(o)
+    //     GUARD: sfree
+    POINT1s,PUSH1,GETw1s,POP2,PUTbp1,sfree,0,go|p3,GETw1s,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
+
+    // Store Signed-Byte Global Word to Stack Variable  (local = global_schar;)
+    // Fold POINT1s+PUSH1+GETb1m+POP2+PUTwp1 into GETb1m+PUTws1.
+    //     IN:  POINT1s(o)  PUSH1  GETb1m(g)  POP2  PUTwp1
+    //     OUT: GETb1m(g)  PUTws1(o)
+    //     GUARD: sfree
+    POINT1s,PUSH1,GETb1m,POP2,PUTwp1,sfree,0,go|p3,GETb1m,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
+
+    // Store Signed-Byte Global Byte to Stack Variable  (local_char = global_schar;)
+    //     IN:  POINT1s(o)  PUSH1  GETb1m(g)  POP2  PUTbp1
+    //     OUT: GETb1m(g)  PUTbs1(o)
+    //     GUARD: sfree
+    POINT1s,PUSH1,GETb1m,POP2,PUTbp1,sfree,0,go|p3,GETb1m,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
+
+    // Store Unsigned-Byte Global Word to Stack Variable  (local = global_uchar;)
+    // Fold POINT1s+PUSH1+GETb1mu+POP2+PUTwp1 into GETb1mu+PUTws1.
+    //     IN:  POINT1s(o)  PUSH1  GETb1mu(g)  POP2  PUTwp1
+    //     OUT: GETb1mu(g)  PUTws1(o)
+    //     GUARD: sfree
+    POINT1s,PUSH1,GETb1mu,POP2,PUTwp1,sfree,0,go|p3,GETb1mu,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
+
+    // Store Unsigned-Byte Global Byte to Stack Variable  (local_char = global_uchar;)
+    //     IN:  POINT1s(o)  PUSH1  GETb1mu(g)  POP2  PUTbp1
+    //     OUT: GETb1mu(g)  PUTbs1(o)
+    //     GUARD: sfree
+    POINT1s,PUSH1,GETb1mu,POP2,PUTbp1,sfree,0,go|p3,GETb1mu,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
+
+    // Store Signed-Byte Stack Var Word to Stack Variable  (local = other_local_schar;)
+    // Fold POINT1s+PUSH1+GETb1s+POP2+PUTwp1 into GETb1s+PUTws1.
+    //     IN:  POINT1s(o)  PUSH1  GETb1s(s)  POP2  PUTwp1
+    //     OUT: GETb1s(s)  PUTws1(o)
+    //     GUARD: sfree
+    POINT1s,PUSH1,GETb1s,POP2,PUTwp1,sfree,0,go|p3,GETb1s,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
+
+    // Store Signed-Byte Stack Var Byte to Stack Variable  (local_char = other_local_schar;)
+    //     IN:  POINT1s(o)  PUSH1  GETb1s(s)  POP2  PUTbp1
+    //     OUT: GETb1s(s)  PUTbs1(o)
+    //     GUARD: sfree
+    POINT1s,PUSH1,GETb1s,POP2,PUTbp1,sfree,0,go|p3,GETb1s,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
+
+    // Store Unsigned-Byte Stack Var Word to Stack Variable  (local = other_local_uchar;)
+    // Fold POINT1s+PUSH1+GETb1su+POP2+PUTwp1 into GETb1su+PUTws1.
+    //     IN:  POINT1s(o)  PUSH1  GETb1su(s)  POP2  PUTwp1
+    //     OUT: GETb1su(s)  PUTws1(o)
+    //     GUARD: sfree
+    POINT1s,PUSH1,GETb1su,POP2,PUTwp1,sfree,0,go|p3,GETb1su,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
+
+    // Store Unsigned-Byte Stack Var Byte to Stack Variable  (local_char = other_local_uchar;)
+    //     IN:  POINT1s(o)  PUSH1  GETb1su(s)  POP2  PUTbp1
+    //     OUT: GETb1su(s)  PUTbs1(o)
+    //     GUARD: sfree
+    POINT1s,PUSH1,GETb1su,POP2,PUTbp1,sfree,0,go|p3,GETb1su,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
+
     0  // end sentinel
 
     // These four _pop/topop rules eliminate PUSH/POP round-trips by reloading
