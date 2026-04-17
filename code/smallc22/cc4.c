@@ -1192,6 +1192,34 @@ int seqdata[] = {
     //     GUARD: sfree
     POINT1s,PUSH1,GETb1su,POP2,PUTbp1,sfree,0,go|p3,GETb1su,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
 
+    // PUSHs + GETw1s + POP2 -> GETw2s + GETw1s
+    // Eliminate push/pop round-trip when a stack variable is pushed for a binary op
+    // and the middle operand is a stack variable load.
+    //     IN:  PUSHs(o)        GETw1s(m)     POP2
+    //          push w[BP+o]    AX=w[BP+m]    BX=pop'd
+    //     NET: BX=w[BP+o], AX=w[BP+m]
+    //     OUT: GETw2s(o)  GETw1s(m)
+    //          BX=w[BP+o] AX=w[BP+m]
+    //     NOTE: Cannot use 'any' here — PUSHs+CALL+POP2 exists and CALL
+    //           clobbers BX, so each safe middle operand needs its own rule.
+    PUSHs,GETw1s,POP2,0,go|p2,gc|m1,gv|m1,go|m1,GETw2s,gv|m1,0, 0,
+
+    // PUSHs + GETw1n + POP2 -> GETw2s + GETw1n
+    // Same pattern but middle operand is a constant load (MOV AX,N or XOR AX,AX).
+    PUSHs,GETw1n,POP2,0,go|p2,gc|m1,gv|m1,go|m1,GETw2s,gv|m1,0, 0,
+
+    // PUSHs + POINT1s + POP2 -> GETw2s + POINT1s
+    // Same pattern but middle operand is LEA AX,disp[BP] (address of local).
+    PUSHs,POINT1s,POP2,0,go|p2,gc|m1,gv|m1,go|m1,GETw2s,gv|m1,0, 0,
+
+    // PUSHs + GETw1m + POP2 -> GETw2s + GETw1m
+    // Same pattern but middle operand is a global variable load.
+    PUSHs,GETw1m,POP2,0,go|p2,gc|m1,gv|m1,go|m1,GETw2s,gv|m1,0, 0,
+
+    // PUSHs + POINT1m + POP2 -> GETw2s + POINT1m
+    // Same pattern but middle operand is a global address (MOV AX,OFFSET _sym).
+    PUSHs,POINT1m,POP2,0,go|p2,gc|m1,gv|m1,go|m1,GETw2s,gv|m1,0, 0,
+
     0  // end sentinel
 
     // These four _pop/topop rules eliminate PUSH/POP round-trips by reloading
