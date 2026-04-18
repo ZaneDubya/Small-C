@@ -2140,8 +2140,10 @@ static void tryBoxingElimination() {
 //   - POPd2 pops 4 bytes: depth -= 2
 //   - PUTws1/PUTbs1 (already-folded stores) consumed a POP2: depth -= 1
 //   - After loop exits with depth==0, verify q[0]==POP2 (not a cleanup pop)
+// BX liveness: checked forward from after PUTwp1/PUTbp1 (q+4) to fnext.
 static void tryPushPopElimination() {
-    int *p, *q, depth, offset;
+    int *p, *q, *pp, depth, offset, bx_free;
+    char *cp;
     for (p = funcbuf; p + 2 < fnext; p += 2) {
         if (p[0] != POINT1s) continue;
         if (p[2] != PUSH1) continue;
@@ -2161,14 +2163,24 @@ static void tryPushPopElimination() {
             else if (q[0] == POPCX || q[0] == POPCX2 || q[0] == ADDSP)
                 depth -= q[1] / BPW;
             else if (q[0] == PUTws1 || q[0] == PUTbs1)
-                depth--;    // previously folded store consumed a POP2 
+                depth--;    // previously folded store consumed a POP2
             if (depth > 0) q += 2;
         }
         if (q >= fnext) continue;
-        if (q[0] != POP2) continue;          // POPCX/ADDSP cleanup: not our POP 
+        if (q[0] != POP2) continue;          // POPCX/ADDSP cleanup: not our POP
         if (q + 2 >= fnext) continue;
         if (q[2] != PUTwp1 && q[2] != PUTbp1) continue;
-        // BX is always dead after PUTwp1/PUTbp1 in generated code 
+        // BX liveness: scan forward from q+4 (after the store instruction)
+        bx_free = YES;
+        pp = q + 4;
+        while (pp < fnext) {
+            cp = code[pp[0]];
+            if (cp && (*cp & (SEC & USES))) { bx_free = NO; break; }
+            if (cp && (*cp & (SEC & ZAPS))) { bx_free = YES; break; }
+            pp += 2;
+        }
+        if (!bx_free) continue;
+        // Apply: kill POINT1s, PUSH1, POP2; convert PUTwp1/PUTbp1 to direct store
         p[0] = NOP_; p[1] = 0;
         p[2] = NOP_; p[3] = 0;
         q[0] = NOP_; q[1] = 0;

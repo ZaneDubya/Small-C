@@ -449,3 +449,12 @@ Small-C Revision History
     only decorations, but in the future the compiler could be expanded to
     consume, record, and check calls against these parameters.
     Current state: int (*body)() and int (*body)(int) are equivalent.
+161 SmallLib: decomposed SPRINTF into smaller helper functions so the optimizer
+    can process each one. Reduced buffers to reclaim compiler code space.
+    Extended the peephole and function-level optimizers.
+    NOP compaction in the staging buffer: after any peephole rule fires,
+    NOP_ slots are compacted out of the remaining buffer in-place.
+162 Fourteen new peephole rules for loading a value and storing it to a local
+    stack variable in a single fold.
+    Push/pop round-trip elimination with five staging rules and a new
+    function-level pass, tryPushPopElimination.

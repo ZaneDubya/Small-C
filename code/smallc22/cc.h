@@ -1,9 +1,9 @@
 // CC.H -- Symbol Definitions for Small-C compiler.
 
 #define ENABLE_DIAGNOSTICS      // verbose compiler diagnostics, ~500b code
-#define ENABLE_OPTDEBUG         // verbose optimizer diagnostics
-#define ENABLE_WARNINGS         // enable optional compiler warnings
-#ifdef ENABLE_WARNINGS          // ~1000b code for all warnings
+#define ENABLE_OPTDEBUG         // verbose optimizer diagnostics, ~250b code
+#define ENABLE_WARNINGS         // compiler warnings, ~900b code
+#ifdef ENABLE_WARNINGS
 #define WARN_IMPLICIT           // warn about implicit int / undeclared fns
 #define WARN_ARGCOUNT           // warn about wrong number of args in fn calls
 #endif
