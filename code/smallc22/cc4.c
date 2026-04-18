@@ -2128,6 +2128,55 @@ static void tryBoxingElimination() {
     }
 }
 
+// General PUSH/POP Elimination for Local Lvalue Stores (Finding 9):
+// Scans funcbuf for POINT1s + PUSH1 + <body> + POP2 + PUTwp1/PUTbp1 sequences
+// where the body is 1 or more p-codes (single-instruction cases already handled
+// by staging rules, but multi-instruction RHS escape those rules entirely).
+// Replaces: NOP_(POINT1s) + NOP_(PUSH1) + <body> + NOP_(POP2) + PUTws1/PUTbs1(offset)
+//
+// Depth tracking notes:
+//   - PUSHd1/PUSHdm/PUSHds push 4 bytes (two words): depth += 2
+//   - POPCX/POPCX2/ADDSP carry byte-delta in value field: depth -= q[1]/BPW
+//   - POPd2 pops 4 bytes: depth -= 2
+//   - PUTws1/PUTbs1 (already-folded stores) consumed a POP2: depth -= 1
+//   - After loop exits with depth==0, verify q[0]==POP2 (not a cleanup pop)
+static void tryPushPopElimination() {
+    int *p, *q, depth, offset;
+    for (p = funcbuf; p + 2 < fnext; p += 2) {
+        if (p[0] != POINT1s) continue;
+        if (p[2] != PUSH1) continue;
+        offset = p[1];
+        depth = 1;
+        q = p + 4;
+        while (q < fnext && depth > 0) {
+            if (q[0] == PUSH1 || q[0] == PUSH2 || q[0] == PUSHs ||
+                q[0] == PUSHm || q[0] == PUSHp)
+                depth++;
+            else if (q[0] == PUSHd1 || q[0] == PUSHdm || q[0] == PUSHds)
+                depth += 2;
+            else if (q[0] == POP2)
+                depth--;
+            else if (q[0] == POPd2)
+                depth -= 2;
+            else if (q[0] == POPCX || q[0] == POPCX2 || q[0] == ADDSP)
+                depth -= q[1] / BPW;
+            else if (q[0] == PUTws1 || q[0] == PUTbs1)
+                depth--;    // previously folded store consumed a POP2 
+            if (depth > 0) q += 2;
+        }
+        if (q >= fnext) continue;
+        if (q[0] != POP2) continue;          // POPCX/ADDSP cleanup: not our POP 
+        if (q + 2 >= fnext) continue;
+        if (q[2] != PUTwp1 && q[2] != PUTbp1) continue;
+        // BX is always dead after PUTwp1/PUTbp1 in generated code 
+        p[0] = NOP_; p[1] = 0;
+        p[2] = NOP_; p[3] = 0;
+        q[0] = NOP_; q[1] = 0;
+        q[2] = (q[2] == PUTwp1) ? PUTws1 : PUTbs1;
+        q[3] = offset;
+    }
+}
+
 // Per-function p-code post-processor: runs optimization passes over funcbuf,
 // then emits the final instruction sequence via outcode() and resets the buffer.
 // Called by toseg() at every function-end or segment-change boundary.
@@ -2135,9 +2184,10 @@ static void tryBoxingElimination() {
 //   1. canOptFPOpass():              may replace ENTER/RETURN before epilogue runs
 //   2. tryEpilogueConsolidation():   introduces JMPm entries for short-branch pass
 //   3. tryBoxingElimination():       eliminates || / && 0/1 boxing tails
-//   4. Short-branch loop:            iterates to fixpoint; convergence is guaranteed
+//   4. tryPushPopElimination():      folds POINT1s+PUSH1+<body>+POP2+PUTwp1 patterns
+//   5. Short-branch loop:            iterates to fixpoint; convergence is guaranteed
 //                                    because code size is monotonically non-increasing
-//   5. Emit:                         walk funcbuf, call outcode() per pair, reset fnext
+//   6. Emit:                         walk funcbuf, call outcode() per pair, reset fnext
 void flushfunc() {
     int *p, pc, val, spc, pos, ref_pos, delta, changed;
     int i, lpos, nflab;
@@ -2148,6 +2198,7 @@ void flushfunc() {
     canOptFPOpass();
     tryEpilogueConsolidation();
     tryBoxingElimination();
+    tryPushPopElimination();
     // Short-branch loop: each substitution may bring further targets into ±127-byte
     // range, so repeat until a full pass produces no changes (fixpoint).
     do {
