@@ -93,7 +93,7 @@
 #define TYPE      1
 #define CLASS     2
 #define NDIM      3     // number of dimensions: 0/1 = scalar/pointer/1D array; 2+ = multi-dim
-#define CLASSPTR  4     // ptr to structdata[] (TYPE_STRUCT, NDIM<=1), dimdata[] (NDIM>1), or 0
+#define CLASSPTR  4     // ptr to *structdata (TYPE_STRUCT, NDIM<=1), *dimdata (NDIM>1), or 0
 #define SIZE      6     // for objects, total object size in bytes (sizeof); for functions, this is FNPARAMPTR
 #define FNPARAMPTR SIZE    // for IDENT_FUNCTION/IDENT_PTR_FUNCTION: index into paramTypes[]
 #define FNPTRPARAMPTR CLASSPTR // for IDENT_FNPTR_VAR: sub-sig index into paramTypes[]
@@ -713,11 +713,11 @@
 // ============================================================================
 
 int addSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class);
-void addwhile(int ptr[]);
+void addwhile(int *ptr);
 int alpha(char c);
 int amatch(char *lit, int len);
 int an(char c);
-int astreq(char str1[], char str2[], int len);
+int astreq(char *str1, char *str2, int len);
 void blanks();
 void bump(int n);
 int callfunc(char *ptr);
@@ -738,13 +738,13 @@ int dotype(int *typeSubPtr);
 void dumpLitPool(int size);
 void dumpzero(int size, int count);
 int endst();
-void error(char msg[]);
+void error(char *msg);
 void errputc(int c);
 void errputs(char *s);
 void outputc(int c);
 void outputs(char *s);
 void external(char *name, int size, int ident);
-void fetch(int is[]);
+void fetch(int *is);
 int findglb(char *sname);
 int findloc(char *sname);
 int findSymbol(char *sname, char *buf, int len, char *end, int max, int off, int namelen);
@@ -770,12 +770,12 @@ int  tryExpandPredefined(char *name);
 void initStructs();
 int isCExpr32(int *val, int *val_hi);
 int isConstExpr(int *val);
-int isLongVal(int is[]);
+int isLongVal(int *is);
 int isMatch(char *lit);
 int isreserved(char *name);
-int isUnsigned(int is[]);
+int isUnsigned(int *is);
 void kill();
-int level1(int is[]);
+int level1(int *is);
 void lout(char *line, int fd);
 void multidef(char *sname);
 void needlval();
@@ -797,18 +797,18 @@ void require(char *str);
 void reqSemicolon();
 void setstage(int *before, int *start);
 void skipToNextToken();
-int storeDimDat(int sptr, int ndim, int strides[]);
+int storeDimDat(int sptr, int ndim, int *strides);
 int storeParamTypes(char *typebuf, char *depthbuf, int nparams_byte);
 void stowlit(int value, int size);
-int streq(char str1[], char str2[]);
+int streq(char *str1, char *str2);
 int string(int *offset);
 int symname(char *sname);
-int tableFind(int tab[], int key);
+int tableFind(int *tab, int key);
 void toseg(int newseg);
 void trailer();
 int white();
 #ifdef ENABLE_WARNINGS
 void errLocation();
-void warning(char msg[]);
-void warningWithName(char msg[], char *name, char suffix[]);
+void warning(char *msg);
+void warningWithName(char *msg, char *name, char *suffix);
 #endif

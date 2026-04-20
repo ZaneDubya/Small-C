@@ -54,9 +54,9 @@ extern int
     *snext, *stail, *slast;
 
 // forward declarations for this file:
-void outstr(char ptr[]);
-void outname(char ptr[]);
-void outline(char ptr[]);
+void outstr(char *ptr);
+void outname(char *ptr);
+void outline(char *ptr);
 void outcode(int pcode, int value);
 void bufout(int pcode, int value);
 void dumpstage();
@@ -1828,25 +1828,38 @@ void trailer() {
 #ifdef ENABLE_OPTDEBUG
     {
         int i;
-        fprintf(output, "; --- compiler optimizations applied ---\n");
-        fprintf(output, "; opt   count\n");
+        outputs("; --- compiler optimizations applied ---\n"
+                "; opt   count\n");
         for (i = 0; i < nrules; i++) {
             fprintf(output, "; %d   %d\n", i, optcount[i]);
         }
     }
 #endif 
 #ifdef ENABLE_DIAGNOSTICS
-    fprintf(output, "; --- compiler buffer usage ---\n");
-    fprintf(output, "  globals:        %d/%d bytes\n", glbcount*SYMMAX, NUMGLBS*SYMMAX);
-    fprintf(output, "  locals peak:    %d/%d bytes\n", locptrMax, NUMLOCS*SYMAVG);
-    fprintf(output, "  literals:       %d/%d bytes\n", litptrMax, LITABSZ);
-    fprintf(output, "  macros:         %d/%d bytes\n", macptr, MACQSIZE);
-    fprintf(output, "  macro names:    %d/%d slots\n", macnMax, MACNBR);
-    fprintf(output, "  array dims:     %d/%d bytes\n", (int)dimdatptr-(int)dimdata, DIMDATSZ);
-    fprintf(output, "  param types:    %d/%d bytes\n", paramTypesPtr, FNPARAMSZ);
-    fprintf(output, "  structs:        %d/%d bytes\n", (int)structdatnext-(int)structBase, STRUCTDATSZ);
-    fprintf(output, "  funcbuf peak:   %d/%d slots\n", funcbufMax, FUNCBUFSIZE);
-    fprintf(output, "  argbuf peak:    %d/%d slots\n", argbufcurMax, ARGBUFSZ);
+    fprintf(output,
+        "; --- compiler buffer usage ---\n"
+        "; globals:        %d/%d bytes\n"
+        "; locals peak:    %d/%d bytes\n"
+        "; literals:       %d/%d bytes\n"
+        "; macros:         %d/%d bytes\n"
+        "; macro names:    %d/%d slots\n",
+        glbcount*SYMMAX,                    NUMGLBS*SYMMAX,
+        locptrMax,                          NUMLOCS*SYMAVG,
+        litptrMax,                          LITABSZ,
+        macptr,                             MACQSIZE,
+        macnMax,                            MACNBR);
+    fprintf(output,
+        "; --- compiler buffer usage ---\n"
+        "; array dims:     %d/%d bytes\n"
+        "; param types:    %d/%d bytes\n"
+        "; structs:        %d/%d bytes\n"
+        "; funcbuf peak:   %d/%d slots\n"
+        "; argbuf peak:    %d/%d slots\n",
+        (int)dimdatptr-(int)dimdata,        DIMDATSZ,
+        paramTypesPtr,                      FNPARAMSZ,
+        (int)structdatnext-(int)structBase, STRUCTDATSZ,
+        funcbufMax,                         FUNCBUFSIZE,
+        argbufcurMax,                       ARGBUFSZ);
 #endif
 }
 
@@ -2549,28 +2562,24 @@ int getpop(int *next) {
 
 // output assembly code.
 void outcode(int pcode, int value) {
-    int part, skip, count;
-    char *cp, *back;
-    part = back = 0;
-    skip = NO;
-    cp = code[pcode] + 1;          // skip 1st byte of code string
+    int part = 0, skip = NO, count;
+    char *cp = code[pcode] + 1, *back = 0;  // skip 1st byte of code string
     while (*cp) {
-        if (*cp == '<') {
-            ++cp;                      // skip to action code
-            if (skip == NO) switch (*cp) {
+        if (*cp == '<') {              // <x> — action code
+            if (skip == NO) switch (cp[1]) {
             case 'm': outname(value + NAME); break; // mem ref by label
-            case 'n': outdec(value);       break; // numeric constant
-            case 'l': outdec(litlab);      break; // current literal label
+            case 'n': outdec(value);         break; // numeric constant
+            case 'l': outdec(litlab);        break; // current literal label
             }
-            cp += 2;                   // skip past >
+            cp += 3;                   // skip <, action char, >
         }
         else if (*cp == '?') {        // ?..if value...?...if not value...?
             switch (++part) {
             case 1: if (value == 0) skip = YES; break;
-            case 2: skip = !skip;              break;
-            case 3: part = 0; skip = NO;       break;
+            case 2: skip = !skip;               break;
+            case 3: part = 0; skip = NO;        break;
             }
-            ++cp;                      // skip past ?
+            ++cp;
         }
         else if (*cp == '#') {        // repeat #...# value times
             ++cp;
@@ -2585,45 +2594,44 @@ void outcode(int pcode, int value) {
             if (--count > 0) cp = back;
             else back = 0;
         }
-        else if (skip == NO) outputc(*cp++);
-        else ++cp;
-    }
-}
-
-void outdec(int number) {
-    int k, zs;
-    char c, *q, *r;
-    zs = 0;
-    k = 10000;
-    if (number < 0) {
-        number = -number;
-        outputc('-');
-    }
-    while (k >= 1) {
-        q = 0;
-        r = number;
-        while (r >= k) { ++q; r = r - k; }
-        c = q + '0';
-        if (c != '0' || k == 1 || zs) {
-            zs = 1;
-            outputc(c);
+        else {
+            if (skip == NO) outputc(*cp);
+            ++cp;
         }
-        number = r;
-        k /= 10;
     }
 }
 
-void outline(char ptr[]) {
+// output a signed decimal number
+void outdec(int number) {
+    char buf[12];
+    int i = 0;
+    unsigned int u;
+    if (number < 0) {
+        outputc('-');
+        u = -number;
+    } else {
+        u = number;
+    }
+    do {
+        buf[i++] = '0' + u % 10;
+        u /= 10;
+    } while (u > 0);
+    while (i--) {
+        outputc(buf[i]);
+    }
+}
+
+void outline(char *ptr) {
     outstr(ptr);
     outputc(NEWLINE);
 }
 
-void outname(char ptr[]) {
+void outname(char *ptr) {
     outstr("_");
     outstr(ptr);
 }
 
-void outstr(char ptr[]) {
+void outstr(char *ptr) {
     poll(1);           // allow program interruption
     while (*ptr >= ' ') outputc(*ptr++);
 }

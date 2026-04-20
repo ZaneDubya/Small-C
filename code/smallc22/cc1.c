@@ -20,7 +20,7 @@
 // forward declarations for this file:
 int addLabel(int def);
 char *applyDimMeta(char *sym, int type, int typeSubPtr, char *ddentry);
-void calcArgStrides(int type, int typeSubPtr, int ndim, int dims[]);
+void calcArgStrides(int type, int typeSubPtr, int ndim, int *dims);
 void dispatchLocInit(int type, int typeSubPtr, int id, int sz);
 int doExpression(int use);
 void doArgsKR();
@@ -44,7 +44,7 @@ void doWhile();
 void emitLocStatic(int type, int id, int sz);
 int isConstExpr(int *val);
 int isConstExpr32(int *val, int *val_hi);
-void initGlbMDArr(int type, int typeSubPtr, int ndim, int dims[], int class);
+void initGlbMDArr(int type, int typeSubPtr, int ndim, int *dims, int class);
 void initGlbVar(int size, int ident, int dim, int class);
 void initLocArray(int type);
 void initLocPtrArray();
@@ -658,7 +658,7 @@ int parseArraySz() {
 // Parse one or more array dim specifications starting after the first '['
 // (already consumed by the caller).  dims[0] receives the first size; each
 // subsequent '[N]' appends to dims[].  Returns total number of dimensions.
-int parseArrayDims(int dims[]) {
+int parseArrayDims(int *dims) {
     int ndim;
     dims[0] = parseArraySz();
     ndim = 1;
@@ -1026,7 +1026,7 @@ void initUnion(int typeSubPtr, int class) {
 
 // recursive helper for global multi-dim array init.
 // depth: current dimension index (0 = outermost)
-int initGlbMDSub(int elemSz, int ndim, int dims[], int depth) {
+int initGlbMDSub(int elemSz, int ndim, int *dims, int depth) {
     int i, dim, innerTot, j;
     int savedLit;
     dim = dims[depth];
@@ -1100,7 +1100,7 @@ int initGlbMDSub(int elemSz, int ndim, int dims[], int depth) {
 // ndim: number of dimensions
 // dims[]: dimension sizes
 // class: GLOBAL or STATIC
-void initGlbMDArr(int type, int typeSubPtr, int ndim, int dims[], int class) {
+void initGlbMDArr(int type, int typeSubPtr, int ndim, int *dims, int class) {
     int elemSz, totalElems, i;
     elemSz = type >> 2;
     if (type == TYPE_STRUCT)
@@ -1527,7 +1527,7 @@ void doArgsKR() {
 // calcArgStrides: fill lastStrides[] and lastNdim for a declarator with
 // 2+ array dimensions. When ndim <= 1, sets lastNdim = 0 (caller handles the
 // single-dimension case). Used by doArgsTyped and parseLocDecl.
-void calcArgStrides(int type, int typeSubPtr, int ndim, int dims[]) {
+void calcArgStrides(int type, int typeSubPtr, int ndim, int *dims) {
     int elemSz, k;
     if (ndim > 1) {
         if (type == TYPE_STRUCT)
@@ -2055,7 +2055,7 @@ void initLocChrStr(int infer) {
 // the symbol's dimdata slot.  strides[k] holds the byte size of one slice
 // at dimension k (i.e. dims[k+1]*...*dims[ndim-1]*elemSz).
 // On return, dims[0..ndim-1] contain the element count for each dimension.
-void deriveDims(char *symptr, int dims[], int elemSz, int ndim) {
+void deriveDims(char *symptr, int *dims, int elemSz, int ndim) {
     int strides[MAX_DIMS];
     int totalElems, i;
     char *ddentry;
@@ -2145,7 +2145,7 @@ void initLocMDElemRow(int elemSz, int baseOff, int dim) {
 // dims[]:  element count for each dimension
 // depth:   current recursion depth (0 == outermost brace level)
 // baseOff: stack offset of the first element reachable at this depth
-void initLocMDSub(int type, int elemSz, int ndim, int dims[],
+void initLocMDSub(int type, int elemSz, int ndim, int *dims,
     int depth, int baseOff) {
     int i, dim, innerTot, j;
     dim = dims[depth];

@@ -108,7 +108,7 @@ int isMatch(char *lit) {
     return 0;
 }
 
-int streq(char str1[], char str2[]) {
+int streq(char *str1, char *str2) {
     int k;
     k = 0;
     while (str2[k]) {
@@ -130,7 +130,7 @@ int amatch(char *lit, int len) {
     return 0;
 }
 
-int astreq(char str1[], char str2[], int len) {
+int astreq(char *str1, char *str2, int len) {
     int k;
     k = 0;
     while (k < len) {
@@ -237,7 +237,7 @@ int endst() {
 // Store dimension metadata for a multi-dim array.
 // Entry format: [structPtr(2)] [stride_0(2)] ... [stride_{ndim-2}(2)]
 // Returns pointer to start of entry in dimdata[].
-int storeDimDat(int sptr, int ndim, int strides[]) {
+int storeDimDat(int sptr, int ndim, int *strides) {
     char *entry;
     int i, sz;
     sz = ndim * 2;
@@ -398,7 +398,7 @@ int nextsym(char *entry) {
 
 // === while queue management functions =======================================
 
-void addwhile(int ptr[]) {
+void addwhile(int *ptr) {
     int k;
     ptr[WQSP] = csp;         // and stk ptr
     ptr[WQLOOP] = getlabel();  // and looping label
@@ -478,7 +478,7 @@ void needlval() {
     error("must be lvalue");
 }
 
-void errout(char msg[], int fp, char *path, int ln) {
+void errout(char *msg, int fp, char *path, int ln) {
     int k;
     k = line + 2;
     while (k++ <= lptr) {
@@ -489,7 +489,7 @@ void errout(char msg[], int fp, char *path, int ln) {
     lout(msg, fp);
 }
 
-void error(char msg[]) {
+void error(char *msg) {
     char *path;
     int   ln;
     ++errcount;
@@ -509,7 +509,7 @@ void error(char msg[]) {
 }
 
 #ifdef ENABLE_WARNINGS
-void warning(char msg[]) {
+void warning(char *msg) {
     if (nowarn) return;
     warncount++;
     errLocation();
@@ -519,7 +519,7 @@ void warning(char msg[]) {
     if (alarm) errputc(7);
 }
 
-void warningWithName(char msg[], char *name, char suffix[]) {
+void warningWithName(char *msg, char *name, char *suffix) {
     if (nowarn) return;
     warncount++;
     errLocation();
