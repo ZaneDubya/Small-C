@@ -49,7 +49,7 @@ extern int warncount;
 extern int glbcount, locptrMax;
 #endif
 // forward declarations for this file:
-void errout(char msg[], int fp, char *path, int ln);
+void errLocation();
 int hash(char *sname);
 
 // === scanning functions =====================================================
@@ -478,6 +478,17 @@ void needlval() {
     error("must be lvalue");
 }
 
+void errout(char msg[], int fp, char *path, int ln) {
+    int k;
+    k = line + 2;
+    while (k++ <= lptr) {
+        fputc(' ', fp);
+    }
+    lout("/\\", fp);
+    fprintf(fp, "%s:%d Error: ", path, ln);
+    lout(msg, fp);
+}
+
 void error(char msg[]) {
     char *path;
     int   ln;
@@ -492,48 +503,38 @@ void error(char msg[]) {
     else               { path = infn;   ln = lineno; }
     lout(line, stderr);
     errout(msg, stderr, path, ln);
-    if (alarm) fputc(7, stderr);
+    if (alarm) errputc(7);
     if (pause) while (fgetc(stderr) != NEWLINE);
     if (listfp > 0) errout(msg, listfp, path, ln);
-}
-
-void errout(char msg[], int fp, char *path, int ln) {
-    int k;
-    k = line + 2;
-    while (k++ <= lptr) {
-        fputc(' ', fp);
-    }
-    lout("/\\", fp);
-    fprintf(fp, "%s:%d Error: ", path, ln);
-    lout(msg, fp);
 }
 
 #ifdef ENABLE_WARNINGS
 void warning(char msg[]) {
     if (nowarn) return;
     warncount++;
-    if (input2 != EOF)
-        fprintf(stderr, "%s:%d ", inclfn, inclno);
-    else
-        fprintf(stderr, "%s:%d ", infn, lineno);
-    fputs("Warning: ", stderr);
-    fputs(msg, stderr);
-    fputc('\n', stderr);
-    if (alarm) fputc(7, stderr);
+    errLocation();
+    errputs("Warning: ");
+    errputs(msg);
+    errputc('\n');
+    if (alarm) errputc(7);
 }
 
 void warningWithName(char msg[], char *name, char suffix[]) {
     if (nowarn) return;
     warncount++;
+    errLocation();
+    fprintf(stderr, "Warning: %s %s %s\n", msg, name, suffix);
+    if (alarm)
+        errputc(7);
+}
+#endif
+
+void errLocation() {
     if (input2 != EOF)
         fprintf(stderr, "%s:%d ", inclfn, inclno);
     else
         fprintf(stderr, "%s:%d ", infn, lineno);
-    fprintf(stderr, "Warning: %s %s %s\n", msg, name, suffix);
-    if (alarm)
-        fputc(7, stderr);
 }
-#endif
 
 // paramTypes[] -- function parameter-type records.
 // Each entry is laid out as:

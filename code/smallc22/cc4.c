@@ -56,14 +56,16 @@ extern int
 // forward declarations for this file:
 void outstr(char ptr[]);
 void outname(char ptr[]);
-void outlines(char *s);
 void outline(char ptr[]);
 void outcode(int pcode, int value);
-void colon();
 void bufout(int pcode, int value);
 void dumpstage();
 int peep(int *seq);
 void outsize(int size, int ident);
+void errputs(char *s);
+void errputc(int c);
+void outputs(char *s);
+void outputc(int c);
 int isfree(int reg, int *pp);
 int getpop(int *next);
 
@@ -1771,7 +1773,7 @@ void header() {
     }
 #endif
     toseg(CODESEG);
-    outlines("extrn __eq: near\n"
+    outputs("extrn __eq: near\n"
              "extrn __ne: near\n"
              "extrn __le: near\n"
              "extrn __lt: near\n"
@@ -1782,7 +1784,7 @@ void header() {
              "extrn __uge: near\n"
              "extrn __ugt: near\n"
              "extrn __lneg: near\n"
-             "extrn __switch: near");
+             "extrn __switch: near\n");
     toseg(DATASEG);
 }
 
@@ -1799,7 +1801,7 @@ void trailer() {
         external("_main", 0, IDENT_FUNCTION);
     if (needLong) {
         toseg(CODESEG);
-        outlines("extrn __lmul: near\n"
+        outputs("extrn __lmul: near\n"
                  "extrn __ulmul: near\n"
                  "extrn __ldiv: near\n"
                  "extrn __uldiv: near\n"
@@ -1819,7 +1821,7 @@ void trailer() {
                  "extrn __ulgt: near\n"
                  "extrn __ulge: near\n"
                  "extrn __llneg: near\n"
-                 "extrn __lswitch: near");
+                 "extrn __lswitch: near\n");
     }
     toseg(NULL);
     outline("END");
@@ -1960,7 +1962,7 @@ void bufout(int pcode, int value) {
         // overflow: emit buffer and new entry directly, skip optimization
         int *p;
 #ifdef ENABLE_DIAGNOSTICS
-        fputs("funcbuf overflow: optimizer bypassed\n", stderr);
+        errputs("funcbuf overflow: optimizer bypassed\n");
 #endif
         p = funcbuf;
         while (p < fnext) { outcode(p[0], p[1]); p += 2; }
@@ -2332,12 +2334,12 @@ void decGlobal(int ident, int isGlobal) {
     if (isGlobal) {
         outstr("PUBLIC ");
         outname(ssname);
-        newline();
+        outputc(NEWLINE);
     }
     outname(ssname);
     if (ident == IDENT_FUNCTION || ident == IDENT_PTR_FUNCTION) {
-        colon();
-        newline();
+        outputc(':');
+        outputc(NEWLINE);
     }
 }
 
@@ -2349,23 +2351,9 @@ void external(char *name, int size, int ident) {
         toseg(DATASEG);
     outstr("EXTRN ");
     outname(name);
-    colon();
+    outputc(':');
     outsize(size, ident);
-    newline();
-}
-
-// output the size of the object pointed to.
-void outsize(int size, int ident) {
-    if (size == 1 && ident != IDENT_POINTER && ident != IDENT_PTR_ARRAY
-                  && ident != IDENT_FUNCTION && ident != IDENT_PTR_FUNCTION)
-        outstr("BYTE");
-    else if (size == BPD && ident != IDENT_POINTER && ident != IDENT_PTR_ARRAY
-                         && ident != IDENT_FUNCTION && ident != IDENT_PTR_FUNCTION)
-        outstr("DWORD");
-    else if (ident != IDENT_FUNCTION && ident != IDENT_PTR_FUNCTION)
-        outstr("WORD");
-    else
-        outstr("NEAR");
+    outputc(NEWLINE);
 }
 
 // point to following object(s)
@@ -2388,7 +2376,7 @@ void dumpLitPool(int size) {
             if (size == BPD) {
                 // emit 32-bit value as two 16-bit words: lo, hi
                 outdec(getint(litq + k, BPW));
-                fputc(',', output);
+                outputc(',');
                 outdec(getint(litq + k + BPW, BPW));
                 k += BPD;
                 j--;   // used an extra column for hi word
@@ -2398,10 +2386,10 @@ void dumpLitPool(int size) {
                 k += size;
             }
             if (j <= 0 || k >= litptr) {
-                newline();
+                outputc(NEWLINE);
                 break;
             }
-            fputc(',', output);
+            outputc(',');
         }
     }
 }
@@ -2559,14 +2547,6 @@ int getpop(int *next) {
 
 // === output functions =======================================================
 
-void colon() {
-    fputc(':', output);
-}
-
-void newline() {
-    fputc(NEWLINE, output);
-}
-
 // output assembly code.
 void outcode(int pcode, int value) {
     int part, skip, count;
@@ -2605,7 +2585,7 @@ void outcode(int pcode, int value) {
             if (--count > 0) cp = back;
             else back = 0;
         }
-        else if (skip == NO) fputc(*cp++, output);
+        else if (skip == NO) outputc(*cp++);
         else ++cp;
     }
 }
@@ -2617,7 +2597,7 @@ void outdec(int number) {
     k = 10000;
     if (number < 0) {
         number = -number;
-        fputc('-', output);
+        outputc('-');
     }
     while (k >= 1) {
         q = 0;
@@ -2626,7 +2606,7 @@ void outdec(int number) {
         c = q + '0';
         if (c != '0' || k == 1 || zs) {
             zs = 1;
-            fputc(c, output);
+            outputc(c);
         }
         number = r;
         k /= 10;
@@ -2635,25 +2615,45 @@ void outdec(int number) {
 
 void outline(char ptr[]) {
     outstr(ptr);
-    newline();
-}
-
-// output multiple lines from a single string; segments separated by '\n'
-void outlines(char *s) {
-    while (*s) {
-        outstr(s);
-        while (*s >= ' ') s++;
-        newline();
-        if (*s == '\n') s++;
-    }
+    outputc(NEWLINE);
 }
 
 void outname(char ptr[]) {
     outstr("_");
-    while (*ptr >= ' ') fputc(*ptr++, output);
+    outstr(ptr);
 }
 
 void outstr(char ptr[]) {
     poll(1);           // allow program interruption
-    while (*ptr >= ' ') fputc(*ptr++, output);
+    while (*ptr >= ' ') outputc(*ptr++);
+}
+
+// output the size of the object pointed to.
+void outsize(int size, int ident) {
+    if (size == 1 && ident != IDENT_POINTER && ident != IDENT_PTR_ARRAY
+                  && ident != IDENT_FUNCTION && ident != IDENT_PTR_FUNCTION)
+        outstr("BYTE");
+    else if (size == BPD && ident != IDENT_POINTER && ident != IDENT_PTR_ARRAY
+                         && ident != IDENT_FUNCTION && ident != IDENT_PTR_FUNCTION)
+        outstr("DWORD");
+    else if (ident != IDENT_FUNCTION && ident != IDENT_PTR_FUNCTION)
+        outstr("WORD");
+    else
+        outstr("NEAR");
+}
+
+void errputs(char *s) {
+    fputs(s, stderr);
+}
+
+void errputc(int c) {
+    fputc(c, stderr);
+}
+
+void outputs(char *s) {
+    fputs(s, output);
+}
+
+void outputc(int c) {
+    fputc(c, output);
 }

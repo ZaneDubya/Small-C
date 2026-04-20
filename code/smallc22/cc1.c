@@ -207,8 +207,8 @@ char *structBase;   // snapshot of structdata base, for usage stats
 // execution begins here
 void main(int argc, int *argv) {
     unsigned int availMem;
-    fputs(VERSION, stderr);
-    fputs(CRIGHT1, stderr);
+    errputs(VERSION);
+    errputs(CRIGHT1);
     argcs = argc;
     argvs = argv;
     swnext = calloc(SWTABSZ, 1);
@@ -233,7 +233,7 @@ void main(int argc, int *argv) {
     fprintf(stderr, "  Memory available: %d b\n", availMem);
 #endif
     if (availMem < 4000) {
-        fputs("out of memory\n", stderr);
+        errputs("out of memory\n");
         exit(1);
     }
     rettype = TYPE_INT;
@@ -299,7 +299,7 @@ void getRunArgs() {
                 continue;
             }
         }
-        fputs("usage: cc [file]... [-m] [-a] [-p] [-w] [-l#] [-no]\n", stderr);
+        errputs("usage: cc [file]... [-m] [-a] [-p] [-w] [-l#] [-no]\n");
         abort(ERRCODE);
     }
 }
@@ -346,7 +346,7 @@ int openFileOrErr(char *fn, char *mode) {
     int fd;
     if (fd = fopen(fn, mode))
         return fd;
-    fputs("open error on ", stderr);
+    errputs("open error on ");
     lout(fn, stderr);
     abort(ERRCODE);
 }
@@ -913,7 +913,7 @@ int initPtrArray(int type, int dim, int class) {
         else {
             gen(WORD_, 0);
             outdec(values[i]);
-            newline();
+            outputc(NEWLINE);
         }
         ++i;
     }
@@ -936,10 +936,10 @@ int initPtrArray(int type, int dim, int class) {
                     outdec(litq[k] & 255);
                     ++k;
                     if (j == 0 || k >= strend[i]) {
-                        newline();
+                        outputc(NEWLINE);
                         break;
                     }
-                    fputc(',', output);
+                    outputc(',');
                 }
             }
         }
@@ -2371,8 +2371,8 @@ int emitConstVal(int esize) {
             error("static local: constant initializer required");
             return 0;
         }
-        gen(WORD_, 0); outdec(val);     newline();
-        gen(WORD_, 0); outdec(val_hi);  newline();
+        gen(WORD_, 0); outdec(val);     outputc(NEWLINE);
+        gen(WORD_, 0); outdec(val_hi);  outputc(NEWLINE);
     }
     else {
         if (isConstExpr(&val) == 0) {
@@ -2380,10 +2380,10 @@ int emitConstVal(int esize) {
             return 0;
         }
         if (esize == 1) {
-            gen(BYTE_, 0); outdec(val & 255); newline();
+            gen(BYTE_, 0); outdec(val & 255); outputc(NEWLINE);
         }
         else {
-            gen(WORD_, 0); outdec(val); newline();
+            gen(WORD_, 0); outdec(val); outputc(NEWLINE);
         }
     }
     return 1;
@@ -2879,7 +2879,7 @@ void doAsmBlock() {
             break;
         if (eof)
             break;
-        fputs(line, output);
+        outputs(line);
     }
     kill();
     ccode = 1;

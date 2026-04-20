@@ -458,3 +458,4 @@ Small-C Revision History
     stack variable in a single fold.
     Push/pop round-trip elimination with five staging rules and a new
     function-level pass, tryPushPopElimination.
+163 Merged common output routines for code size reduction.

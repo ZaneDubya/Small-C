@@ -739,6 +739,10 @@ void dumpLitPool(int size);
 void dumpzero(int size, int count);
 int endst();
 void error(char msg[]);
+void errputc(int c);
+void errputs(char *s);
+void outputc(int c);
+void outputs(char *s);
 void external(char *name, int size, int ident);
 void fetch(int is[]);
 int findglb(char *sname);
@@ -775,7 +779,6 @@ int level1(int is[]);
 void lout(char *line, int fd);
 void multidef(char *sname);
 void needlval();
-void newline();
 int nextsym(char *entry);
 int nextop(char *list);
 void openfile();
@@ -805,6 +808,7 @@ void toseg(int newseg);
 void trailer();
 int white();
 #ifdef ENABLE_WARNINGS
+void errLocation();
 void warning(char msg[]);
 void warningWithName(char msg[], char *name, char suffix[]);
 #endif

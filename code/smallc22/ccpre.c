@@ -515,7 +515,7 @@ void doInline() {
         }
         if (listfp) {
             if (listfp == output) {
-                fputc(';', output);
+                outputc(';');
             }
             fputs(line, listfp);
         }
