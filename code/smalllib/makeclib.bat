@@ -1,4 +1,8 @@
 @ECHO OFF
+COPY clib\cmake1.bat bld\cmake1.bat
+COPY clib\cmake2.bat bld\cmake2.bat
+COPY clib\cmake3.bat bld\cmake3.bat
+COPY clib\cmake.lst bld\cmake.lst
 CD bld
 CALL clean.bat
 CALL cmake1.bat
