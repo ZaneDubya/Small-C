@@ -459,3 +459,4 @@ Small-C Revision History
     Push/pop round-trip elimination with five staging rules and a new
     function-level pass, tryPushPopElimination.
 163 Merged common output routines for code size reduction.
+164 Fixed pointer types throughout codebase, no functionality change.
