@@ -8,9 +8,9 @@
 DEBUG.TXT
 emu/stdout.txt
 emu/stderr.txt
-code/smalllib/bld/*.H
-code/smalllib/bld/*.LIB
+code/smalllib/bld/*.*
 
 # Allow
 !/code/bin/*.EXE
 !/code/smalllib/clib/*.ASM
+!/code/smalllib/bld/clean.bat
