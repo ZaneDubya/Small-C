@@ -712,7 +712,7 @@
 // === function prototypes for Small-C ========================================
 // ============================================================================
 
-int addSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class);
+int addSymbol(char *sname, char id, char type, int size, int offset, char **lgpp, int class);
 void addwhile(int *ptr);
 int alpha(char c);
 int amatch(char *lit, int len);

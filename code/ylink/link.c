@@ -151,7 +151,7 @@ void RdArgDebug(char *str);
 void RdArgExe(char *str);
 void RdArgLibrary(char *str);
 void RdArgObj(char *start, char *end);
-void RdArgs(int argc, int *argv);
+void RdArgs(int argc, char **argv);
 uint read_u16(uint fd);
 int read_u8(uint fd);
 int readstr(char *str, uint size, uint fd);
@@ -165,7 +165,7 @@ void write_f8(uint fd, char value);
 void write_x16(uint fd, uint value);
 void write_x8(uint fd, byte value);
 
-int main(int argc, int *argv) {
+int main(int argc, char **argv) {
   int i;
   puts(VERSION);
   AllocAll();
@@ -253,7 +253,7 @@ void Initialize() {
   exeStartAddress = 0xffff;
 }
 
-void RdArgs(int argc, int *argv) {
+void RdArgs(int argc, char **argv) {
   int i;
   if (argc == 1) {
     fatal("No argments passed.");

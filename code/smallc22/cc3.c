@@ -414,7 +414,8 @@ int level1(int *is) {
             if (is3[TYP_OBJ] >> 2 == BPD && !isLongVal(is2))
                 widenPrimary(is2);
 #ifdef ENABLE_WARNINGS
-            if (is3[IS_PTRDEPTH] >= 2 && is2[IS_PTRDEPTH] >= 2
+            // ptr-depth-mismatch-warning
+            if (is3[IS_PTRDEPTH] >= 1 && is2[IS_PTRDEPTH] >= 1
                 && is3[IS_PTRDEPTH] != is2[IS_PTRDEPTH]
                 && !(is2[TYP_CNST] && is2[VAL_CNST] == 0))
                 warning("pointer assignment: depth mismatch");
@@ -434,7 +435,8 @@ int level1(int *is) {
             if (isLongVal(is3) && !isLongVal(is2))
                 widenPrimary(is2);
 #ifdef ENABLE_WARNINGS
-            if (is3[IS_PTRDEPTH] >= 2 && is2[IS_PTRDEPTH] >= 2
+            // ptr-depth-mismatch-warning
+            if (is3[IS_PTRDEPTH] >= 1 && is2[IS_PTRDEPTH] >= 1
                 && is3[IS_PTRDEPTH] != is2[IS_PTRDEPTH]
                 && !(is2[TYP_CNST] && is2[VAL_CNST] == 0))
                 warning("pointer assignment: depth mismatch");
@@ -2354,13 +2356,14 @@ void foldConst32(int oper, int leftLong, int rightLong, int *is, int *is2) {
 void applyResultType(int oper, int *is, int *is2) {
     char *ptr;
 #ifdef ENABLE_WARNINGS
+    // ptr-depth-mismatch-warning
     // Warn when comparing two pointers whose depths differ.
     // Null constant (0) is always allowed without warning.
     if ((oper == EQ12 || oper == NE12 ||
          oper == LT12 || oper == LE12 || oper == GT12 || oper == GE12 ||
          oper == LT12u || oper == LE12u || oper == GT12u || oper == GE12u)
         && is[TYP_ADR] && is2[TYP_ADR]
-        && is[IS_PTRDEPTH] >= 2 && is2[IS_PTRDEPTH] >= 2
+        && is[IS_PTRDEPTH] >= 1 && is2[IS_PTRDEPTH] >= 1
         && is[IS_PTRDEPTH] != is2[IS_PTRDEPTH]
         && !(is[TYP_CNST]  && is[VAL_CNST]  == 0)
         && !(is2[TYP_CNST] && is2[VAL_CNST] == 0))

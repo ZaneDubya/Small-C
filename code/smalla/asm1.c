@@ -138,8 +138,7 @@ unsigned char
                      high-level control
 *****************************************************************/
 
-main(argc, argv) int argc, *argv; {
-  fputs("Small Assembler, ", stderr);
+int main(int argc, char **argv) {
   fputs(VERSION, stderr);
   fputs(CRIGHT1, stderr);
   parms(argc, argv);            /* get command line switches */
@@ -157,7 +156,7 @@ main(argc, argv) int argc, *argv; {
 /*
 ** pass one
 */
-pass1(argc, argv) int argc, *argv; {
+void pass1(int argc, char **argv) {
   unsigned max;
   fputs("  Pass 1\n", stderr);
   st     = calloc(stmax*STENTRY, 1); /* allocate zeroed symbol table */ 
@@ -176,7 +175,7 @@ pass1(argc, argv) int argc, *argv; {
 /*
 ** pass two
 */
-pass2(argc, argv) int argc, *argv; {
+void pass2(int argc, char **argv) {
   int i;
   fputs("  Pass 2\n", stderr);
   ofd   = open(ofn, "w");
@@ -204,7 +203,7 @@ pass2(argc, argv) int argc, *argv; {
 /*
 ** process passes 1 and 2
 */
-dopass(argc, argv) int argc, *argv; {
+void dopass(int argc, char **argv) {
   int mop;
   int i;
   mlnext = lpage = i = lin = loc[0] = loc[1] = 0;   /* reset everything */
@@ -631,7 +630,7 @@ getseg(str) char *str; {
 /*
 ** get parameters from command line
 */
-parms(argc, argv) int argc, *argv; {
+void parms(int argc, char **argv) {
   char arg[MAXFN+4];  int i, j, len;
   i = 0;
   while(getarg(++i, arg, MAXFN, argc, argv) != EOF) {

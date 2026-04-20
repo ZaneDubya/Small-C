@@ -5,7 +5,7 @@
 ** Returns the address of the allocated block,
 ** else NULL for failure.
 */
-int malloc(unsigned size) {
+char *malloc(unsigned size) {
   return (_alloc(size, NO));
   }
 

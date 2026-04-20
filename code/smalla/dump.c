@@ -23,8 +23,7 @@ unsigned int
 unsigned char
   fn[41], str1[5], str2[5], ascii[17], byte, *rtoff, *lmoff, *cp;
 
-main(argc, argv) int argc, *argv; {
-  fputs("Small Assembler Dump Utility, ", stderr);
+int main(int argc, char **argv) {
   fputs(VERSION, stderr);
   fputs(CRIGHT1, stderr);
   if(getarg(1, fn, 41, argc, argv) == EOF) {

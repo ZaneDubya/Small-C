@@ -4,7 +4,7 @@
 ** c      = Character to search for.
 ** Returns pointer to rightmost c or NULL.
 */
-int strrchr(char *s, char c) {
+char *strrchr(char *s, char c) {
   char *ptr;
   ptr = 0;
   while(*s) {

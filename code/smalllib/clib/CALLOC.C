@@ -6,7 +6,7 @@
 ** Returns the address of the allocated block,
 ** else NULL for failure.
 */
-int calloc(unsigned n, unsigned size) {
+char *calloc(unsigned n, unsigned size) {
   return (_alloc(n*size, YES));
   }
 

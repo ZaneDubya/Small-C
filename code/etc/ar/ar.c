@@ -45,7 +45,7 @@ int fstat[MAXFILES];
 int nfiles;
 int errchk;
 
-main(argc, argv) int argc, argv[]; {
+int main(int argc, char **argv) {
   char cmd[3], aname[NAMESIZE];
   if(getarg(1,  cmd,       3,argc,argv) == EOF) usage();
   if(getarg(2,aname,NAMESIZE,argc,argv) == EOF) usage();
@@ -219,7 +219,7 @@ fskip(fp,n) int fp, n; {
   }
 
 /* getfns - get file names into fname, check for duplicates */
-getfns(argc,argv) int argc, argv[]; {
+void getfns(int argc, char **argv) {
   int i, j;
   nfiles = argc - 3;
   if(nfiles > MAXFILES)

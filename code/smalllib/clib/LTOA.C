@@ -2,7 +2,7 @@
 ** ltoa(n, s) - Convert signed 32-bit long to decimal string.
 ** Returns pointer to s.
 */
-int ltoa(long n, char *s) {
+char *ltoa(long n, char *s) {
   int lo, hi, rem, sign;
   char *ptr;
   int *p;

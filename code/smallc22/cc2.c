@@ -276,7 +276,7 @@ int getDimStride(char *sym, int idx) {
 
 // === symbol table management functions ======================================
 
-int addSymbol(char *sname, char id, char type, int size, int offset, int *lgpp, int class) {
+int addSymbol(char *sname, char id, char type, int size, int offset, char **lgpp, int class) {
     if (lgpp == &glbptr) {
         if (cptr2 = findglb(sname)) {
             return cptr2;

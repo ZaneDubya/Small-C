@@ -34,7 +34,7 @@ int same(char *s, char *t) {
 /*
 ** find nth white-space-separated field in str
 */
-int skip(int n, char *str) {
+char *skip(int n, char *str) {
   loop:
   while(*str && isspace(*str)) ++str;
   if(--n) {

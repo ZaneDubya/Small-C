@@ -84,8 +84,7 @@ unsigned char
 /*
 ** high-level control
 */
-main(argc, argv) int argc, *argv; {
-  fputs("Small Assembler M.I.T. Compiler, ", stderr);
+int main(int argc, char **argv) {
   fputs(VERSION, stderr);  /* issue signon notice */
   fputs(CRIGHT1, stderr);
   verify();                /* verify that otmap[] and otnext[] are okay */
@@ -111,8 +110,7 @@ main(argc, argv) int argc, *argv; {
 /*
 ** get command line parameters
 */
-parms(argc, argv) int argc, *argv; {
-  char arg[MAXFN];
+void parms(int argc, char **argv) {
   int i;
   i = 0;
   while(getarg(++i, arg, MAXFN, argc, argv) != EOF) {

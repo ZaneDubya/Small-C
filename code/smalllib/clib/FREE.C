@@ -6,7 +6,7 @@ extern char *_memptr;
 ** ptr    = Value returned by calloc() or malloc().
 ** Returns ptr if successful or NULL otherwise.
 */
-int free(char *ptr) {
+char *free(char *ptr) {
    return (_memptr = ptr);
    }
 #asm

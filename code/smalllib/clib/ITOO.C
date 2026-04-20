@@ -6,7 +6,7 @@
 **        if sz = 0 find end of string
 **        if sz < 0 use last byte for data
 */
-int itoo(int nbr, char str[], int sz) {
+char *itoo(int nbr, char str[], int sz) {
   int digit;
   if(sz>0) str[--sz]=0;
   else if(sz<0) sz = -sz;

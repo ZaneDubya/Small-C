@@ -9,7 +9,7 @@
 **        fd   = File descriptor of pertinent file.
 ** Returns str on success, else NULL.
 */
-int fgets(char *str, unsigned size, unsigned fd) {
+char *fgets(char *str, unsigned size, unsigned fd) {
   return (_gets(str, size, fd, 1));
   }
 
@@ -21,11 +21,11 @@ int fgets(char *str, unsigned size, unsigned fd) {
 ** Entry: str  = Pointer to destination buffer.
 ** Returns str on success, else NULL.
 */
-int gets(char *str) {
+char *gets(char *str) {
   return (_gets(str, 32767, stdin, 0));
   }
 
-int _gets(char *str, unsigned size, unsigned fd, unsigned nl) {
+char *_gets(char *str, unsigned size, unsigned fd, unsigned nl) {
   int backup; char *next;
   next = str;
   while(--size > 0) {

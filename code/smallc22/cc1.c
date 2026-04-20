@@ -76,7 +76,6 @@ int
     *argbuf,   // argument collect buffer for two-pass R-to-L push
     *wq,       // while queue
     argcs,     // local copy of argc
-    *argvs,    // local copy of argv
     *wqptr,    // ptr to next entry
     litptr,   // ptr to next entry
     ch,       // current character of input line
@@ -122,6 +121,7 @@ char
     alarm,    // audible alarm on errors?
     monitor,  // monitor function headers?
     pause,    // pause for operator on errors?
+    **argvs,   // local copy of argv (char **)
     *symtab,   // symbol table
     *litq,     // literal pool - staging buffer for constants, per function
     *line,     // current line pointer
@@ -205,7 +205,7 @@ char *structBase;   // snapshot of structdata base, for usage stats
 // === Bootstrap and I/O ======================================================
 
 // execution begins here
-void main(int argc, int *argv) {
+int main(int argc, char **argv) {
     unsigned int availMem;
     errputs(VERSION);
     errputs(CRIGHT1);
@@ -254,6 +254,7 @@ void main(int argc, int *argv) {
         fgetc(stderr);
     }
 #endif
+    return 0;
 }
 
 // get run options
