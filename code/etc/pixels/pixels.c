@@ -1,8 +1,9 @@
-// pixels.c -- CGA/EGA/VGA random pixel demo.
+// pixels.c -- CGA/EGA/VGA random pixel demo with Sound Blaster OPL2 audio.
 //
-// Phase 1: CGA mode 4   (320x200, 4-colour)          -- press a key to continue.
+// Phase 1: CGA mode 4   (320x200,  4-colour)               -- press a key to continue.
 // Phase 2: EGA mode 0Dh (320x200, 16-colour, random palette) -- press a key to continue.
-// Phase 3: VGA mode 13h (320x200, 256-colour)         -- press a key to exit.
+// Phase 3: VGA mode 13h (320x200, 256-colour)               -- press a key to exit.
+// Sound:   OPL2 FM tone per phase (C4 / E4 / G4) if SB detected at 220h.
 //
 // Build:
 //   cc pixels -a -p
@@ -190,6 +191,104 @@ void consume_key() {
 #asm
     mov  ah, 0
     int  16h
+#endasm
+}
+
+// opl_write -- send one register write to the OPL2 FM chip (port 388h/389h).
+// Waits ~3.3 us after the address byte and ~23 us after the data byte,
+// as required by the OPL2 spec, using dummy status-port reads.
+void opl_write(int reg, int val) {
+#asm
+    mov  dx, 388h
+    mov  al, [bp+4]       ; reg index -> address port
+    out  dx, al
+    in   al, dx           ; ~3.3 us delay: 6 reads of status port
+    in   al, dx
+    in   al, dx
+    in   al, dx
+    in   al, dx
+    in   al, dx
+    inc  dx               ; 389h = data port
+    mov  al, [bp+6]       ; val -> data port
+    out  dx, al
+    dec  dx               ; back to 388h for delay reads
+    mov  cx, 35           ; ~23 us delay: 35 reads
+__oplw_wait:
+    in   al, dx
+    dec  cx
+    jnz  __oplw_wait
+#endasm
+}
+
+// opl_init -- set up OPL2 channel 0 as a sustained organ-style tone.
+void opl_init() {
+    opl_write(0x01, 0x20);  // enable waveform select
+    opl_write(0x20, 0x21);  // modulator: EGTyp=1 (sustained), mult=1
+    opl_write(0x40, 0x28);  // modulator: TL=40 (moderate attenuation)
+    opl_write(0x60, 0xF0);  // modulator: attack=15, decay=0
+    opl_write(0x80, 0x00);  // modulator: sustain=0 (max), release=0
+    opl_write(0xE0, 0x00);  // modulator: waveform=sine
+    opl_write(0x23, 0x21);  // carrier:   EGTyp=1 (sustained), mult=1
+    opl_write(0x43, 0x00);  // carrier:   full volume
+    opl_write(0x63, 0xF0);  // carrier:   attack=15, decay=0
+    opl_write(0x83, 0x00);  // carrier:   sustain=0 (max), release=0
+    opl_write(0xE3, 0x00);  // carrier:   waveform=sine
+    opl_write(0xC0, 0x00);  // channel 0: FM synthesis, no feedback
+}
+
+// opl_note -- key-on for OPL2 channel 0.
+// flo = A0h value (Fnum bits 7:0)
+// fhi = B0h value (key-on=1 | block<<2 | Fnum bits 9:8)
+//   C4 (261 Hz): flo=0x58  fhi=0x31
+//   E4 (330 Hz): flo=0xB2  fhi=0x31
+//   G4 (392 Hz): flo=0x04  fhi=0x32
+void opl_note(int flo, int fhi) {
+    opl_write(0xA0, flo);
+    opl_write(0xB0, fhi);
+}
+
+// opl_off -- key-off channel 0.
+void opl_off() {
+    opl_write(0xB0, 0x00);
+}
+
+// sb_detect -- probe for a Sound Blaster DSP at base 220h.
+// Resets the DSP (port 226h), polls port 22Eh for data-ready,
+// reads port 22Ah and checks for the 0AAh acknowledgement byte.
+// Returns 1 if a SB is found, 0 otherwise.
+int sb_detect() {
+#asm
+    mov  dx, 226h         ; DSP reset port (base 220h + 6)
+    mov  al, 1
+    out  dx, al           ; assert reset
+    in   al, dx           ; short delay before clearing
+    in   al, dx
+    in   al, dx
+    in   al, dx
+    in   al, dx
+    in   al, dx
+    xor  al, al
+    out  dx, al           ; deassert reset
+    mov  dx, 22Eh         ; read-buffer status port (base + 0Eh)
+    mov  cx, 2000h        ; timeout: ~8192 polls
+__sbd_poll:
+    in   al, dx
+    test al, 80h          ; bit 7 = data available
+    jnz  __sbd_avail
+    dec  cx
+    jnz  __sbd_poll
+    xor  ax, ax           ; timed out: no SB found
+    jmp  __sbd_done
+__sbd_avail:
+    mov  dx, 22Ah         ; read data port (base + 0Ah)
+    in   al, dx
+    cmp  al, 0AAh         ; SB acknowledges reset with 0AAh
+    jne  __sbd_no
+    mov  ax, 1
+    jmp  __sbd_done
+__sbd_no:
+    xor  ax, ax
+__sbd_done:
 #endasm
 }
 
@@ -433,38 +532,46 @@ __pp1:
 
 // main
 int main() {
-    int x, y, c;
+    int x, y, c, sb_ok;
 
     init_rand();
+    sb_ok = sb_detect();
+    // opl_init() is called per-phase to reset chip state cleanly
 
-    // Phase 1: CGA mode 4 (320x200, 4-colour)
+    // Phase 1: CGA mode 4 (320x200, 4-colour)  -- OPL2 plays C4
     setmode(4);
+    if (sb_ok) { opl_init(); opl_note(0x58, 0x31); }
     while (!kbhit()) {
         x = rand_x();
         y = rand_y();
         c = rand_c();
         putpixel(x, y, c);
     }
+    if (sb_ok) opl_off();
     consume_key();
 
-    // Phase 2: EGA mode 0Dh (320x200, 16-colour, random palette)
+    // Phase 2: EGA mode 0Dh (320x200, 16-colour, random palette)  -- OPL2 plays E4
     ega_init();
+    if (sb_ok) { opl_init(); opl_note(0xB2, 0x31); }
     while (!kbhit()) {
         x = rand_ex();
         y = rand_ey();
         c = rand_ec();
         ega_putpixel(x, y, c);
     }
+    if (sb_ok) opl_off();
     consume_key();
 
-    // Phase 3: VGA mode 13h (320x200, 256-colour)
+    // Phase 3: VGA mode 13h (320x200, 256-colour)  -- OPL2 plays G4
     setmode(19);    // INT 10h AL=13h: 320x200 VGA 256-colour
+    if (sb_ok) { opl_init(); opl_note(0x04, 0x32); }
     while (!kbhit()) {
         x = rand_ex();
         y = rand_ey();
         c = rand_vc();
         vga_putpixel(x, y, c);
     }
+    if (sb_ok) opl_off();
     consume_key();
 
     setmode(3);               // restore 80x25 text mode

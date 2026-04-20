@@ -13,7 +13,7 @@ ECHO === Assembling pixels ===
 if errorlevel 1 goto exit
 
 ECHO === Linking pixels ===
-%BIN%\ylink pixels.obj,%LIB%\clib.lib -e=pixels.exe -d=link.txt
+%BIN%\ylink pixels.obj,%LIB%\clib.lib -e=pixels.exe
 if errorlevel 1 goto exit
 
 :exit
