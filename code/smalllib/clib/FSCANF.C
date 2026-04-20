@@ -28,12 +28,12 @@ int _scan(int fd, int *nxtarg) {
   unsigned u;
   int  *narg, wast, ac, width, ch, cnv, base, ovfl, sign;
   ac = 0;
-  ctl = *nxtarg++;
+  ctl = (char *)*nxtarg++;
   while(*ctl) {
     if(isspace(*ctl)) {++ctl; continue;}
     if(*ctl++ != '%') continue;
-    if(*ctl == '*') {narg = carg = &wast; ++ctl;}
-    else             narg = carg = *nxtarg++;
+    if(*ctl == '*') {carg = (char *)&wast; narg = (int *)carg; ++ctl;}
+    else             {carg = (char *)*nxtarg++; narg = (int *)carg;}
     ctl += utoi(ctl, &width);
     if(!width) width = 32767;
     if(!(cnv = *ctl++)) break;

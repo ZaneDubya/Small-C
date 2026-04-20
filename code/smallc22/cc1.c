@@ -439,12 +439,12 @@ int dotype(int *typeSubPtr) {
         return isUnsigned ? TYPE_UINT : TYPE_INT;
     }
     if (amatch("struct", 6)) {
-        if ((*typeSubPtr = getStructPtr(KIND_STRUCT)) == -1)
+        if ((*typeSubPtr = (int)getStructPtr(KIND_STRUCT)) == -1)
             error("unknown struct name");
         return TYPE_STRUCT;
     }
     if (amatch("union", 5)) {
-        if ((*typeSubPtr = getStructPtr(KIND_UNION)) == -1)
+        if ((*typeSubPtr = (int)getStructPtr(KIND_UNION)) == -1)
             error("unknown union name");
         return TYPE_STRUCT;
     }
@@ -955,8 +955,8 @@ int initPtrArray(int type, int dim, int class) {
 void initStructBody(int typeSubPtr) {
     char *membercur, *memberend;
     int memberSize, memberTotal, dim;
-    membercur = getint(typeSubPtr + STRDAT_MBEG, 2);
-    memberend = getint(typeSubPtr + STRDAT_MEND, 2);
+    membercur = getptr(typeSubPtr + STRDAT_MBEG, 2);
+    memberend = getptr(typeSubPtr + STRDAT_MEND, 2);
     while (membercur < memberend) {
         memberSize = membercur[STRMEM_TYPE] >> 2;
         if (memberSize < 1) memberSize = 1;
@@ -978,8 +978,8 @@ void initStructBody(int typeSubPtr) {
 void initUnionBody(int typeSubPtr) {
     char *firstMem;
     int memberSize, memberTotal, dim;
-    firstMem = getint(typeSubPtr + STRDAT_MBEG, 2);
-    if (firstMem < getint(typeSubPtr + STRDAT_MEND, 2)) {
+    firstMem = getptr(typeSubPtr + STRDAT_MBEG, 2);
+    if (firstMem < getptr(typeSubPtr + STRDAT_MEND, 2)) {
         memberSize = firstMem[STRMEM_TYPE] >> 2;
         if (memberSize < 1) memberSize = 1;
         memberTotal = getint(firstMem + STRMEM_SIZE, 2);
@@ -1778,7 +1778,7 @@ void declareLocals(int type, int typeSubPtr, int isStatic, int isConst) {
             // Plain STATIC class (no CONST_FLAG) keeps the redirect detection working.
             copyname(ssname, localName);
             // after addSymbol(&locptr), cptr = the new local scoping entry
-            addSymbol(ssname, id, type, sz, glbEntry, &locptr, STATIC);
+            addSymbol(ssname, id, type, sz, (int)glbEntry, &locptr, STATIC);
             applyDimMeta(cptr, type, typeSubPtr, ddentry);  // reuse slot; do NOT reallocate
         }
         else {
@@ -1879,7 +1879,7 @@ char *applyDimMeta(char *sym, int type, int typeSubPtr, char *ddentry) {
         sym[NDIM] = lastNdim;
         if (ddentry == 0)
             ddentry = storeDimDat(typeSubPtr, lastNdim, lastStrides);
-        putint(ddentry, sym + CLASSPTR, 2);
+        putint((int)ddentry, sym + CLASSPTR, 2);
     }
     else if (type == TYPE_STRUCT) {
         putint(typeSubPtr, sym + CLASSPTR, 2);
@@ -2060,7 +2060,7 @@ void deriveDims(char *symptr, int *dims, int elemSz, int ndim) {
     int strides[MAX_DIMS];
     int totalElems, i;
     char *ddentry;
-    ddentry = getint(symptr + CLASSPTR, 2);
+    ddentry = getptr(symptr + CLASSPTR, 2);
     totalElems = getint(symptr + SIZE, 2) / elemSz;
     // read stored strides (ndim-1 entries beginning at byte 2 of the slot)
     i = 0;
@@ -2225,8 +2225,8 @@ void initLocStrMem(int typeSubPtr, int baseOffset) {
     int memberSize, memberTotal, memberOffset;
     int nestedPtr;
     int elemCount, elemIdx, i;
-    membercur = getint(typeSubPtr + STRDAT_MBEG, 2);
-    memberend = getint(typeSubPtr + STRDAT_MEND, 2);
+    membercur = getptr(typeSubPtr + STRDAT_MBEG, 2);
+    memberend = getptr(typeSubPtr + STRDAT_MEND, 2);
     while (membercur < memberend) {
         memberSize = membercur[STRMEM_TYPE] >> 2;
         if (memberSize < 1) memberSize = 1;
@@ -2306,8 +2306,8 @@ void initLocUnion(int typeSubPtr) {
         error("union initializer requires { }");
         return;
     }
-    firstMem = getint(typeSubPtr + STRDAT_MBEG, 2);
-    if (firstMem < getint(typeSubPtr + STRDAT_MEND, 2)) {
+    firstMem = getptr(typeSubPtr + STRDAT_MBEG, 2);
+    if (firstMem < getptr(typeSubPtr + STRDAT_MEND, 2)) {
         memberSize = firstMem[STRMEM_TYPE] >> 2;
         if (memberSize < 1) memberSize = 1;
         memberTotal = getint(firstMem + STRMEM_SIZE, 2);
@@ -2664,7 +2664,8 @@ void doSwitch() {
     *(wqptr + WQLOOP - WQSIZ) = 0;
     require("(");
     {
-        int is[ISSIZE], savedloc;
+        int is[ISSIZE];
+        char *savedloc;
         int *before, *start;
         savedloc = locptr;
         setstage(&before, &start);
@@ -2790,15 +2791,15 @@ int doReturn() {
         if (rettype == TYPE_STRUCT) {
             // Return struct via hidden pointer (first caller-pushed arg).
             // Parse return expression as lvalue to get source address.
-            int is[ISSIZE], savedlocptr, savcsp2;
-            char *cpyfn, *retptr;
+            int is[ISSIZE], savcsp2;
+            char *savedlocptr, *cpyfn, *retptr;
             savedlocptr = locptr;
             savcsp2 = csp;
             if (level1(is)) {
                 if (is[TYP_OBJ] == TYPE_STRUCT) {
                     // AX = source address (local, member, dereferenced)
                 }
-                else if (is[TYP_OBJ] == 0 && (retptr = is[SYMTAB_ADR])
+                else if (is[TYP_OBJ] == 0 && (retptr = (char *)is[SYMTAB_ADR])
                          && retptr[TYPE] == TYPE_STRUCT) {
                     gen(POINT1m, retptr);
                 }
@@ -2827,7 +2828,8 @@ int doReturn() {
             locptr = savedlocptr;
         }
         else {
-            int is[ISSIZE], savedloc;
+            int is[ISSIZE];
+            char *savedloc;
             int *before, *start;
             savedloc = locptr;
             setstage(&before, &start);

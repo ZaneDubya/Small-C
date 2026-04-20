@@ -288,8 +288,8 @@ int findStructByName(int kind, char *sname) {
 // Determine if the next token is a tag name matching the given kind.
 // Consumes the tag name from input if found.
 // kind: KIND_STRUCT or KIND_UNION
-// @return pointer to tag data if found, else -1
-int getStructPtr(int kind) {
+// @return pointer to tag data if found, else (char *)-1
+char *getStructPtr(int kind) {
   char *current, *end;
   int len;
   current = STRDAT_START;
@@ -303,16 +303,16 @@ int getStructPtr(int kind) {
     }
     current += STRDAT_MAX;
   }
-  return -1;
+  return (char *)-1;
 }
 
 int getStructSize(char *basestruct) {
   return getint(basestruct + STRDAT_SIZE, 2);
 }
 
-int getStructMember(char *basestruct, char *sname) {
+char *getStructMember(char *basestruct, char *sname) {
   char *current, *end;
-  current = getint(basestruct + STRDAT_MBEG, 2);
+  current = getptr(basestruct + STRDAT_MBEG, 2);
   end = structmemnext;
   // printf("    searching from %x to %x\n", current, end);
   while (current < end) {
@@ -322,7 +322,7 @@ int getStructMember(char *basestruct, char *sname) {
     }
     current += STRMEM_MAX;
   }
-  return 0;
+  return (char *)0;
 }
 
 // prints debug information about all struct definitions and all members

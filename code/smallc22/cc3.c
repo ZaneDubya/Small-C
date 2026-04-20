@@ -98,7 +98,8 @@ int isConstExpr(int *val) {
 }
 
 void parseExpr32(int *con, int *val, int *val_hi) {
-    int is[ISSIZE], savedlocptr;
+    int is[ISSIZE];
+    char *savedlocptr;
     savedlocptr = locptr;
     if (level1(is)) fetch(is);
     *con = is[TYP_CNST];
@@ -119,7 +120,8 @@ int isConstExpr32(int *val, int *val_hi) {
 }
 
 void parseExpr(int *con, int *val) {
-    int is[ISSIZE], savedlocptr;
+    int is[ISSIZE];
+    char *savedlocptr;
     savedlocptr = locptr;
     if (level1(is)) {
         fetch(is);
@@ -133,7 +135,8 @@ void parseExpr(int *con, int *val) {
 // evaluates to a 16-bit value, emits WIDENs or WIDENu to extend AX to DX:AX.
 // Use this when storing into a long/unsigned-long slot to ensure DX is set.
 void parseExprWidened(int *con, int *val, int destIsLong) {
-    int is[ISSIZE], savedlocptr;
+    int is[ISSIZE];
+    char *savedlocptr;
     savedlocptr = locptr;
     if (level1(is)) fetch(is);
     *con = is[TYP_CNST];
@@ -263,7 +266,7 @@ int doStructAssign(int *is) {
     // (a) is[TYP_OBJ] == TYPE_STRUCT: LHS address already in AX (result of
     //     member access or pointer dereference through a struct pointer).
     // (b) is[TYP_OBJ] == 0, SYMTAB_ADR points to a named struct variable.
-    lhsPtr = is[SYMTAB_ADR];
+    lhsPtr = (char *)is[SYMTAB_ADR];
     computedLHS = (is[TYP_OBJ] == TYPE_STRUCT);
     if (!computedLHS) {
         if (is[TYP_OBJ] != 0 || !lhsPtr
@@ -281,7 +284,7 @@ int doStructAssign(int *is) {
     if (k && is2[TYP_OBJ] == TYPE_STRUCT) {
         // AX = &src, placed there by a struct-returning function call
     } else if (k && is2[TYP_OBJ] == 0
-               && (rhsPtr = is2[SYMTAB_ADR])
+               && (rhsPtr = (char *)is2[SYMTAB_ADR])
                && rhsPtr[TYPE] == TYPE_STRUCT) {
         gen(POINT1m, rhsPtr);            // AX = &src (named variable)
     } else {
@@ -378,7 +381,7 @@ int level1(int *is) {
         return 0;
     }
     // Reject assignment to a const-qualified variable.
-    lhsPtr = is[SYMTAB_ADR];
+    lhsPtr = (char *)is[SYMTAB_ADR];
     if (lhsPtr && lhsPtr[CLASS] & CONST_FLAG) {
         error("cannot assign to const variable");
         return 0;
@@ -415,9 +418,10 @@ int level1(int *is) {
                 widenPrimary(is2);
 #ifdef ENABLE_WARNINGS
             // ptr-depth-mismatch-warning
-            if (is3[IS_PTRDEPTH] >= 1 && is2[IS_PTRDEPTH] >= 1
-                && is3[IS_PTRDEPTH] != is2[IS_PTRDEPTH]
-                && !(is2[TYP_CNST] && is2[VAL_CNST] == 0))
+            if ((is3[IS_PTRDEPTH] != is2[IS_PTRDEPTH])
+                && (is3[IS_PTRDEPTH] >= 1 || is2[IS_PTRDEPTH] >= 1)
+                && !(is2[TYP_CNST] && is2[VAL_CNST] == 0)
+                && !(is2[TYP_ADR] && is2[IS_PTRDEPTH] == 0))  // allow array->pointer decay
                 warning("pointer assignment: depth mismatch");
 #endif
             gen(POP2, 0);                       // retrieve address
@@ -436,9 +440,10 @@ int level1(int *is) {
                 widenPrimary(is2);
 #ifdef ENABLE_WARNINGS
             // ptr-depth-mismatch-warning
-            if (is3[IS_PTRDEPTH] >= 1 && is2[IS_PTRDEPTH] >= 1
-                && is3[IS_PTRDEPTH] != is2[IS_PTRDEPTH]
-                && !(is2[TYP_CNST] && is2[VAL_CNST] == 0))
+            if ((is3[IS_PTRDEPTH] != is2[IS_PTRDEPTH])
+                && (is3[IS_PTRDEPTH] >= 1 || is2[IS_PTRDEPTH] >= 1)
+                && !(is2[TYP_CNST] && is2[VAL_CNST] == 0)
+                && !(is2[TYP_ADR] && is2[IS_PTRDEPTH] == 0))  // allow array->pointer decay
                 warning("pointer assignment: depth mismatch");
 #endif
         }
@@ -558,7 +563,7 @@ int checkModifiable(int k, int *is) {
     }
     // Look up the symbol entry.  If the CLASS field carries CONST_FLAG the
     // variable was declared const and may not be written through.
-    ptr = is[SYMTAB_ADR];
+    ptr = (char *)is[SYMTAB_ADR];
     if (ptr && ptr[CLASS] & CONST_FLAG) {
         error("cannot modify const variable");
         return 0;
@@ -582,7 +587,7 @@ int resolveDerefType(int *is) {
     char *ptr;
     if (is[TYP_ADR])
         return is[TYP_ADR];
-    if (ptr = is[SYMTAB_ADR])
+    if (ptr = (char *)is[SYMTAB_ADR])
         return (ptr[IDENT] == IDENT_PTR_ARRAY) ? TYPE_UINT : ptr[TYPE];
     return TYPE_INT;
 }
@@ -733,7 +738,7 @@ int level13(int *is) {
             error("cannot take address of bit-field");
             return 0;
         }
-        ptr = is[SYMTAB_ADR];
+        ptr = (char *)is[SYMTAB_ADR];
         is[TYP_ADR] = ptr[TYPE];
         is[IS_PTRDEPTH]++;
         if (is[TYP_OBJ]) {
@@ -852,7 +857,7 @@ int level14(int *is) {
     // k=1: AX holds an lvalue address; caller must fetch() to load the value.
     // k=0: AX already holds the final value or rvalue address.
     k = primary(is);
-    ptr = is[SYMTAB_ADR];
+    ptr = (char *)is[SYMTAB_ADR];
     blanks();
     while (1) {
         if (isMatch(".")) {
@@ -931,6 +936,7 @@ int level14(int *is) {
                     is[DIM_LEFT] = 0;
                     is[TYP_OBJ] = TYPE_UINT;   // element is a pointer value (unsigned int)
                     is[TYP_ADR] = ptr[TYPE];   // what that pointer points to
+                    is[IS_PTRDEPTH] = 1;       // element is a pointer (depth 1)
                     is[SYMTAB_ADR] = 0;        // clear: loop-bottom "ptr = is[SYMTAB_ADR]"
                                                // must not re-load the stale array symbol
                     k = 1;                     // AX has element address; fetch needed
@@ -955,6 +961,7 @@ int level14(int *is) {
                         is[DIM_LEFT] = 0;
                         is[TYP_ADR] = 0;           // subscripted result is a scalar, not a pointer
                         is[TYP_OBJ] = elemType;
+                        is[IS_PTRDEPTH] = 0;       // subscript consumed the pointer level
                     }
                     k = 1;                     // AX has element address; fetch needed
                 }
@@ -985,12 +992,12 @@ int level14(int *is) {
                 // works (e.g. getRect().x).  callfunc() stored the result at the
                 // top of the stack frame; tmpRetStr gives that slot a symbol entry.
                 is[TYP_OBJ] = TYPE_STRUCT;
-                is[SYMTAB_ADR] = addSymbol("tmpRetStr",
+                is[SYMTAB_ADR] = (int)addSymbol("tmpRetStr",
                     IDENT_VARIABLE, TYPE_STRUCT,
                     getStructSize(getClsPtr(ptr)),
                     0, &locptr, AUTOMATIC);
                 putint(getClsPtr(ptr),
-                       is[SYMTAB_ADR] + CLASSPTR, 2);  // copy struct class ptr to scratch entry
+                       (char *)is[SYMTAB_ADR] + CLASSPTR, 2);  // copy struct class ptr to scratch entry
                 is[TYP_ADR] = is[TYP_CNST] = is[VAL_CNST] = 0;
                 is[LAST_OP] = is[STG_ADR] = 0;
                 k = 1;                     // lvalue: AX has address of the scratch local
@@ -1013,7 +1020,7 @@ int level14(int *is) {
             break;
         }
         // Refresh ptr so the next postfix operator sees the updated type info.
-        ptr = is[SYMTAB_ADR];
+        ptr = (char *)is[SYMTAB_ADR];
     }
     // Named function used without (): emit its address so it can be stored or passed.
     if (ptr && (ptr[IDENT] == IDENT_FUNCTION || ptr[IDENT] == IDENT_PTR_FUNCTION)) {
@@ -1044,7 +1051,7 @@ int structmember(char *ptr, int *is) {
         gen(GETw2n, offset);
         gen(ADD12, 0);
     }
-    is[SYMTAB_ADR] = addSymbol("tmpStrMem",
+    is[SYMTAB_ADR] = (int)addSymbol("tmpStrMem",
         member[STRMEM_IDENT], member[STRMEM_TYPE],
         getint(member + STRMEM_SIZE, 2),
         getint(member + STRMEM_OFFSET, 2),
@@ -1065,7 +1072,7 @@ int structmember(char *ptr, int *is) {
     /* For nested structs, propagate struct definition pointer */
     if (member[STRMEM_TYPE] == TYPE_STRUCT) {
         putint(getint(member + STRMEM_CLASSPTR, 2),
-               is[SYMTAB_ADR] + CLASSPTR, 2);
+               (char *)is[SYMTAB_ADR] + CLASSPTR, 2);
     }
     // For array members, set TYP_ADR so subscripting works
     if (member[STRMEM_IDENT] == IDENT_ARRAY) {
@@ -1139,6 +1146,7 @@ void applycast(int casttype, int *is) {
     is[SYMTAB_ADR] = 0;
     is[TYP_ADR] = 0;
     is[STG_ADR] = 0;
+    is[IS_PTRDEPTH] = 0;   // (int) cast strips pointer depth
     is[TYP_VAL] = casttype;
     if (dstLong)
         is[TYP_OBJ] = casttype;
@@ -1218,13 +1226,13 @@ int trycast(int *is) {
     else if (amatch("struct", 6)) {
         char *sp;
         sp = getStructPtr(KIND_STRUCT);
-        if (sp == -1) error("unknown struct name");
+        if (sp == (char *)-1) error("unknown struct name");
         casttype = TYPE_STRUCT;
     }
     else if (amatch("union", 5)) {
         char *sp;
         sp = getStructPtr(KIND_UNION);
-        if (sp == -1) error("unknown union name");
+        if (sp == (char *)-1) error("unknown union name");
         casttype = TYPE_STRUCT;
     }
 
@@ -1282,8 +1290,8 @@ int primary(int *is) {
             if ((ptr[CLASS] & 0x7F) == STATIC) {
                 // static local: redirect to the global symbol table entry
                 // stored in the OFFSET field of the local entry
-                ptr = getint(ptr + OFFSET, 2);
-                is[SYMTAB_ADR] = ptr;
+                ptr = getptr(ptr + OFFSET, 2);
+                is[SYMTAB_ADR] = (int)ptr;
                 if (ptr[IDENT] == IDENT_ARRAY) {
                     gen(POINT1m, ptr);
                     is[TYP_OBJ] = is[TYP_ADR] = ptr[TYPE];
@@ -1305,7 +1313,7 @@ int primary(int *is) {
                 return 1;
             }
             gen(POINT1s, getint(ptr + OFFSET, 2));
-            is[SYMTAB_ADR] = ptr;
+            is[SYMTAB_ADR] = (int)ptr;
             is[TYP_OBJ] = ptr[TYPE];
             if (ptr[IDENT] == IDENT_ARRAY) {
                 is[TYP_ADR] = ptr[TYPE];
@@ -1327,7 +1335,7 @@ int primary(int *is) {
             return 1;
         }
         if (ptr = findglb(sname)) {      // is global
-            is[SYMTAB_ADR] = ptr;
+            is[SYMTAB_ADR] = (int)ptr;
             if ((ptr[CLASS] & 0x7F) == ENUMCONST) {
                 // enum constant: fold as integer compile-time value
                 is[TYP_CNST] = TYPE_INT;
@@ -1362,7 +1370,7 @@ int primary(int *is) {
             // as a function. Then, if it never is formally declared, it will
             // be identified to the assembler as an external reference before
             // the compiler quits.
-            is[SYMTAB_ADR] = addSymbol(sname, IDENT_FUNCTION, TYPE_INT, 
+            is[SYMTAB_ADR] = (int)addSymbol(sname, IDENT_FUNCTION, TYPE_INT, 
                 0, 0, &glbptr, AUTOEXT);
         }
         return 0;
@@ -1442,7 +1450,8 @@ void checkFnArgCountAndTypes(char *ptr, int userArgCount, int *argDepths, char *
 // Globals touched (intentionally, as in the rest of cc3.c):
 //   snext, locptr, argbufcur — all updated on return
 int collectOneArg(int *is, int *argLens, int *argSizes, int idx, int *pNargs) {
-    int savedlocptr, alen, i;
+    char *savedlocptr;
+    int alen, i;
     int *exprStart;
     savedlocptr = locptr;
     exprStart   = snext;
@@ -1454,7 +1463,7 @@ int collectOneArg(int *is, int *argLens, int *argSizes, int idx, int *pNargs) {
             // Struct indirect (TYP_OBJ set): AX already holds the address;
             // no fetch needed — the struct is passed by address.
         }
-        else if (is[TYP_OBJ] == 0 && (argptr = is[SYMTAB_ADR])
+        else if (is[TYP_OBJ] == 0 && (argptr = (char *)is[SYMTAB_ADR])
                  && argptr[TYPE] == TYPE_STRUCT
                  && argptr[IDENT] != IDENT_FUNCTION
                  && argptr[IDENT] != IDENT_PTR_FUNCTION) {
@@ -1684,7 +1693,7 @@ int isLongVal(int *is) {
     // AX holds the array address.  Do NOT treat that as a long value.
     if (is[TYP_OBJ] >> 2 == BPD && is[TYP_ADR] == 0)
         return 1;
-    ptr = is[SYMTAB_ADR];
+    ptr = (char *)is[SYMTAB_ADR];
     if (ptr && is[TYP_OBJ] == 0 && is[TYP_ADR] == 0
         && !isPtrLike(ptr)
         && ptr[TYPE] >> 2 == BPD)
@@ -1888,7 +1897,7 @@ void store(int *is) {
         }
     }
     else {                          // putmem
-        ptr = is[SYMTAB_ADR];
+        ptr = (char *)is[SYMTAB_ADR];
         if (!isPtrLike(ptr) && ptr[TYPE] >> 2 == BPD) {
             gen(PUTdm1, ptr);
         }
@@ -1907,7 +1916,7 @@ void fetch(int *is) {
         fetchBF(is);
         return;
     }
-    ptr = is[SYMTAB_ADR];
+    ptr = (char *)is[SYMTAB_ADR];
     if (is[TYP_OBJ]) {                                   // indirect
         if (is[TYP_OBJ] >> 2 == BPD) {
             gen(GETd1p, 0);
@@ -2362,8 +2371,8 @@ void applyResultType(int oper, int *is, int *is2) {
     if ((oper == EQ12 || oper == NE12 ||
          oper == LT12 || oper == LE12 || oper == GT12 || oper == GE12 ||
          oper == LT12u || oper == LE12u || oper == GT12u || oper == GE12u)
-        && is[TYP_ADR] && is2[TYP_ADR]
-        && is[IS_PTRDEPTH] >= 1 && is2[IS_PTRDEPTH] >= 1
+        && (is[TYP_ADR] || is2[TYP_ADR])
+        && (is[IS_PTRDEPTH] >= 1 || is2[IS_PTRDEPTH] >= 1)
         && is[IS_PTRDEPTH] != is2[IS_PTRDEPTH]
         && !(is[TYP_CNST]  && is[VAL_CNST]  == 0)
         && !(is2[TYP_CNST] && is2[VAL_CNST] == 0))
@@ -2388,7 +2397,7 @@ void applyResultType(int oper, int *is, int *is2) {
     // Propagate SYMTAB_ADR from the RHS when the LHS has no symbol entry,
     // or when the RHS symbol is unsigned (unsigned-ness infects the result type).
     if (is[SYMTAB_ADR] == 0 ||
-        ((ptr = is2[SYMTAB_ADR]) && (ptr[TYPE] & IS_UNSIGNED))) {
+        ((ptr = (char *)is2[SYMTAB_ADR]) && (ptr[TYPE] & IS_UNSIGNED))) {
         is[SYMTAB_ADR] = is2[SYMTAB_ADR];
     }
 }
@@ -2525,7 +2534,7 @@ void down2(int oper, int oper2, int (*level)(), int *is, int *is2) {
             // If the LHS constant is zero, record this position so test() can
             // replace the upcoming GETw2n/GETcxn pair with a cheaper zero-test.
             if (is[VAL_CNST] == 0 && is[VAL_CNST_HI] == 0)
-                is[STG_ADR] = snext;
+                is[STG_ADR] = (int)snext;
             // Load the 32-bit LHS constant into the secondary register pair (CX:BX).
             gen(GETw2n, is[VAL_CNST]);
             gen(GETcxn, is[VAL_CNST_HI]);
@@ -2534,7 +2543,7 @@ void down2(int oper, int oper2, int (*level)(), int *is, int *is2) {
             // If the LHS constant is zero, record this position so test() can
             // replace the upcoming GETw2n with a cheaper zero-test.
             if (is[VAL_CNST] == 0)
-                is[STG_ADR] = snext;
+                is[STG_ADR] = (int)snext;
             // Apply pointer-element-size scaling for pointer + integer arithmetic.
             sc = ptrScale(oper, is2, is);
             if (!sc) sc = 1;
@@ -2560,7 +2569,7 @@ void down2(int oper, int oper2, int (*level)(), int *is, int *is2) {
             // If the RHS constant is zero, record the start of this binary operation
             // so test() can replace the operand-setup sequence with a zero-test.
             if (is2[VAL_CNST] == 0 && is2[VAL_CNST_HI] == 0)
-                is[STG_ADR] = start;
+                is[STG_ADR] = (int)start;
             // Retract the speculative PUSH: we no longer need the stack slot because
             // the constant will be loaded directly into a register.
             if (leftLong)
@@ -2692,7 +2701,7 @@ int isUnsigned(int *is) {
     char *ptr;
     if (is[TYP_ADR] || is[TYP_CNST] == TYPE_UINT || is[TYP_CNST] == TYPE_ULONG ||
         is[TYP_VAL] & IS_UNSIGNED ||
-        ((ptr = is[SYMTAB_ADR]) && (ptr[TYPE] & IS_UNSIGNED)))
+        ((ptr = (char *)is[SYMTAB_ADR]) && (ptr[TYPE] & IS_UNSIGNED)))
         return 1;
     return 0;
 }

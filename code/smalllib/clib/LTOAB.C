@@ -12,7 +12,7 @@ void ltoab(long n, char *s, int b) {
   if (hi == 0 && lo == 0) {
     *ptr++ = '0';
     *ptr = 0;
-    return (s);
+    return;
   }
   while (hi || lo) {
     rem = udiv3216(&lo, &hi, b);
@@ -22,5 +22,5 @@ void ltoab(long n, char *s, int b) {
   }
   *ptr = 0;
   reverse(s);
-  return (s);
+  return;
 }

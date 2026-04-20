@@ -11,7 +11,6 @@
 
 int
   _cnt=1,             /* arg count for main */
-  _vec[20],           /* arg vectors for main */
   _status[MAXFILES] = {OPNBIT, OPNBIT, OPNBIT, OPNBIT, OPNBIT},
   _cons  [MAXFILES],  /* fast way to tell if file is the console */
   _nextc [MAXFILES] = {EOF, EOF, EOF, EOF, EOF},
@@ -21,6 +20,8 @@ int
   _bufnxt[MAXFILES],  /* address of next byte in buffer */
   _bufend[MAXFILES],  /* address of end-of-data in buffer */
   _bufeof[MAXFILES];  /* true if current buffer ends file */
+
+char *_vec[20];             /* arg vectors for main */
 
 char
  *_memptr,           /* pointer to free memory. */

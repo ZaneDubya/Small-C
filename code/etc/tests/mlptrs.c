@@ -452,8 +452,8 @@ void test_swap() {
     p = &x; q = &y;
 
     swapptr(&p, &q);
-    check("swap p→&y",      p == &y);
-    check("swap q→&x",      q == &x);
+    check("swap p=>&y",      p == &y);
+    check("swap q=>&x",      q == &x);
     check("swap *p==2",     *p == 2);
     check("swap *q==1",     *q == 1);
 
@@ -514,11 +514,11 @@ void test_redir() {
 
     // *pp = &y: redirect p to y; x must be unchanged
     *pp = &y;
-    check("redir p→y",      p == &y);
+    check("redir p=>y",      p == &y);
     check("redir x intact", x == 1);
     check("**pp==y val",    **pp == 2);
 
-    // **pp = 55: write through the redirected pointer (now p→y); p must not move
+    // **pp = 55: write through the redirected pointer (now p=>y); p must not move
     **pp = 55;
     check("wr y==55",       y == 55);
     check("p still &y",     p == &y);

@@ -237,7 +237,7 @@ int endst() {
 // Store dimension metadata for a multi-dim array.
 // Entry format: [structPtr(2)] [stride_0(2)] ... [stride_{ndim-2}(2)]
 // Returns pointer to start of entry in dimdata[].
-int storeDimDat(int sptr, int ndim, int *strides) {
+char *storeDimDat(int sptr, int ndim, int *strides) {
     char *entry;
     int i, sz;
     sz = ndim * 2;
@@ -262,7 +262,7 @@ int storeDimDat(int sptr, int ndim, int *strides) {
 // Otherwise, CLASSPTR is the struct def ptr directly.
 int getClsPtr(char *sym) {
     if (sym[NDIM] > 1)
-        return getint(getint(sym + CLASSPTR, 2), 2);
+        return getint(getptr(sym + CLASSPTR, 2), 2);
     return getint(sym + CLASSPTR, 2);
 }
 
@@ -270,13 +270,13 @@ int getClsPtr(char *sym) {
 // idx 0 = outermost stride (row size in bytes for 2D).
 int getDimStride(char *sym, int idx) {
     char *entry;
-    entry = getint(sym + CLASSPTR, 2);
+    entry = getptr(sym + CLASSPTR, 2);
     return getint(entry + 2 + idx * 2, 2);
 }
 
 // === symbol table management functions ======================================
 
-int addSymbol(char *sname, char id, char type, int size, int offset, char **lgpp, int class) {
+char *addSymbol(char *sname, char id, char type, int size, int offset, char **lgpp, int class) {
     if (lgpp == &glbptr) {
         if (cptr2 = findglb(sname)) {
             return cptr2;
@@ -374,13 +374,13 @@ int hash(char *sname) {
     return i;
 }
 
-int findglb(char *sname) {
+char *findglb(char *sname) {
     if (findSymbol(sname, STARTGLB, SYMMAX, ENDGLB, NUMGLBS, NAME, SYMMAX - NAME))
         return cptr;
     return 0;
 }
 
-int findloc(char *sname)  {
+char *findloc(char *sname)  {
     cptr = locptr - 1;  // findSymbol backward for block locals
     while (cptr > STARTLOC) {
         cptr = cptr - *cptr;
@@ -390,7 +390,7 @@ int findloc(char *sname)  {
     return 0;
 }
 
-int nextsym(char *entry) {
+char *nextsym(char *entry) {
     entry = entry + NAME;
     while (*entry++ >= ' ');    // find length byte
     return entry;
@@ -411,7 +411,7 @@ void addwhile(int *ptr) {
     while (k < WQSIZ) *wqptr++ = ptr[k++];
 }
 
-int readwhile(int *ptr) {
+int *readwhile(int *ptr) {
     if (ptr <= wq) {
         error("out of context");
         return 0;
@@ -449,6 +449,11 @@ int getint(char *addr, int len) {
     return i;
 }
 
+// Like getint, but returns char * — for symbol-table fields that hold addresses.
+char *getptr(char *addr, int len) {
+    return (char *)getint(addr, len);
+}
+
 // put integer i of length len into address addr
 // (low byte first)
 void putint(int i, char *addr, int len) {
@@ -479,7 +484,7 @@ void needlval() {
 }
 
 void errout(char *msg, int fp, char *path, int ln) {
-    int k;
+    char *k;
     k = line + 2;
     while (k++ <= lptr) {
         fputc(' ', fp);

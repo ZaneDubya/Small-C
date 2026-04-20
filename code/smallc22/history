@@ -460,3 +460,22 @@ Small-C Revision History
     function-level pass, tryPushPopElimination.
 163 Merged common output routines for code size reduction.
 164 Fixed pointer types throughout codebase, no functionality change.
+165 Thorough audit of compiler codebase for pointer/type/cast mismatches.
+    Return type corrections: Functions that return char * (symbol table
+    pointers, buffer pointers) were changed from int return type.
+    Local variable type corrections: Variables that hold char * values
+    (typically locptr snapshots or pointer-valued symbol table fields) were
+    changed from int to char *.
+    Explicit pointer/int casts at storage boundaries: The is[] array is int[]
+    but stores char * values. All read sites got (char *)is[SYMTAB_ADR] casts;
+    all write sites got (int) casts. Similarly, (int)glbEntry, (int)ddentry,
+    and (char *)is[SYMTAB_ADR] + CLASSPTR for pointer arithmetic.
+    Warning condition refinements: The pointer-depth-mismatch warning guards
+    were broadened from "both sides >= 2" to "either side >= 1", and then false
+    positives were suppressed: array-to-pointer decay and (int) casts.
+    IS_PTRDEPTH propagation fixes: IS_PTRDEPTH was not cleared after: final-
+    dimension subscript (scalar result), (int) cast (applycast), and
+    IDENT_PTR_ARRAY subscript now correctly sets it to 1 (i.e. is a pointer).
+    char *argv[] => char **argv: Fixed pointer stride in all main/parms
+    functions across the compiler, assembler, linker, and library.
+    Prototype updates in cc.h: All changed function signatures propagated.

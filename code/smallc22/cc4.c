@@ -67,7 +67,7 @@ void errputc(int c);
 void outputs(char *s);
 void outputc(int c);
 int isfree(int reg, int *pp);
-int getpop(int *next);
+int *getpop(int *next);
 
 
 // === optimizer command definitions ==========================================
@@ -1864,7 +1864,7 @@ void trailer() {
 }
 
 // remember where we are in the queue in case we have to back up.
-void setstage(int *before, int *start) {
+void setstage(int **before, int **start) {
     if ((*before = snext) == 0)
         snext = stage;
     *start = snext;
@@ -2537,12 +2537,12 @@ int isfree(int reg, int *pp) {
 // Get place where the currently pushed value is popped?
 // NOTE: Function arguments are not popped, they are
 // wasted with an ADDSP, POPCX, or POPCX2.
-int getpop(int *next) {
+int *getpop(int *next) {
     char *cp;
     int level;  level = 0;
     while (YES) {
         if (next >= stail)                     // compiler error
-            return 0;
+            return (int *)0;
         if (*next == POP2)
             if (level) --level;
             else return next;                   // have a matching POP2

@@ -30,7 +30,7 @@ int _print(int fd, int *nxtarg) {
   int  *lp;
   char *ctl, *sptr, str[17];
   cc = 0;                                         
-  ctl = *nxtarg++;                          
+  ctl = (char *)*nxtarg++;                  
   while(*ctl) {
     if(*ctl!='%') {fputc(*ctl++, fd); ++cc; continue;}
     else ++ctl;
@@ -65,7 +65,7 @@ int _print(int fd, int *nxtarg) {
       arg = *nxtarg++;
       switch(*ctl++) {
         case 'c': str[0] = arg; str[1] = NULL; break;
-        case 's': sptr = arg;        break;
+        case 's': sptr = (char *)arg; break;
         case 'd': itoa(arg,str);     break;
         case 'b': itoab(arg,str,2);  break;
         case 'o': itoab(arg,str,8);  break;
