@@ -69,6 +69,14 @@ IF ERRORLEVEL 1 GOTO fail
 CALL voidptrs.bat
 IF ERRORLEVEL 1 GOTO fail
 
+CALL tenvvars.bat
+IF ERRORLEVEL 1 GOTO fail
+
+cd pretests
+CALL pretest.bat
+IF ERRORLEVEL 1 GOTO fail
+cd ..
+
 ECHO ============================================================
 ECHO  ALL TESTS PASSED.
 ECHO ============================================================

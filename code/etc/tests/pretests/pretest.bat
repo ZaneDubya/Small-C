@@ -5,8 +5,8 @@ REM The -A switch sounds the alarm when an error is reported.
 REM The -P switch pauses after each error (ENTER resumes).
 REM The -W switch enables all optional compiler warnings.
 
-SET BIN=..\..\bin
-SET LIB=..\..\smalllib
+SET BIN=..\..\..\bin
+SET LIB=..\..\..\smalllib
 
 ECHO === Compiling preprocessor tests ===
 %BIN%\cc pretest -a -p
