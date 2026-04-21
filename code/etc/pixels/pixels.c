@@ -309,20 +309,15 @@ void ega_init() {
     set_palette();
 #asm
     ; GC write mode 2 (GC index 5 = mode register, bit 1:0 = 10b)
+    ; Word OUT writes AL to the index port and AH to the data port (index+1)
     mov   dx, 3CEh
-    mov   al, 5
-    out   dx, al
-    inc   dx
-    mov   al, 2
-    out   dx, al
+    mov   ax, 0205h   ; AH=02 (mode 2), AL=05 (GC Mode register index)
+    out   dx, ax
 
     ; Sequencer Map Mask: enable all 4 planes (index 2, value 0Fh)
     mov   dx, 3C4h
-    mov   al, 2
-    out   dx, al
-    inc   dx
-    mov   al, 0Fh
-    out   dx, al
+    mov   ax, 0F02h   ; AH=0Fh (all planes), AL=02 (Map Mask index)
+    out   dx, ax
 #endasm
 }
 
@@ -335,8 +330,6 @@ void ega_init() {
 void ega_putpixel(int x, int y, int color) {
 #asm
     push  bx
-    push  cx
-    push  dx
     push  si
 
     ; Byte offset = y * 40 + (x >> 3)
@@ -367,14 +360,11 @@ void ega_putpixel(int x, int y, int color) {
     mov   al, 80h
     shr   al, cl             ; al = 0x80 >> (x & 7)
 
-    ; Set GC Bit Mask register (index 8)
+    ; Set GC Bit Mask register (index 8) via word OUT
+    mov   ah, al             ; AH = bit mask value
+    mov   al, 8              ; AL = GC Bit Mask index
     mov   dx, 3CEh
-    mov   ah, al
-    mov   al, 8
-    out   dx, al
-    inc   dx
-    mov   al, ah
-    out   dx, al
+    out   dx, ax
 
     ; Point ES at EGA video segment A000:0000
     mov   ax, 0A000h
@@ -390,8 +380,6 @@ void ega_putpixel(int x, int y, int color) {
     mov   es:[si], al
 
     pop   si
-    pop   dx
-    pop   cx
     pop   bx
 #endasm
 }
