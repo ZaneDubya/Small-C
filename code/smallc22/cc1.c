@@ -677,6 +677,7 @@ int parseArrayDims(int *dims) {
 void parseGlbDecl(int type, int class, int typeSubPtr) {
     int id, dim, ptrDepth, hasFnPtrParen, depth;
     int dims[MAX_DIMS], ndim;
+    int prevWasExternal;  // 1 when a prior 'extern' declaration exists and we are now defining it
     while (1) {
         if (endst()) {
             return;  // do line
@@ -702,12 +703,20 @@ void parseGlbDecl(int type, int class, int typeSubPtr) {
             return;
         }
         ndim = 0;
+        prevWasExternal = 0;
         if (symname(ssname) == 0)
             illname();
         else if (isreserved(ssname))
             error("reserved keyword used as name");
-        if (findglb(ssname)) 
-            multidef(ssname);
+        // A prior 'extern' declaration may be superseded by a definition in
+        // the same file (standard C).  Any other pre-existing entry is an
+        // unpermitted duplicate definition.
+        if (findglb(ssname)) {
+            if ((cptr[CLASS] & 0x7F) == EXTERNAL)
+                prevWasExternal = 1;
+            else
+                multidef(ssname);
+        }
         if (hasFnPtrParen) {
             // Consume the closing ')' of (*name) and the parameter list.
             // Parameter types are accepted but discarded: all function pointer
@@ -745,9 +754,10 @@ void parseGlbDecl(int type, int class, int typeSubPtr) {
                 }
             }
         }
-        if (class == EXTERNAL && id != IDENT_FUNCTION && id != IDENT_PTR_FUNCTION)
+        /* if (class == EXTERNAL && id != IDENT_FUNCTION && id != IDENT_PTR_FUNCTION) {
             external(ssname, type >> 2, id);
-        else if (id != IDENT_FUNCTION) {
+        }
+        else */ if (id != IDENT_FUNCTION && class != EXTERNAL) {
             if (id == IDENT_PTR_ARRAY)
                 dim = initPtrArray(type, dim, class);
             else if (type == TYPE_STRUCT && id == IDENT_VARIABLE) {
@@ -785,6 +795,11 @@ void parseGlbDecl(int type, int class, int typeSubPtr) {
                 ? PROTOEXT : class;
             addSymbol(ssname, id, type, dim * (type >> 2), 0, &glbptr, symclass);
         }
+        // Upgrade CLASS from EXTERNAL to the actual storage class now that
+        // a definition has been seen.  addSymbol() returns the existing slot
+        // without modifying it, so patch CLASS manually.
+        if (prevWasExternal)
+            cptr[CLASS] = class;
         if (isMatch(",") == 0) 
             return;
     }

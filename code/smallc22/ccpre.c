@@ -769,9 +769,14 @@ void scanComment() {
         while (ch && ch != LF && ch != CR) {
             bump(1);
         }
-        bump(1);
-        if (ch == LF) {
+        // Only consume the newline if ch is actually a newline char.
+        // If ch == 0 the comment ran to EOF with no trailing newline;
+        // bumping past the null would read stale data from the line buffer.
+        if (ch) {
             bump(1);
+            if (ch == LF) {
+                bump(1);
+            }
         }
     }
 }

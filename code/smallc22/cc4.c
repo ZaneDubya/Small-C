@@ -1795,6 +1795,14 @@ void trailer() {
     while (cptr < ENDGLB) {
         if ((cptr[IDENT] == IDENT_FUNCTION || cptr[IDENT] == IDENT_PTR_FUNCTION) && cptr[CLASS] == AUTOEXT)
             external(cptr + NAME, 0, IDENT_FUNCTION);
+            // Deferred EXTRN for variables declared 'extern' but not defined in
+            // this translation unit.  EXTRN emission is deferred (not done at the
+            // declaration site) so that a definition later in the same file can
+            // upgrade the class to GLOBAL without creating an assembler conflict.
+            else if (cptr[CLASS] == EXTERNAL
+                    && cptr[IDENT] != IDENT_FUNCTION
+                    && cptr[IDENT] != IDENT_PTR_FUNCTION)
+                external(cptr + NAME, cptr[TYPE] >> 2, cptr[IDENT]);
         cptr += SYMMAX;
     }
     if ((cp = findglb("main")) && cp[CLASS] == GLOBAL)

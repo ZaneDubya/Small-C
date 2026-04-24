@@ -387,6 +387,7 @@ newsym(must, colon, fbits) int must, colon, fbits; {
     }
   if(stfind()) {              /* already in table? */
     if(flags(stptr) == FPUB) ;
+    else if(flags(stptr) & FEXT) return (NO); /* EXTRN re-declaration: OK, skip */
     else {
       if(pass == 1) orflags(stptr, FRED);
       else if(flags(stptr) & FRED) rederr();

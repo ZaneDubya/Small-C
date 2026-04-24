@@ -154,6 +154,37 @@ int main(int argc, char **argv) {
   }
 
 /*
+** pre-scan source files for EXTRN declarations.
+** Called after init() so the symbol table is ready.
+** Registers all external symbols before pass 1 processes
+** instructions that may forward-reference them, preventing
+** pass-1/pass-2 instruction size mismatches when EXTRN
+** directives appear after their first use (e.g. at end of file).
+*/
+void prescan(int argc, char **argv) {
+  int i;
+  i = 0;
+  while(getarg(++i, srcfn, MAXFN, argc, argv) != EOF) {
+    if(isswitch(srcfn[0])
+    || extend(srcfn, SRCEXT, OBJEXT)) continue;
+    if(!(srcfd = fopen(srcfn, "r"))) break;
+    while(fgets(line, MAXLINE, srcfd)) {
+      lp = skip(1, line);              /* find first non-blank field */
+      if(atend(*lp)) continue;         /* blank or comment line */
+      lp = getsym(lp, YES, NO);        /* parse first token (uppercase) */
+      if(gotcolon) {                   /* was a label; get the mnemonic */
+        if(atend(*lp)) continue;
+        lp = getsym(lp, YES, NO);
+        }
+      if(!same(stsym, "EXTRN")) continue;  /* not EXTRN */
+      doextrn();                       /* register extern symbols */
+      }
+    close(srcfd);
+    return;
+    }
+  }
+
+/*
 ** pass one
 */
 void pass1(int argc, char **argv) {
@@ -169,6 +200,7 @@ void pass1(int argc, char **argv) {
   mt     = mtnext = calloc(max, 1);  /* allocate space */
   mtend  = mt + max - MAXLINE;       /* note end of macro buffer */
   init();                            /* set initial conditions */
+  prescan(argc, argv);               /* pre-register EXTRN symbols */
   dopass(argc, argv);                /* do pass 1 */
   }
 
@@ -194,7 +226,7 @@ void pass2(int argc, char **argv) {
     errshow(stdout);
     symlist();
     }
-  errshow(stderr);
+  // errshow(stderr);
   if(ferror(ofd))
     error("- Error in Object File");
   close(ofd);

@@ -54,7 +54,7 @@
 //   symbol was declared with the 'const' qualifier.  Strip it with (ptr[CLASS] & 0x7F).
 //   AUTOMATIC  — local variable or function argument; addressed via BP-relative OFFSET
 //   GLOBAL     — file-global with external linkage; emits PUBLIC directive
-//   EXTERNAL   — extern declaration; emits EXTRN directive
+//   EXTERNAL   — extern declaration; emits EXTRN directive unless upgraded to GLOBAL by definition in same file
 //   AUTOEXT    — auto-declared (undeclared function call); upgraded to GLOBAL on definition
 //   PROTOEXT   — prototype declared but not yet called; upgraded to AUTOEXT on first call
 //   STATIC     — file-internal linkage (static global) or static local (OFFSET -> global entry)
@@ -151,8 +151,8 @@
 
 // values for "CLASS" integer
 #define AUTOMATIC 1   // defined locally
-#define GLOBAL    2   // defined globally in this object file
-#define EXTERNAL  3   // defined globally in another object file
+#define GLOBAL    2   // defined globally in this file
+#define EXTERNAL  3   // defined globally in another file (upgraded to GLOBAL with definition in the same file)
 #define AUTOEXT   4   // function that is not declared but is referenced
 #define STATIC    5   // only visible in this file ("internal linkage")
 #define ENUMCONST 6   // enum constant: integer value stored in OFFSET field
