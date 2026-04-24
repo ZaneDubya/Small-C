@@ -60,7 +60,84 @@ void _main() {
 */
 void _parse() {
   char *ptr;
+  char *exeptr;        /* argv[0]: real exe path from DOS env block */
 #asm
+  ; Extract program path from the DOS environment block (DOS 3.x+).
+  ; Get PSP segment via INT 21h AH=62h (DOS 2.0+).
+  mov     ah,62h
+  int     21h          ; BX = PSP segment
+  mov     es,bx
+  ; PSP[2Ch] = paragraph address of the environment segment
+  mov     ax,es:[2Ch]
+  mov     es,ax        ; ES = environment segment
+  xor     di,di        ; DI = 0 (start of environment block)
+  ; Walk past all NUL-terminated KEY=VALUE strings.
+  ; Use AL to test bytes (avoids byte ptr / word ptr syntax).
+__prs_env_walk:
+  mov     al,es:[di]
+  or      al,al
+  je      __prs_env_eol
+  inc     di
+  jmp     __prs_env_walk
+__prs_env_eol:
+  inc     di           ; skip this NUL
+  mov     al,es:[di]
+  or      al,al
+  jne     __prs_env_walk  ; not the double-NUL yet, keep scanning
+  inc     di           ; skip the second NUL; DI -> count word
+  ; Check the count word (should be 1 for DOS 3+; 0 means no path record).
+  mov     ax,es:[di]
+  or      ax,ax
+  je      __prs_no_path
+  add     di,2         ; skip count word; ES:DI -> program path string
+  ; Measure path length (count includes terminating NUL).
+  push    di           ; save path start offset
+  mov     cx,1
+__prs_path_len:
+  mov     al,es:[di]
+  or      al,al
+  je      __prs_path_measured
+  inc     di
+  inc     cx
+  jmp     __prs_path_len
+__prs_path_measured:
+  pop     di           ; DI = path start offset in env segment
+  ; Allocate cx bytes: __alloc(cx, 1). Save CX (length), DI, and ES across
+  ; the call because __alloc is a C function and clobbers CX.
+  push    cx           ; save path length -- __alloc clobbers CX
+  push    di           ; save path start across call
+  push    es           ; save env segment across call
+  mov     ax,1
+  push    ax           ; clear (2nd arg, pushed first for R-to-L cdecl)
+  push    cx           ; n    (1st arg, pushed last)
+  call    __alloc
+  add     sp,4
+  mov     [bp-4],ax    ; exeptr = allocated buffer (0 = alloc failed)
+  pop     es           ; restore env segment
+  pop     si           ; restore path start as SI (source in env seg)
+  pop     cx           ; restore path length (was clobbered by __alloc)
+  or      ax,ax
+  je      __prs_after_path  ; alloc failed; skip copy
+  ; Copy path from ES:SI (env seg) into DS:[exeptr] (data seg).
+  ; Swap DS<->ES so that movsb copies env->data, then restore.
+  mov     di,ax        ; DI = exeptr (destination in data seg)
+  push    ds
+  mov     bx,ds        ; BX = data seg paragraph
+  mov     ax,es        ; AX = env seg paragraph
+  mov     ds,ax        ; DS = env seg (movsb source)
+  mov     es,bx        ; ES = data seg (movsb dest)
+  ; rep prefix (0F3h)
+  DB 0F3H
+  movsb                ; copy CX bytes: env:[SI] -> data:[DI]
+  pop     ds           ; restore DS = data seg (ES is data seg already)
+  jmp     __prs_after_path
+__prs_no_path:
+  xor     ax,ax
+  mov     [bp-4],ax    ; exeptr = NULL (no path record)
+__prs_after_path:
+  mov     ah,62h
+  int     21h          ; BX = PSP segment
+  mov     es,bx
   mov     cl,es:[80h]  ; get parameter string length
   mov     ch,0       
   push    cx           ; save it
@@ -86,7 +163,7 @@ void _parse() {
   push    es
   pop     ds           ; restore ds
 #endasm
-  _vec[0]=_arg1;       /* first arg = "*" */
+  _vec[0] = exeptr ? exeptr : _arg1;  /* argv[0] = real exe path, or "*" fallback */
   while (*ptr) {
     if(isspace(*ptr)) {++ptr; continue;}
     if(_cnt < 20) _vec[_cnt++] = ptr;
