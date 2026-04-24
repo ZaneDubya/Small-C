@@ -10,7 +10,7 @@
 #define MAXSEG      10          /* maximum segments per module */
 #define MAXFN       41          /* max file name space */
 #define MAXNAM      31          /* maximum name characters */
-#define MAXLINE     81          /* length of source line */
+#define MAXLINE    256          /* length of source line */
 #define LASTLINE    60          /* last line of listing page */
 #define SRCEXT   ".ASM"         /* source file extension */
 #define OBJEXT   ".OBJ"         /* object file extension */
@@ -18,19 +18,19 @@
 /*
 ** symbol table
 ** 
-**             здддбддд©
-**   STSTR     Ё      ддддддддддддддд> name
-**             цдддедддадддбддд©
-**   STVAL2    Ё               Ё
-**             цдддедддедддаддды
-**   STVAL1    Ё       Ё
-**             цдддеддды
-**   STNDX     Ё   Ё
-**             цддд╢
-**   STSIZE    Ё   Ё
-**             цдддеддд©
-**   STFLAGS   Ё       Ё
-**             юдддаддды
+**             О©╫О©╫О©╫О©╫О©╫О©╫О©╫д©
+**   STSTR     О©╫      О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫> name
+**             О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫д©
+**   STVAL2    О©╫               О©╫
+**             О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫
+**   STVAL1    О©╫       О©╫
+**             О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫
+**   STNDX     О©╫   О©╫
+**             О©╫О©╫О©╫д╢
+**   STSIZE    О©╫   О©╫
+**             О©╫О©╫О©╫О©╫О©╫О©╫О©╫д©
+**   STFLAGS   О©╫       О©╫
+**             О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫
 **   STENTRY
 **
 */
@@ -259,24 +259,24 @@
 /*
 ** Expression Type Bits
 ** 
-** здддддддддддддддбддддддддддддддд©
-** ЁT T T T T TIND Ё    operand    Ё
-** ЁS F R M C (asa)Ё type    size  Ё  0
-** ЁH W E E O дддддЁддддддд дддддддЁ
-** ЁO D G M N a a aЁx x x x s s s sЁ
-** цдддддддддддддддеддддддддддддддд╢
-** Ё               Ё  T T T   T    Ё
-** Ё               Ё  B S D   B    Ё  1 <-- 8086 indirect registers
-** Ё               Ё  P I I   X    Ё
-** цдддддддддддддддеддддддддддддддд╢
-** Ё               ЁT T T T T T T TЁ
-** Ё               ЁS B S D A B C DЁ  2 <-- 80386 indirect E registers
-** Ё               ЁP P I I X X X XЁ
-** цдддддддддддддддеддддддддддддддд╢
-** Ё index scaleд© Ё  T T T T T T TЁ
-** Ё            дддЁ  B S D A B C DЁ  3 <-- 80386 indirect E index registers
-** Ё            s sЁ  P I I X X X XЁ
-** юдддддддддддддддаддддддддддддддды
+** О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫д©
+** О©╫T T T T T TIND О©╫    operand    О©╫
+** О©╫S F R M C (asa)О©╫ type    size  О©╫  0
+** О©╫H W E E O О©╫О©╫О©╫О©╫дЁО©╫О©╫О©╫О©╫О©╫О©╫О©╫ О©╫О©╫О©╫О©╫О©╫О©╫дЁ
+** О©╫O D G M N a a aО©╫x x x x s s s sО©╫
+** О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╢
+** О©╫               О©╫  T T T   T    О©╫
+** О©╫               О©╫  B S D   B    О©╫  1 <-- 8086 indirect registers
+** О©╫               О©╫  P I I   X    О©╫
+** О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╢
+** О©╫               О©╫T T T T T T T TО©╫
+** О©╫               О©╫S B S D A B C DО©╫  2 <-- 80386 indirect E registers
+** О©╫               О©╫P P I I X X X XО©╫
+** О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫д╢
+** О©╫ index scaleд© О©╫  T T T T T T TО©╫
+** О©╫            О©╫О©╫дЁ  B S D A B C DО©╫  3 <-- 80386 indirect E index registers
+** О©╫            s sО©╫  P I I X X X XО©╫
+** О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫О©╫
 */
 #define TIND   0x0700  /* indirect address-size-attribute */
 #define TCON   0x0800  /* constant */

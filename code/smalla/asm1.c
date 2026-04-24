@@ -154,6 +154,17 @@ int main(int argc, char **argv) {
   }
 
 /*
+** drain_line: discard the rest of a source line that was too long
+** for the line buffer.  Called after fgets() fills the buffer
+** without storing a newline, so the next fgets() won't treat
+** the overflow characters as a separate line.
+*/
+drain_line(fd) int fd; {
+  int ch;
+  while((ch = fgetc(fd)) != EOF && ch != '\n') ;
+  }
+
+/*
 ** pre-scan source files for EXTRN declarations.
 ** Called after init() so the symbol table is ready.
 ** Registers all external symbols before pass 1 processes
@@ -169,6 +180,7 @@ void prescan(int argc, char **argv) {
     || extend(srcfn, SRCEXT, OBJEXT)) continue;
     if(!(srcfd = fopen(srcfn, "r"))) break;
     while(fgets(line, MAXLINE, srcfd)) {
+      if(!strchr(line, '\n')) drain_line(srcfd); /* discard overlong line tail */
       lp = skip(1, line);              /* find first non-blank field */
       if(atend(*lp)) continue;         /* blank or comment line */
       lp = getsym(lp, YES, NO);        /* parse first token (uppercase) */
@@ -297,6 +309,7 @@ void dopass(int argc, char **argv) {
 
         input:
         if(eom || !fgets(line, MAXLINE, srcfd))  break;
+        if(!strchr(line, '\n')) drain_line(srcfd); /* discard overlong line tail */
         if(debug && (!list || pass == 1)) fputs(line, stdout);
         }
       }
