@@ -4,81 +4,29 @@
 #include <stdio.h>
 #include "notice.h"
 #include "link.h"
+#include "overlays.h"
 
-// --- Options ----------------------------------------------------------------
-#define SEG_ALIGNMENT 2  // Align code/data segs to x-byte boundaries.
-#define LIB_MODEND_ALIGN 16
-
-// --- Output variables -------------------------------------------------------
-char *pathOutput; // path to the file used for writing output exe/lib file.
-char *pathDebug; // path to file used for debug output.
-char *pathLibInput; // path to file used as library object file input.
-uint fdDebug; // fd to which we will output debug information. can be stdout
-// --- DOS exe data -----------------------------------------------------------
-// Header is 64 bytes (4 paragraphs): 30 bytes fixed fields + up to 8 reloc
-// entries at 4 bytes each = 62 bytes, rounded up to 64.
-#define EXE_HDR_LEN 64
-#define RELOC_COUNT 8
-#define RELOC_PER 1
-int *relocData;
+// --- Variables --------------------------------------------------------------
+char *pathOutput;   // output EXE or LIB file path
+char *pathDebug;    // debug log file path (NULL = disabled)
+char *pathLibInput; // library file list path (-l=)
+uint fdDebug;       // debug output fd; 0xffff = disabled
+int *relocData;     // relocation table entries for the EXE header
 int relocCount;
 int exeStartAddress;
-// --- 'Line' (variable used when reading strings) ----------------------------
-#define LINEMAX  127
-#define LINESIZE 128
-char *line;
-// --- File paths - these are the files that are read in by the linker --------
-#define FILE_MAX 96
-int *filePaths; // ptrs to input file paths, including library files.
-int fileCount; // equal to the number of input files.
-// --- ModData - information about the modules loaded for linking -------------
-#define MOD_MAX 128
-#define MDAT_NAM 0
-#define MDAT_CSO 1 // Before P3: code seg length, After P3: code seg origin
-#define MDAT_DSO 2 // Before P3: data seg length, After P3: data seg origin
-#define MDAT_THD 3 // offset to THEADR in file
-#define MDAT_FLG 4 // flags / file offset
-#define MDAT_PER 5
-#define FlgInLib 0x0100
-#define FlgStart 0x0200
-#define FlgStack 0x0400
-#define FlgInclude 0x800
-uint *modData; // each obj has name ptr, 2 fields for seg
-              // origin, theadr offset in file, and flag.
-              // flag is: 0x00ff file index (max 256 files), and 
-              // 0x0f00 flags: 0x0100 in_lib, 0x0200 start, 0x0400 stack
-int modCount; // incremented by 1 for each obj and library module in exe.
-// --- ListNames - temporary LNAMES data (reloaded for each module) -----------
-#define LNAMES_CNT 4
-#define LNAME_NULL 0xFF
-#define LNAME_CODE 0x00
-#define LNAME_DATA 0x01
-#define LNAME_STACK 0x02
-byte *locNames;
-// --- Segment Data -----------------------------------------------------------
-#define SEGS_CNT 3
-#define SEG_CODE 0
-#define SEG_DATA 1
-#define SEG_STACK 2
-#define SEG_NOTPRESENT 0xFF
-uint *segLengths; // length of segdefs, index is seg_xxx
-byte *locSegs; // seg_xxxs in this module, in order they were defined
-int segIndex; // index of next segdef that will be defined
-// --- Public Definitions -----------------------------------------------------
-#define PBDF_CNT 640
-#define PBDF_NAME 0   // ptr to name of pubdef
-#define PBDF_WHERE 1  // hi: index of module where it is located
-                      // low: index of segment where it is located
-#define PBDF_ADDR 2   // offset in segment (+module origin) where it is located
-#define PBDF_PER 3
-int *pbdfData;
+char *line;         // general-purpose string read buffer (LINESIZE bytes)
+int *filePaths;     // array of pointers to input file path strings
+int fileCount;
+uint *modData;      // module table: modCount * MDAT_PER uint entries
+int modCount;
+byte *locNames;     // LNAMES for the module currently being processed
+uint *segLengths;   // accumulated segment lengths: SEG_CODE, DATA, STACK
+byte *locSegs;      // local segment index map for the current module
+int segIndex;
+int *pbdfData;      // public definition table: pbdfCount * PBDF_PER int entries
 int pbdfCount;
-// --- ExtDef buffers ---------------------------------------------------------
-#define EXTBUF_LEN 1536 // these variables serve two different purposes.
-char *extBuffer; // In Pass2, list of all unresolved extdefs; 
-int extCount, extNext; // In Pass4, list of extdefs in this module.
-#define NOT_INCLUDED -2 // this extdef is defined but not included
-#define NOT_DEFINED -1 // this extdef is not defined
+char *extBuffer;    // Pass2: unresolved EXTDEF list; Pass4: per-module EXTDEF list
+int extCount, extNext;
 
 // forward declarations for this file:
 int _read(int fd);
@@ -88,7 +36,7 @@ void AddModule(uint fileIndex, uint fd);
 int AddName(char *name, char *names, uint *next, uint max);
 int AlignSegments(int amount);
 void AllocAll();
-int AllocMem(int nItems, int itemSize);
+char *AllocMem(int nItems, int itemSize);
 int CalcChecksum();
 void ClearPara(uint fd);
 void clearsilent(uint length, uint fd);
@@ -149,9 +97,12 @@ int rd_fix_target(uint length, uint fd, uint *offset, byte *frmType, byte *tgtTy
     byte *frame, byte *target);
 void RdArgDebug(char *str);
 void RdArgExe(char *str);
+void RdArgFile(char *path);
 void RdArgLibrary(char *str);
+void RdArgOverlay(char *str);
 void RdArgObj(char *start, char *end);
 void RdArgs(int argc, char **argv);
+void RdOneArg(char *c);
 uint read_u16(uint fd);
 int read_u8(uint fd);
 int readstr(char *str, uint size, uint fd);
@@ -177,8 +128,24 @@ int main(int argc, char **argv) {
   }
   else {
     Pass2();
+    if (pathOverlay != 0) {
+      ParseOverlayDef();
+      WarnCrossWindow();
+      PassOvl();
+      // Force-include overlay support modules from ovllib.lib. These are
+      // never referenced via EXTDEF by compiled objects; ylink calls them
+      // directly via generated stubs. Pulling in __ovl_check also brings
+      // in __ovl_load and __ovl_win_mod/__ovl_toc_off (OVLMGR) transitively.
+      if (ovlModCount > 0) {
+        P2_ForceInclude("__ovl_check");
+        Pass2();
+      }
+    }
     Pass3();
     Pass4();
+    if (pathOverlay != 0) {
+      WriteOvlBlocks();
+    }
     printf("  Linked. Code: %u b, Data: %u b, Stack: %u b\n",
       segLengths[SEG_CODE], segLengths[SEG_DATA], segLengths[SEG_STACK]);
     if (fdDebug != 0xffff) {
@@ -200,6 +167,7 @@ void AllocAll() {
   pbdfData = AllocMem(PBDF_PER * PBDF_CNT, 2);
   extBuffer = AllocMem(EXTBUF_LEN, 1);
   relocData = AllocMem(RELOC_PER * RELOC_COUNT, 2);
+  OvlAllocInit();
   pathOutput = 0;
   pathDebug = 0;
   pathLibInput = 0;
@@ -245,7 +213,7 @@ void Initialize() {
       }
       readstr(line, LINEMAX, fd);
       length = strlen(line);
-      filePaths[fileCount] = AllocMem(length + 1, 1);
+      filePaths[fileCount] = (int)AllocMem(length + 1, 1);
       strcpy(filePaths[fileCount], line);
       fileCount += 1;
     }
@@ -259,46 +227,71 @@ void RdArgs(int argc, char **argv) {
     fatal("No argments passed.");
   }
   for (i = 1; i < argc; i++) {
-    char* c;
     getarg(i, line, LINESIZE, argc, argv);
-    c = line;
-    if (*c == '-') {
-      // option -x=xxx
-      if (*(c+2) != '=') {
-        fatalf("Missing '=' in option %s", c);
-      }
-      switch (*(c+1)) {
-        case 'e': // e=output file
-          RdArgExe(c+3);
-          break;
-        case 'd': // d=debug file
-          RdArgDebug(c+3);
-          break;
-        case 'l': // l=library file with input file list of object files
-          RdArgLibrary(c+3);
-          break;
-        default:
-          fatalf("Could not parse option %s", c);
-          break;
-      }
-    }
-    else {
-      // read in object files
-      char *start, *end;
-      start = end = c;
-      while (1) {
-        if ((*end == 0) || (*end == ',')) {
-          RdArgObj(start, end);
-          if (*end == 0) {
-            break;
-          }
-          start = ++end;
-        }
-        end++;
-      }
-      c = end;
-    }
+    RdOneArg(line);
   }
+}
+
+// RdOneArg -- process one argument string: option, @responsefile, or obj list.
+void RdOneArg(char *c) {
+  char *start, *end;
+  if (*c == 0 || *c == ';') {
+    return; // blank or comment (from response file)
+  }
+  if (*c == '@') {
+    RdArgFile(c+1);
+    return;
+  }
+  if (*c == '-') {
+    // -od= is a 4-char prefix; handle before the generic *(c+2)=='=' guard
+    if (*(c+1) == 'o') {
+      if (*(c+2) != 'd' || *(c+3) != '=') {
+        fatalf("Overlay option must be -od=FILE, got: %s", c);
+      }
+      RdArgOverlay(c+4);
+      return;
+    }
+    if (*(c+2) != '=') {
+      fatalf("Missing '=' in option %s", c);
+    }
+    switch (*(c+1)) {
+      case 'e': RdArgExe(c+3);     break;
+      case 'd': RdArgDebug(c+3);   break;
+      case 'l': RdArgLibrary(c+3); break;
+      default:  fatalf("Could not parse option %s", c); break;
+    }
+    return;
+  }
+  // object files, comma-separated
+  start = end = c;
+  while (1) {
+    if ((*end == 0) || (*end == ',')) {
+      RdArgObj(start, end);
+      if (*end == 0) {
+        break;
+      }
+      start = ++end;
+    }
+    end++;
+  }
+}
+
+// RdArgFile -- read arguments from a response file (@path).
+// Each non-blank, non-semicolon line is processed as a single argument.
+void RdArgFile(char *path) {
+  uint fd;
+  int lineno;
+  fd = safefopen(path, "r");
+  lineno = 0;
+  while (1) {
+    if (feof(fd)) {
+      break;
+    }
+    readstr(line, LINEMAX, fd);
+    lineno++;
+    RdOneArg(line);
+  }
+  safefclose(fd);
 }
 
 void RdArgObj(char *start, char *end) {
@@ -306,8 +299,8 @@ void RdArgObj(char *start, char *end) {
   if (fileCount == FILE_MAX) {
     fatalf("max of %u input files.", FILE_MAX);
   }
-  filePaths[fileCount] = AllocMem(end - start + 1, 1);
-  path = filePaths[fileCount];
+  filePaths[fileCount] = (int)AllocMem(end - start + 1, 1);
+  path = (char *)filePaths[fileCount];
   while (start != end) {
     *path++ = *start++;
   }
@@ -328,6 +321,11 @@ void RdArgDebug(char *str) {
 void RdArgLibrary(char *str) {
   pathLibInput = AllocMem(strlen(str) + 1, 1);
   strcpy(pathLibInput, str);
+}
+
+void RdArgOverlay(char *str) {
+  pathOverlay = AllocMem(strlen(str) + 1, 1);
+  strcpy(pathOverlay, str);
 }
 
 // ============================================================================
@@ -447,7 +445,8 @@ void AddModule(uint fileIndex, uint fd) {
   // copy the module name and set up data.
   length = readstrpre(line, fd);
   c = line;
-  path = modData[modCount * MDAT_PER + MDAT_NAM] = AllocMem(length, 1);
+  modData[modCount * MDAT_PER + MDAT_NAM] = (int)AllocMem(length, 1);
+  path = (char *)modData[modCount * MDAT_PER + MDAT_NAM];
   for (i = 0; i < length; i++) {
     *path++ = *c++;
   }
@@ -509,7 +508,7 @@ void P1_MODEND(uint length, uint fd) {
 // SEGDEF and GRPDEF records in the object module. The names are ordered by
 // occurrence and referenced by index from subsequent records.  More than one
 // LNAMES record may appear.  The names themselves are used as segment, class,
-// group, overlay, and selector names.
+// module, overlay, and selector names.
 void P1_LNAMES(uint length, uint fd) {
   int nameIndex;
   char *c;
@@ -590,7 +589,8 @@ void P1_PUBDEF(uint length, uint fd) {  byte typeindex;
       fatal("PUBDEF: Type is not 0. ");
     }
     c = line;
-    pdbfname = pbdfData[pbdfCount * PBDF_PER + PBDF_NAME] = AllocMem(namelen, 1);
+    pbdfData[pbdfCount * PBDF_PER + PBDF_NAME] = (int)AllocMem(namelen, 1);
+    pdbfname = (char *)pbdfData[pbdfCount * PBDF_PER + PBDF_NAME];
     for (i = 0; i < namelen; i++) {
       *pdbfname++ = *c++;
     }
@@ -860,51 +860,57 @@ void P2_Resolve() {
 // Get segment lengths and code/data origins for each included module.
 // Then set exeStartAddress
 void Pass3() {
-  // set code segment origins as in v5.P1_SEGDEF
+  // Resident modules: accumulate code+data normally.
+  // Overlay modules: skip code in main loop; handled by OvlLayoutSegments().
   uint i, seglen;
   long lcode, ldata, lval;
-  long lalign; // overflow from alignment
+  long lalign;
+  int mdatBase, isOvl;
   puts("  Pass 3");
   if (fdDebug != 0xffff) {
     fprintf(fdDebug, "Pass 3: Setting segment origins.\n");
   }
   lalign = 0L;
+  // --- Loop 1: resident modules only ------------------------------------------
   for (i = 0; i < modCount; i++) {
-    int mdatBase, mdatFile;
     mdatBase = i * MDAT_PER;
     if ((modData[mdatBase + MDAT_FLG] & FlgInclude) == FlgInclude) {
-      // set code origin for this segment in this module
-      seglen = modData[mdatBase + MDAT_CSO];
-      lcode = (long)segLengths[SEG_CODE] + (long)seglen;
-      if (lcode > 65535L) {
-        fatalfl("Code segment overflow: ", lcode);
-      }
-      modData[mdatBase + MDAT_CSO] = segLengths[SEG_CODE];
-      segLengths[SEG_CODE] = (uint)lcode;
-      // set data origin for this segment in this module
-      seglen = modData[mdatBase + MDAT_DSO];
-      ldata = (long)segLengths[SEG_DATA] + (long)seglen;
-      if (ldata > 65535L) {
-        fatalfl("Data segment overflow: ", ldata);
-      }
-      modData[mdatBase + MDAT_DSO] = segLengths[SEG_DATA];
-      segLengths[SEG_DATA] = (uint)ldata;
-      if ((modData[mdatBase + MDAT_FLG] & FlgStart) == FlgStart) {
-        exeStartAddress += modData[mdatBase + MDAT_CSO];
+      isOvl = (modOvlMod[i] != OVL_MOD_MOD_NONE);
+      if (!isOvl) {
+        // set code origin for resident module
+        seglen = modData[mdatBase + MDAT_CSO];
+        lcode = (long)segLengths[SEG_CODE] + (long)seglen;
+        if (lcode > 65535L) {
+          fatalfl("Code segment overflow: ", lcode);
+        }
+        modData[mdatBase + MDAT_CSO] = segLengths[SEG_CODE];
+        segLengths[SEG_CODE] = (uint)lcode;
+        if ((modData[mdatBase + MDAT_FLG] & FlgStart) == FlgStart) {
+          exeStartAddress += modData[mdatBase + MDAT_CSO];
+        }
+        // set data origin for resident module
+        seglen = modData[mdatBase + MDAT_DSO];
+        ldata = (long)segLengths[SEG_DATA] + (long)seglen;
+        if (ldata > 65535L) {
+          fatalfl("Data segment overflow: ", ldata);
+        }
+        modData[mdatBase + MDAT_DSO] = segLengths[SEG_DATA];
+        segLengths[SEG_DATA] = (uint)ldata;
+        lval = AlignSegments(SEG_ALIGNMENT);
+        if (lval > lalign) { lalign = lval; }
       }
     }
-    lval = AlignSegments(SEG_ALIGNMENT);
-    if (lval > lalign) { lalign = lval; }
   }
   lval = AlignSegments(16);
   if (lval > lalign) { lalign = lval; }
   if (lalign > 0L) {
     fatalfl("Segment overflow after alignment: ", lalign);
   }
+  // --- Overlay layout (only if overlay modules exist) --------------------------
+  OvlLayoutSegments();
   if (fdDebug != 0xffff) {
-    fprintf(fdDebug, "  CODE=%x\n  DATA=%x\n", 
-      segLengths[SEG_CODE],
-      segLengths[SEG_DATA]);
+    fprintf(fdDebug, "  CODE=%x\n  DATA=%x\n",
+      segLengths[SEG_CODE], segLengths[SEG_DATA]);
   }
 }
 
@@ -914,62 +920,60 @@ void Pass3() {
 // In Pass4, we are copying in the DATA from the modules, and handling all
 // FIXUPP records.
 void Pass4() {
-  uint i, fd, outfd, checksum;
-  unsigned long modOffset; // offset to object module that we are currently reading
-  unsigned long tmp4;      // scratch for computing codeBase/dataBase
-  uint codeBase[2];        // [0]=lo, [1]=hi — offset to code segment in output file
-  uint dataBase[2];        // [0]=lo, [1]=hi — offset to data segment in output file
+  uint i, s, fd, outfd, checksum;
+  unsigned long modOffset;
+  unsigned long tmp4;
+  uint codeBase[2];
+  uint dataBase[2];
+  // For stub emission
   relocCount = 0;
   puts("  Pass 4");
   if (fdDebug != 0xffff) {
     fprintf(fdDebug, "Pass 4:\n");
   }
   outfd = safefopen(pathOutput, "a");
-  // Write null-pointer sentinels: one dw 0 at offset 0 of CODE and DATA.
-  // These ensure that no real symbol lives at offset 0 in either segment.
-  // Pass3 has already reserved 2 bytes at the base of each segment for this.
+  // Write null-pointer sentinels at CODE[0] and DATA[0].
   {
     uint sentinel[2];
     unsigned long sentinelPos;
     sentinelPos = (unsigned long)EXE_HDR_LEN;
     sentinel[0] = (uint)sentinelPos; sentinel[1] = (uint)(sentinelPos >> 16);
     bseek(outfd, sentinel, 0);
-    write_f16(outfd, 0x0000); // CODE segment dw 0
+    write_f16(outfd, 0x0000);
     sentinelPos = (unsigned long)EXE_HDR_LEN + (unsigned long)segLengths[SEG_CODE];
     sentinel[0] = (uint)sentinelPos; sentinel[1] = (uint)(sentinelPos >> 16);
     bseek(outfd, sentinel, 0);
-    write_f16(outfd, 0x0000); // DATA segment dw 0
+    write_f16(outfd, 0x0000);
   }
+  // Write resident modules only (skip overlay modules)
   for (i = 0; i < modCount; i++) {
     int mdatBase, mdatFile;
     mdatBase = i * MDAT_PER;
-    if ((modData[mdatBase + MDAT_FLG] & FlgInclude) == FlgInclude) {
-      mdatFile = modData[mdatBase + MDAT_FLG] & 0x00ff;
-      if (fdDebug != 0xffff) {
-        fprintf(fdDebug, "Linking %s (%s) CODE=0x%x DATA=0x%x \n", 
-          modData[mdatBase + MDAT_NAM], filePaths[mdatFile],
-          modData[mdatBase + MDAT_CSO], modData[mdatBase + MDAT_DSO]);
-      }
-      fd = safefopen(filePaths[mdatFile], "r");
-      // seek to module in input object file:
-      modOffset = (unsigned long)modData[mdatBase + MDAT_THD];
-      if (bseek(fd, &modOffset, 0) == EOF) {
-        fatalf("Could not seek to position %u, file too short.", (uint)modOffset);
-      }
-      // get base code and base data offsets for the output file:
-      tmp4 = (unsigned long)EXE_HDR_LEN + (unsigned long)modData[mdatBase + MDAT_CSO];
-      codeBase[0] = (uint)tmp4; codeBase[1] = (uint)(tmp4 >> 16);
-      tmp4 = (unsigned long)EXE_HDR_LEN + (unsigned long)segLengths[SEG_CODE]
-           + (unsigned long)modData[mdatBase + MDAT_DSO];
-      dataBase[0] = (uint)tmp4; dataBase[1] = (uint)(tmp4 >> 16);
-      // reset extdef buffer
-      extNext = 0;
-      extCount = 0;
-      // do the mod!
-      P4_DoMod(fd, outfd, codeBase, dataBase);
-      safefclose(fd);
+    if ((modData[mdatBase + MDAT_FLG] & FlgInclude) != FlgInclude) continue;
+    if (modOvlMod[i] != OVL_MOD_MOD_NONE) continue; // overlay modules handled later
+    mdatFile = modData[mdatBase + MDAT_FLG] & 0x00ff;
+    if (fdDebug != 0xffff) {
+      fprintf(fdDebug, "Linking %s (%s) CODE=0x%x DATA=0x%x \n",
+        modData[mdatBase + MDAT_NAM], filePaths[mdatFile],
+        modData[mdatBase + MDAT_CSO], modData[mdatBase + MDAT_DSO]);
     }
+    fd = safefopen(filePaths[mdatFile], "r");
+    modOffset = (unsigned long)modData[mdatBase + MDAT_THD];
+    if (bseek(fd, &modOffset, 0) == EOF) {
+      fatalf("Could not seek to position %u, file too short.", (uint)modOffset);
+    }
+    tmp4 = (unsigned long)EXE_HDR_LEN + (unsigned long)modData[mdatBase + MDAT_CSO];
+    codeBase[0] = (uint)tmp4; codeBase[1] = (uint)(tmp4 >> 16);
+    tmp4 = (unsigned long)EXE_HDR_LEN + (unsigned long)segLengths[SEG_CODE]
+         + (unsigned long)modData[mdatBase + MDAT_DSO];
+    dataBase[0] = (uint)tmp4; dataBase[1] = (uint)(tmp4 >> 16);
+    extNext = 0;
+    extCount = 0;
+    P4_DoMod(fd, outfd, codeBase, dataBase);
+    safefclose(fd);
   }
+  // Emit overlay stubs into the stub area of the resident code segment
+  OvlEmitStubs(outfd);
   safefclose(outfd);
   WriteExeHeader(0);
   checksum = CalcChecksum();
@@ -1107,27 +1111,29 @@ void P4_LEDATA(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase,
   byte *segType, uint *segOffset) {
   uint segBase[2];
   unsigned long segBaseLong;
-  uint i;
-  length -= 4; // length includes segment type, offset, and checksum
+  uint i, wfd;
+  length -= 4;
   *segType = read_u8(fd);
   *segOffset = read_u16(fd);
   if (fdDebug != 0xffff) {
-    fprintf(fdDebug, "  LEDATA SegIdx=%x Offs=%x Len=%x\n", 
+    fprintf(fdDebug, "  LEDATA SegIdx=%x Offs=%x Len=%x\n",
       *segType, *segOffset, length);
   }
   if (*segType == 0 || *segType > SEGS_CNT) {
     fatalf("P4_LEDATA: segType of %u, must be between 1 and 3.", *segType);
   }
-  *segType = locSegs[*segType - 1]; // transform to local segment index.
+  *segType = locSegs[*segType - 1];
+  // Redirect CODE writes to overlay temp file when active
+  wfd = OvlGetWriteFd(outfd, *segType);
   P4_SetBase(*segType, codeBase, dataBase, segBase);
   segBaseLong = (unsigned long)segBase[0] | ((unsigned long)segBase[1] << 16);
   segBaseLong += (unsigned long)*segOffset;
   segBase[0] = (uint)segBaseLong; segBase[1] = (uint)(segBaseLong >> 16);
-  bseek(outfd, segBase, 0);
+  bseek(wfd, segBase, 0);
   for (i = 0; i < length; i++) {
-    write_f8(outfd, read_u8(fd));
+    write_f8(wfd, read_u8(fd));
   }
-  read_u8(fd); // checksum. assume correct.
+  read_u8(fd);
 }
 
 // A2H LIDATA Logical Iterated Data Record
@@ -1140,48 +1146,41 @@ void P4_LIDATA(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase,
   byte *segType, uint *segOffset) {
   uint segBase[2];
   unsigned long segBaseLong;
-  uint repeat, count;
-  length -= 4; // length includes segment type, offset, and checksum
+  uint repeat, count, wfd;
+  length -= 4;
   *segType = read_u8(fd);
   *segOffset = read_u16(fd);
   if (fdDebug != 0xffff) {
-    fprintf(fdDebug, "  LIDATA SegIdx=%x Offs=%x Len=%x\n", 
+    fprintf(fdDebug, "  LIDATA SegIdx=%x Offs=%x Len=%x\n",
       *segType, *segOffset, length);
   }
   if (*segType == 0 || *segType > SEGS_CNT) {
     fatalf("P4_LIDATA: segType of %u, must be between 1 and 3.", *segType);
   }
-  *segType = locSegs[*segType - 1]; // transform to local segment index.
+  *segType = locSegs[*segType - 1];
+  // Redirect CODE writes to overlay temp file when active
+  wfd = OvlGetWriteFd(outfd, *segType);
   P4_SetBase(*segType, codeBase, dataBase, segBase);
   segBaseLong = (unsigned long)segBase[0] | ((unsigned long)segBase[1] << 16);
   segBaseLong += (unsigned long)*segOffset;
   segBase[0] = (uint)segBaseLong; segBase[1] = (uint)(segBaseLong >> 16);
-  bseek(outfd, segBase, 0);
+  bseek(wfd, segBase, 0);
   while (length > 1) {
-    repeat = read_u16(fd); // number of times the Content field will repeat. 
-    count = read_u16(fd); // determines interpretation of the Content field:
+    repeat = read_u16(fd);
+    count = read_u16(fd);
     length -= 4;
-    // 0  Indicates that the Content field that follows is a 1-byte count value  
-    //    followed by count data bytes. Data bytes will be mapped to memory, 
-    //    repeated as many times as are specified in the Repeat Count field.
-    // !0 Indicates that the Content field that follows is composed of one or
-    //    more Data Block fields. The value in the Block Count field specifies
-    //    the number of Data Block fields (recursive definition).
     if (fdDebug != 0xffff) {
       fprintf(fdDebug, "    Repeat=%x Blocks=%x\n", repeat, count);
     }
     if (count == 0) {
-      P4_LIINNER(fd, outfd, repeat, &length);
+      P4_LIINNER(fd, wfd, repeat, &length);
     }
     else if (count == 1) {
-      // count is times to repeat inner blocks.
-      // I am just going to fudge this so it can handle asm.lib. It needs a 
-      // rewrite to handle this recursively
       repeat = read_u16(fd);
       count = read_u16(fd);
       length -= 4;
       if (count == 0x0000) {
-        P4_LIINNER(fd, outfd, repeat, &length);
+        P4_LIINNER(fd, wfd, repeat, &length);
       }
     }
     else {
@@ -1198,7 +1197,7 @@ void P4_LIDATA(uint length, uint fd, uint outfd, uint *codeBase, uint *dataBase,
       fatalf("P4_LIDATA: Block Count of %u, must be 0. ", count);
     }
   }
-  read_u8(fd); // checksum. assume correct.
+  read_u8(fd);
 }
 
 void P4_LIINNER(uint fd, uint outfd, uint repeat, uint *length) {
@@ -1335,8 +1334,9 @@ void P4_FixCheckMatch(byte tFrame, byte tTarget) {
 void P4_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt,
   uint fixOffset, uint *codeBase, uint *dataBase, byte segType,
   uint segOffset) {
-  int extName, pbdfIndex, modOrigin;
-  byte segOfExt, modOfExt;
+  int extName, pbdfIndex, modOrigin, modOfExt, rawPbdfIdx, stubCof;
+  byte segOfExt;
+  uint fixFd;
   if (lRefType != 1) {
     fatalf("P4_FixExt: Unhandled ref type &u.", lRefType);
   }
@@ -1344,7 +1344,7 @@ void P4_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt
     fatal("P4_FixExt: Segment type must be CODE");
   }
   if (fixExt > extCount) {
-    fatalf2("P4_FixExt: Ext index of %u is greater than ext count of %u.", 
+    fatalf2("P4_FixExt: Ext index of %u is greater than ext count of %u.",
       fixExt, extCount);
   }
   extName = GetName(fixExt - 1, extBuffer, EXTBUF_LEN);
@@ -1356,13 +1356,28 @@ void P4_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt
     fatalf("P4_FixExt: No pubdef defined matching extdef %s.", extName);
   }
   else if (pbdfIndex == NOT_INCLUDED) {
-    // this can probably be removed - would error out in P2.
     fatalf("P4_FixExt: Unincluded pubdef matches %s.", extName);
+  }
+  rawPbdfIdx = pbdfIndex; // save before scaling
+  // Determine actual output fd (redirect CODE writes to ovlCodeFd when active)
+  fixFd = OvlGetWriteFd(outfd, segType);
+  // If target is an overlay function, redirect fixup to the stub
+  stubCof = OvlLookupStub(rawPbdfIdx);
+  if (stubCof != NOT_DEFINED) {
+    if ((lLocat & 0x40) == 0) {
+      // IP-relative: point call at the stub
+      P4_DoFixupp(fixFd, stubCof, fixOffset, 1, codeBase, lOffset + segOffset);
+    }
+    else {
+      // segment-relative: write stub's code offset
+      P4_DoFixupp(fixFd, stubCof, fixOffset, 0, codeBase, lOffset + segOffset);
+    }
+    return;
   }
   pbdfIndex = pbdfIndex * PBDF_PER;
   segOfExt = pbdfData[pbdfIndex + PBDF_WHERE] & 0x00ff;
   modOfExt = pbdfData[pbdfIndex + PBDF_WHERE] >> 8;
-  modOrigin = (pbdfData[pbdfIndex + PBDF_WHERE] >> 8) * MDAT_PER;
+  modOrigin = modOfExt * MDAT_PER;
   switch (segOfExt) {
     case SEG_CODE:
       modOrigin = modData[modOrigin + MDAT_CSO];
@@ -1375,23 +1390,20 @@ void P4_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt
       break;
   }
   if (fdDebug != 0xffff) {
-    fprintf(fdDebug, "Tgt=Ext%x (%s; Seg=0x%x Mod=%s+0x%x)\n", 
+    fprintf(fdDebug, "Tgt=Ext%x (%s; Seg=0x%x Mod=%s+0x%x)\n",
       fixExt, extName, segOfExt, modData[(modOfExt) * MDAT_PER + MDAT_NAM],
       pbdfData[pbdfIndex + PBDF_ADDR]);
   }
   if ((lLocat & 0x40) == 0) {
-    // IP-relative.
     if (segOfExt != SEG_CODE) {
-      // require IP-relative fixupps to resolve to references in CODE segment.
       fatalf("P4_FixExt: IP-Rel fixupps must resolve to CODE segment (%s)",
         extName);
     }
-    P4_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR] + fixOffset, 1, 
+    P4_DoFixupp(fixFd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR] + fixOffset, 1,
       codeBase, lOffset + segOffset);
   }
   else {
-    // relative to beginning of segment.
-    P4_DoFixupp(outfd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR] + fixOffset, 0, 
+    P4_DoFixupp(fixFd, modOrigin, pbdfData[pbdfIndex + PBDF_ADDR] + fixOffset, 0,
       codeBase, lOffset + segOffset);
   }
 }
@@ -1399,6 +1411,9 @@ void P4_FixExt(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixExt
 void P4_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg,
   uint fixOffset, uint *codeBase, uint *dataBase, byte segType,
   uint segOffset) {
+  uint fixFd;
+  // Redirect CODE fixups to overlay temp file when active
+  fixFd = OvlGetWriteFd(outfd, segType);
   if (fdDebug != 0xffff) {
     fprintf(fdDebug, "Tgt=Seg%u+0x%x\n", fixSeg, fixOffset);
   }
@@ -1406,18 +1421,14 @@ void P4_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg
   if ((lLocat & 0x40) == 0) {
     // IP-relative.
     if (fixSeg != segType) {
-      // Make sure we're in the same segment (this SHOULD be the case, because
-      // we're fixing up code, and code is always in the same segment in the 
-      // NEAR model that SmallC uses.
       fatalf2("P4_FixSeg: IP-rel, seg %u must equal seg %u.\n", fixSeg, segType);
     }
     if (lRefType == 1) {
       // 16-bit offset
-      P4_DoFixupp(outfd, fixOffset - segOffset - lOffset - 2, 0, 0,
+      P4_DoFixupp(fixFd, fixOffset - segOffset - lOffset - 2, 0, 0,
         codeBase, lOffset + segOffset);
     }
     else {
-      // 16-bit logical segment base
       fatal("P4_FixSeg: Unhandled segment base ref in IP-relative fixupp.");
     }
   }
@@ -1440,7 +1451,7 @@ void P4_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg
         P4_DoFixupp(outfd, whereBase, fixOffset, 0,
           dataBase, lOffset + segOffset);
       } else {
-        P4_DoFixupp(outfd, whereBase, fixOffset, 0,
+        P4_DoFixupp(fixFd, whereBase, fixOffset, 0,
           codeBase, lOffset + segOffset);
       }
     }
@@ -1461,7 +1472,7 @@ void P4_FixSeg(uint outfd, byte lLocat, byte lRefType, uint lOffset, byte fixSeg
           fatalf2("P4_FixSeg: Unhandled logical segment base index %u, %u",
             fixSeg, locSegs[fixSeg]);
       }
-      P4_DoFixupp(outfd, logBase, 0, 0, codeBase, lOffset + segOffset);
+      P4_DoFixupp(fixFd, logBase, 0, 0, codeBase, lOffset + segOffset);
       relocData[relocCount++] = codeBase[0] + lOffset + segOffset - EXE_HDR_LEN;
     }
   }
@@ -1627,7 +1638,7 @@ int FindPubDef(char* name, int retAllDefined) {
   length = strlen(name);
   for (i = 0; i < pbdfCount; i++) {
     // look for matching pubdef name
-    matching = pbdfData[i * PBDF_PER + PBDF_NAME];
+    matching = (char *)pbdfData[i * PBDF_PER + PBDF_NAME];
     for (j = 0; j <= length; j++) {
       if (name[j] == 0 && matching[j] == 0) {
         modIndex = pbdfData[i * PBDF_PER + PBDF_WHERE] / 256;
@@ -1940,8 +1951,8 @@ void fatalfl(char *msg, long arg) {
 
 // === Memory Management ======================================================
 
-int AllocMem(int nItems, int itemSize) {
-  int result;
+char *AllocMem(int nItems, int itemSize) {
+  char *result;
   result = calloc(nItems, itemSize);
   if (result == 0) {
     printf("Could not allocate mem: %u x %u\n", nItems, itemSize);

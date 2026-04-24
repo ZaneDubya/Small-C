@@ -8,14 +8,19 @@ REM     An ENTER (carriage return) keystroke resumes execution.
 SET BIN=..\..\bin
 SET LIB=..\..\smalllib
 
-ECHO === Compiling ===
+ECHO === Compiling link.c ===
 %BIN%\cc  link -a -p
 if errorlevel 1 goto exit
 %BIN%\asm link /p
 if errorlevel 1 goto exit
+ECHO === Compiling overlays.c ===
+%BIN%\cc  overlays -a -p
+if errorlevel 1 goto exit
+%BIN%\asm overlays /p
+if errorlevel 1 goto exit
 
 ECHO === Linking ===
-%BIN%\ylink link.obj,%LIB%\clib.lib -e=ylink.exe
+%BIN%\ylink link.obj,overlays.obj,%LIB%\clib.lib -e=ylink.exe
 if errorlevel 1 goto exit
 
 ECHO Copy ylink.exe to %BIN%? [y/n]

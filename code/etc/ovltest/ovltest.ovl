@@ -1,0 +1,33 @@
+; ovltest.ovl -- Overlay directive file for the ovltest demo.
+;
+; Window 1 holds the active drawing mode (CGA, EGA, or VGA).
+; Window 2 holds the active OPL2 note (C4, E4, or G4).
+; Only one drawing module and one sound module are loaded at any time.
+
+WINDOW 1
+WINDOW 2
+
+; --- Drawing overlays (window 1) -------------------------------------------
+; Each module contains one video-mode drawing module.
+; The window is sized to the largest module; the others share that space.
+
+MODULE cga 1
+DRAW_CGA.OBJ
+
+MODULE ega 1
+DRAW_EGA.OBJ
+
+MODULE vga 1
+DRAW_VGA.OBJ
+
+; --- Sound overlays (window 2) ---------------------------------------------
+; Each module contains one OPL2 note startup module.
+
+MODULE sndc4 2
+SND_C4.OBJ
+
+MODULE snde4 2
+SND_E4.OBJ
+
+MODULE sndg4 2
+SND_G4.OBJ

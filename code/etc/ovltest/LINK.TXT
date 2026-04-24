@@ -1,0 +1,1043 @@
+Pass 1:
+  Reading ovltest.obj
+  Reading draw_cga.obj
+  Reading draw_ega.obj
+  Reading draw_vga.obj
+  Reading snd_c4.obj
+  Reading snd_e4.obj
+  Reading snd_g4.obj
+  Reading ..\..\smalllib\clib.lib
+  Reading ..\..\smalllib\ovllib.lib
+Pass 2: Match all extdefs to pubdefs.
+  Resolving EXTDEFS in OVLTEST.OBJ, DRAW_CGA.OBJ, DRAW_EGA.OBJ, DRAW_VGA.OBJ, SND_C4.OBJ, SND_E4.OBJ, SND_G4.OBJ, 
+  14 unresolved.
+  Resolving EXTDEFS in OVLTEST.OBJ, DRAW_CGA.OBJ, DRAW_EGA.OBJ, DRAW_VGA.OBJ, SND_C4.OBJ, SND_E4.OBJ, SND_G4.OBJ, CALL.OBJ, CSYSLIB.OBJ, OVLINIT.OBJ, 
+  13 unresolved.
+  Resolving EXTDEFS in OVLTEST.OBJ, DRAW_CGA.OBJ, DRAW_EGA.OBJ, DRAW_VGA.OBJ, SND_C4.OBJ, SND_E4.OBJ, SND_G4.OBJ, AUXBUF.OBJ, AVAIL.OBJ, CALL.OBJ, CSYSLIB.OBJ, EXIT.OBJ, FOPEN.OBJ, FPRINTF.OBJ, IS.OBJ, ISATTY.OBJ, ISCONS.OBJ, PAD.OBJ, OVLGETCS.OBJ, OVLINIT.OBJ, OVLMGR.OBJ, 
+  12 unresolved.
+  Resolving EXTDEFS in OVLTEST.OBJ, DRAW_CGA.OBJ, DRAW_EGA.OBJ, DRAW_VGA.OBJ, SND_C4.OBJ, SND_E4.OBJ, SND_G4.OBJ, ATOI.OBJ, AUXBUF.OBJ, AVAIL.OBJ, CALL.OBJ, CSYSLIB.OBJ, EXIT.OBJ, FCLOSE.OBJ, FOPEN.OBJ, FPRINTF.OBJ, FPUTC.OBJ, FPUTS.OBJ, IS.OBJ, ISATTY.OBJ, ISCONS.OBJ, ITOA.OBJ, ITOAB.OBJ, ITOU.OBJ, LEFT.OBJ, LTOA.OBJ, LTOAB.OBJ, MALLOC.OBJ, PAD.OBJ, STRLEN.OBJ, OVLGETCS.OBJ, OVLINIT.OBJ, OVLMGR.OBJ, 
+  2 unresolved.
+  Resolving EXTDEFS in OVLTEST.OBJ, DRAW_CGA.OBJ, DRAW_EGA.OBJ, DRAW_VGA.OBJ, SND_C4.OBJ, SND_E4.OBJ, SND_G4.OBJ, ATOI.OBJ, AUXBUF.OBJ, AVAIL.OBJ, CALL.OBJ, CSYSLIB.OBJ, EXIT.OBJ, FCLOSE.OBJ, FOPEN.OBJ, FPRINTF.OBJ, FPUTC.OBJ, FPUTS.OBJ, IS.OBJ, ISATTY.OBJ, ISCONS.OBJ, ITOA.OBJ, ITOAB.OBJ, ITOU.OBJ, LEFT.OBJ, LONGMATH.OBJ, LTOA.OBJ, LTOAB.OBJ, MALLOC.OBJ, PAD.OBJ, REVERSE.OBJ, STRLEN.OBJ, OVLGETCS.OBJ, OVLINIT.OBJ, OVLMGR.OBJ, 
+  0 unresolved.
+  OVL WINDOW 1 (idx 0)
+  OVL WINDOW 2 (idx 1)
+  OVL MODULE cga (win idx 0, module idx 0)
+    OBJ DRAW_CGA.OBJ -> module 0 (cga)
+  OVL MODULE ega (win idx 0, module idx 1)
+    OBJ DRAW_EGA.OBJ -> module 1 (ega)
+  OVL MODULE vga (win idx 0, module idx 2)
+    OBJ DRAW_VGA.OBJ -> module 2 (vga)
+  OVL MODULE sndc4 (win idx 1, module idx 3)
+    OBJ SND_C4.OBJ -> module 3 (sndc4)
+  OVL MODULE snde4 (win idx 1, module idx 4)
+    OBJ SND_E4.OBJ -> module 4 (snde4)
+  OVL MODULE sndg4 (win idx 1, module idx 5)
+    OBJ SND_G4.OBJ -> module 5 (sndg4)
+Pass 2: Match all extdefs to pubdefs.
+  Resolving EXTDEFS in OVLTEST.OBJ, DRAW_CGA.OBJ, DRAW_EGA.OBJ, DRAW_VGA.OBJ, SND_C4.OBJ, SND_E4.OBJ, SND_G4.OBJ, ATOI.OBJ, AUXBUF.OBJ, AVAIL.OBJ, CALL.OBJ, CSYSLIB.OBJ, EXIT.OBJ, FCLOSE.OBJ, FOPEN.OBJ, FPRINTF.OBJ, FPUTC.OBJ, FPUTS.OBJ, IS.OBJ, ISATTY.OBJ, ISCONS.OBJ, ITOA.OBJ, ITOAB.OBJ, ITOU.OBJ, LEFT.OBJ, LONGMATH.OBJ, LTOA.OBJ, LTOAB.OBJ, MALLOC.OBJ, PAD.OBJ, REVERSE.OBJ, STRLEN.OBJ, OVLCHK.OBJ, OVLGETCS.OBJ, OVLINIT.OBJ, OVLMGR.OBJ, 
+  1 unresolved.
+  Resolving EXTDEFS in OVLTEST.OBJ, DRAW_CGA.OBJ, DRAW_EGA.OBJ, DRAW_VGA.OBJ, SND_C4.OBJ, SND_E4.OBJ, SND_G4.OBJ, ATOI.OBJ, AUXBUF.OBJ, AVAIL.OBJ, CALL.OBJ, CSYSLIB.OBJ, EXIT.OBJ, FCLOSE.OBJ, FOPEN.OBJ, FPRINTF.OBJ, FPUTC.OBJ, FPUTS.OBJ, IS.OBJ, ISATTY.OBJ, ISCONS.OBJ, ITOA.OBJ, ITOAB.OBJ, ITOU.OBJ, LEFT.OBJ, LONGMATH.OBJ, LTOA.OBJ, LTOAB.OBJ, MALLOC.OBJ, PAD.OBJ, REVERSE.OBJ, STRLEN.OBJ, OVLCHK.OBJ, OVLGETCS.OBJ, OVLINIT.OBJ, OVLLOAD.OBJ, OVLMGR.OBJ, 
+  4 unresolved.
+  Resolving EXTDEFS in OVLTEST.OBJ, DRAW_CGA.OBJ, DRAW_EGA.OBJ, DRAW_VGA.OBJ, SND_C4.OBJ, SND_E4.OBJ, SND_G4.OBJ, ATOI.OBJ, AUXBUF.OBJ, AVAIL.OBJ, BSEEK.OBJ, CALL.OBJ, CSYSLIB.OBJ, EXIT.OBJ, FCLOSE.OBJ, FGETC.OBJ, FOPEN.OBJ, FPRINTF.OBJ, FPUTC.OBJ, FPUTS.OBJ, FREAD.OBJ, IS.OBJ, ISATTY.OBJ, ISCONS.OBJ, ITOA.OBJ, ITOAB.OBJ, ITOU.OBJ, LEFT.OBJ, LONGMATH.OBJ, LTOA.OBJ, LTOAB.OBJ, MALLOC.OBJ, PAD.OBJ, REVERSE.OBJ, STRLEN.OBJ, OVLCHK.OBJ, OVLCOPY.OBJ, OVLGETCS.OBJ, OVLINIT.OBJ, OVLLOAD.OBJ, OVLMGR.OBJ, 
+  0 unresolved.
+Pass 3: Setting segment origins.
+  OVL stubs at CODE=0x21B0 (6 stubs)
+  OVL window 1: base=0x21F2 size=0x184
+  OVL window 2: base=0x2376 size=0x12
+  CODE=2390
+  DATA=390
+Pass 4:
+Linking OVLTEST.OBJ (ovltest.obj) CODE=0x2 DATA=0x2 
+  EXTDEF
+  LIDATA SegIdx=2 Offs=0 Len=15
+    Repeat=1 Blocks=0
+    Repeat=1 Blocks=0
+    Repeat=1 Blocks=0
+  LEDATA SegIdx=1 Offs=0 Len=34F
+  FIXUPP
+    Rel=Sgmt Off=0x1F Tgt=Seg2+0x0
+    WRITE 0x2 at 0x0:61
+    Rel=Sgmt Off=0x2E Tgt=Seg2+0x2
+    WRITE 0x4 at 0x0:70
+    Rel=Sgmt Off=0x3D Tgt=Seg2+0x4
+    WRITE 0x6 at 0x0:7F
+    Rel=Sgmt Off=0x4B Tgt=Seg2+0x0
+    WRITE 0x2 at 0x0:8D
+    Rel=Sgmt Off=0x56 Tgt=Seg2+0x0
+    WRITE 0x2 at 0x0:98
+    Rel=Sgmt Off=0x59 Tgt=Seg2+0x0
+    WRITE 0x2 at 0x0:9B
+    Rel=Sgmt Off=0x74 Tgt=Seg2+0x2
+    WRITE 0x4 at 0x0:B6
+    Rel=Sgmt Off=0x7F Tgt=Seg2+0x2
+    WRITE 0x4 at 0x0:C1
+    Rel=Sgmt Off=0x82 Tgt=Seg2+0x2
+    WRITE 0x4 at 0x0:C4
+    Rel=Sgmt Off=0x9D Tgt=Seg2+0x4
+    WRITE 0x6 at 0x0:DF
+    Rel=Sgmt Off=0xA8 Tgt=Seg2+0x4
+    WRITE 0x6 at 0x0:EA
+    Rel=Sgmt Off=0xAB Tgt=Seg2+0x4
+    WRITE 0x6 at 0x0:ED
+    Rel=Sgmt Off=0xC6 Tgt=Seg2+0x0
+    WRITE 0x2 at 0x0:108
+    Rel=Sgmt Off=0xD1 Tgt=Seg2+0x0
+    WRITE 0x2 at 0x0:113
+    Rel=Sgmt Off=0xD4 Tgt=Seg2+0x0
+    WRITE 0x2 at 0x0:116
+    Rel=Sgmt Off=0xEF Tgt=Seg2+0x2
+    WRITE 0x4 at 0x0:131
+    Rel=Sgmt Off=0xFA Tgt=Seg2+0x2
+    WRITE 0x4 at 0x0:13C
+    Rel=Sgmt Off=0xFD Tgt=Seg2+0x2
+    WRITE 0x4 at 0x0:13F
+    Rel=Sgmt Off=0x118 Tgt=Seg2+0x4
+    WRITE 0x6 at 0x0:15A
+    Rel=Sgmt Off=0x123 Tgt=Seg2+0x4
+    WRITE 0x6 at 0x0:165
+    Rel=Sgmt Off=0x126 Tgt=Seg2+0x4
+    WRITE 0x6 at 0x0:168
+    Rel=Sgmt Off=0x13E Tgt=Seg2+0x4
+    WRITE 0x6 at 0x0:180
+    Rel=Sgmt Off=0x149 Tgt=Seg2+0x4
+    WRITE 0x6 at 0x0:18B
+    Rel=Sgmt Off=0x14D Tgt=Seg2+0x4
+    WRITE 0x6 at 0x0:18F
+    Rel=Sgmt Off=0x15F Tgt=Seg2+0x4
+    WRITE 0x6 at 0x0:1A1
+    Rel=Sgmt Off=0x16A Tgt=Seg2+0x4
+    WRITE 0x6 at 0x0:1AC
+    Rel=Sgmt Off=0x16D Tgt=Seg2+0x4
+    WRITE 0x6 at 0x0:1AF
+    Rel=IP Off=0x20E Tgt=Seg1+0x1E3
+    WRITE 0xFFD3 at 0x0:250
+    Rel=IP Off=0x21B Tgt=Seg1+0x1E3
+    WRITE 0xFFC6 at 0x0:25D
+    Rel=IP Off=0x228 Tgt=Seg1+0x1E3
+    WRITE 0xFFB9 at 0x0:26A
+    Rel=IP Off=0x235 Tgt=Seg1+0x1E3
+    WRITE 0xFFAC at 0x0:277
+    Rel=IP Off=0x241 Tgt=Seg1+0x1E3
+    WRITE 0xFFA0 at 0x0:283
+    Rel=IP Off=0x24D Tgt=Seg1+0x1E3
+    WRITE 0xFF94 at 0x0:28F
+    Rel=IP Off=0x25A Tgt=Seg1+0x1E3
+    WRITE 0xFF87 at 0x0:29C
+    Rel=IP Off=0x266 Tgt=Seg1+0x1E3
+    WRITE 0xFF7B at 0x0:2A8
+    Rel=IP Off=0x273 Tgt=Seg1+0x1E3
+    WRITE 0xFF6E at 0x0:2B5
+    Rel=IP Off=0x27F Tgt=Seg1+0x1E3
+    WRITE 0xFF62 at 0x0:2C1
+    Rel=IP Off=0x28B Tgt=Seg1+0x1E3
+    WRITE 0xFF56 at 0x0:2CD
+    Rel=IP Off=0x297 Tgt=Seg1+0x1E3
+    WRITE 0xFF4A at 0x0:2D9
+    Rel=IP Off=0x2A8 Tgt=Seg1+0x1E3
+    WRITE 0xFF39 at 0x0:2EA
+    Rel=IP Off=0x2B4 Tgt=Seg1+0x1E3
+    WRITE 0xFF2D at 0x0:2F6
+    Rel=IP Off=0x2C5 Tgt=Seg1+0x1E3
+    WRITE 0xFF1C at 0x0:307
+    Rel=IP Off=0x2D7 Tgt=Ext8 (_OVL_INIT; Seg=0x0 Mod=OVLINIT.OBJ+0x0)
+    WRITE 0x1CF9 at 0x0:319
+    Rel=IP Off=0x2DB Tgt=Seg1+0x0
+    WRITE 0xFD23 at 0x0:31D
+    Rel=IP Off=0x2DE Tgt=Seg1+0x1A8
+    WRITE 0xFEC8 at 0x0:320
+    Rel=IP Off=0x2E8 Tgt=Seg1+0x19E
+    WRITE 0xFEB4 at 0x0:32A
+    Rel=IP Off=0x2F3     WRITE 0x1ECF at 0x0:335
+    Rel=IP Off=0x2F6     WRITE 0x1EED at 0x0:338
+    Rel=IP Off=0x300 Tgt=Seg1+0x2BA
+    WRITE 0xFFB8 at 0x0:342
+    Rel=IP Off=0x303 Tgt=Seg1+0x195
+    WRITE 0xFE90 at 0x0:345
+    Rel=IP Off=0x30D     WRITE 0x1EAA at 0x0:34F
+    Rel=IP Off=0x310     WRITE 0x1EBD at 0x0:352
+    Rel=IP Off=0x31A Tgt=Seg1+0x2BA
+    WRITE 0xFF9E at 0x0:35C
+    Rel=IP Off=0x31D Tgt=Seg1+0x195
+    WRITE 0xFE76 at 0x0:35F
+    Rel=IP Off=0x324 Tgt=Seg1+0x19E
+    WRITE 0xFE78 at 0x0:366
+    Rel=IP Off=0x32F     WRITE 0x1E7D at 0x0:371
+    Rel=IP Off=0x332     WRITE 0x1EA6 at 0x0:374
+    Rel=IP Off=0x33C Tgt=Seg1+0x2BA
+    WRITE 0xFF7C at 0x0:37E
+    Rel=IP Off=0x33F Tgt=Seg1+0x195
+    WRITE 0xFE54 at 0x0:381
+    Rel=IP Off=0x346 Tgt=Seg1+0x19E
+    WRITE 0xFE56 at 0x0:388
+Linking ATOI.OBJ (..\..\smalllib\clib.lib) CODE=0x352 DATA=0x8 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=8F
+  FIXUPP
+    Rel=IP Off=0xE Tgt=Ext1 (_ISSPACE; Seg=0x0 Mod=IS.OBJ+0xC0)
+    WRITE 0x1450 at 0x0:3A0
+    Rel=IP Off=0x3F Tgt=Ext3 (__SWITCH; Seg=0x0 Mod=CALL.OBJ+0xA9)
+    WRITE 0x220 at 0x0:3D1
+    Rel=Sgmt Off=0x41 Tgt=Seg1+0x2D
+    WRITE 0x37F at 0x0:3D3
+    Rel=Sgmt Off=0x45 Tgt=Seg1+0x33
+    WRITE 0x385 at 0x0:3D7
+    Rel=IP Off=0x58 Tgt=Ext2 (_ISDIGIT; Seg=0x0 Mod=IS.OBJ+0x48)
+    WRITE 0x138E at 0x0:3EA
+Linking AUXBUF.OBJ (..\..\smalllib\clib.lib) CODE=0x3E2 DATA=0x8 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=63
+  FIXUPP
+    Rel=IP Off=0xE Tgt=Ext5 (_AVAIL; Seg=0x0 Mod=AVAIL.OBJ+0x0)
+    WRITE 0x54 at 0x0:430
+    Rel=Sgmt Off=0x2B Tgt=Ext2 (__BUFPTR; Seg=0x1 Mod=CSYSLIB.OBJ+0xCA)
+    WRITE 0xD4 at 0x0:44D
+    Rel=IP Off=0x3B Tgt=Ext4 (_MALLOC; Seg=0x0 Mod=MALLOC.OBJ+0x0)
+    WRITE 0x1AA1 at 0x0:45D
+    Rel=Sgmt Off=0x42 Tgt=Ext3 (__BUFSIZ; Seg=0x1 Mod=CSYSLIB.OBJ+0xA2)
+    WRITE 0xAC at 0x0:464
+    Rel=IP Off=0x5B Tgt=Ext1 (__EMPTY; Seg=0x0 Mod=CSYSLIB.OBJ+0x819)
+    WRITE 0x9A6 at 0x0:47D
+Linking AVAIL.OBJ (..\..\smalllib\clib.lib) CODE=0x446 DATA=0x8 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=31
+  FIXUPP
+    Rel=Sgmt Off=0xB Tgt=Ext1 (__MEMPTR; Seg=0x1 Mod=CSYSLIB.OBJ+0x192)
+    WRITE 0x19C at 0x0:491
+    Rel=IP Off=0x1D Tgt=Ext2 (_EXIT; Seg=0x0 Mod=EXIT.OBJ+0x0)
+    WRITE 0xB43 at 0x0:4A3
+    Rel=Sgmt Off=0x28 Tgt=Ext1 (__MEMPTR; Seg=0x1 Mod=CSYSLIB.OBJ+0x192)
+    WRITE 0x19C at 0x0:4AE
+Linking BSEEK.OBJ (..\..\smalllib\clib.lib) CODE=0x478 DATA=0x8 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=92
+  FIXUPP
+    Rel=IP Off=0xA Tgt=Ext2 (__MODE; Seg=0x0 Mod=CSYSLIB.OBJ+0x878)
+    WRITE 0x9C0 at 0x0:4C2
+    Rel=Sgmt Off=0x12 Tgt=Ext3 (__BUFUSE; Seg=0x1 Mod=CSYSLIB.OBJ+0x7A)
+    WRITE 0x84 at 0x0:4CA
+    Rel=IP Off=0x37 Tgt=Ext5 (__ADJUST; Seg=0x0 Mod=CSYSLIB.OBJ+0x770)
+    WRITE 0x88B at 0x0:4EF
+    Rel=IP Off=0x64 Tgt=Ext1 (__SEEK; Seg=0x0 Mod=CSYSLIB.OBJ+0x975)
+    WRITE 0xA63 at 0x0:51C
+    Rel=Sgmt Off=0x73 Tgt=Ext6 (__NEXTC; Seg=0x1 Mod=CSYSLIB.OBJ+0x52)
+    WRITE 0x5C at 0x0:52B
+    Rel=IP Off=0x89 Tgt=Ext4 (__CLREOF; Seg=0x0 Mod=CSYSLIB.OBJ+0x8B5)
+    WRITE 0x97E at 0x0:541
+Linking CALL.OBJ (..\..\smalllib\clib.lib) CODE=0x50A DATA=0x8 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=2
+  LIDATA SegIdx=2 Offs=0 Len=7
+    Repeat=20 Blocks=0
+  LEDATA SegIdx=3 Offs=0 Len=C2
+  FIXUPP
+    Rel=Sgmt Off=Seg+0x1 Tgt=Seg1+0x2
+    WRITE 0x239 at 0x0:54B
+    Rel=Sgmt Off=Seg+0xA Tgt=Seg1+0x2
+    WRITE 0x239 at 0x0:554
+    Rel=Sgmt Off=Seg+0x24 Tgt=Seg2+0x40
+    WRITE 0x272 at 0x0:56E
+    Rel=Sgmt Off=Seg+0x27 Tgt=Seg1+0x2
+    WRITE 0x239 at 0x0:571
+    Rel=IP Off=0x3A Tgt=Ext2 (_EXIT; Seg=0x0 Mod=EXIT.OBJ+0x0)
+    WRITE 0xA62 at 0x0:584
+    Rel=Sgmt Off=0x3D Tgt=Ext1 (__MEMPTR; Seg=0x1 Mod=CSYSLIB.OBJ+0x192)
+    WRITE 0x19C at 0x0:587
+    Rel=IP Off=0x40 Tgt=Ext3 (__MAIN; Seg=0x0 Mod=CSYSLIB.OBJ+0x0)
+    WRITE 0x80 at 0x0:58A
+Linking CSYSLIB.OBJ (..\..\smalllib\clib.lib) CODE=0x5CC DATA=0xA 
+  EXTDEF
+  LEDATA SegIdx=2 Offs=0 Len=C
+  LIDATA SegIdx=2 Offs=C Len=E
+    Repeat=F Blocks=0
+    Repeat=14 Blocks=0
+  LEDATA SegIdx=2 Offs=52 Len=A
+  LIDATA SegIdx=2 Offs=5C Len=38
+    Repeat=F Blocks=0
+    Repeat=14 Blocks=0
+    Repeat=14 Blocks=0
+    Repeat=14 Blocks=0
+    Repeat=14 Blocks=0
+    Repeat=14 Blocks=0
+    Repeat=14 Blocks=0
+    Repeat=14 Blocks=0
+  LEDATA SegIdx=2 Offs=192 Len=4
+  LEDATA SegIdx=1 Offs=0 Len=3FC
+  FIXUPP
+    Rel=IP Off=0x7 Tgt=Seg1+0x76
+    WRITE 0x6D at 0x0:613
+    Rel=IP Off=0x2A Tgt=Ext4 (_AUXBUF; Seg=0x0 Mod=AUXBUF.OBJ+0x0)
+    WRITE 0xFDEA at 0x0:636
+    Rel=IP Off=0x34 Tgt=Ext7 (_ISATTY; Seg=0x0 Mod=ISATTY.OBJ+0x0)
+    WRITE 0x11F8 at 0x0:640
+    Rel=Sgmt Off=0x3C Tgt=Seg2+0x7A
+    WRITE 0x84 at 0x0:648
+    Rel=IP Off=0x4A Tgt=Ext7 (_ISATTY; Seg=0x0 Mod=ISATTY.OBJ+0x0)
+    WRITE 0x11E2 at 0x0:656
+    Rel=Sgmt Off=0x55 Tgt=Seg2+0x7C
+    WRITE 0x86 at 0x0:661
+    Rel=Sgmt Off=0x5F Tgt=Seg2+0x16A
+    WRITE 0x174 at 0x0:66B
+    Rel=Sgmt Off=0x64 Tgt=Seg2+0x0
+    WRITE 0xA at 0x0:670
+    Rel=IP Off=0x67 Tgt=Ext2 (_MAIN; Seg=0x0 Mod=OVLTEST.OBJ+0x2CB)
+    WRITE 0xFC98 at 0x0:673
+    Rel=IP Off=0x6F Tgt=Ext6 (_EXIT; Seg=0x0 Mod=EXIT.OBJ+0x0)
+    WRITE 0x96B at 0x0:67B
+    Rel=IP Off=0xC6 Tgt=Seg1+0x90F
+    WRITE 0x847 at 0x0:6D2
+    Rel=IP Off=0x102 Tgt=Seg1+0x90F
+    WRITE 0x80B at 0x0:70E
+    Rel=Sgmt Off=0x11D Tgt=Seg2+0x16A
+    WRITE 0x174 at 0x0:729
+    Rel=Sgmt Off=0x12D Tgt=Seg2+0x194
+    WRITE 0x19E at 0x0:739
+    Rel=IP Off=0x147 Tgt=Ext5 (_ISSPACE; Seg=0x0 Mod=IS.OBJ+0xC0)
+    WRITE 0x109D at 0x0:753
+    Rel=Sgmt Off=0x159 Tgt=Seg2+0x0
+    WRITE 0xA at 0x0:765
+    Rel=Sgmt Off=0x164 Tgt=Seg2+0x16A
+    WRITE 0x174 at 0x0:770
+    Rel=Sgmt Off=0x168 Tgt=Seg2+0x0
+    WRITE 0xA at 0x0:774
+    Rel=Sgmt Off=0x16C Tgt=Seg2+0x0
+    WRITE 0xA at 0x0:778
+    Rel=IP Off=0x18D Tgt=Ext5 (_ISSPACE; Seg=0x0 Mod=IS.OBJ+0xC0)
+    WRITE 0x1057 at 0x0:799
+    Rel=IP Off=0x1C2 Tgt=Seg1+0x2DB
+    WRITE 0x117 at 0x0:7CE
+    Rel=IP Off=0x1F0 Tgt=Seg1+0x95A
+    WRITE 0x768 at 0x0:7FC
+    Rel=IP Off=0x1FF Tgt=Seg1+0x35B
+    WRITE 0x15A at 0x0:80B
+    Rel=IP Off=0x202 Tgt=Seg1+0x2EE
+    WRITE 0xEA at 0x0:80E
+    Rel=IP Off=0x22D Tgt=Seg1+0x95A
+    WRITE 0x72B at 0x0:839
+    Rel=IP Off=0x23C Tgt=Seg1+0x35B
+    WRITE 0x11D at 0x0:848
+    Rel=IP Off=0x24C Tgt=Seg1+0x95A
+    WRITE 0x70C at 0x0:858
+    Rel=IP Off=0x264 Tgt=Seg1+0x95A
+    WRITE 0x6F4 at 0x0:870
+    Rel=IP Off=0x273 Tgt=Seg1+0x35B
+    WRITE 0xE6 at 0x0:87F
+    Rel=IP Off=0x2A5 Tgt=Seg1+0x95A
+    WRITE 0x6B3 at 0x0:8B1
+    Rel=IP Off=0x2B2 Tgt=Seg1+0x21E
+    WRITE 0xFF6A at 0x0:8BE
+    Rel=IP Off=0x2C2 Tgt=Seg1+0x95A
+    WRITE 0x696 at 0x0:8CE
+    Rel=IP Off=0x2CE Tgt=Seg1+0x35B
+    WRITE 0x8B at 0x0:8DA
+    Rel=IP Off=0x2D6 Tgt=Seg1+0x35B
+    WRITE 0x83 at 0x0:8E2
+    Rel=IP Off=0x2DC Tgt=Ext9 (__SWITCH; Seg=0x0 Mod=CALL.OBJ+0xA9)
+    WRITE 0xFD09 at 0x0:8E8
+    Rel=Sgmt Off=0x2DE Tgt=Seg1+0x1C4
+    WRITE 0x790 at 0x0:8EA
+    Rel=Sgmt Off=0x2E2 Tgt=Seg1+0x204
+    WRITE 0x7D0 at 0x0:8EE
+    Rel=Sgmt Off=0x2E6 Tgt=Seg1+0x278
+    WRITE 0x844 at 0x0:8F2
+    Rel=IP Off=0x2F6 Tgt=Seg1+0x819
+    WRITE 0x521 at 0x0:902
+    Rel=IP Off=0x2FE Tgt=Ext7 (_ISATTY; Seg=0x0 Mod=ISATTY.OBJ+0x0)
+    WRITE 0xF2E at 0x0:90A
+    Rel=Sgmt Off=0x306 Tgt=Seg2+0x7A
+    WRITE 0x84 at 0x0:912
+    Rel=Sgmt Off=0x321 Tgt=Seg2+0x2A
+    WRITE 0x34 at 0x0:92D
+    Rel=Sgmt Off=0x333 Tgt=Seg2+0x52
+    WRITE 0x5C at 0x0:93F
+    Rel=Sgmt Off=0x346 Tgt=Seg2+0x2
+    WRITE 0xC at 0x0:952
+    Rel=Sgmt Off=0x366 Tgt=Seg2+0x52
+    WRITE 0x5C at 0x0:972
+    Rel=Sgmt Off=0x379 Tgt=Seg2+0x52
+    WRITE 0x5C at 0x0:985
+    Rel=Sgmt Off=0x38A Tgt=Seg2+0x52
+    WRITE 0x5C at 0x0:996
+    Rel=IP Off=0x3A8 Tgt=Ext1 (_ISCONS; Seg=0x0 Mod=ISCONS.OBJ+0x0)
+    WRITE 0xE9A at 0x0:9B4
+    Rel=IP Off=0x3B0 Tgt=Seg1+0x9BB
+    WRITE 0x609 at 0x0:9BC
+    Rel=Sgmt Off=0x3B6 Tgt=Seg2+0x7A
+    WRITE 0x84 at 0x0:9C2
+    Rel=IP Off=0x3CB Tgt=Seg1+0x420
+    WRITE 0x53 at 0x0:9D7
+    Rel=IP Off=0x3E1 Tgt=Seg1+0x95A
+    WRITE 0x577 at 0x0:9ED
+    Rel=IP Off=0x3F4 Tgt=Seg1+0x897
+    WRITE 0x4A1 at 0x0:A00
+  LEDATA SegIdx=1 Offs=3FC Len=3FC
+  FIXUPP
+    Rel=IP Off=0x5 Tgt=Seg1+0x8D3
+    WRITE 0x4D0 at 0x0:A0D
+    Rel=IP Off=0x12 Tgt=Ext9 (__SWITCH; Seg=0x0 Mod=CALL.OBJ+0xA9)
+    WRITE 0xFBD7 at 0x0:A1A
+    Rel=Sgmt Off=0x14 Tgt=Seg1+0x3E8
+    WRITE 0x9B4 at 0x0:A1C
+    Rel=Sgmt Off=0x18 Tgt=Seg1+0x3F0
+    WRITE 0x9BC at 0x0:A20
+    Rel=Sgmt Off=0x2B Tgt=Seg2+0x7A
+    WRITE 0x84 at 0x0:A33
+    Rel=IP Off=0x41 Tgt=Seg1+0x69D
+    WRITE 0x25E at 0x0:A49
+    Rel=IP Off=0x50 Tgt=Seg1+0x59E
+    WRITE 0x150 at 0x0:A58
+    Rel=Sgmt Off=0x53 Tgt=Seg2+0xF2
+    WRITE 0xFC at 0x0:A5B
+    Rel=Sgmt Off=0x67 Tgt=Seg2+0x11A
+    WRITE 0x124 at 0x0:A6F
+    Rel=Sgmt Off=0x7A Tgt=Seg2+0xF2
+    WRITE 0xFC at 0x0:A82
+    Rel=IP Off=0x91 Tgt=Seg1+0x59E
+    WRITE 0x10F at 0x0:A99
+    Rel=Sgmt Off=0x94 Tgt=Seg2+0x142
+    WRITE 0x14C at 0x0:A9C
+    Rel=IP Off=0xA9 Tgt=Seg1+0x897
+    WRITE 0x3F0 at 0x0:AB1
+    Rel=IP Off=0xB0 Tgt=Seg1+0x59E
+    WRITE 0xF0 at 0x0:AB8
+    Rel=Sgmt Off=0xB3 Tgt=Seg2+0x11A
+    WRITE 0x124 at 0x0:ABB
+    Rel=Sgmt Off=0xC0 Tgt=Seg2+0xCA
+    WRITE 0xD4 at 0x0:AC8
+    Rel=Sgmt Off=0xD5 Tgt=Seg2+0xA2
+    WRITE 0xAC at 0x0:ADD
+    Rel=IP Off=0x120 Tgt=Seg1+0x95A
+    WRITE 0x43C at 0x0:B28
+    Rel=Sgmt Off=0x13A Tgt=Seg2+0x142
+    WRITE 0x14C at 0x0:B42
+    Rel=Sgmt Off=0x15C Tgt=Seg2+0x11A
+    WRITE 0x124 at 0x0:B64
+    Rel=Sgmt Off=0x16F Tgt=Seg2+0xF2
+    WRITE 0xFC at 0x0:B77
+    Rel=Sgmt Off=0x17C Tgt=Seg2+0xCA
+    WRITE 0xD4 at 0x0:B84
+    Rel=Sgmt Off=0x18D Tgt=Seg2+0x7A
+    WRITE 0x84 at 0x0:B95
+    Rel=IP Off=0x1A0 Tgt=Seg1+0x44E
+    WRITE 0xFEB0 at 0x0:BA8
+    Rel=Sgmt Off=0x1AA Tgt=Seg2+0x7A
+    WRITE 0x84 at 0x0:BB2
+    Rel=IP Off=0x1C2 Tgt=Seg1+0x5EF
+    WRITE 0x2F at 0x0:BCA
+    Rel=IP Off=0x1D8 Tgt=Seg1+0x95A
+    WRITE 0x384 at 0x0:BE0
+    Rel=IP Off=0x1E6 Tgt=Seg1+0x8D3
+    WRITE 0x2EF at 0x0:BEE
+    Rel=Sgmt Off=0x1FA Tgt=Seg2+0x7A
+    WRITE 0x84 at 0x0:C02
+    Rel=IP Off=0x210 Tgt=Seg1+0x7AF
+    WRITE 0x1A1 at 0x0:C18
+    Rel=Sgmt Off=0x222 Tgt=Seg2+0xF2
+    WRITE 0xFC at 0x0:C2A
+    Rel=Sgmt Off=0x236 Tgt=Seg2+0xCA
+    WRITE 0xD4 at 0x0:C3E
+    Rel=Sgmt Off=0x244 Tgt=Seg2+0xA2
+    WRITE 0xAC at 0x0:C4C
+    Rel=Sgmt Off=0x263 Tgt=Seg2+0xF2
+    WRITE 0xFC at 0x0:C6B
+    Rel=Sgmt Off=0x274 Tgt=Seg2+0x7A
+    WRITE 0x84 at 0x0:C7C
+    Rel=IP Off=0x28F Tgt=Seg1+0x69D
+    WRITE 0x10 at 0x0:C97
+    Rel=Sgmt Off=0x2A8 Tgt=Seg2+0x7A
+    WRITE 0x84 at 0x0:CB0
+    Rel=IP Off=0x2BB Tgt=Seg1+0x75E
+    WRITE 0xA5 at 0x0:CC3
+    Rel=Sgmt Off=0x2BE Tgt=Seg2+0xF2
+    WRITE 0xFC at 0x0:CC6
+    Rel=Sgmt Off=0x2CC Tgt=Seg2+0xCA
+    WRITE 0xD4 at 0x0:CD4
+    Rel=Sgmt Off=0x30C Tgt=Seg2+0xCA
+    WRITE 0xD4 at 0x0:D14
+    Rel=IP Off=0x32B Tgt=Seg1+0x95A
+    WRITE 0x231 at 0x0:D33
+    Rel=IP Off=0x348 Tgt=Seg1+0x8D3
+    WRITE 0x18D at 0x0:D50
+    Rel=IP Off=0x36A Tgt=Seg1+0x819
+    WRITE 0xB1 at 0x0:D72
+    Rel=Sgmt Off=0x378 Tgt=Seg2+0x7A
+    WRITE 0x84 at 0x0:D80
+    Rel=IP Off=0x38E Tgt=Seg1+0x69D
+    WRITE 0xFF11 at 0x0:D96
+    Rel=Sgmt Off=0x394 Tgt=Seg2+0x7A
+    WRITE 0x84 at 0x0:D9C
+    Rel=IP Off=0x3AA Tgt=Seg1+0x7AF
+    WRITE 0x7 at 0x0:DB2
+    Rel=Sgmt Off=0x3BA Tgt=Seg2+0xF2
+    WRITE 0xFC at 0x0:DC2
+    Rel=Sgmt Off=0x3C8 Tgt=Seg2+0x11A
+    WRITE 0x124 at 0x0:DD0
+    Rel=IP Off=0x3F6 Tgt=Seg1+0x975
+    WRITE 0x181 at 0x0:DFE
+  LEDATA SegIdx=1 Offs=7F8 Len=1E3
+  FIXUPP
+    Rel=IP Off=0x7 Tgt=Seg1+0x8D3
+    WRITE 0xD2 at 0x0:E0B
+    Rel=IP Off=0x17 Tgt=Seg1+0x819
+    WRITE 0x8 at 0x0:E1B
+    Rel=Sgmt Off=0x25 Tgt=Seg2+0xF2
+    WRITE 0xFC at 0x0:E29
+    Rel=Sgmt Off=0x32 Tgt=Seg2+0x11A
+    WRITE 0x124 at 0x0:E36
+    Rel=Sgmt Off=0x3F Tgt=Seg2+0xCA
+    WRITE 0xD4 at 0x0:E43
+    Rel=Sgmt Off=0x53 Tgt=Seg2+0x142
+    WRITE 0x14C at 0x0:E57
+    Rel=Sgmt Off=0x6C Tgt=Seg2+0x7A
+    WRITE 0x84 at 0x0:E70
+    Rel=Sgmt Off=0x8C Tgt=Seg2+0x2
+    WRITE 0xC at 0x0:E90
+    Rel=Sgmt Off=0xA3 Tgt=Seg2+0x2
+    WRITE 0xC at 0x0:EA7
+    Rel=Sgmt Off=0xC1 Tgt=Seg2+0x2
+    WRITE 0xC at 0x0:EC5
+    Rel=Sgmt Off=0xDF Tgt=Seg2+0x2
+    WRITE 0xC at 0x0:EE3
+    Rel=Sgmt Off=0xFD Tgt=Seg2+0x2
+    WRITE 0xC at 0x0:F01
+    Rel=IP Off=0x125 Tgt=Ext8 (_AVAIL; Seg=0x0 Mod=AVAIL.OBJ+0x0)
+    WRITE 0xF55B at 0x0:F29
+    Rel=Sgmt Off=0x13C Tgt=Seg2+0x192
+    WRITE 0x19C at 0x0:F40
+    Rel=IP Off=0x13F Tgt=Ext3 (_PAD; Seg=0x0 Mod=PAD.OBJ+0x0)
+    WRITE 0xFCB at 0x0:F43
+    Rel=Sgmt Off=0x145 Tgt=Seg2+0x192
+    WRITE 0x19C at 0x0:F49
+    Rel=Sgmt Off=0x14C Tgt=Seg2+0x192
+    WRITE 0x19C at 0x0:F50
+    Rel=Sgmt Off=0x155 Tgt=Seg2+0x192
+    WRITE 0x19C at 0x0:F59
+Linking EXIT.OBJ (..\..\smalllib\clib.lib) CODE=0xFA8 DATA=0x1A0 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=99
+  FIXUPP
+    Rel=IP Off=0x27 Tgt=Ext5 (_ITOU; Seg=0x0 Mod=ITOU.OBJ+0x0)
+    WRITE 0x9E3 at 0x0:100F
+    Rel=IP Off=0x2E Tgt=Ext1 (_LEFT; Seg=0x0 Mod=LEFT.OBJ+0x0)
+    WRITE 0xAB2 at 0x0:1016
+    Rel=Sgmt Off=0x36 Tgt=Seg2+0x0
+    WRITE 0x1A0 at 0x0:101E
+    Rel=IP Off=0x3A Tgt=Ext2 (_FPUTS; Seg=0x0 Mod=FPUTS.OBJ+0x0)
+    WRITE 0x672 at 0x0:1022
+    Rel=IP Off=0x47 Tgt=Ext2 (_FPUTS; Seg=0x0 Mod=FPUTS.OBJ+0x0)
+    WRITE 0x665 at 0x0:102F
+    Rel=Sgmt Off=0x50 Tgt=Seg2+0xC
+    WRITE 0x1AC at 0x0:1038
+    Rel=IP Off=0x54 Tgt=Ext2 (_FPUTS; Seg=0x0 Mod=FPUTS.OBJ+0x0)
+    WRITE 0x658 at 0x0:103C
+    Rel=IP Off=0x75 Tgt=Ext4 (_FCLOSE; Seg=0x0 Mod=FCLOSE.OBJ+0x0)
+    WRITE 0x23 at 0x0:105D
+    Rel=IP Off=0x8D Tgt=Ext3 (__BDOS2; Seg=0x0 Mod=CSYSLIB.OBJ+0x95A)
+    WRITE 0xFEEF at 0x0:1075
+    Rel=IP Off=0x93 Tgt=Seg1+0x0
+    WRITE 0xFF6B at 0x0:107B
+  LEDATA SegIdx=2 Offs=0 Len=E
+Linking FCLOSE.OBJ (..\..\smalllib\clib.lib) CODE=0x1042 DATA=0x1AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=5A
+  FIXUPP
+    Rel=IP Off=0x7 Tgt=Ext2 (__MODE; Seg=0x0 Mod=CSYSLIB.OBJ+0x878)
+    WRITE 0xFDF9 at 0x0:1089
+    Rel=IP Off=0x12 Tgt=Ext1 (__FLUSH; Seg=0x0 Mod=CSYSLIB.OBJ+0x69D)
+    WRITE 0xFC13 at 0x0:1094
+    Rel=IP Off=0x37 Tgt=Ext3 (__BDOS2; Seg=0x0 Mod=CSYSLIB.OBJ+0x95A)
+    WRITE 0xFEAB at 0x0:10B9
+    Rel=Sgmt Off=0x47 Tgt=Ext4 (__STATUS; Seg=0x1 Mod=CSYSLIB.OBJ+0x2)
+    WRITE 0xC at 0x0:10C9
+Linking FGETC.OBJ (..\..\smalllib\clib.lib) CODE=0x109C DATA=0x1AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=131
+  FIXUPP
+    Rel=Sgmt Off=0x7 Tgt=Ext5 (__NEXTC; Seg=0x1 Mod=CSYSLIB.OBJ+0x52)
+    WRITE 0x5C at 0x0:10E3
+    Rel=Sgmt Off=0x1A Tgt=Ext5 (__NEXTC; Seg=0x1 Mod=CSYSLIB.OBJ+0x52)
+    WRITE 0x5C at 0x0:10F6
+    Rel=Sgmt Off=0x2B Tgt=Ext5 (__NEXTC; Seg=0x1 Mod=CSYSLIB.OBJ+0x52)
+    WRITE 0x5C at 0x0:1107
+    Rel=IP Off=0x46 Tgt=Seg1+0x12A
+    WRITE 0xE2 at 0x0:1122
+    Rel=IP Off=0x4C Tgt=Ext2 (__READ; Seg=0x0 Mod=CSYSLIB.OBJ+0x35F)
+    WRITE 0xF841 at 0x0:1128
+    Rel=IP Off=0x56 Tgt=Ext1 (_ISCONS; Seg=0x0 Mod=ISCONS.OBJ+0x0)
+    WRITE 0x71C at 0x0:1132
+    Rel=IP Off=0x6A Tgt=Ext6 (_EXIT; Seg=0x0 Mod=EXIT.OBJ+0x0)
+    WRITE 0xFEA0 at 0x0:1146
+    Rel=IP Off=0x76 Tgt=Ext4 (__WRITE; Seg=0x0 Mod=CSYSLIB.OBJ+0x5A2)
+    WRITE 0xFA5A at 0x0:1152
+    Rel=IP Off=0x83 Tgt=Ext4 (__WRITE; Seg=0x0 Mod=CSYSLIB.OBJ+0x5A2)
+    WRITE 0xFA4D at 0x0:115F
+    Rel=IP Off=0x9B Tgt=Ext4 (__WRITE; Seg=0x0 Mod=CSYSLIB.OBJ+0x5A2)
+    WRITE 0xFA35 at 0x0:1177
+    Rel=IP Off=0xA3 Tgt=Ext7 (__SWITCH; Seg=0x0 Mod=CALL.OBJ+0xA9)
+    WRITE 0xF472 at 0x0:117F
+    Rel=Sgmt Off=0xA5 Tgt=Seg1+0x65
+    WRITE 0x1101 at 0x0:1181
+    Rel=Sgmt Off=0xA9 Tgt=Seg1+0x6D
+    WRITE 0x1109 at 0x0:1185
+    Rel=Sgmt Off=0xAD Tgt=Seg1+0x8A
+    WRITE 0x1126 at 0x0:1189
+    Rel=Sgmt Off=0xB1 Tgt=Seg1+0x90
+    WRITE 0x112C at 0x0:118D
+    Rel=Sgmt Off=0xB5 Tgt=Seg1+0x90
+    WRITE 0x112C at 0x0:1191
+    Rel=IP Off=0xCC Tgt=Ext3 (__SETEOF; Seg=0x0 Mod=CSYSLIB.OBJ+0x897)
+    WRITE 0xFCF9 at 0x0:11A8
+    Rel=IP Off=0xD9 Tgt=Ext1 (_ISCONS; Seg=0x0 Mod=ISCONS.OBJ+0x0)
+    WRITE 0x699 at 0x0:11B5
+    Rel=IP Off=0xE4 Tgt=Ext2 (__READ; Seg=0x0 Mod=CSYSLIB.OBJ+0x35F)
+    WRITE 0xF7A9 at 0x0:11C0
+    Rel=Sgmt Off=0xF3 Tgt=Ext5 (__NEXTC; Seg=0x1 Mod=CSYSLIB.OBJ+0x52)
+    WRITE 0x5C at 0x0:11CF
+    Rel=IP Off=0x115 Tgt=Ext7 (__SWITCH; Seg=0x0 Mod=CALL.OBJ+0xA9)
+    WRITE 0xF400 at 0x0:11F1
+    Rel=Sgmt Off=0x117 Tgt=Seg1+0xC8
+    WRITE 0x1164 at 0x0:11F3
+    Rel=Sgmt Off=0x11B Tgt=Seg1+0xD5
+    WRITE 0x1171 at 0x0:11F7
+    Rel=Sgmt Off=0x11F Tgt=Seg1+0x10B
+    WRITE 0x11A7 at 0x0:11FB
+    Rel=IP Off=0x128 Tgt=Seg1+0x48
+    WRITE 0xFF1E at 0x0:1204
+    Rel=IP Off=0x12F Tgt=Seg1+0x0
+    WRITE 0xFECF at 0x0:120B
+Linking FOPEN.OBJ (..\..\smalllib\clib.lib) CODE=0x11CE DATA=0x1AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=25
+  FIXUPP
+    Rel=IP Off=0x11 Tgt=Ext1 (__OPEN; Seg=0x0 Mod=CSYSLIB.OBJ+0x1B5)
+    WRITE 0xF5A0 at 0x0:121F
+Linking FPRINTF.OBJ (..\..\smalllib\clib.lib) CODE=0x11F4 DATA=0x1AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=3F1
+  FIXUPP
+    Rel=IP Off=0xB Tgt=Seg1+0x23
+    WRITE 0x16 at 0x0:123F
+    Rel=IP Off=0x1D Tgt=Seg1+0x23
+    WRITE 0x4 at 0x0:1251
+    Rel=IP Off=0x48 Tgt=Seg1+0x3EA
+    WRITE 0x3A0 at 0x0:127C
+    Rel=IP Off=0x66 Tgt=Ext4 (_FPUTC; Seg=0x0 Mod=FPUTC.OBJ+0x0)
+    WRITE 0x38A at 0x0:129A
+    Rel=IP Off=0x9A Tgt=Ext4 (_FPUTC; Seg=0x0 Mod=FPUTC.OBJ+0x0)
+    WRITE 0x356 at 0x0:12CE
+    Rel=IP Off=0xE9 Tgt=Ext8 (_ISDIGIT; Seg=0x0 Mod=IS.OBJ+0x48)
+    WRITE 0x45B at 0x0:131D
+    Rel=IP Off=0xF9 Tgt=Ext1 (_ATOI; Seg=0x0 Mod=ATOI.OBJ+0x0)
+    WRITE 0xF063 at 0x0:132D
+    Rel=IP Off=0x107 Tgt=Ext8 (_ISDIGIT; Seg=0x0 Mod=IS.OBJ+0x48)
+    WRITE 0x43D at 0x0:133B
+    Rel=IP Off=0x134 Tgt=Ext1 (_ATOI; Seg=0x0 Mod=ATOI.OBJ+0x0)
+    WRITE 0xF028 at 0x0:1368
+    Rel=IP Off=0x142 Tgt=Ext8 (_ISDIGIT; Seg=0x0 Mod=IS.OBJ+0x48)
+    WRITE 0x402 at 0x0:1376
+    Rel=IP Off=0x18A Tgt=Seg1+0x265
+    WRITE 0xD9 at 0x0:13BE
+    Rel=IP Off=0x1C8 Tgt=Seg1+0x24B
+    WRITE 0x81 at 0x0:13FC
+    Rel=IP Off=0x1DD Tgt=Ext5 (_LTOA; Seg=0x0 Mod=LTOA.OBJ+0x0)
+    WRITE 0x939 at 0x0:1411
+    Rel=IP Off=0x1FC Tgt=Ext2 (_LTOAB; Seg=0x0 Mod=LTOAB.OBJ+0x0)
+    WRITE 0xA0E at 0x0:1430
+    Rel=IP Off=0x21B Tgt=Ext2 (_LTOAB; Seg=0x0 Mod=LTOAB.OBJ+0x0)
+    WRITE 0x9EF at 0x0:144F
+    Rel=IP Off=0x23A Tgt=Ext2 (_LTOAB; Seg=0x0 Mod=LTOAB.OBJ+0x0)
+    WRITE 0x9D0 at 0x0:146E
+    Rel=IP Off=0x246 Tgt=Seg1+0x3ED
+    WRITE 0x1A5 at 0x0:147A
+    Rel=IP Off=0x24C Tgt=Ext9 (__SWITCH; Seg=0x0 Mod=CALL.OBJ+0xA9)
+    WRITE 0xF171 at 0x0:1480
+    Rel=Sgmt Off=0x24E Tgt=Seg1+0x1CA
+    WRITE 0x13BE at 0x0:1482
+    Rel=Sgmt Off=0x252 Tgt=Seg1+0x1E5
+    WRITE 0x13D9 at 0x0:1486
+    Rel=Sgmt Off=0x256 Tgt=Seg1+0x204
+    WRITE 0x13F8 at 0x0:148A
+    Rel=Sgmt Off=0x25A Tgt=Seg1+0x223
+    WRITE 0x1417 at 0x0:148E
+    Rel=IP Off=0x263 Tgt=Seg1+0x32A
+    WRITE 0xC5 at 0x0:1497
+    Rel=IP Off=0x281 Tgt=Seg1+0x307
+    WRITE 0x84 at 0x0:14B5
+    Rel=IP Off=0x294 Tgt=Seg1+0x32A
+    WRITE 0x94 at 0x0:14C8
+    Rel=IP Off=0x29D Tgt=Seg1+0x32A
+    WRITE 0x8B at 0x0:14D1
+    Rel=IP Off=0x2A7 Tgt=Ext6 (_ITOA; Seg=0x0 Mod=ITOA.OBJ+0x0)
+    WRITE 0x3F7 at 0x0:14DB
+    Rel=IP Off=0x2BA Tgt=Ext3 (_ITOAB; Seg=0x0 Mod=ITOAB.OBJ+0x0)
+    WRITE 0x456 at 0x0:14EE
+    Rel=IP Off=0x2CE Tgt=Ext3 (_ITOAB; Seg=0x0 Mod=ITOAB.OBJ+0x0)
+    WRITE 0x442 at 0x0:1502
+    Rel=IP Off=0x2E2 Tgt=Ext3 (_ITOAB; Seg=0x0 Mod=ITOAB.OBJ+0x0)
+    WRITE 0x42E at 0x0:1516
+    Rel=IP Off=0x2F6 Tgt=Ext3 (_ITOAB; Seg=0x0 Mod=ITOAB.OBJ+0x0)
+    WRITE 0x41A at 0x0:152A
+    Rel=IP Off=0x302 Tgt=Seg1+0x3ED
+    WRITE 0xE9 at 0x0:1536
+    Rel=IP Off=0x308 Tgt=Ext9 (__SWITCH; Seg=0x0 Mod=CALL.OBJ+0xA9)
+    WRITE 0xF0B5 at 0x0:153C
+    Rel=Sgmt Off=0x30A Tgt=Seg1+0x283
+    WRITE 0x1477 at 0x0:153E
+    Rel=Sgmt Off=0x30E Tgt=Seg1+0x296
+    WRITE 0x148A at 0x0:1542
+    Rel=Sgmt Off=0x312 Tgt=Seg1+0x29F
+    WRITE 0x1493 at 0x0:1546
+    Rel=Sgmt Off=0x316 Tgt=Seg1+0x2AE
+    WRITE 0x14A2 at 0x0:154A
+    Rel=Sgmt Off=0x31A Tgt=Seg1+0x2C2
+    WRITE 0x14B6 at 0x0:154E
+    Rel=Sgmt Off=0x31E Tgt=Seg1+0x2D6
+    WRITE 0x14CA at 0x0:1552
+    Rel=Sgmt Off=0x322 Tgt=Seg1+0x2EA
+    WRITE 0x14DE at 0x0:1556
+    Rel=IP Off=0x32E Tgt=Ext7 (_STRLEN; Seg=0x0 Mod=STRLEN.OBJ+0x0)
+    WRITE 0xA22 at 0x0:1562
+    Rel=IP Off=0x388 Tgt=Ext4 (_FPUTC; Seg=0x0 Mod=FPUTC.OBJ+0x0)
+    WRITE 0x68 at 0x0:15BC
+    Rel=IP Off=0x3B2 Tgt=Ext4 (_FPUTC; Seg=0x0 Mod=FPUTC.OBJ+0x0)
+    WRITE 0x3E at 0x0:15E6
+    Rel=IP Off=0x3D9 Tgt=Ext4 (_FPUTC; Seg=0x0 Mod=FPUTC.OBJ+0x0)
+    WRITE 0x17 at 0x0:160D
+    Rel=IP Off=0x3E8 Tgt=Seg1+0x3D
+    WRITE 0xFC53 at 0x0:161C
+Linking FPUTC.OBJ (..\..\smalllib\clib.lib) CODE=0x15E6 DATA=0x1AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=70
+  FIXUPP
+    Rel=IP Off=0x10 Tgt=Ext1 (__WRITE; Seg=0x0 Mod=CSYSLIB.OBJ+0x5A2)
+    WRITE 0xF576 at 0x0:1636
+    Rel=IP Off=0x1F Tgt=Ext1 (__WRITE; Seg=0x0 Mod=CSYSLIB.OBJ+0x5A2)
+    WRITE 0xF567 at 0x0:1645
+    Rel=IP Off=0x2B Tgt=Ext1 (__WRITE; Seg=0x0 Mod=CSYSLIB.OBJ+0x5A2)
+    WRITE 0xF55B at 0x0:1651
+    Rel=IP Off=0x39 Tgt=Ext1 (__WRITE; Seg=0x0 Mod=CSYSLIB.OBJ+0x5A2)
+    WRITE 0xF54D at 0x0:165F
+    Rel=IP Off=0x41 Tgt=Ext3 (__SWITCH; Seg=0x0 Mod=CALL.OBJ+0xA9)
+    WRITE 0xEF8A at 0x0:1667
+    Rel=Sgmt Off=0x43 Tgt=Seg1+0x8
+    WRITE 0x15EE at 0x0:1669
+    Rel=Sgmt Off=0x47 Tgt=Seg1+0x17
+    WRITE 0x15FD at 0x0:166D
+    Rel=Sgmt Off=0x50 Tgt=Ext2 (__STATUS; Seg=0x1 Mod=CSYSLIB.OBJ+0x2)
+    WRITE 0xC at 0x0:1676
+Linking FPUTS.OBJ (..\..\smalllib\clib.lib) CODE=0x1656 DATA=0x1AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=26
+  FIXUPP
+    Rel=IP Off=0x1E Tgt=Ext1 (_FPUTC; Seg=0x0 Mod=FPUTC.OBJ+0x0)
+    WRITE 0xFF70 at 0x0:16B4
+Linking FREAD.OBJ (..\..\smalllib\clib.lib) CODE=0x167C DATA=0x1AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=75
+  FIXUPP
+    Rel=IP Off=0x14 Tgt=Seg1+0x25
+    WRITE 0xF at 0x0:16D0
+    Rel=IP Off=0x47 Tgt=Ext1 (__READ; Seg=0x0 Mod=CSYSLIB.OBJ+0x35F)
+    WRITE 0xF266 at 0x0:1703
+    Rel=Sgmt Off=0x4E Tgt=Ext2 (__STATUS; Seg=0x1 Mod=CSYSLIB.OBJ+0x2)
+    WRITE 0xC at 0x0:170A
+Linking IS.OBJ (..\..\smalllib\clib.lib) CODE=0x16F2 DATA=0x1AE 
+  EXTDEF
+  LEDATA SegIdx=2 Offs=0 Len=100
+  LEDATA SegIdx=1 Offs=0 Len=108
+  FIXUPP
+    Rel=Sgmt Off=0x4 Tgt=Seg2+0x0
+    WRITE 0x1AE at 0x0:1736
+    Rel=Sgmt Off=0x1C Tgt=Seg2+0x0
+    WRITE 0x1AE at 0x0:174E
+    Rel=Sgmt Off=0x34 Tgt=Seg2+0x0
+    WRITE 0x1AE at 0x0:1766
+    Rel=Sgmt Off=0x4C Tgt=Seg2+0x0
+    WRITE 0x1AE at 0x0:177E
+    Rel=Sgmt Off=0x64 Tgt=Seg2+0x0
+    WRITE 0x1AE at 0x0:1796
+    Rel=Sgmt Off=0x7C Tgt=Seg2+0x0
+    WRITE 0x1AE at 0x0:17AE
+    Rel=Sgmt Off=0x94 Tgt=Seg2+0x0
+    WRITE 0x1AE at 0x0:17C6
+    Rel=Sgmt Off=0xAC Tgt=Seg2+0x0
+    WRITE 0x1AE at 0x0:17DE
+    Rel=Sgmt Off=0xC4 Tgt=Seg2+0x0
+    WRITE 0x1AE at 0x0:17F6
+    Rel=Sgmt Off=0xDC Tgt=Seg2+0x0
+    WRITE 0x1AE at 0x0:180E
+    Rel=Sgmt Off=0xF4 Tgt=Seg2+0x0
+    WRITE 0x1AE at 0x0:1826
+Linking ISATTY.OBJ (..\..\smalllib\clib.lib) CODE=0x17FA DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=16
+Linking ISCONS.OBJ (..\..\smalllib\clib.lib) CODE=0x1810 DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=83
+  FIXUPP
+    Rel=Sgmt Off=0x4 Tgt=Ext1 (__CONS; Seg=0x1 Mod=CSYSLIB.OBJ+0x2A)
+    WRITE 0x34 at 0x0:1854
+    Rel=IP Off=0x19 Tgt=Seg1+0x64
+    WRITE 0x49 at 0x0:1869
+    Rel=Sgmt Off=0x21 Tgt=Ext1 (__CONS; Seg=0x1 Mod=CSYSLIB.OBJ+0x2A)
+    WRITE 0x34 at 0x0:1871
+    Rel=Sgmt Off=0x36 Tgt=Ext1 (__CONS; Seg=0x1 Mod=CSYSLIB.OBJ+0x2A)
+    WRITE 0x34 at 0x0:1886
+    Rel=Sgmt Off=0x49 Tgt=Ext1 (__CONS; Seg=0x1 Mod=CSYSLIB.OBJ+0x2A)
+    WRITE 0x34 at 0x0:1899
+Linking ITOA.OBJ (..\..\smalllib\clib.lib) CODE=0x1894 DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=72
+  FIXUPP
+    Rel=IP Off=0x6B Tgt=Ext1 (_REVERSE; Seg=0x0 Mod=REVERSE.OBJ+0x0)
+    WRITE 0x5EF at 0x0:193F
+Linking ITOAB.OBJ (..\..\smalllib\clib.lib) CODE=0x1906 DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=AE
+  FIXUPP
+    Rel=IP Off=0x9A Tgt=Seg1+0x19
+    WRITE 0xFF7D at 0x0:19E0
+    Rel=IP Off=0xA7 Tgt=Ext1 (_REVERSE; Seg=0x0 Mod=REVERSE.OBJ+0x0)
+    WRITE 0x541 at 0x0:19ED
+Linking ITOU.OBJ (..\..\smalllib\clib.lib) CODE=0x19B4 DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=D5
+Linking LEFT.OBJ (..\..\smalllib\clib.lib) CODE=0x1A8A DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=42
+Linking LONGMATH.OBJ (..\..\smalllib\clib.lib) CODE=0x1ACC DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=23F
+Linking LTOA.OBJ (..\..\smalllib\clib.lib) CODE=0x1D0C DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=F4
+  FIXUPP
+    Rel=IP Off=0xAF Tgt=Ext1 (_UDIV3216; Seg=0x0 Mod=LONGMATH.OBJ+0x21D)
+    WRITE 0xFF2C at 0x0:1DFB
+    Rel=IP Off=0xEA Tgt=Ext2 (_REVERSE; Seg=0x0 Mod=REVERSE.OBJ+0x0)
+    WRITE 0xF8 at 0x0:1E36
+Linking LTOAB.OBJ (..\..\smalllib\clib.lib) CODE=0x1E00 DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=BF
+  FIXUPP
+    Rel=IP Off=0x79 Tgt=Ext1 (_UDIV3216; Seg=0x0 Mod=LONGMATH.OBJ+0x21D)
+    WRITE 0xFE6E at 0x0:1EB9
+    Rel=IP Off=0xB8 Tgt=Ext2 (_REVERSE; Seg=0x0 Mod=REVERSE.OBJ+0x0)
+    WRITE 0x36 at 0x0:1EF8
+Linking MALLOC.OBJ (..\..\smalllib\clib.lib) CODE=0x1EC0 DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=10
+  FIXUPP
+    Rel=IP Off=0xA Tgt=Ext1 (__ALLOC; Seg=0x0 Mod=CSYSLIB.OBJ+0x90F)
+    WRITE 0xF00F at 0x0:1F0A
+Linking PAD.OBJ (..\..\smalllib\clib.lib) CODE=0x1ED0 DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=20
+Linking REVERSE.OBJ (..\..\smalllib\clib.lib) CODE=0x1EF0 DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=55
+  FIXUPP
+    Rel=IP Off=0xD Tgt=Ext1 (_STRLEN; Seg=0x0 Mod=STRLEN.OBJ+0x0)
+    WRITE 0x47 at 0x0:1F3D
+Linking STRLEN.OBJ (..\..\smalllib\clib.lib) CODE=0x1F46 DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=15
+Linking OVLCHK.OBJ (..\..\smalllib\ovllib.lib) CODE=0x1F5C DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=5A
+  FIXUPP
+    Rel=Sgmt Off=0x23 Tgt=Ext2 (__OVL_WIN_GRP; Seg=0x1 Mod=OVLMGR.OBJ+0x8)
+    WRITE 0x2D6 at 0x0:1FBF
+    Rel=IP Off=0x3F Tgt=Ext1 (__OVL_LOAD; Seg=0x0 Mod=OVLLOAD.OBJ+0x33)
+    WRITE 0xD6 at 0x0:1FDB
+    Rel=Sgmt Off=0x44 Tgt=Ext2 (__OVL_WIN_GRP; Seg=0x1 Mod=OVLMGR.OBJ+0x8)
+    WRITE 0x2D6 at 0x0:1FE0
+Linking OVLCOPY.OBJ (..\..\smalllib\ovllib.lib) CODE=0x1FB6 DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=1A
+Linking OVLGETCS.OBJ (..\..\smalllib\ovllib.lib) CODE=0x1FD0 DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=3
+Linking OVLINIT.OBJ (..\..\smalllib\ovllib.lib) CODE=0x1FD4 DATA=0x2AE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=6C
+  FIXUPP
+    Rel=Sgmt Off=0x7 Tgt=Seg2+0x0
+    WRITE 0x2AE at 0x0:201B
+    Rel=IP Off=0xE Tgt=Ext6 (_FOPEN; Seg=0x0 Mod=FOPEN.OBJ+0x0)
+    WRITE 0xF1EA at 0x0:2022
+    Rel=Sgmt Off=0x13 Tgt=Ext3 (__OVL_EXE_FD; Seg=0x1 Mod=OVLMGR.OBJ+0x4)
+    WRITE 0x2D2 at 0x0:2027
+    Rel=Sgmt Off=0x16 Tgt=Ext3 (__OVL_EXE_FD; Seg=0x1 Mod=OVLMGR.OBJ+0x4)
+    WRITE 0x2D2 at 0x0:202A
+    Rel=Sgmt Off=0x20 Tgt=Seg2+0x2
+    WRITE 0x2B0 at 0x0:2034
+    Rel=IP Off=0x28 Tgt=Ext1 (_FPRINTF; Seg=0x0 Mod=FPRINTF.OBJ+0x0)
+    WRITE 0xF1F6 at 0x0:203C
+    Rel=IP Off=0x32 Tgt=Ext7 (_EXIT; Seg=0x0 Mod=EXIT.OBJ+0x0)
+    WRITE 0xEFA0 at 0x0:2046
+    Rel=IP Off=0x36 Tgt=Ext4 (__GET_CS; Seg=0x0 Mod=OVLGETCS.OBJ+0x0)
+    WRITE 0xFFC4 at 0x0:204A
+    Rel=Sgmt Off=0x39 Tgt=Ext5 (__OVL_CS_SEG; Seg=0x1 Mod=OVLMGR.OBJ+0x6)
+    WRITE 0x2D4 at 0x0:204D
+    Rel=Sgmt Off=0x54 Tgt=Ext2 (__OVL_WIN_GRP; Seg=0x1 Mod=OVLMGR.OBJ+0x8)
+    WRITE 0x2D6 at 0x0:2068
+  LEDATA SegIdx=2 Offs=0 Len=20
+Linking OVLLOAD.OBJ (..\..\smalllib\ovllib.lib) CODE=0x2040 DATA=0x2CE 
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=164
+  FIXUPP
+    Rel=IP Off=0xA Tgt=Ext16 (_FGETC; Seg=0x0 Mod=FGETC.OBJ+0x0)
+    WRITE 0xF050 at 0x0:208A
+    Rel=IP Off=0x14 Tgt=Ext16 (_FGETC; Seg=0x0 Mod=FGETC.OBJ+0x0)
+    WRITE 0xF046 at 0x0:2094
+    Rel=Sgmt Off=0x3F Tgt=Ext1A (__OVL_TOC_OFF; Seg=0x1 Mod=OVLMGR.OBJ+0x0)
+    WRITE 0x2CE at 0x0:20BF
+    Rel=Sgmt Off=0x43 Tgt=Ext1A (__OVL_TOC_OFF; Seg=0x1 Mod=OVLMGR.OBJ+0x0)
+    WRITE 0x2D0 at 0x0:20C3
+    Rel=IP Off=0x57 Tgt=Ext15 (__LMUL; Seg=0x0 Mod=LONGMATH.OBJ+0xF)
+    WRITE 0xFA42 at 0x0:20D7
+    Rel=Sgmt Off=0x70 Tgt=Ext18 (__OVL_EXE_FD; Seg=0x1 Mod=OVLMGR.OBJ+0x4)
+    WRITE 0x2D2 at 0x0:20F0
+    Rel=IP Off=0x73 Tgt=Ext1C (_BSEEK; Seg=0x0 Mod=BSEEK.OBJ+0x0)
+    WRITE 0xE3C3 at 0x0:20F3
+    Rel=Sgmt Off=0x7A Tgt=Ext18 (__OVL_EXE_FD; Seg=0x1 Mod=OVLMGR.OBJ+0x4)
+    WRITE 0x2D2 at 0x0:20FA
+    Rel=IP Off=0x7D Tgt=Seg1+0x0
+    WRITE 0xFF81 at 0x0:20FD
+    Rel=Sgmt Off=0x85 Tgt=Ext18 (__OVL_EXE_FD; Seg=0x1 Mod=OVLMGR.OBJ+0x4)
+    WRITE 0x2D2 at 0x0:2105
+    Rel=IP Off=0x88 Tgt=Seg1+0x0
+    WRITE 0xFF76 at 0x0:2108
+    Rel=Sgmt Off=0x90 Tgt=Ext18 (__OVL_EXE_FD; Seg=0x1 Mod=OVLMGR.OBJ+0x4)
+    WRITE 0x2D2 at 0x0:2110
+    Rel=IP Off=0x93 Tgt=Seg1+0x0
+    WRITE 0xFF6B at 0x0:2113
+    Rel=Sgmt Off=0x9B Tgt=Ext18 (__OVL_EXE_FD; Seg=0x1 Mod=OVLMGR.OBJ+0x4)
+    WRITE 0x2D2 at 0x0:211B
+    Rel=IP Off=0x9E Tgt=Seg1+0x0
+    WRITE 0xFF60 at 0x0:211E
+    Rel=IP Off=0xB8 Tgt=ExtF (__LSHL; Seg=0x0 Mod=LONGMATH.OBJ+0x14A)
+    WRITE 0xFB1C at 0x0:2138
+    Rel=Sgmt Off=0xE6 Tgt=Ext18 (__OVL_EXE_FD; Seg=0x1 Mod=OVLMGR.OBJ+0x4)
+    WRITE 0x2D2 at 0x0:2166
+    Rel=IP Off=0xE9 Tgt=Ext1C (_BSEEK; Seg=0x0 Mod=BSEEK.OBJ+0x0)
+    WRITE 0xE34D at 0x0:2169
+    Rel=Sgmt Off=0x115 Tgt=Ext18 (__OVL_EXE_FD; Seg=0x1 Mod=OVLMGR.OBJ+0x4)
+    WRITE 0x2D2 at 0x0:2195
+    Rel=IP Off=0x125 Tgt=Ext1B (_FREAD; Seg=0x0 Mod=FREAD.OBJ+0x0)
+    WRITE 0xF515 at 0x0:21A5
+    Rel=IP Off=0x137 Tgt=Ext17 (__OVL_COPY; Seg=0x0 Mod=OVLCOPY.OBJ+0x0)
+    WRITE 0xFE3D at 0x0:21B7
+Linking OVLMGR.OBJ (..\..\smalllib\ovllib.lib) CODE=0x21A4 DATA=0x2CE 
+  EXTDEF
+  LIDATA SegIdx=2 Offs=0 Len=1C
+    Repeat=2 Blocks=0
+    Repeat=1 Blocks=0
+    Repeat=1 Blocks=0
+    Repeat=8 Blocks=0
+  Stub 0 at CS:0x21B0 -> _PLAY_G4 CS:0x2376 (enc=0x105)
+  Stub 1 at CS:0x21BB -> _PLAY_E4 CS:0x2376 (enc=0x104)
+  Stub 2 at CS:0x21C6 -> _PLAY_C4 CS:0x2376 (enc=0x103)
+  Stub 3 at CS:0x21D1 -> _EGA_PHASE CS:0x2325 (enc=0x1)
+  Stub 4 at CS:0x21DC -> _VGA_PHASE CS:0x222C (enc=0x2)
+  Stub 5 at CS:0x21E7 -> _CGA_PHASE CS:0x2259 (enc=0x0)
+Checksum=3DB8
+OvlLink DRAW_CGA.OBJ CODE=0x21F2 DATA=0x2F0
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=9B
+  FIXUPP
+    Rel=IP Off=0x6E Tgt=Ext2 (_KBHIT; Seg=0x0 Mod=OVLTEST.OBJ+0x180)
+    WRITE 0xDF20 at 0x0:22A0
+    Rel=IP Off=0x75 Tgt=Ext4 (_RAND_X; Seg=0x0 Mod=OVLTEST.OBJ+0x43)
+    WRITE 0xDDDC at 0x0:22A7
+    Rel=IP Off=0x7B Tgt=Ext3 (_RAND_Y; Seg=0x0 Mod=OVLTEST.OBJ+0x6C)
+    WRITE 0xDDFF at 0x0:22AD
+    Rel=IP Off=0x81 Tgt=Ext1 (_RAND_C; Seg=0x0 Mod=OVLTEST.OBJ+0x95)
+    WRITE 0xDE22 at 0x0:22B3
+    Rel=IP Off=0x90 Tgt=Seg1+0x0
+    WRITE 0xFF6E at 0x0:22C2
+  OVL module 0 at EXE offset 0x027A0 size=156
+OvlLink DRAW_EGA.OBJ CODE=0x21F2 DATA=0x2F0
+  EXTDEF
+  LIDATA SegIdx=2 Offs=0 Len=E
+    Repeat=10 Blocks=0
+    Repeat=40 Blocks=0
+  LEDATA SegIdx=1 Offs=0 Len=183
+  FIXUPP
+    Rel=Sgmt Off=0x1F Tgt=Seg2+0x20
+    WRITE 0x310 at 0x0:2251
+    Rel=IP Off=0x5C Tgt=Ext1 (_RAND_RANGE_C; Seg=0x0 Mod=OVLTEST.OBJ+0x157)
+    WRITE 0xDF09 at 0x0:228E
+    Rel=Sgmt Off=0x66 Tgt=Seg2+0x20
+    WRITE 0x310 at 0x0:2298
+    Rel=Sgmt Off=0x77 Tgt=Seg2+0x20
+    WRITE 0x310 at 0x0:22A9
+    Rel=Sgmt Off=0x84 Tgt=Seg2+0x20
+    WRITE 0x310 at 0x0:22B6
+    Rel=Sgmt Off=0x95 Tgt=Seg2+0x20
+    WRITE 0x310 at 0x0:22C7
+    Rel=Sgmt Off=0xA8 Tgt=Seg2+0x0
+    WRITE 0x2F0 at 0x0:22DA
+    Rel=Sgmt Off=0xCB Tgt=Seg2+0x0
+    WRITE 0x2F0 at 0x0:22FD
+    Rel=IP Off=0x13E Tgt=Ext2 (_SETMODE; Seg=0x0 Mod=OVLTEST.OBJ+0x19E)
+    WRITE 0xDE6E at 0x0:2370
+    Rel=IP Off=0x142 Tgt=Seg1+0x0
+    WRITE 0xFEBC at 0x0:2374
+    Rel=IP Off=0x145 Tgt=Seg1+0xC0
+    WRITE 0xFF79 at 0x0:2377
+    Rel=IP Off=0x156 Tgt=Ext6 (_KBHIT; Seg=0x0 Mod=OVLTEST.OBJ+0x180)
+    WRITE 0xDE38 at 0x0:2388
+    Rel=IP Off=0x15D Tgt=Ext4 (_RAND_EX; Seg=0x0 Mod=OVLTEST.OBJ+0xBE)
+    WRITE 0xDD6F at 0x0:238F
+    Rel=IP Off=0x163 Tgt=Ext3 (_RAND_EY; Seg=0x0 Mod=OVLTEST.OBJ+0xE7)
+    WRITE 0xDD92 at 0x0:2395
+    Rel=IP Off=0x169 Tgt=Ext5 (_RAND_EC; Seg=0x0 Mod=OVLTEST.OBJ+0x110)
+    WRITE 0xDDB5 at 0x0:239B
+    Rel=IP Off=0x178 Tgt=Seg1+0xE3
+    WRITE 0xFF69 at 0x0:23AA
+  OVL module 1 at EXE offset 0x0283C size=388
+OvlLink DRAW_VGA.OBJ CODE=0x21F2 DATA=0x390
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=6E
+  FIXUPP
+    Rel=IP Off=0x41 Tgt=Ext4 (_KBHIT; Seg=0x0 Mod=OVLTEST.OBJ+0x180)
+    WRITE 0xDF4D at 0x0:2273
+    Rel=IP Off=0x48 Tgt=Ext3 (_RAND_EX; Seg=0x0 Mod=OVLTEST.OBJ+0xBE)
+    WRITE 0xDE84 at 0x0:227A
+    Rel=IP Off=0x4E Tgt=Ext2 (_RAND_EY; Seg=0x0 Mod=OVLTEST.OBJ+0xE7)
+    WRITE 0xDEA7 at 0x0:2280
+    Rel=IP Off=0x54 Tgt=Ext1 (_RAND_VC; Seg=0x0 Mod=OVLTEST.OBJ+0x139)
+    WRITE 0xDEF3 at 0x0:2286
+    Rel=IP Off=0x63 Tgt=Seg1+0x0
+    WRITE 0xFF9B at 0x0:2295
+  OVL module 2 at EXE offset 0x029C0 size=110
+OvlLink SND_C4.OBJ CODE=0x2376 DATA=0x390
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=11
+  FIXUPP
+    Rel=IP Off=0x1 Tgt=Ext2 (_OPL_INIT; Seg=0x0 Mod=OVLTEST.OBJ+0x202)
+    WRITE 0xDE8B at 0x0:23B7
+    Rel=IP Off=0xC Tgt=Ext1 (_OPL_NOTE; Seg=0x0 Mod=OVLTEST.OBJ+0x29D)
+    WRITE 0xDF1B at 0x0:23C2
+  OVL module 3 at EXE offset 0x02A2E size=18
+OvlLink SND_E4.OBJ CODE=0x2376 DATA=0x390
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=11
+  FIXUPP
+    Rel=IP Off=0x1 Tgt=Ext2 (_OPL_INIT; Seg=0x0 Mod=OVLTEST.OBJ+0x202)
+    WRITE 0xDE8B at 0x0:23B7
+    Rel=IP Off=0xC Tgt=Ext1 (_OPL_NOTE; Seg=0x0 Mod=OVLTEST.OBJ+0x29D)
+    WRITE 0xDF1B at 0x0:23C2
+  OVL module 4 at EXE offset 0x02A40 size=18
+OvlLink SND_G4.OBJ CODE=0x2376 DATA=0x390
+  EXTDEF
+  LEDATA SegIdx=1 Offs=0 Len=11
+  FIXUPP
+    Rel=IP Off=0x1 Tgt=Ext2 (_OPL_INIT; Seg=0x0 Mod=OVLTEST.OBJ+0x202)
+    WRITE 0xDE8B at 0x0:23B7
+    Rel=IP Off=0xC Tgt=Ext1 (_OPL_NOTE; Seg=0x0 Mod=OVLTEST.OBJ+0x29D)
+    WRITE 0xDF1B at 0x0:23C2
+  OVL module 5 at EXE offset 0x02A52 size=18
+  OVL TOC at 0x02A64 (6 modules)
+Code: 9104 b, Data: 912 b, Stack: 64 b

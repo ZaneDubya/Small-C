@@ -1,0 +1,14 @@
+; ovltest.rsp -- ylink response file for ovltest
+; One argument per line. Semicolons are comments.
+ovltest.obj
+draw_cga.obj
+draw_ega.obj
+draw_vga.obj
+snd_c4.obj
+snd_e4.obj
+snd_g4.obj
+..\..\smalllib\clib.lib
+..\..\smalllib\ovllib.lib
+-e=ovltest.exe
+-d=link.txt
+-od=ovltest.ovl
