@@ -710,7 +710,16 @@
 #define ASLsn   214   // shift arithmetic left sr by n into pr (MOV CL,n / SHL AX,CL)
 #define LSRsn   215   // logical shift right sr by n into pr (MOV CL,n / SHR AX,CL)
 #define POINT1m_ 216  // point pr to mem thru label (part 1, no newline; paired with PLUSn)
-#define PCODES  217   // size of code[]
+// optimizer-generated: post-increment/decrement of stack-frame pointer variable
+#define POSTINCws 217 // post-inc stack word ptr into sr: BX = stack[o]; stack[o]++
+#define POSTDECws 218 // post-dec stack word ptr into sr: BX = stack[o]; stack[o]--
+// optimizer-generated: compound assign to stack-frame slot  (local op= ...)
+#define ADDws1  219   // ADD  <n>[BP],AX  -- add pr into BP-relative stack slot
+#define SUBws1  220   // SUB  <n>[BP],AX  -- subtract pr from BP-relative stack slot
+#define ANDws1  221   // AND  <n>[BP],AX  -- AND pr into BP-relative stack slot
+#define ORws1   222   // OR   <n>[BP],AX  -- OR  pr into BP-relative stack slot
+#define XORws1  223   // XOR  <n>[BP],AX  -- XOR pr into BP-relative stack slot
+#define PCODES  224   // size of code[]
 
 // === function prototypes for Small-C ========================================
 // ============================================================================
@@ -780,7 +789,6 @@ int isreserved(char *name);
 int isUnsigned(int *is);
 void kill();
 int level1(int *is);
-void lout(char *line, int fd);
 void multidef(char *sname);
 void needlval();
 char *nextsym(char *entry);

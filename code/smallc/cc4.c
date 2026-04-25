@@ -78,6 +78,8 @@ int *getpop(int *next);
 #define sfree   0x00FC   // matches if sec register free
 #define comm    0x00FB   // matches if registers are commutative
 #define fset    0x00FA   // matches if current slot's p-code has SETSFLG set (sets ZF on result)
+#define v1eq    0x00F9   // matches if the previously-consumed slot's value == 1;
+                         // truly non-consuming: only advances seq, not next (via continue)
 
 //              --      these digits are reserved for n
 #define go      0x0100   // go n entries
@@ -98,6 +100,10 @@ int *getpop(int *next);
 #define m2      0x00FE   // minus 2
 #define m3      0x00FD   // minus 3
 #define m4      0x00FC   // minus 4
+#define m5      0x00FB   // minus 5
+#define m6      0x00FA   // minus 6
+#define m7      0x00F9   // minus 7
+#define m8      0x00F8   // minus 8
 
 #define PRI      0030    // primary register bits
 #define SEC      0003    // secondary register bits
@@ -134,11 +140,16 @@ int *getpop(int *next);
 //   sfree  (0xFC)   — succeeds if BX is dead from this point forward (isfree)
 //   comm   (0xFB)   — succeeds if the current p-code has the COMMUTES flag
 //   fset   (0xFA)   — succeeds if the current p-code has the SETSFLG flag
+//   v1eq   (0xF9)   — succeeds if the PREVIOUSLY consumed slot's value == 1;
+//                     truly non-consuming: advances the pattern pointer but NOT
+//                     the buffer cursor. Safe to use mid-pattern to test a value
+//                     without skipping the next buffer slot.
 //
-// The non-consuming matchers (pfree, sfree, comm, fset, _pop) advance only the
-// pattern pointer, not the buffer cursor — they test a condition at the same
-// position. If any element fails, peep() returns NO immediately. There is no
-// backtracking; patterns are tested strictly left-to-right.
+// The matchers pfree, sfree, comm, fset, and _pop also do not check the current
+// slot's p-code identity, but they DO advance the buffer cursor (they use `break`
+// in the peep() switch, so `next += 2` still runs). They must therefore be placed
+// at the END of a pattern, right before the `0` terminator, where the extra cursor
+// advance is harmless. v1eq is the only matcher safe to use mid-pattern.
 //
 // The pattern may be any length. A one-element pattern (e.g. just ADD1n) is
 // legal; so is a ten-element pattern matching ten consecutive p-code pairs.
@@ -405,16 +416,17 @@ int seqdata[] = {
     GETw1m,GETw2n,ADD12,MOVE21,GETw1p,0,go|p4,gv|m3,go|m1,GETw2m,gv|m3,0, 0,
 
     // 015 Load Global Pair, Swap-Free
-    // Load two globals in reversed register order, eliminating SWAP12.
-    //     IN:  GETw1m(m1)  GETw2m(m2)  SWAP12
-    //          AX=m1       BX=m2       AX<->BX
+    // Load two globals in reversed register order, eliminating MOVE21+SWAP12.
+    //     IN:  GETw1m(m1)  MOVE21  GETw1m(m2)  SWAP12
+    //          AX=m1       BX=AX   AX=m2       AX<->BX
     //     NET: AX=m2, BX=m1
-    //     WHY: The compiler loaded operands in evaluation order (left->pr, right->sr) then
-    //          inserted SWAP12 because the subsequent op needed them reversed. Loading them
-    //          in the required order directly eliminates the swap.
+    //     WHY: The compiler loads the left operand into pr, copies to sr (MOVE21), then
+    //          loads the right operand into pr, then inserts SWAP12 because the op needs
+    //          them reversed. Loading in the required order from the start eliminates
+    //          both MOVE21 and SWAP12.
     //     OUT: GETw2m(m1)  GETw1m(m2)
     //          BX=m1       AX=m2
-    GETw1m,GETw2m,SWAP12,0,go|p2,GETw1m,gv|m1,go|m1,gv|m1,0, 0,
+    GETw1m,MOVE21,GETw1m,SWAP12,0, go|p3,GETw1m,gv|m1,go|m1,GETw2m,gv|m2, 0, 0,
 
     // 016 Load Global Direct to Sr
     // Load a global directly into sr, skipping detour through pr.
@@ -474,15 +486,16 @@ int seqdata[] = {
     GETw1s,GETw2n,ADD12,MOVE21,0,go|p3,ADD2n,gv|m2,go|m1,GETw2s,gv|m2,0, 0,
 
     // 022 Load Stack Pair, Swap-Free
-    // Load two stack variables in reversed register order, eliminating SWAP12.
-    //     IN:  GETw1s(o1)  GETw2s(o2)  SWAP12
-    //          AX=stack[o1]  BX=stack[o2]  AX<->BX
+    // Load two stack variables in reversed register order, eliminating MOVE21+SWAP12.
+    //     IN:  GETw1s(o1)  MOVE21  GETw1s(o2)  SWAP12
+    //          AX=stack[o1]  BX=AX  AX=stack[o2]  AX<->BX
     //     NET: AX=stack[o2], BX=stack[o1]
-    //     WHY: Same root cause as Load Global Pair, Swap-Free: compiler loaded operands in evaluation order then
-    //          inserted SWAP12; load them in the required order from start.
+    //     WHY: Same root cause as Load Global Pair, Swap-Free: compiler loads left into pr,
+    //          copies to sr (MOVE21), loads right into pr, then swaps. Loading in the
+    //          required order from the start eliminates both MOVE21 and SWAP12.
     //     OUT: GETw2s(o1)  GETw1s(o2)
     //          BX=stack[o1]  AX=stack[o2]
-    GETw1s,GETw2s,SWAP12,0,go|p2,GETw1s,gv|m1,go|m1,GETw2s,gv|m1,0, 0,
+    GETw1s,MOVE21,GETw1s,SWAP12,0, go|p3,GETw1s,gv|m1,go|m1,GETw2s,gv|m2, 0, 0,
 
     // 023 Load Stack Var Direct to Sr
     // Load a stack variable directly into sr, skipping detour through pr.
@@ -553,7 +566,7 @@ int seqdata[] = {
     //     OUT: POINT2m_(m)  PLUSn(n)  ->  MOV BX, OFFSET m+n
     POINT1m,GETw2n,ADD12,MOVE21,0,go|p3,PLUSn,gv|m2,go|m1,POINT2m_,gv|m2,0, 0,
 
-    // 029b Point-Mem Offset Fold (address stays in AX)
+    // 030 Point-Mem Offset Fold (address stays in AX)
     // Fold address-of-global + constant offset into a two-part pr-pointer-with-displacement.
     //     IN:  POINT1m(m)  GETw2n(n)  ADD12
     //          AX=&m        BX=n      AX+=BX
@@ -562,7 +575,7 @@ int seqdata[] = {
     //     OUT: POINT1m_(m)  PLUSn(n)  ->  MOV AX, OFFSET m+n
     POINT1m,GETw2n,ADD12,0, go|p2,PLUSn,gv|m1,go|m1,POINT1m_,gv|m1,0, 0,
 
-    // 030 Point-Mem Direct to Sr
+    // 031 Point-Mem Direct to Sr
     // Load address of a global directly into sr when pr is not needed afterward.
     //     IN:  POINT1m(m)  MOVE21  (pfree: pr not live after this point)
     //          AX=&m        BX=AX
@@ -571,7 +584,7 @@ int seqdata[] = {
     //     OUT: POINT2m(m)  ->  MOV BX, OFFSET m
     POINT1m,MOVE21,pfree,0,go|p1,POINT2m,gv|m1,0, 0,
 
-    // 031 Stack Address Offset Fold
+    // 032 Stack Address Offset Fold
     // Fold POINT1s + constant offset + ADD12 + MOVE21 into POINT2s with the combined displacement.
     //     IN:  POINT1s(o)  GETw2n(n)  ADD12   MOVE21
     //          AX=&stack[o]  BX=n     AX+=BX  BX=AX
@@ -580,7 +593,7 @@ int seqdata[] = {
     //     OUT: POINT2s(o+n)
     POINT1s,GETw2n,ADD12,MOVE21,0,sum|p1,go|p3,POINT2s,gv|m3,0, 0,
 
-    // 032 Stack Point, Push and Copy
+    // 033 Stack Point, Push and Copy
     // Replace POINT1s+PUSH1+MOVE21 with POINT2s+PUSH2, loading the stack address into sr and pushing from there.
     //     IN:  POINT1s(o)  PUSH1        MOVE21
     //          AX=&stack[o]  push AX   BX=AX
@@ -590,7 +603,7 @@ int seqdata[] = {
     //     OUT: POINT2s(o)  PUSH2
     POINT1s,PUSH1,MOVE21,0,go|p1,POINT2s,gv|m1,go|p1,PUSH2,go|m1,0, 0,
 
-    // 033 Stack Address Direct to Sr
+    // 034 Stack Address Direct to Sr
     // Same as Point-Mem Direct to Sr for a stack address: replace POINT1s+MOVE21 with POINT2s.
     //     IN:  POINT1s(o)  MOVE21
     //          AX=&stack[o]  BX=AX
@@ -599,7 +612,7 @@ int seqdata[] = {
     //     OUT: POINT2s(o)
     POINT1s,MOVE21,0,go|p1,POINT2s,gv|m1,0, 0,
 
-    // 034 Fold Global Ptr to Signed Byte Load
+    // 035 Fold Global Ptr to Signed Byte Load
     // Fold POINT2m+GETb1p into a direct global signed byte load, eliminating the pointer register.
     //     IN:  POINT2m(m)  GETb1p(0)  (sfree: sr not live after this point)
     //          BX=&m       AX=s8[BX+0], CBW
@@ -608,7 +621,7 @@ int seqdata[] = {
     //     OUT: GETb1m(m)  ->  MOV AL,[m]  CBW
     POINT2m,GETb1p,sfree,0,go|p1,GETb1m,gv|m1,0, 0,
 
-    // 035 Fold Global Ptr to Unsigned Byte Load
+    // 036 Fold Global Ptr to Unsigned Byte Load
     // Same as Fold Global Ptr to Signed Byte Load for an unsigned byte: fold POINT2m+GETb1pu into GETb1mu.
     //     IN:  POINT2m(m)  GETb1pu(0)  (sfree: sr not live after this point)
     //          BX=&m       AL=u8[BX+0], XOR AH,AH
@@ -617,7 +630,7 @@ int seqdata[] = {
     //     OUT: GETb1mu(m)  ->  MOV AL,[m]  XOR AH,AH
     POINT2m,GETb1pu,sfree,0,go|p1,GETb1mu,gv|m1,0, 0,
 
-    // 036 Fold Global Ptr to Word Load
+    // 037 Fold Global Ptr to Word Load
     // Same as Fold Global Ptr to Signed Byte Load for a word: fold POINT2m+GETw1p into GETw1m.
     //     IN:  POINT2m(m)  GETw1p(0)  (sfree: sr not live after this point)
     //          BX=&m       AX=w[BX+0]
@@ -626,7 +639,7 @@ int seqdata[] = {
     //     OUT: GETw1m(m)  ->  MOV AX,[m]
     POINT2m,GETw1p,sfree,0,go|p1,GETw1m,gv|m1,0, 0,
 
-    // 037 Fold Displaced Global Ptr to Word Load
+    // 038 Fold Displaced Global Ptr to Word Load
     // Fold into GETw1m_+PLUSn: collapse pointer-plus-offset + load into a single displaced global word load.
     //     IN:  POINT2m_(m)  PLUSn(n)  GETw1p(0)  (sfree: sr not live after this point)
     //          BX=&m         BX+=n    AX=w[BX+0]
@@ -636,7 +649,7 @@ int seqdata[] = {
     //     OUT: GETw1m_(m)  PLUSn(n)  ->  MOV AX,[m+n]
     POINT2m_,PLUSn,GETw1p,sfree,0,go|p2,gc|m1,gv|m1,go|m1,GETw1m_,gv|m1,0, 0,
 
-    // 038 Fold Stack Ptr to Signed Byte Load
+    // 039 Fold Stack Ptr to Signed Byte Load
     // Fold POINT2s+GETb1p into a direct stack signed byte load, eliminating the pointer register.
     //     IN:  POINT2s(o)    GETb1p(0)  (sfree: sr not live after this point)
     //          BX=&stack[o]  AX=s8[BX+0], CBW
@@ -645,7 +658,7 @@ int seqdata[] = {
     //     OUT: GETb1s(o)  ->  MOV AL,[BP+o]  CBW
     POINT2s,GETb1p,sfree,0,sum|p1,go|p1,GETb1s,gv|m1,0, 0,
 
-    // 039 Fold Stack Ptr to Unsigned Byte Load
+    // 040 Fold Stack Ptr to Unsigned Byte Load
     // Same as Fold Stack Ptr to Signed Byte Load for an unsigned byte: fold POINT2s+GETb1pu into GETb1su.
     //     IN:  POINT2s(o)    GETb1pu(0)  (sfree: sr not live after this point)
     //          BX=&stack[o]  AL=u8[BX+0], XOR AH,AH
@@ -654,7 +667,7 @@ int seqdata[] = {
     //     OUT: GETb1su(o)  ->  MOV AL,[BP+o]  XOR AH,AH
     POINT2s,GETb1pu,sfree,0,sum|p1,go|p1,GETb1su,gv|m1,0, 0,
 
-    // 040 Push Stack Word via Ptr
+    // 041 Push Stack Word via Ptr
     // Fold POINT2s+GETw1p+PUSH1 into PUSHs, pushing a stack variable directly without loading it into pr.
     //     IN:  POINT2s(o)    GETw1p(0)  PUSH1   (pfree: pr not live after this point)
     //          BX=&stack[o]  AX=w[BX]   push AX
@@ -664,7 +677,7 @@ int seqdata[] = {
     //     OUT: PUSHs(o)  ->  PUSH WORD PTR [BP+o]
     POINT2s,GETw1p,PUSH1,pfree,0,sum|p1,go|p2,PUSHs,gv|m2,0, 0,
 
-    // 041 Fold Stack Ptr to Word Load
+    // 042 Fold Stack Ptr to Word Load
     // Fold POINT2s+GETw1p into a direct stack word load, eliminating the pointer register.
     //     IN:  POINT2s(o)    GETw1p(0)  (sfree: sr not live after this point)
     //          BX=&stack[o]  AX=w[BX]
@@ -673,7 +686,38 @@ int seqdata[] = {
     //     OUT: GETw1s(o)  ->  MOV AX,[BP+o]
     POINT2s,GETw1p,sfree,0,sum|p1,go|p1,GETw1s,gv|m1,0, 0,
 
-    // 042 Store Word via Stack Pointer to Direct Stack Store
+    // 043 Post-Increment Word via Stack-Frame Pointer
+    // Fold POINT2s+GETw1p+rINC1(1)+PUTwp1+rDEC1(1)+MOVE21 into POSTINCws.
+    //     IN:  POINT2s(o)    GETw1p(d)   rINC1(1)  PUTwp1   rDEC1(1)  MOVE21
+    //          BX=&stack[o]  AX=w[BX+d]  AX++      [BX+d]=AX  AX--    BX=AX
+    //     NET: BX = old w[stack+o+d];  w[stack+o+d] incremented by 1
+    //     WHY: INCwp is only created when rule 011 fires at the rINC1 slot, by which
+    //          time POINT2s and GETw1p have already been emitted. This rule matches the
+    //          pre-transform raw form at the POINT2s position before any slots are emitted.
+    //          v1eq guards that rINC1's step==1 (char * post-increment; int * step=2
+    //          takes the ADDwpn branch of rule 011 and is not covered here).
+    //          POSTINCws emits: MOV BX,o+d[BP] / INC WORD PTR o+d[BP].  AX not set.
+    //     GUARD: v1eq (rINC1 value==1), pfree (AX not live after MOVE21)
+    //     OUT: POSTINCws(o+d)  NOP_ x5
+    POINT2s,GETw1p,rINC1,v1eq,PUTwp1,rDEC1,MOVE21,pfree,0,
+    sum|p1,POSTINCws,go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,go|p1,
+    NOP_,go|p1,NOP_,go|m5, 0, 0,
+
+    // 044 Post-Decrement Word via Stack-Frame Pointer
+    // Fold POINT2s+GETw1p+rDEC1(1)+PUTwp1+rINC1(1)+MOVE21 into POSTDECws.
+    //     IN:  POINT2s(o)    GETw1p(d)   rDEC1(1)  PUTwp1   rINC1(1)  MOVE21
+    //          BX=&stack[o]  AX=w[BX+d]  AX--      [BX+d]=AX  AX++    BX=AX
+    //     NET: BX = old w[stack+o+d];  w[stack+o+d] decremented by 1
+    //     WHY: Symmetric to 041a. Covers while(fill--), while(ndig-- > 0) and
+    //          similar patterns on local char * or int * variables.
+    //          POSTDECws emits: MOV BX,o+d[BP] / DEC WORD PTR o+d[BP].  AX not set.
+    //     GUARD: v1eq (rDEC1 value==1), pfree (AX not live after MOVE21)
+    //     OUT: POSTDECws(o+d)  NOP_ x5
+    POINT2s,GETw1p,rDEC1,v1eq,PUTwp1,rINC1,MOVE21,pfree,0,
+    sum|p1,POSTDECws,go|p1,NOP_,go|p1,NOP_,go|p1,
+    NOP_,go|p1,NOP_,go|p1,NOP_,go|m5, 0, 0,
+
+    // 045 Store Word via Stack Pointer to Direct Stack Store
     // Fold POINT2s+PUTwp1 into PUTws1: computed stack address + indirect word store -> direct BP-relative store.
     //     IN:  POINT2s(o)       PUTwp1     (sfree: sr not live after this point)
     //          BX=&stack[o]     [BX]=AX
@@ -683,7 +727,7 @@ int seqdata[] = {
     //     OUT: PUTws1(o)  ->  MOV <o>[BP],AX
     POINT2s,PUTwp1,sfree,0,sum|p1,go|p1,PUTws1,gv|m1,0, 0,
 
-    // 043 Store Byte via Stack Pointer to Direct Stack Store
+    // 046 Store Byte via Stack Pointer to Direct Stack Store
     // Same as Store Word via Stack Pointer for a byte: fold POINT2s+PUTbp1 into PUTbs1.
     //     IN:  POINT2s(o)       PUTbp1     (sfree: sr not live after this point)
     //          BX=&stack[o]     [BX]=AL
@@ -692,7 +736,7 @@ int seqdata[] = {
     //     OUT: PUTbs1(o)  ->  MOV BYTE PTR <o>[BP],AL
     POINT2s,PUTbp1,sfree,0,sum|p1,go|p1,PUTbs1,gv|m1,0, 0,
 
-    // 044 Push/Pop Pair to Move21
+    // 047 Push/Pop Pair to Move21
     // Replace PUSH1+any+POP2 with MOVE21+any when any does not clobber sr, eliminating the stack round-trip.
     //     IN:  PUSH1    any       POP2
     //          push AX  <any op>  BX=popped
@@ -702,7 +746,7 @@ int seqdata[] = {
     //     OUT: MOVE21  any  ->  MOV BX,AX  <any op>
     PUSH1,any,POP2,0,go|p2,gc|m1,gv|m1,go|m1,MOVE21,0, 0,
 
-    // 045 Push-Through-Ptr/Pop Pair to Reload
+    // 048 Push-Through-Ptr/Pop Pair to Reload
     // Replace PUSHp+any+POP2 with any+GETw2p when any does not clobber sr, eliminating the stack round-trip.
     //     IN:  PUSHp       any       POP2
     //          push w[BX]  <any op>  BX=popped
@@ -712,7 +756,7 @@ int seqdata[] = {
     //     OUT: any  GETw2p(0)  ->  <any op>  MOV BX,[BX]
     PUSHp,any,POP2,0,go|p2,gc|m1,gv|m1,go|m1,GETw2p,gv|m1,0, 0,
 
-    // 045a Const Arithmetic-Left Shift Via MOVE21, BX Dead (sfree fold)
+    // 049 Const Arithmetic-Left Shift Via MOVE21, BX Dead (sfree fold)
     // Fold MOVE21+GETw1n(n)+ASL12 into SHL1n(n) when BX is dead after the shift.
     //     IN:  MOVE21  GETw1n(n)  ASL12   (sfree: BX not live after ASL12)
     //          BX=AX   AX=n       AX=BX<<AX  (MOV CX,AX / MOV AX,BX / SAL AX,CL)
@@ -725,21 +769,21 @@ int seqdata[] = {
     //     OUT: NOP_  NOP_  SHL1n(n)
     MOVE21, GETw1n, ASL12, sfree, 0, NOP_, go|p1, NOP_, go|p1, SHL1n, gv|m1, go|m2, 0, 0,
 
-    // 045b Const Arithmetic-Right Shift Via MOVE21, BX Dead (sfree fold)
+    // 050 Const Arithmetic-Right Shift Via MOVE21, BX Dead (sfree fold)
     // Fold MOVE21+GETw1n(n)+ASR12 into SAR1n(n) when BX is dead after the shift.
     //     IN:  MOVE21  GETw1n(n)  ASR12   (sfree: BX not live after ASR12)
     //          BX=AX   AX=n       AX=BX>>AX  (signed; MOV CX,AX / MOV AX,BX / SAR AX,CL)
     //     NET: AX = old_AX >> n  (signed; BX was only a temporary)
     //     WHY: Same logic as 045a for signed right shift. SAR1n shifts AX in-place
     //          (MOV CL,n / SAR AX,CL), BX unchanged, eliminating the MOV BX,AX/MOV AX,BX
-    //          round-trip that rules 047/047a/047b leave behind.
+    //          round-trip that rules 054/055/056 leave behind.
     //          Net savings vs MOVE21+ASR1_1:  6 bytes -> 5 bytes (n==1)
     //          Net savings vs MOVE21+ASR1_2:  8 bytes -> 5 bytes (n==2)
     //          Net savings vs MOVE21+ASRsn:   9 bytes -> 5 bytes (n>=3)
     //     OUT: NOP_  NOP_  SAR1n(n)
     MOVE21, GETw1n, ASR12, sfree, 0, NOP_, go|p1, NOP_, go|p1, SAR1n, gv|m1, go|m2, 0, 0,
 
-    // 045c Const Logical-Right Shift Via MOVE21, BX Dead (sfree fold)
+    // 051 Const Logical-Right Shift Via MOVE21, BX Dead (sfree fold)
     // Fold MOVE21+GETw1n(n)+LSR12 into SHR1n(n) when BX is dead after the shift.
     //     IN:  MOVE21  GETw1n(n)  LSR12   (sfree: BX not live after LSR12)
     //          BX=AX   AX=n       AX=BX>>AX  (unsigned; MOV CX,AX / MOV AX,BX / SHR AX,CL)
@@ -751,7 +795,7 @@ int seqdata[] = {
     //     OUT: NOP_  NOP_  SHR1n(n)
     MOVE21, GETw1n, LSR12, sfree, 0, NOP_, go|p1, NOP_, go|p1, SHR1n, gv|m1, go|m2, 0, 0,
 
-    // 046 Constant-1 Left Shift to Single-Bit Shift
+    // 052 Constant-1 Left Shift to Single-Bit Shift
     // Replace GETw1n(1)+ASL12 with ASL1_1 when the shift count is exactly 1.
     //     IN:  GETw1n(1)  ASL12
     //          AX=1       AX = BX << AX  (MOV CX,AX / MOV AX,BX / SAL AX,CL)
@@ -762,9 +806,9 @@ int seqdata[] = {
     //     OUT: ASL1_1  ->  MOV AX,BX / SHL AX,1
     GETw1n,ASL12,0,ife|p1,go|p1,ASL1_1,0, 0,
 
-    // 046a General Constant Arithmetic Left Shift (N > 1)
+    // 053 General Constant Arithmetic Left Shift (N > 1)
     // Replace GETw1n(n)+ASL12 with ASLsn(n) for any shift count n > 1.
-    // Rule 046 handles n==1 first; this catch-all fires for all remaining values.
+    // Rule 052 handles n==1 first; this catch-all fires for all remaining values.
     //     IN:  GETw1n(n)  ASL12
     //          AX=n       AX = BX << AX  (MOV CX,AX / MOV AX,BX / SAL AX,CL; 9 bytes)
     //     NET: AX = BX << n
@@ -773,7 +817,7 @@ int seqdata[] = {
     //     OUT: ASLsn(n)  ->  MOV AX,BX / MOV CL,n / SHL AX,CL
     GETw1n,ASL12,0,go|p1,ASLsn,gv|m1,0, 0,
 
-    // 047 Constant-1 Right Shift to Single-Bit Shift
+    // 054 Constant-1 Right Shift to Single-Bit Shift
     // Same as Constant-1 Left Shift for arithmetic right shift: replace GETw1n(1)+ASR12 with ASR1_1.
     //     IN:  GETw1n(1)  ASR12
     //          AX=1       AX = BX >> AX  (signed; MOV CX,AX / MOV AX,BX / SAR AX,CL)
@@ -783,9 +827,9 @@ int seqdata[] = {
     //     OUT: ASR1_1  ->  MOV AX,BX / SAR AX,1
     GETw1n,ASR12,0,ife|p1,go|p1,ASR1_1,0, 0,
 
-    // 047a Constant-2 Arithmetic Right Shift (double-shift form, avoids CX)
+    // 055 Constant-2 Arithmetic Right Shift (double-shift form, avoids CX)
     // Replace GETw1n(2)+ASR12 with ASR1_2 when count == 2.
-    // Rule 047 handles n==1 first; this rule handles n==2 as a special case.
+    // Rule 054 handles n==1 first; this rule handles n==2 as a special case.
     //     IN:  GETw1n(2)  ASR12
     //          AX=2       AX = BX >> AX  (signed; MOV CX,AX / MOV AX,BX / SAR AX,CL; 9 bytes)
     //     NET: AX = BX >> 2  (arithmetic)
@@ -794,9 +838,9 @@ int seqdata[] = {
     //     OUT: ASR1_2  ->  MOV AX,BX / SAR AX,1 / SAR AX,1
     GETw1n,ASR12,0,ife|p2,go|p1,ASR1_2,0, 0,
 
-    // 047b General Constant Arithmetic Right Shift (N > 2)
+    // 056 General Constant Arithmetic Right Shift (N > 2)
     // Replace GETw1n(n)+ASR12 with ASRsn(n) for any shift count n not already handled.
-    // Rules 047 and 047a handle n==1 and n==2; this catch-all fires for all remaining values.
+    // Rules 054 and 055 handle n==1 and n==2; this catch-all fires for all remaining values.
     //     IN:  GETw1n(n)  ASR12
     //          AX=n       AX = BX >> AX  (signed; 9 bytes)
     //     NET: AX = BX >> n  (arithmetic)
@@ -805,7 +849,7 @@ int seqdata[] = {
     //     OUT: ASRsn(n)  ->  MOV AX,BX / MOV CL,n / SAR AX,CL
     GETw1n,ASR12,0,go|p1,ASRsn,gv|m1,0, 0,
 
-    // 048 Logical Negate Before False-Branch to True-Branch
+    // 057 Logical Negate Before False-Branch to True-Branch
     // Fold LNEG1+NE10f into EQ10f: eliminate boolean inversion before a conditional branch.
     //     IN:  LNEG1         NE10f(t)
     //          AX=!AX        branch-to-t if AX==0
@@ -816,7 +860,7 @@ int seqdata[] = {
     //     OUT: EQ10f(t)  ->  OR AX,AX / JNE $+5 / JMP t
     LNEG1,NE10f,0,go|p1,EQ10f,0, 0,
 
-    // 049 Logical Negate Before True-Branch to False-Branch
+    // 058 Logical Negate Before True-Branch to False-Branch
     // Fold LNEG1+EQ10f into NE10f: eliminate boolean inversion before a conditional branch.
     //     IN:  LNEG1         EQ10f(t)
     //          AX=!AX        branch-to-t if AX!=0
@@ -826,7 +870,7 @@ int seqdata[] = {
     //     OUT: NE10f(t)  ->  OR AX,AX / JE $+5 / JMP t
     LNEG1,EQ10f,0,go|p1,NE10f,0, 0,
     // ========================================================================
-    // CMP-Immediate Rules (70-89)
+    // CMP-Immediate Rules (059-078)
     // These match GETw2n + XX12 + test-zero when BX is dead (sfree), and
     // rewrite the 3 slots to CMP1n + NOP_ + JccXX, saving 2 bytes per
     // constant comparison by eliminating the MOV BX,n load.
@@ -836,104 +880,104 @@ int seqdata[] = {
 
     // A-group: XX12 + NE10f (branch when condition is FALSE)
 
-    // 050 CMP-Imm Equal, Branch-on-False
+    // 059 CMP-Imm Equal, Branch-on-False
     //     IN:  GETw2n(c) EQ12  NE10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccE(t)    ->  CMP AX,c / JE $+5 / JMP t
     GETw2n,EQ12,NE10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccE,go|m2,0, 0,
 
-    // 051 CMP-Imm Not-Equal, Branch-on-False
+    // 060 CMP-Imm Not-Equal, Branch-on-False
     //     IN:  GETw2n(c) NE12  NE10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccNE(t)   ->  CMP AX,c / JNE $+5 / JMP t
     GETw2n,NE12,NE10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccNE,go|m2,0, 0,
 
-    // 052 CMP-Imm Signed Less-Than, Branch-on-False
+    // 061 CMP-Imm Signed Less-Than, Branch-on-False
     //     IN:  GETw2n(c) LT12  NE10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccG(t)    ->  CMP AX,c / JG $+5 / JMP t
     GETw2n,LT12,NE10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccG,go|m2,0, 0,
 
-    // 053 CMP-Imm Signed Greater-Than, Branch-on-False
+    // 062 CMP-Imm Signed Greater-Than, Branch-on-False
     //     IN:  GETw2n(c) GT12  NE10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccL(t)    ->  CMP AX,c / JL $+5 / JMP t
     GETw2n,GT12,NE10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccL,go|m2,0, 0,
 
-    // 054 CMP-Imm Signed Less-or-Equal, Branch-on-False
+    // 063 CMP-Imm Signed Less-or-Equal, Branch-on-False
     //     IN:  GETw2n(c) LE12  NE10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccGE(t)   ->  CMP AX,c / JGE $+5 / JMP t
     GETw2n,LE12,NE10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccGE,go|m2,0, 0,
 
-    // 055 CMP-Imm Signed Greater-or-Equal, Branch-on-False
+    // 064 CMP-Imm Signed Greater-or-Equal, Branch-on-False
     //     IN:  GETw2n(c) GE12  NE10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccLE(t)   ->  CMP AX,c / JLE $+5 / JMP t
     GETw2n,GE12,NE10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccLE,go|m2,0, 0,
 
-    // 056 CMP-Imm Unsigned Less-Than, Branch-on-False
+    // 065 CMP-Imm Unsigned Less-Than, Branch-on-False
     //     IN:  GETw2n(c) LT12u NE10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccA(t)    ->  CMP AX,c / JA $+5 / JMP t
     GETw2n,LT12u,NE10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccA,go|m2,0, 0,
 
-    // 057 CMP-Imm Unsigned Greater-Than, Branch-on-False
+    // 066 CMP-Imm Unsigned Greater-Than, Branch-on-False
     //     IN:  GETw2n(c) GT12u NE10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccB(t)    ->  CMP AX,c / JB $+5 / JMP t
     GETw2n,GT12u,NE10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccB,go|m2,0, 0,
 
-    // 058 CMP-Imm Unsigned Less-or-Equal, Branch-on-False
+    // 067 CMP-Imm Unsigned Less-or-Equal, Branch-on-False
     //     IN:  GETw2n(c) LE12u NE10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccAE(t)   ->  CMP AX,c / JAE $+5 / JMP t
     GETw2n,LE12u,NE10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccAE,go|m2,0, 0,
 
-    // 059 CMP-Imm Unsigned Greater-or-Equal, Branch-on-False
+    // 068 CMP-Imm Unsigned Greater-or-Equal, Branch-on-False
     //     IN:  GETw2n(c) GE12u NE10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccBE(t)   ->  CMP AX,c / JBE $+5 / JMP t
     GETw2n,GE12u,NE10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccBE,go|m2,0, 0,
 
     // B-group: XX12 + EQ10f (branch when condition is TRUE)
 
-    // 060 CMP-Imm Equal, Branch-on-True
+    // 069 CMP-Imm Equal, Branch-on-True
     //     IN:  GETw2n(c) EQ12  EQ10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccNE(t)   ->  CMP AX,c / JNE $+5 / JMP t
     GETw2n,EQ12,EQ10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccNE,go|m2,0, 0,
 
-    // 061 CMP-Imm Not-Equal, Branch-on-True
+    // 070 CMP-Imm Not-Equal, Branch-on-True
     //     IN:  GETw2n(c) NE12  EQ10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccE(t)    ->  CMP AX,c / JE $+5 / JMP t
     GETw2n,NE12,EQ10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccE,go|m2,0, 0,
 
-    // 062 CMP-Imm Signed Less-Than, Branch-on-True
+    // 071 CMP-Imm Signed Less-Than, Branch-on-True
     //     IN:  GETw2n(c) LT12  EQ10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccLE(t)   ->  CMP AX,c / JLE $+5 / JMP t
     GETw2n,LT12,EQ10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccLE,go|m2,0, 0,
 
-    // 063 CMP-Imm Signed Greater-Than, Branch-on-True
+    // 072 CMP-Imm Signed Greater-Than, Branch-on-True
     //     IN:  GETw2n(c) GT12  EQ10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccGE(t)   ->  CMP AX,c / JGE $+5 / JMP t
     GETw2n,GT12,EQ10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccGE,go|m2,0, 0,
 
-    // 064 CMP-Imm Signed Less-or-Equal, Branch-on-True
+    // 073 CMP-Imm Signed Less-or-Equal, Branch-on-True
     //     IN:  GETw2n(c) LE12  EQ10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccL(t)    ->  CMP AX,c / JL $+5 / JMP t
     GETw2n,LE12,EQ10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccL,go|m2,0, 0,
 
-    // 065 CMP-Imm Signed Greater-or-Equal, Branch-on-True
+    // 074 CMP-Imm Signed Greater-or-Equal, Branch-on-True
     //     IN:  GETw2n(c) GE12  EQ10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccG(t)    ->  CMP AX,c / JG $+5 / JMP t
     GETw2n,GE12,EQ10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccG,go|m2,0, 0,
 
-    // 066 CMP-Imm Unsigned Less-Than, Branch-on-True
+    // 075 CMP-Imm Unsigned Less-Than, Branch-on-True
     //     IN:  GETw2n(c) LT12u EQ10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccBE(t)   ->  CMP AX,c / JBE $+5 / JMP t
     GETw2n,LT12u,EQ10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccBE,go|m2,0, 0,
 
-    // 067 CMP-Imm Unsigned Greater-Than, Branch-on-True
+    // 076 CMP-Imm Unsigned Greater-Than, Branch-on-True
     //     IN:  GETw2n(c) GT12u EQ10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccAE(t)   ->  CMP AX,c / JAE $+5 / JMP t
     GETw2n,GT12u,EQ10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccAE,go|m2,0, 0,
 
-    // 068 CMP-Imm Unsigned Less-or-Equal, Branch-on-True
+    // 077 CMP-Imm Unsigned Less-or-Equal, Branch-on-True
     //     IN:  GETw2n(c) LE12u EQ10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccB(t)    ->  CMP AX,c / JB $+5 / JMP t
     GETw2n,LE12u,EQ10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccB,go|m2,0, 0,
 
-    // 069 CMP-Imm Unsigned Greater-or-Equal, Branch-on-True
+    // 078 CMP-Imm Unsigned Greater-or-Equal, Branch-on-True
     //     IN:  GETw2n(c) GE12u EQ10f(t)  (sfree)
     //     OUT: CMP1n(c)  NOP_  JccA(t)    ->  CMP AX,c / JA $+5 / JMP t
     GETw2n,GE12u,EQ10f,sfree,0,CMP1n,go|p1,NOP_,go|p1,JccA,go|m2,0, 0,
@@ -950,64 +994,64 @@ int seqdata[] = {
 
     // A-group: XX12 + NE10f (branch when condition is FALSE)
 
-    // 070 EQ12+NE10f -> CMP12+JccE (branch when sr != pr)
+    // 079 EQ12+NE10f -> CMP12+JccE (branch when sr != pr)
     EQ12,NE10f,0,CMP12,go|p1,JccE,go|m1,0, 0,
-    // 071 NE12+NE10f -> CMP12+JccNE (branch when sr == pr)
+    // 080 NE12+NE10f -> CMP12+JccNE (branch when sr == pr)
     NE12,NE10f,0,CMP12,go|p1,JccNE,go|m1,0, 0,
-    // 072 LT12+NE10f -> CMP12+JccG (branch when sr >= pr)
+    // 081 LT12+NE10f -> CMP12+JccG (branch when sr >= pr)
     LT12,NE10f,0,CMP12,go|p1,JccG,go|m1,0, 0,
-    // 073 GT12+NE10f -> CMP12+JccL (branch when sr <= pr)
+    // 082 GT12+NE10f -> CMP12+JccL (branch when sr <= pr)
     GT12,NE10f,0,CMP12,go|p1,JccL,go|m1,0, 0,
-    // 074 LE12+NE10f -> CMP12+JccGE (branch when sr > pr)
+    // 083 LE12+NE10f -> CMP12+JccGE (branch when sr > pr)
     LE12,NE10f,0,CMP12,go|p1,JccGE,go|m1,0, 0,
-    // 075 GE12+NE10f -> CMP12+JccLE (branch when sr < pr)
+    // 084 GE12+NE10f -> CMP12+JccLE (branch when sr < pr)
     GE12,NE10f,0,CMP12,go|p1,JccLE,go|m1,0, 0,
-    // 076 LT12u+NE10f -> CMP12+JccA (branch when sr >= pr unsigned)
+    // 085 LT12u+NE10f -> CMP12+JccA (branch when sr >= pr unsigned)
     LT12u,NE10f,0,CMP12,go|p1,JccA,go|m1,0, 0,
-    // 077 GT12u+NE10f -> CMP12+JccB (branch when sr <= pr unsigned)
+    // 086 GT12u+NE10f -> CMP12+JccB (branch when sr <= pr unsigned)
     GT12u,NE10f,0,CMP12,go|p1,JccB,go|m1,0, 0,
-    // 078 LE12u+NE10f -> CMP12+JccAE (branch when sr > pr unsigned)
+    // 087 LE12u+NE10f -> CMP12+JccAE (branch when sr > pr unsigned)
     LE12u,NE10f,0,CMP12,go|p1,JccAE,go|m1,0, 0,
-    // 079 GE12u+NE10f -> CMP12+JccBE (branch when sr < pr unsigned)
+    // 088 GE12u+NE10f -> CMP12+JccBE (branch when sr < pr unsigned)
     GE12u,NE10f,0,CMP12,go|p1,JccBE,go|m1,0, 0,
 
     // B-group: XX12 + EQ10f (branch when condition is TRUE — inverted Jcc)
 
-    // 080 EQ12+EQ10f -> CMP12+JccNE (branch when sr == pr)
+    // 089 EQ12+EQ10f -> CMP12+JccNE (branch when sr == pr)
     EQ12,EQ10f,0,CMP12,go|p1,JccNE,go|m1,0, 0,
-    // 081 NE12+EQ10f -> CMP12+JccE (branch when sr != pr)
+    // 090 NE12+EQ10f -> CMP12+JccE (branch when sr != pr)
     NE12,EQ10f,0,CMP12,go|p1,JccE,go|m1,0, 0,
-    // 082 LT12+EQ10f -> CMP12+JccLE (branch when sr < pr)
+    // 091 LT12+EQ10f -> CMP12+JccLE (branch when sr < pr)
     LT12,EQ10f,0,CMP12,go|p1,JccLE,go|m1,0, 0,
-    // 083 GT12+EQ10f -> CMP12+JccGE (branch when sr > pr)
+    // 092 GT12+EQ10f -> CMP12+JccGE (branch when sr > pr)
     GT12,EQ10f,0,CMP12,go|p1,JccGE,go|m1,0, 0,
-    // 084 LE12+EQ10f -> CMP12+JccL (branch when sr <= pr)
+    // 093 LE12+EQ10f -> CMP12+JccL (branch when sr <= pr)
     LE12,EQ10f,0,CMP12,go|p1,JccL,go|m1,0, 0,
-    // 085 GE12+EQ10f -> CMP12+JccG (branch when sr >= pr)
+    // 094 GE12+EQ10f -> CMP12+JccG (branch when sr >= pr)
     GE12,EQ10f,0,CMP12,go|p1,JccG,go|m1,0, 0,
-    // 086 LT12u+EQ10f -> CMP12+JccBE (branch when sr < pr unsigned)
+    // 095 LT12u+EQ10f -> CMP12+JccBE (branch when sr < pr unsigned)
     LT12u,EQ10f,0,CMP12,go|p1,JccBE,go|m1,0, 0,
-    // 087 GT12u+EQ10f -> CMP12+JccAE (branch when sr > pr unsigned)
+    // 096 GT12u+EQ10f -> CMP12+JccAE (branch when sr > pr unsigned)
     GT12u,EQ10f,0,CMP12,go|p1,JccAE,go|m1,0, 0,
-    // 088 LE12u+EQ10f -> CMP12+JccB (branch when sr <= pr unsigned)
+    // 097 LE12u+EQ10f -> CMP12+JccB (branch when sr <= pr unsigned)
     LE12u,EQ10f,0,CMP12,go|p1,JccB,go|m1,0, 0,
-    // 089 GE12u+EQ10f -> CMP12+JccA (branch when sr >= pr unsigned)
+    // 098 GE12u+EQ10f -> CMP12+JccA (branch when sr >= pr unsigned)
     GE12u,EQ10f,0,CMP12,go|p1,JccA,go|m1,0, 0,
 
     // Eliminate shift-by-zero (safety: SHx AX,CL with CL=0 does not set flags)
-    // 090 SHL1n(0) -> NOP_ (no-op shift left by zero)
+    // 099 SHL1n(0) -> NOP_ (no-op shift left by zero)
     SHL1n,0,ife,NOP_,0, 0,
-    // 091 SAR1n(0) -> NOP_ (no-op shift right by zero, signed)
+    // 100 SAR1n(0) -> NOP_ (no-op shift right by zero, signed)
     SAR1n,0,ife,NOP_,0, 0,
-    // 092 SHR1n(0) -> NOP_ (no-op shift right by zero, unsigned)
+    // 101 SHR1n(0) -> NOP_ (no-op shift right by zero, unsigned)
     SHR1n,0,ife,NOP_,0, 0,
 
     // Eliminate OR AX,AX when preceding ALU op already sets ZF correctly
-    // 093 ALU-with-SETSFLG + NE10f -> NE10fp (remove redundant OR AX,AX)
+    // 102 ALU-with-SETSFLG + NE10f -> NE10fp (remove redundant OR AX,AX)
     fset,NE10f,0,go|p1,NE10fp,go|m1,0, 0,
-    // 094 ALU-with-SETSFLG + EQ10f -> EQ10fp (remove redundant OR AX,AX)
+    // 103 ALU-with-SETSFLG + EQ10f -> EQ10fp (remove redundant OR AX,AX)
     fset,EQ10f,0,go|p1,EQ10fp,go|m1,0, 0,
-    // 095 Constant-1 Logical Right Shift to Single-Bit Logical Shift
+    // 104 Constant-1 Logical Right Shift to Single-Bit Logical Shift
     // Same as Constant-1 Right Shift but for unsigned: replace GETw1n(1)+LSR12 with LSR1_1.
     //     IN:  GETw1n(1)  LSR12
     //          AX=1       AX = BX >> AX  (unsigned; MOV CX,AX / MOV AX,BX / SHR AX,CL)
@@ -1017,9 +1061,9 @@ int seqdata[] = {
     //     OUT: LSR1_1  ->  MOV AX,BX / SHR AX,1
     GETw1n,LSR12,0,ife|p1,go|p1,LSR1_1,0, 0,
 
-    // 095a General Constant Logical Right Shift (N > 1)
+    // 105 General Constant Logical Right Shift (N > 1)
     // Replace GETw1n(n)+LSR12 with LSRsn(n) for any shift count n > 1.
-    // Rule 095 handles n==1 first; this catch-all fires for all remaining values.
+    // Rule 104 handles n==1 first; this catch-all fires for all remaining values.
     //     IN:  GETw1n(n)  LSR12
     //          AX=n       AX = BX >> AX  (unsigned; MOV CX,AX / MOV AX,BX / SHR AX,CL; 9 bytes)
     //     NET: AX = BX >> n  (logical)
@@ -1028,15 +1072,15 @@ int seqdata[] = {
     //     OUT: LSRsn(n)  ->  MOV AX,BX / MOV CL,n / SHR AX,CL
     GETw1n,LSR12,0,go|p1,LSRsn,gv|m1,0, 0,
 
-    // 096 Store Const Word, Stack Variable (5-to-2 fold)
+    // 106 Store Const Word, Stack Variable (5-to-2 fold)
     // Fold POINT1s+PUSH1+GETw1n+POP2+PUTwp1 into GETw1n+PUTws1: eliminate the
     // address-register round-trip when writing a value to a BP-relative slot.
     // Note: for local_var = constant; the front end generates:
     //     POINT1s(o)  PUSH1  GETw1n(n)  POP2  PUTwp1
-    // When dumpstage scans, snext starts at POINT1s. Rule 033 (POINT1s+MOVE21)
+    // When dumpstage scans, snext starts at POINT1s. Rule 034 (POINT1s+MOVE21)
     // does not match because PUSH1 follows. No other rule matches the full
     // sequence, so POINT1s is emitted to funcbuf and snext advances to PUSH1.
-    // Rule 044 (PUSH1+any+POP2) then fires, producing MOVE21+GETw1n; by that
+    // Rule 047 (PUSH1+any+POP2) then fires, producing MOVE21+GETw1n; by that
     // point POINT1s is gone and the stack offset is lost forever. This rule
     // fires at the POINT1s position before POINT1s is lost and replaces the
     // entire five-p-code sequence with two p-codes.
@@ -1057,8 +1101,8 @@ int seqdata[] = {
     //       go|m1      retreat to pos3  — dumpstage emits pos3,pos4 in order
     POINT1s,PUSH1,GETw1n,POP2,PUTwp1,sfree,0,go|p3,GETw1n,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
 
-    // 097 Store Const Byte, Stack Variable (5-to-2 fold)
-    // Same as rule 093 but for byte stores: POINT1s+PUSH1+GETw1n+POP2+PUTbp1
+    // 107 Store Const Byte, Stack Variable (5-to-2 fold)
+    // Same as rule 102 but for byte stores: POINT1s+PUSH1+GETw1n+POP2+PUTbp1
     // -> GETw1n+PUTbs1. PUTbs1 emits MOV BYTE PTR o[BP],AL.
     //     IN:  POINT1s(o)    PUSH1        GETw1n(n)  POP2      PUTbp1
     //     NET: (byte)stack[o] = n;  AX = n
@@ -1066,7 +1110,7 @@ int seqdata[] = {
     //     GUARD: sfree
     POINT1s,PUSH1,GETw1n,POP2,PUTbp1,sfree,0,go|p3,GETw1n,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
 
-    // 098 Store Stack-Var Word through Ptr (4-to-3 fold)
+    // 108 Store Stack-Var Word through Ptr (4-to-3 fold)
     // Replace PUSH1+GETw1s+POP2+PUTwp1 with MOVE21+GETw1s+NOP_+PUTwp1,
     // eliminating the stack round-trip when writing a stack variable through a
     // pointer whose address was already in AX.
@@ -1089,8 +1133,8 @@ int seqdata[] = {
     //       go|m2      retreat to pos0 — dumpstage emits pos0..pos3 in order
     PUSH1,GETw1s,POP2,PUTwp1,sfree,0, MOVE21,go|p2,NOP_,go|m2, 0, 0,
 
-    // 099 Store Stack-Var Byte through Ptr (4-to-3 fold)
-    // Same as rule 095 but for byte stores: replaces PUSH1+GETw1s+POP2+PUTbp1
+    // 109 Store Stack-Var Byte through Ptr (4-to-3 fold)
+    // Same as rule 104 but for byte stores: replaces PUSH1+GETw1s+POP2+PUTbp1
     // with MOVE21+GETw1s+NOP_+PUTbp1. PUTbp1 emits MOV [BX],AL.
     //     IN:  PUSH1    GETw1s(o)   POP2    PUTbp1
     //          push AX  AX=o[BP]    BX=pop  [BX]=AL
@@ -1100,101 +1144,101 @@ int seqdata[] = {
     //     GUARD: sfree
     PUSH1,GETw1s,POP2,PUTbp1,sfree,0, MOVE21,go|p2,NOP_,go|m2, 0, 0,
 
-    // Store Global Word to Stack Variable  (local = global;)
+    // 110 Store Global Word to Stack Variable  (local = global;)
     // Fold POINT1s+PUSH1+GETw1m+POP2+PUTwp1 into GETw1m+PUTws1.
     //     IN:  POINT1s(o)  PUSH1  GETw1m(g)  POP2  PUTwp1
     //     OUT: GETw1m(g)  PUTws1(o)
     //     GUARD: sfree
     POINT1s,PUSH1,GETw1m,POP2,PUTwp1,sfree,0,go|p3,GETw1m,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
 
-    // Store Global Byte to Stack Variable  (local_char = global;)
+    // 111 Store Global Byte to Stack Variable  (local_char = global;)
     // Same as above but for byte stores: PUTbp1 -> PUTbs1.
     //     IN:  POINT1s(o)  PUSH1  GETw1m(g)  POP2  PUTbp1
     //     OUT: GETw1m(g)  PUTbs1(o)
     //     GUARD: sfree
     POINT1s,PUSH1,GETw1m,POP2,PUTbp1,sfree,0,go|p3,GETw1m,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
 
-    // Store Global Address Word to Stack Variable  (local = &global;)
+    // 112 Store Global Address Word to Stack Variable  (local = &global;)
     // Fold POINT1s+PUSH1+POINT1m+POP2+PUTwp1 into POINT1m+PUTws1.
     //     IN:  POINT1s(o)  PUSH1  POINT1m(g)  POP2  PUTwp1
     //     OUT: POINT1m(g)  PUTws1(o)
     //     GUARD: sfree
     POINT1s,PUSH1,POINT1m,POP2,PUTwp1,sfree,0,go|p3,POINT1m,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
 
-    // Store Global Address Byte to Stack Variable  (local_char = &global;)
+    // 113 Store Global Address Byte to Stack Variable  (local_char = &global;)
     // Same as above but for byte stores: PUTbp1 -> PUTbs1.
     //     IN:  POINT1s(o)  PUSH1  POINT1m(g)  POP2  PUTbp1
     //     OUT: POINT1m(g)  PUTbs1(o)
     //     GUARD: sfree
     POINT1s,PUSH1,POINT1m,POP2,PUTbp1,sfree,0,go|p3,POINT1m,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
 
-    // Store Stack Var Word to Stack Variable  (local1 = local2;)
+    // 114 Store Stack Var Word to Stack Variable  (local1 = local2;)
     // Fold POINT1s+PUSH1+GETw1s+POP2+PUTwp1 into GETw1s+PUTws1.
     //     IN:  POINT1s(o)  PUSH1  GETw1s(s)  POP2  PUTwp1
     //     OUT: GETw1s(s)  PUTws1(o)
     //     GUARD: sfree
     POINT1s,PUSH1,GETw1s,POP2,PUTwp1,sfree,0,go|p3,GETw1s,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
 
-    // Store Stack Var Byte to Stack Variable  (local1_char = local2;)
+    // 115 Store Stack Var Byte to Stack Variable  (local1_char = local2;)
     // Same as above but for byte stores: PUTbp1 -> PUTbs1.
     //     IN:  POINT1s(o)  PUSH1  GETw1s(s)  POP2  PUTbp1
     //     OUT: GETw1s(s)  PUTbs1(o)
     //     GUARD: sfree
     POINT1s,PUSH1,GETw1s,POP2,PUTbp1,sfree,0,go|p3,GETw1s,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
 
-    // Store Signed-Byte Global Word to Stack Variable  (local = global_schar;)
+    // 116 Store Signed-Byte Global Word to Stack Variable  (local = global_schar;)
     // Fold POINT1s+PUSH1+GETb1m+POP2+PUTwp1 into GETb1m+PUTws1.
     //     IN:  POINT1s(o)  PUSH1  GETb1m(g)  POP2  PUTwp1
     //     OUT: GETb1m(g)  PUTws1(o)
     //     GUARD: sfree
     POINT1s,PUSH1,GETb1m,POP2,PUTwp1,sfree,0,go|p3,GETb1m,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
 
-    // Store Signed-Byte Global Byte to Stack Variable  (local_char = global_schar;)
+    // 117 Store Signed-Byte Global Byte to Stack Variable  (local_char = global_schar;)
     //     IN:  POINT1s(o)  PUSH1  GETb1m(g)  POP2  PUTbp1
     //     OUT: GETb1m(g)  PUTbs1(o)
     //     GUARD: sfree
     POINT1s,PUSH1,GETb1m,POP2,PUTbp1,sfree,0,go|p3,GETb1m,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
 
-    // Store Unsigned-Byte Global Word to Stack Variable  (local = global_uchar;)
+    // 118 Store Unsigned-Byte Global Word to Stack Variable  (local = global_uchar;)
     // Fold POINT1s+PUSH1+GETb1mu+POP2+PUTwp1 into GETb1mu+PUTws1.
     //     IN:  POINT1s(o)  PUSH1  GETb1mu(g)  POP2  PUTwp1
     //     OUT: GETb1mu(g)  PUTws1(o)
     //     GUARD: sfree
     POINT1s,PUSH1,GETb1mu,POP2,PUTwp1,sfree,0,go|p3,GETb1mu,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
 
-    // Store Unsigned-Byte Global Byte to Stack Variable  (local_char = global_uchar;)
+    // 119 Store Unsigned-Byte Global Byte to Stack Variable  (local_char = global_uchar;)
     //     IN:  POINT1s(o)  PUSH1  GETb1mu(g)  POP2  PUTbp1
     //     OUT: GETb1mu(g)  PUTbs1(o)
     //     GUARD: sfree
     POINT1s,PUSH1,GETb1mu,POP2,PUTbp1,sfree,0,go|p3,GETb1mu,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
 
-    // Store Signed-Byte Stack Var Word to Stack Variable  (local = other_local_schar;)
+    // 120 Store Signed-Byte Stack Var Word to Stack Variable  (local = other_local_schar;)
     // Fold POINT1s+PUSH1+GETb1s+POP2+PUTwp1 into GETb1s+PUTws1.
     //     IN:  POINT1s(o)  PUSH1  GETb1s(s)  POP2  PUTwp1
     //     OUT: GETb1s(s)  PUTws1(o)
     //     GUARD: sfree
     POINT1s,PUSH1,GETb1s,POP2,PUTwp1,sfree,0,go|p3,GETb1s,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
 
-    // Store Signed-Byte Stack Var Byte to Stack Variable  (local_char = other_local_schar;)
+    // 121 Store Signed-Byte Stack Var Byte to Stack Variable  (local_char = other_local_schar;)
     //     IN:  POINT1s(o)  PUSH1  GETb1s(s)  POP2  PUTbp1
     //     OUT: GETb1s(s)  PUTbs1(o)
     //     GUARD: sfree
     POINT1s,PUSH1,GETb1s,POP2,PUTbp1,sfree,0,go|p3,GETb1s,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
 
-    // Store Unsigned-Byte Stack Var Word to Stack Variable  (local = other_local_uchar;)
+    // 122 Store Unsigned-Byte Stack Var Word to Stack Variable  (local = other_local_uchar;)
     // Fold POINT1s+PUSH1+GETb1su+POP2+PUTwp1 into GETb1su+PUTws1.
     //     IN:  POINT1s(o)  PUSH1  GETb1su(s)  POP2  PUTwp1
     //     OUT: GETb1su(s)  PUTws1(o)
     //     GUARD: sfree
     POINT1s,PUSH1,GETb1su,POP2,PUTwp1,sfree,0,go|p3,GETb1su,gv|m1,go|p1,PUTws1,gv|m4,go|m1,0,0,
 
-    // Store Unsigned-Byte Stack Var Byte to Stack Variable  (local_char = other_local_uchar;)
+    // 123 Store Unsigned-Byte Stack Var Byte to Stack Variable  (local_char = other_local_uchar;)
     //     IN:  POINT1s(o)  PUSH1  GETb1su(s)  POP2  PUTbp1
     //     OUT: GETb1su(s)  PUTbs1(o)
     //     GUARD: sfree
     POINT1s,PUSH1,GETb1su,POP2,PUTbp1,sfree,0,go|p3,GETb1su,gv|m1,go|p1,PUTbs1,gv|m4,go|m1,0,0,
 
-    // PUSHs + GETw1s + POP2 -> GETw2s + GETw1s
+    // 124 PUSHs + GETw1s + POP2 -> GETw2s + GETw1s
     // Eliminate push/pop round-trip when a stack variable is pushed for a binary op
     // and the middle operand is a stack variable load.
     //     IN:  PUSHs(o)        GETw1s(m)     POP2
@@ -1206,21 +1250,126 @@ int seqdata[] = {
     //           clobbers BX, so each safe middle operand needs its own rule.
     PUSHs,GETw1s,POP2,0,go|p2,gc|m1,gv|m1,go|m1,GETw2s,gv|m1,0, 0,
 
-    // PUSHs + GETw1n + POP2 -> GETw2s + GETw1n
+    // 125 PUSHs + GETw1n + POP2 -> GETw2s + GETw1n
     // Same pattern but middle operand is a constant load (MOV AX,N or XOR AX,AX).
     PUSHs,GETw1n,POP2,0,go|p2,gc|m1,gv|m1,go|m1,GETw2s,gv|m1,0, 0,
 
-    // PUSHs + POINT1s + POP2 -> GETw2s + POINT1s
+    // 126 PUSHs + POINT1s + POP2 -> GETw2s + POINT1s
     // Same pattern but middle operand is LEA AX,disp[BP] (address of local).
     PUSHs,POINT1s,POP2,0,go|p2,gc|m1,gv|m1,go|m1,GETw2s,gv|m1,0, 0,
 
-    // PUSHs + GETw1m + POP2 -> GETw2s + GETw1m
+    // 127 PUSHs + GETw1m + POP2 -> GETw2s + GETw1m
     // Same pattern but middle operand is a global variable load.
     PUSHs,GETw1m,POP2,0,go|p2,gc|m1,gv|m1,go|m1,GETw2s,gv|m1,0, 0,
 
-    // PUSHs + POINT1m + POP2 -> GETw2s + POINT1m
+    // 128 PUSHs + POINT1m + POP2 -> GETw2s + POINT1m
     // Same pattern but middle operand is a global address (MOV AX,OFFSET _sym).
     PUSHs,POINT1m,POP2,0,go|p2,gc|m1,gv|m1,go|m1,GETw2s,gv|m1,0, 0,
+
+    // 129-135  Compound Assignment to Stack-Frame Slot  (local op= local/const)
+    //
+    // These rules fire AFTER rule 034 (POINT1s+PUSH1+MOVE21 -> POINT2s+PUSH2) has
+    // already transformed the first three p-codes.  At that point dumpstage restarts
+    // at the POINT2s slot.  We match the full remaining lvalue/binary/store sequence
+    // and collapse it to a two-instruction modify-in-place form, completely
+    // eliminating the PUSH/POP address round-trip.
+    //
+    // --- 129-133: variable RHS  (sum op= i, where both are local int variables) ---
+    //
+    // After rule 034, the raw buffer from the POINT2s cursor looks like:
+    //   POINT2s(o1)  PUSH2  GETw1p(0)  PUSH1  POINT1s(o2)  MOVE21  GETw1p(0)
+    //   POP2  <OP12>  POP2  PUTwp1
+    //
+    //   C0=POINT2s(o1)  C1=PUSH2  C2=GETw1p  C3=PUSH1  C4=POINT1s(o2)
+    //   C5=MOVE21  C6=GETw1p  C7=POP2  C8=<OP12>  C9=POP2  C10=PUTwp1
+    //
+    // TARGET:
+    //   GETw1s(o2) -- MOV AX,o2[BP]       (load rhs local into AX)
+    //   <OP>ws1(o1) -- <OP> o1[BP],AX     (modify lhs slot in-place)
+    //
+    // ACTION (cursor=C0):
+    //   go|p4         skip to C4 (POINT1s)
+    //   GETw1s        overwrite C4 opcode (value o2 already in C4[1] from POINT1s) ✓
+    //   go|p1         advance to C5 (MOVE21)
+    //   <OP>ws1       overwrite C5 opcode
+    //   gv|m5         copy o1 from C0[1] into C5[1]  (5 positions back) ✓
+    //   5x go|p1,NOP_ kill C6..C10
+    //   go|m6         retreat to C4 -- dumpstage emits GETw1s then <OP>ws1 ✓
+    //
+    // GUARD: pfree -- AX (= rhs value) must not be live after the store.
+    //        Rule does NOT fire when compound assignment is used as a sub-expression.
+
+    // 129 Local ADD-assign: sum += i
+    POINT2s,PUSH2,GETw1p,PUSH1,POINT1s,MOVE21,GETw1p,POP2,ADD12,POP2,PUTwp1,pfree,0,
+    go|p4,GETw1s,go|p1,ADDws1,gv|m5,
+    go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,go|p1,
+    NOP_,go|m6, 0, 0,
+
+    // 130 Local SUB-assign: sum -= i
+    // SUB12 auto-prepends SWAP12, so the match is 12 p-codes (one extra slot).
+    //   C0=POINT2s  C1=PUSH2  C2=GETw1p  C3=PUSH1  C4=POINT1s(o2)
+    //   C5=MOVE21   C6=GETw1p C7=POP2    C8=SWAP12  C9=SUB12  C10=POP2  C11=PUTwp1
+    // OUTPUT: GETw1s(o2) at C4, SUBws1(o1) at C5; 6x NOP_ fill C6..C11; retreat to C4.
+    POINT2s,PUSH2,GETw1p,PUSH1,POINT1s,MOVE21,GETw1p,POP2,SWAP12,SUB12,POP2,PUTwp1,pfree,0,
+    go|p4,GETw1s,go|p1,SUBws1,gv|m5,
+    go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,
+    go|p1,NOP_,go|p1,NOP_,go|m7, 0, 0,
+
+    // 131 Local AND-assign: sum &= i
+    POINT2s,PUSH2,GETw1p,PUSH1,POINT1s,MOVE21,GETw1p,POP2,AND12,POP2,PUTwp1,pfree,0,
+    go|p4,GETw1s,go|p1,ANDws1,gv|m5,
+    go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,go|m6, 0, 0,
+
+    // 132 Local OR-assign: sum |= i
+    POINT2s,PUSH2,GETw1p,PUSH1,POINT1s,MOVE21,GETw1p,POP2,OR12,POP2,PUTwp1,pfree,0,
+    go|p4,GETw1s,go|p1,ORws1,gv|m5,
+    go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,go|m6, 0, 0,
+
+    // 133 Local XOR-assign: sum ^= i
+    POINT2s,PUSH2,GETw1p,PUSH1,POINT1s,MOVE21,GETw1p,POP2,XOR12,POP2,PUTwp1,pfree,0,
+    go|p4,GETw1s,go|p1,XORws1,gv|m5,
+    go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,go|m6, 0, 0,
+
+    // --- 134-135: constant RHS  (sum op= N, where N is a compile-time constant) ---
+    //
+    // The front-end retracts the speculative PUSH in down2() Arm B and emits the
+    // constant directly into the secondary register; no POINT1s/MOVE21/GETw1p for
+    // the RHS.  The buffer from the POINT2s cursor is:
+    //
+    //   ADD: C0=POINT2s(o1)  C1=PUSH2  C2=GETw1p  C3=GETw2n(N)  C4=ADD12
+    //        C5=POP2  C6=PUTwp1
+    //   SUB: C0=POINT2s(o1)  C1=PUSH2  C2=GETw1p  C3=MOVE21  C4=GETw1n(N)
+    //        C5=SWAP12  C6=SUB12  C7=POP2  C8=PUTwp1
+    //
+    // We reuse the existing ADDwpn / SUBwpn p-codes
+    // (ADD/SUB WORD PTR [BX],N) which use BX as the pre-loaded address.
+    // POINT2s is kept at C0 to supply BX = &lhs; the constant p-code's value
+    // slot already carries N.
+    //
+    //   TARGET: POINT2s(o1) -- LEA BX,o1[BP]
+    //           ADDwpn(N)   -- ADD WORD PTR [BX],N
+    //
+    // ACTION for ADD (cursor=C0):
+    //   go|p1,NOP_         kill C1 (PUSH2)
+    //   go|p1,NOP_         kill C2 (GETw1p)
+    //   go|p1,ADDwpn       overwrite C3 opcode (N already in C3[1]) ✓
+    //   go|p1,NOP_         kill C4 (ADD12)
+    //   go|p1,NOP_         kill C5 (POP2)
+    //   go|p1,NOP_         kill C6 (PUTwp1)
+    //   go|m6              retreat to C0 -- dumpstage emits POINT2s then ADDwpn ✓
+
+    // 134 Constant ADD-assign: sum += N
+    POINT2s,PUSH2,GETw1p,GETw2n,ADD12,POP2,PUTwp1,pfree,0,
+    go|p1,NOP_,go|p1,NOP_,go|p1,ADDwpn,go|p1,NOP_,go|p1,
+    NOP_,go|p1,NOP_,go|m6, 0, 0,
+
+    // 135 Constant SUB-assign: sum -= N
+    // SUBwpn(N) = SUB WORD PTR [BX],N.  N is in GETw1n's value slot (C4[1]).
+    // Kill C1-C3 (PUSH2,GETw1p,MOVE21), overwrite C4 with SUBwpn (N stays),
+    // kill C5-C8 (SWAP12,SUB12,POP2,PUTwp1), retreat to C0.
+    POINT2s,PUSH2,GETw1p,MOVE21,GETw1n,SWAP12,SUB12,POP2,PUTwp1,pfree,0,
+    go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,go|p1,SUBwpn,go|p1,NOP_,go|p1,
+    NOP_,go|p1,NOP_,go|p1,NOP_,go|m8, 0, 0,
 
     0  // end sentinel
 
@@ -1483,7 +1632,16 @@ char* code[PCODES] = {
     /* 214 ASLsn      */ "\005MOV AX,BX\nMOV CL,<n>\nSHL AX,CL\n",
     /* 215 LSRsn      */ "\005MOV AX,BX\nMOV CL,<n>\nSHR AX,CL\n",
     // optimizer-generated: two-part label+offset (paired with PLUSn)
-    /* 216 POINT1m_    */ "\020MOV AX,OFFSET <m>"
+    /* 216 POINT1m_    */ "\020MOV AX,OFFSET <m>",
+    // optimizer-generated: post-increment/decrement of stack-frame pointer variable
+    /* 217 POSTINCws   */ "\002MOV BX,<n>[BP]\nINC WORD PTR <n>[BP]\n",
+    /* 218 POSTDECws   */ "\002MOV BX,<n>[BP]\nDEC WORD PTR <n>[BP]\n",
+    /* optimizer-generated: compound assign to stack-frame slot (local op= ...) */
+    /* 219 ADDws1      */ "\010ADD <n>[BP],AX\n",
+    /* 220 SUBws1      */ "\010SUB <n>[BP],AX\n",
+    /* 221 ANDws1      */ "\010AND <n>[BP],AX\n",
+    /* 222 ORws1       */ "\010OR <n>[BP],AX\n",
+    /* 223 XORws1      */ "\010XOR <n>[BP],AX\n"
 
 };
 
@@ -1717,7 +1875,15 @@ int code_size[PCODES] = {
     /*213 ASRsn    */  6,  // MOV AX,BX / MOV CL,n / SAR AX,CL
     /*214 ASLsn    */  6,  // MOV AX,BX / MOV CL,n / SHL AX,CL
     /*215 LSRsn    */  6,  // MOV AX,BX / MOV CL,n / SHR AX,CL
-    /*216 POINT1m_  */255   // partial (paired with PLUSn)
+    /*216 POINT1m_  */255,   // partial (paired with PLUSn)
+    /*217 POSTINCws */  8,  // MOV BX,disp[BP] (4) + INC WORD PTR disp[BP] (4)
+    /*218 POSTDECws */  8,  // MOV BX,disp[BP] (4) + DEC WORD PTR disp[BP] (4)
+    // optimizer-generated: compound assign to stack-frame slot (local op= ...)
+    /*219 ADDws1    */  4,  // ADD disp[BP],AX
+    /*220 SUBws1    */  4,  // SUB disp[BP],AX
+    /*221 ANDws1    */  4,  // AND disp[BP],AX
+    /*222 ORws1     */  4,  // OR  disp[BP],AX
+    /*223 XORws1    */  4   // XOR disp[BP],AX
 };
 
 // Map a long-branch p-code to its short-branch equivalent, or 0 if not a branch.
@@ -2000,8 +2166,8 @@ void bufout(int pcode, int value) {
 #endif
 }
 
-// POINT1s + MOVE21 Fold: staging rule 033 catches POINT1s MOVE21 -> POINT2s,
-// but when rule 044 converts PUSH1 <rhs> POP2 -> MOVE21 <rhs> after POINT1s has
+// POINT1s + MOVE21 Fold: staging rule 034 catches POINT1s MOVE21 -> POINT2s,
+// but when rule 047 converts PUSH1 <rhs> POP2 -> MOVE21 <rhs> after POINT1s has
 // already been emitted to funcbuf, the pair escapes staging.  Fold it here.
 static void tryPointMoveFold() {
     int *p;
@@ -2012,6 +2178,11 @@ static void tryPointMoveFold() {
         }
     }
 }
+
+int fpoBlockingPcs[] = {
+    POINT1s, POINT2s, GETb1s, GETb1su, GETw1s, GETw2s, PUSHs, PUSHds,
+    PUTws1, PUTbs1, GETd1s, GETd2s, PUTds1, CMP1s
+};
 
 // Frame Pointer Omission (FPO): determines whether BP is provably unused by
 // this function and, if so, rewrites ENTER -> NOP_ and RETURN -> RETNOFP.
@@ -2024,26 +2195,28 @@ static void tryPointMoveFold() {
 //   output) sees ENTER but not the BP-relative p-codes that follow it; FPO must
 //   be suppressed for the entire function in that case.
 static void canOptFPOpass() {
-    int *p, pc, can_omit;
+    int *p, pc, can_omit, i;
     can_omit = !hasInlineAsm && !hasStaticLocal;
     for (p = funcbuf; p < fnext; p += 2) {
         pc = p[0];
-        if (pc == POINT1s || pc == POINT2s  ||
-            pc == GETb1s  || pc == GETb1su  ||
-            pc == GETw1s  || pc == GETw2s   ||
-            pc == PUSHs   || pc == PUSHds   ||
-            pc == PUTws1  || pc == PUTbs1   ||
-            pc == GETd1s  || pc == GETd2s   ||
-            pc == PUTds1  || pc == CMP1s    ||
-            (pc == RETURN && p[1] != 0)) {
+        if (pc == RETURN && p[1] != 0) {
             can_omit = 0;
+        }
+        for (i = 0; i < 14; i++) {
+            if (pc == fpoBlockingPcs[i]) {
+                can_omit = 0;
+            }
+        }
+        if (!can_omit) {
             break;
         }
     }
     if (can_omit) {
         for (p = funcbuf; p < fnext; p += 2) {
-            if (p[0] == ENTER)  p[0] = NOP_;
-            if (p[0] == RETURN) p[0] = RETNOFP;
+            if (p[0] == ENTER)  
+                p[0] = NOP_;
+            if (p[0] == RETURN) 
+                p[0] = RETNOFP;
         }
     }
 }
@@ -2062,7 +2235,8 @@ static void tryEpilogueConsolidation() {
     for (pp = funcbuf; pp < fnext; pp += 2) {
         if (pp[0] == RETURN) {
             nret++;
-            if (pp[1] != 0) nretN++;
+            if (pp[1] != 0) 
+                nretN++;
             lastRet = pp;
         }
     }
@@ -2455,6 +2629,12 @@ int peep(int *seq) {
         case fset:
             if (next < stail && code[*next] && (*(code[*next]) & SETSFLG))
                 break;
+            return (NO);
+        case v1eq:
+            if (next[-1] == 1) { // check value of previously-consumed slot
+                ++seq;           // advance pattern ptr but NOT buffer ptr
+                continue;        // skip next += 2 so this slot is not consumed
+            }
             return (NO);
         case _pop:
             if (pop = getpop(next))

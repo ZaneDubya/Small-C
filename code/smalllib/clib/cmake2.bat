@@ -10,6 +10,7 @@ SET BIN=..\..\bin
 %BIN%\asm CALL.ASM /p
 %BIN%\asm CALLOC.ASM /p
 %BIN%\asm CLEARERR.ASM /p
+%BIN%\asm CMN_PRNT.ASM /p
 %BIN%\asm CSEEK.ASM /p
 %BIN%\asm CSYSLIB.ASM /p
 %BIN%\asm CTELL.ASM /p

@@ -423,6 +423,43 @@ void delwhile() {
     if (wqptr > wq) wqptr -= WQSIZ;
 }
 
+// === param types functions ==================================================
+
+// paramTypes[] -- function parameter-type records.
+// Each entry is laid out as:
+//   [0]       nparams_byte: (variadic<<7) | fixed_param_count
+//   [1+i*2]   type_byte:    TYPE_xxx  (base/element type of the parameter)
+//   [1+i*2+1] depth_byte:   PTRDEPTH (0 = non-pointer, 1 = T*, 2 = T**, ...)
+// depth_byte > 0 means the parameter is a pointer; type_byte is its element type.
+// Index 0 is the reserved "no prototype" sentinel; entries start at 1.
+// paramTypes is defined in cc1.c and allocated in main() via calloc(256,2).
+int paramTypesPtr = 1;   // next free index; 0 is reserved as sentinel
+
+// Store function parameter types into paramTypes[].
+// nparams_byte = (variadic<<7) | fixed_param_count
+// typebuf  = array of TYPE_xxx values, one per fixed param.
+// depthbuf = array of PTRDEPTH values (0 = non-pointer, 1+ = pointer depth), one per fixed param.
+// Returns the index of the stored entry (>= 1), or 0 on overflow.
+int storeParamTypes(char *typebuf, char *depthbuf, int nparams_byte) {
+    int idx, n, k;
+    n = nparams_byte & 0x7F;
+    if (paramTypesPtr + 1 + 2*n > FNPARAMSZ) {
+        error("function param table full");
+        return 0;
+    }
+    idx = paramTypesPtr;
+    paramTypes[idx] = (char)nparams_byte;
+    k = 0;
+    while (k < n) {
+        paramTypes[idx + 1 + k*2]     = typebuf[k];
+        paramTypes[idx + 1 + k*2 + 1] = depthbuf[k];
+        ++k;
+    }
+    paramTypesPtr += 1 + 2*n;
+    return idx;
+}
+
+
 // === utility functions ======================================================
 
 // test if c is alphabetic
@@ -463,11 +500,6 @@ void putint(int i, char *addr, int len) {
     }
 }
 
-void lout(char *line, int fd) {
-    fputs(line, fd);
-    fputc(NEWLINE, fd);
-}
-
 // === error functions ========================================================
 
 void illname() {
@@ -489,9 +521,7 @@ void errout(char *msg, int fp, char *path, int ln) {
     while (k++ <= lptr) {
         fputc(' ', fp);
     }
-    lout("/\\", fp);
-    fprintf(fp, "%s:%d Error: ", path, ln);
-    lout(msg, fp);
+    fprintf(fp, "/\\\n%s:%d Error: %s\n", path, ln, msg);
 }
 
 void error(char *msg) {
@@ -506,11 +536,14 @@ void error(char *msg) {
     }
     if (input2 != EOF) { path = inclfn; ln = inclno; }
     else               { path = infn;   ln = lineno; }
-    lout(line, stderr);
+    fprintf(stderr, "%s\n", line);
     errout(msg, stderr, path, ln);
-    if (alarm) errputc(7);
-    if (pause) while (fgetc(stderr) != NEWLINE);
-    if (listfp > 0) errout(msg, listfp, path, ln);
+    if (alarm) 
+        errputc(7);
+    if (pause) 
+        while (fgetc(stderr) != NEWLINE);
+    if (listfp > 0) 
+        errout(msg, listfp, path, ln);
 }
 
 #ifdef ENABLE_WARNINGS
@@ -518,10 +551,9 @@ void warning(char *msg) {
     if (nowarn) return;
     warncount++;
     errLocation();
-    errputs("Warning: ");
-    errputs(msg);
-    errputc('\n');
-    if (alarm) errputc(7);
+    fprintf(stderr, "Warning: %s\n", msg);
+    if (alarm) 
+        errputc(7);
 }
 
 void warningWithName(char *msg, char *name, char *suffix) {
@@ -540,38 +572,3 @@ void errLocation() {
     else
         fprintf(stderr, "%s:%d ", infn, lineno);
 }
-
-// paramTypes[] -- function parameter-type records.
-// Each entry is laid out as:
-//   [0]       nparams_byte: (variadic<<7) | fixed_param_count
-//   [1+i*2]   type_byte:    TYPE_xxx  (base/element type of the parameter)
-//   [1+i*2+1] depth_byte:   PTRDEPTH (0 = non-pointer, 1 = T*, 2 = T**, ...)
-// depth_byte > 0 means the parameter is a pointer; type_byte is its element type.
-// Index 0 is the reserved "no prototype" sentinel; entries start at 1.
-// paramTypes is defined in cc1.c and allocated in main() via calloc(256,2).
-int paramTypesPtr = 1;   // next free index; 0 is reserved as sentinel
-
-// Store function parameter types into paramTypes[].
-// nparams_byte = (variadic<<7) | fixed_param_count
-// typebuf  = array of TYPE_xxx values, one per fixed param.
-// depthbuf = array of PTRDEPTH values (0 = non-pointer, 1+ = pointer depth), one per fixed param.
-// Returns the index of the stored entry (>= 1), or 0 on overflow.
-int storeParamTypes(char *typebuf, char *depthbuf, int nparams_byte) {
-    int idx, n, k;
-    n = nparams_byte & 0x7F;
-    if (paramTypesPtr + 1 + 2*n > FNPARAMSZ) {
-        error("function param table full");
-        return 0;
-    }
-    idx = paramTypesPtr;
-    paramTypes[idx] = (char)nparams_byte;
-    k = 0;
-    while (k < n) {
-        paramTypes[idx + 1 + k*2]     = typebuf[k];
-        paramTypes[idx + 1 + k*2 + 1] = depthbuf[k];
-        ++k;
-    }
-    paramTypesPtr += 1 + 2*n;
-    return idx;
-}
-

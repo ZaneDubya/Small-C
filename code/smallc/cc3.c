@@ -43,11 +43,11 @@ extern int litptrMax;
 
 // forward declarations for this file:
 void applyResultType(int oper, int *is, int *is2);
-void calcCmp32(int lhi, int llo, int oper, int rhi, int rlo, int *reshi, int *reslo);
+void calcCmp32(int lhi, unsigned llo, int oper, int rhi, unsigned rlo, int *reshi, int *reslo);
 int calcConst(int left, int oper, int right);
-void calcConst32(int lhi, int llo, int oper, int rhi, int rlo, int *reshi, int *reslo);
+void calcConst32(int lhi, unsigned llo, int oper, int rhi, unsigned rlo, int *reshi, int *reslo);
 int calcUConst(unsigned left, int oper, unsigned right);
-void calcUConst32(int lhi, int llo, int oper, int rhi, int rlo, int *reshi, int *reslo);
+void calcUConst32(unsigned lhi, unsigned llo, int oper, unsigned rhi, unsigned rlo, int *reshi, int *reslo);
 void checkFnArgCountAndTypes(char *ptr, int userArgCount, int *argDepths, char **argSyms);
 int chrcon(int *lo, int *hi);
 int collectOneArg(int *is, int *argLens, int *argSizes, int idx, int *pNargs);
@@ -692,8 +692,16 @@ int level13(int *is) {
         // resolveDerefType() inspects is[] before any fields are cleared.
         is[TYP_OBJ] = resolveDerefType(is);
         if (is[TYP_OBJ] == TYPE_VOID) {
-            error("cannot dereference void pointer");
-            is[TYP_OBJ] = TYPE_INT;   // error recovery
+            // Allow void (*fp)() -- void is the return type, not a data element
+            // type.  Calling (*fp)() does not dereference memory for a data read;
+            // it only dispatches to the function.  Reject only true void data
+            // pointer dereferences (e.g. void *p; *p;).
+            char *fpsym;
+            fpsym = (char *)is[SYMTAB_ADR];
+            if (!fpsym || fpsym[IDENT] != IDENT_FNPTR_VAR) {
+                error("cannot dereference void pointer");
+                is[TYP_OBJ] = TYPE_INT;   // error recovery
+            }
         }
         // Clear address/cast/const fields: the result is a plain value in AX,
         // not a pointer or a constant.  VAL_CNST = 1 tells callfunc() to skip
@@ -851,7 +859,7 @@ int applyElemOffset(int elemType, char *ptr, int *is2, char *before) {
 // handles the case where a function's address is invoked by naming the
 // function without a left parenthesis following.
 int level14(int *is) {
-    int k, val, elemType;
+    int k;
     char *ptr, *before, *start;
     int is2[ISSIZE];
     // k=1: AX holds an lvalue address; caller must fetch() to load the value.
@@ -956,11 +964,11 @@ int level14(int *is) {
                         // is[TYP_ADR] stays: still the base element type
                     }
                     else {
-                        elemType = is[TYP_ADR] ? is[TYP_ADR] : ptr[TYPE];
-                        applyElemOffset(elemType, ptr, is2, before);
+                        // Set TYP_OBJ first; pass it directly to avoid a separate elemType local.
+                        is[TYP_OBJ] = is[TYP_ADR] ? is[TYP_ADR] : ptr[TYPE];
+                        applyElemOffset(is[TYP_OBJ], ptr, is2, before);
                         is[DIM_LEFT] = 0;
                         is[TYP_ADR] = 0;           // subscripted result is a scalar, not a pointer
-                        is[TYP_OBJ] = elemType;
                         is[IS_PTRDEPTH] = 0;       // subscript consumed the pointer level
                     }
                     k = 1;                     // AX has element address; fetch needed
@@ -1389,10 +1397,9 @@ void experr() {
 
 // True when ptr's IDENT marks it as a pointer-like lvalue
 // (plain pointer variable or function-pointer variable).
+// No local variable: accessing ptr[IDENT] twice is cheaper than a stack frame.
 int isPtrLike(char *ptr) {
-    int id;
-    id = ptr[IDENT];
-    return id == IDENT_POINTER || id == IDENT_FNPTR_VAR;
+    return ptr[IDENT] == IDENT_POINTER || ptr[IDENT] == IDENT_FNPTR_VAR;
 }
 
 // Phase D helper: check caller's argument count against prototype.
@@ -1968,7 +1975,7 @@ int constant(int *is) {
 
 // Multiply khi:klo by a small factor (8, 10, or 16). Result in *hi:*lo.
 void mul32x16(int *hi, int *lo, int factor) {
-    int ahi, bhi, carry;
+    int ahi, bhi;
     unsigned alo, blo, newalo;
     // Shift-and-add: multiply *hi:*lo by factor
     ahi = 0;
@@ -1977,18 +1984,14 @@ void mul32x16(int *hi, int *lo, int factor) {
     blo = *lo;
     while (factor) {
         if (factor & 1) {
-            // add bhi:blo to ahi:alo (unsigned low word)
+            // Add bhi:blo to ahi:alo; carry detected by unsigned wraparound.
             newalo = alo + blo;
-            carry = 0;
-            if (newalo < alo) carry = 1;
+            ahi = ahi + bhi + ((newalo < alo) ? 1 : 0);
             alo = newalo;
-            ahi = ahi + bhi + carry;
         }
-        // double bhi:blo
-        carry = 0;
-        if (blo & 0x8000) carry = 1;
+        // Double bhi:blo; capture blo's MSB before shifting to avoid a temp.
+        bhi = (bhi << 1) + ((blo & 0x8000) ? 1 : 0);
         blo = blo << 1;
-        bhi = (bhi << 1) + carry;
         factor = factor >> 1;
     }
     *lo = alo;
@@ -2038,14 +2041,14 @@ int number(int *lo, int *hi) {
     if (isdigit(ch) == 0) return 0;
     if (ch == '0') {
         while (ch == '0') inbyte();
-        if (toupper(ch) == 'X') {
+        if (ch == 'x' || ch == 'X') {
             inbyte();
             base = 16;
             while (isxdigit(ch)) {
                 if (isdigit(ch))
                     digit = inbyte() - '0';
                 else
-                    digit = 10 + (toupper(inbyte()) - 'A');
+                    digit = 10 + ((inbyte() | 32) - 'a'); /* | 32: to lowercase */
                 mul32x16(&khi, &klo, base);
                 add32x16(&khi, &klo, digit);
             }
@@ -2068,18 +2071,18 @@ int number(int *lo, int *hi) {
         }
     }
     // Parse suffixes: L, U, UL, LU (case-insensitive)
-    if (toupper(ch) == 'U') {
+    if (ch == 'u' || ch == 'U') {
         inbyte();
         hasU = 1;
-        if (toupper(ch) == 'L') {
+        if (ch == 'l' || ch == 'L') {
             inbyte();
             hasL = 1;
         }
     }
-    else if (toupper(ch) == 'L') {
+    else if (ch == 'l' || ch == 'L') {
         inbyte();
         hasL = 1;
-        if (toupper(ch) == 'U') {
+        if (ch == 'u' || ch == 'U') {
             inbyte();
             hasU = 1;
         }
@@ -2249,17 +2252,12 @@ void dropout(int k, int tcode, int exit1, int *is) {
         fetch(is);
     else if (is[TYP_CNST])
         genConstLoad(is);
-    // use 32-bit truthiness test when expression is long
+    // map NE10f/EQ10f to their 32-bit counterparts when expression is long
     if (isLongVal(is)) {
-        if (tcode == NE10f)
-            gen(NEd10f, exit1);
-        else if (tcode == EQ10f)
-            gen(EQd10f, exit1);
-        else
-            gen(tcode, exit1);
+        if      (tcode == NE10f) tcode = NEd10f;
+        else if (tcode == EQ10f) tcode = EQd10f;
     }
-    else
-        gen(tcode, exit1);          // jumps on false
+    gen(tcode, exit1);
 }
 
 // drop to a lower level
@@ -2773,26 +2771,21 @@ int calcUConst(unsigned left, int oper, unsigned right) {
 // 32-bit signed constant folding.  Operates on hi:lo pairs.
 // Returns result type: TYPE_LONG or TYPE_ULONG.
 // Result stored via reshi/reslo pointers.
-void calcConst32(int lhi, int llo, int oper, int rhi, int rlo,
+// llo/rlo are unsigned so carry detection in ADD/SUB works without extra locals.
+void calcConst32(int lhi, unsigned llo, int oper, int rhi, unsigned rlo,
             int *reshi, int *reslo) {
-    unsigned alo, blo, newlo;
+    unsigned newlo;
     int carry;
     switch (oper) {
         case ADD12:
-            alo = llo;
-            blo = rlo;
-            newlo = alo + blo;
-            carry = 0;
-            if (newlo < alo) carry = 1;
+            newlo = llo + rlo;
+            carry = (newlo < llo) ? 1 : 0;
             *reslo = newlo;
             *reshi = lhi + rhi + carry;
             return;
         case SUB12:
-            alo = llo;
-            blo = rlo;
-            newlo = alo - blo;
-            carry = 0;
-            if (newlo > alo) carry = 1;
+            newlo = llo - rlo;
+            carry = (newlo > llo) ? 1 : 0;
             *reslo = newlo;
             *reshi = lhi - rhi - carry;
             return;
@@ -2862,30 +2855,23 @@ void shift32r(int *reshi, int *reslo, int count, int signExt) {
 }
 
 // 32-bit unsigned constant folding for comparison operators.
-void calcUConst32(int lhi, int llo, int oper, int rhi, int rlo,
+void calcUConst32(unsigned lhi, unsigned llo, int oper, unsigned rhi, unsigned rlo,
              int *reshi, int *reslo) {
-    unsigned ulhi, ullo, urhi, urlo;
-    ulhi = lhi;
-    ullo = llo;
-    urhi = rhi;
-    urlo = rlo;
     *reshi = 0;
     switch (oper) {
         case LT12: case LT12u:
-            *reslo = (ulhi < urhi) ? 1 : (ulhi > urhi) ? 0 : (ullo < urlo)  ? 1 : 0; 
+            *reslo = (lhi < rhi) ? 1 : (lhi > rhi) ? 0 : (llo < rlo)  ? 1 : 0;
             return;
         case LE12: case LE12u:
-            *reslo = (ulhi < urhi) ? 1 : (ulhi > urhi) ? 0 : (ullo <= urlo) ? 1 : 0; 
+            *reslo = (lhi < rhi) ? 1 : (lhi > rhi) ? 0 : (llo <= rlo) ? 1 : 0;
             return;
         case GT12: case GT12u:
-            *reslo = (ulhi > urhi) ? 1 : (ulhi < urhi) ? 0 : (ullo > urlo)  ? 1 : 0; 
+            *reslo = (lhi > rhi) ? 1 : (lhi < rhi) ? 0 : (llo > rlo)  ? 1 : 0;
             return;
         case GE12: case GE12u:
-            *reslo = (ulhi > urhi) ? 1 : (ulhi < urhi) ? 0 : (ullo >= urlo) ? 1 : 0; 
+            *reslo = (lhi > rhi) ? 1 : (lhi < rhi) ? 0 : (llo >= rlo) ? 1 : 0;
             return;
-        case MUL12u:
-        case DIV12u:
-        case MOD12u:
+        case MUL12u: case DIV12u: case MOD12u:
             // Too complex for 16-bit compile-time folding; don't fold
             *reslo = llo;
             *reshi = lhi;
@@ -2898,24 +2884,23 @@ void calcUConst32(int lhi, int llo, int oper, int rhi, int rlo,
 }
 
 // Signed 32-bit comparison folding.
-void calcCmp32(int lhi, int llo, int oper, int rhi, int rlo,
+// llo/rlo are unsigned so the low-word comparisons in each case are unsigned
+// without requiring extra locals.
+void calcCmp32(int lhi, unsigned llo, int oper, int rhi, unsigned rlo,
           int *reshi, int *reslo) {
-    unsigned ullo, urlo;
-    ullo = llo;
-    urlo = rlo;
     *reshi = 0;
     switch (oper) {
         case LT12: 
-            *reslo = (lhi < rhi) ? 1 : (lhi > rhi) ? 0 : (ullo < urlo)  ? 1 : 0; 
+            *reslo = (lhi < rhi) ? 1 : (lhi > rhi) ? 0 : (llo < rlo)  ? 1 : 0; 
             return;
         case LE12: 
-            *reslo = (lhi < rhi) ? 1 : (lhi > rhi) ? 0 : (ullo <= urlo) ? 1 : 0; 
+            *reslo = (lhi < rhi) ? 1 : (lhi > rhi) ? 0 : (llo <= rlo) ? 1 : 0; 
             return;
         case GT12: 
-            *reslo = (lhi > rhi) ? 1 : (lhi < rhi) ? 0 : (ullo > urlo)  ? 1 : 0; 
+            *reslo = (lhi > rhi) ? 1 : (lhi < rhi) ? 0 : (llo > rlo)  ? 1 : 0; 
             return;
         case GE12: 
-            *reslo = (lhi > rhi) ? 1 : (lhi < rhi) ? 0 : (ullo >= urlo) ? 1 : 0; 
+            *reslo = (lhi > rhi) ? 1 : (lhi < rhi) ? 0 : (llo >= rlo) ? 1 : 0; 
             return;
         default:   
             *reslo = 0; 

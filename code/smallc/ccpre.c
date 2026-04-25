@@ -536,8 +536,8 @@ void doerror() {
     char *p;
     int i;
     // Strip the trailing CR/LF that fgets left in mline.  error() prints
-    // the line via lout() which appends its own newline; without this strip
-    // lout() produces a blank line between the source echo and the /\ caret.
+    // the line and appends its own newline; without this strip there will be a
+    // blank line between the source echo and the /\ caret.
     p = line;
     while (*p && *p != LF && *p != CR) {
         ++p;

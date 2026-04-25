@@ -89,13 +89,9 @@ int doStruct(int kind) {
     return findStructByName(kind, ssname);
   }
   putint(structmemnext, structdatnext + STRDAT_MBEG, 2);
-  i = 0;
-  while (an(ssname[i])) {
-    structdatnext[STRDAT_NAME + i] = ssname[i++];
-    if (STRDAT_NAME + i == STRDAT_MAX) {
-      break;
-    }
-  }
+  /* Copy struct tag name; bound prevents writing past STRDAT_NAME's slot. */
+  for (i = 0; an(ssname[i]) && i < STRDAT_MAX - STRDAT_NAME; i++)
+    structdatnext[STRDAT_NAME + i] = ssname[i];
   structdatnext[STRDAT_NAME + i] = 0;
   structdatnext[STRDAT_KIND] = kind;
   totalsize = 0;
@@ -110,7 +106,7 @@ int doStruct(int kind) {
     }
     if ((type = dotype(&typeSubIdx)) != 0) {
       while (1) {
-        is_bf = 0; bit_width = 0; bit_off = 0; byte_off = 0; skip_entry = 0;
+        is_bf = bit_width = bit_off = byte_off = skip_entry = 0; /* one GETw1n 0, five stores */
 
         /* Detect unnamed bit-field: type followed directly by ':' */
         blanks();
@@ -272,15 +268,11 @@ int doStruct(int kind) {
 // Find a tag definition by name and kind (KIND_STRUCT or KIND_UNION).
 // return pointer to tag data if found, else -1
 int findStructByName(int kind, char *sname) {
-  char *current, *end;
-  current = STRDAT_START;
-  end = structdatnext;
-  while (current < end) {
+  char *current;
+  for (current = STRDAT_START; current < structdatnext; current += STRDAT_MAX) {
     if (current[STRDAT_KIND] == kind
-        && strcmp(current + STRDAT_NAME, sname) == 0) {
+        && strcmp(current + STRDAT_NAME, sname) == 0)
       return current;
-    }
-    current += STRDAT_MAX;
   }
   return -1;
 }
@@ -290,18 +282,12 @@ int findStructByName(int kind, char *sname) {
 // kind: KIND_STRUCT or KIND_UNION
 // @return pointer to tag data if found, else (char *)-1
 char *getStructPtr(int kind) {
-  char *current, *end;
-  int len;
-  current = STRDAT_START;
-  end = structdatnext;
-  while (current < end) {
-    if (current[STRDAT_KIND] == kind) {
-      len = strlen(current + STRDAT_NAME);
-      if (amatch(current + STRDAT_NAME, len)) {
+  char *current;
+  // strlen is called only when STRDAT_KIND matches; no len local needed.
+  for (current = STRDAT_START; current < structdatnext; current += STRDAT_MAX) {
+    if (current[STRDAT_KIND] == kind)
+      if (amatch(current + STRDAT_NAME, strlen(current + STRDAT_NAME)))
         return current;
-      }
-    }
-    current += STRDAT_MAX;
   }
   return (char *)-1;
 }
@@ -311,16 +297,12 @@ int getStructSize(char *basestruct) {
 }
 
 char *getStructMember(char *basestruct, char *sname) {
-  char *current, *end;
-  current = getptr(basestruct + STRDAT_MBEG, 2);
-  end = structmemnext;
-  // printf("    searching from %x to %x\n", current, end);
-  while (current < end) {
-    // printf("      cmp %s and %s\n", current + STRMEM_NAME, sname);
-    if (strcmp(current + STRMEM_NAME, sname) == 0) {
+  char *current;
+  for (current = getptr(basestruct + STRDAT_MBEG, 2);
+       current < structmemnext;
+       current += STRMEM_MAX) {
+    if (strcmp(current + STRMEM_NAME, sname) == 0)
       return current;
-    }
-    current += STRMEM_MAX;
   }
   return (char *)0;
 }

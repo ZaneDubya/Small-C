@@ -207,8 +207,7 @@ char *structBase;   // snapshot of structdata base, for usage stats
 // execution begins here
 int main(int argc, char **argv) {
     unsigned int availMem;
-    errputs(VERSION);
-    errputs(CRIGHT1);
+    fprintf(stderr, "%s\n%s\n", VERSION, CRIGHT1);
     argcs = argc;
     argvs = argv;
     swnext = calloc(SWTABSZ, 1);
@@ -269,31 +268,23 @@ void getRunArgs() {
     nowarn = NO;
 #endif
     while (getarg(++i, argbuf, LINESIZE, argcs, argvs) != EOF) {
+        int c;  /* cache toupper(argbuf[1]) to avoid repeated calls */
         if (argbuf[0] != '-' && argbuf[0] != '/')
             continue;
-        if (toupper(argbuf[1]) == 'L' && isdigit(argbuf[2]) && argbuf[3] <= ' ') {
+        c = toupper(argbuf[1]);
+        if (c == 'L' && isdigit(argbuf[2]) && argbuf[3] <= ' ') {
             listfp = argbuf[2] - '0';
             continue;
         }
-        if (toupper(argbuf[1]) == 'N' && toupper(argbuf[2]) == 'O' && 
-            argbuf[3] <= ' ') {
+        if (c == 'N' && toupper(argbuf[2]) == 'O' && argbuf[3] <= ' ') {
             optimize = NO;
             continue;
         }
         if (argbuf[2] <= ' ') {
-            if (toupper(argbuf[1]) == 'A') {
-                alarm = YES;
-                continue;
-            }
-            if (toupper(argbuf[1]) == 'M') {
-                monitor = YES; 
-                continue;
-            }
-            if (toupper(argbuf[1]) == 'P') {
-                pause = YES;
-                continue;
-            }
-            if (toupper(argbuf[1]) == 'W') {
+            if (c == 'A') { alarm   = YES; continue; }
+            if (c == 'M') { monitor = YES; continue; }
+            if (c == 'P') { pause   = YES; continue; }
+            if (c == 'W') {
 #ifdef ENABLE_WARNINGS
                 nowarn = YES;
 #endif
@@ -347,8 +338,7 @@ int openFileOrErr(char *fn, char *mode) {
     int fd;
     if (fd = fopen(fn, mode))
         return fd;
-    errputs("open error on ");
-    lout(fn, stderr);
+    fprintf(stderr, "open error on %s\n", fn);
     abort(ERRCODE);
 }
 
@@ -361,12 +351,8 @@ void parseTopLvl() {
         if (amatch("extern", 6))
             doGlbDeclare(EXTERNAL);
         else if (amatch("static", 6)) {
-            if (doGlbDeclare(STATIC)) {
-                // parsed and emitted a static variable
-            }
-            else {
+            if (!doGlbDeclare(STATIC))  /* static var or fn */
                 dofunction(STATIC);
-            }
         }
         else if (amatch("struct", 6)) {
             doStructBlock(KIND_STRUCT);
@@ -398,15 +384,15 @@ void parseTopLvl() {
 // there are no spare GPRs available for user variables).
 // return type value of declaration, otherwise 0 if not a valid declaration.
 int dotype(int *typeSubPtr) {
-    int isConst, isUnsigned, isShort, gotSignSize;
-    isConst = isUnsigned = isShort = gotSignSize = 0;
+    int isUnsigned, isShort, gotSignSize;
+    isUnsigned = isShort = gotSignSize = 0;
     typeIsConst = 0;
     typeIsPtr = 0;
     // Consume qualifier/modifier keywords in any order.  Only unsigned and
     // short actually affect the returned type; the rest are accepted as
     // no-ops (const sets a flag for callers, the others are discarded).
     for (;;) {
-        if (amatch("const", 5))        { isConst    = 1; }
+        if (amatch("const", 5))        { typeIsConst = 1; }  /* set global directly */
         else if (amatch("volatile", 8)){ /* no-op on 8086  */       }
         else if (amatch("register", 8)){ /* treat as auto on 8086 */ }
         else if (amatch("auto", 4))    { /* default storage class  */ }
@@ -415,7 +401,6 @@ int dotype(int *typeSubPtr) {
         else if (amatch("short", 5))   { isShort     = 1; gotSignSize = 1; }
         else break;
     }
-    typeIsConst = isConst;
     // short [int] -- on 8086 short == int (16-bit word)
     if (isShort) {
         amatch("int", 3);
@@ -1099,13 +1084,13 @@ int initGlbMDSub(int elemSz, int ndim, int *dims, int depth) {
         return;
     }
     // zero-fill remaining rows (nested brace mode)
-    while (i < dim) {
-        j = 0;
-        while (j < innerTot) {
+    {
+        int rem;                          /* remaining element slots to zero */
+        rem = (dim - i) * innerTot;
+        while (rem > 0) {
             stowlit(0, elemSz);
-            ++j;
+            --rem;
         }
-        ++i;
     }
 }
 
@@ -1181,7 +1166,7 @@ int dofunction(int class) {
         lastPtrDepth = 0;
     }
     if (monitor) {
-        lout(line, stderr);
+        fprintf(stderr, "%s\n", line);
     }
     if (symname(ssname) == 0) {
         error("illegal function or declaration");
@@ -1195,10 +1180,7 @@ int dofunction(int class) {
         return;
     }
     // capture current function name for static local name mangling
-    cptr2 = curfn;
-    cptr3 = ssname;
-    while (*cptr3) *cptr2++ = *cptr3++;
-    *cptr2 = 0;
+    strcpy(curfn, ssname);
     // If this is in the symbol table as autoext or extern, update the entry.
     // Any other pre-existing entry is an unpermitted duplicate definition.
     if (pGlobal = findglb(ssname)) {
@@ -1247,7 +1229,7 @@ int dofunction(int class) {
     // Definition: record param types, emit PUBLIC label, generate body.
     recordParamTypes(funcSym);
     // Restore ssname from curfn: arg parsing overwrites ssname with param names.
-    cptr2 = ssname; cptr3 = curfn; while (*cptr3) *cptr2++ = *cptr3++; *cptr2 = 0;
+    strcpy(ssname, curfn);
     // don't do public if class == STATIC
     decGlobal(rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION, class == GLOBAL);
     hasStaticLocal = 0;  // reset per-function before generating body
@@ -1415,42 +1397,22 @@ void doArgsTyped(int type, int typeSubPtr) {
 // Recalculate argument offsets for K&R-style declarations after
 // all types are known. Needed because long params take 4 bytes
 // while the initial pass assumed all params were BPW (2 bytes).
+// Single pass: running sum == total at end, so argtop = running + BPW.
 void fixArgOffs() {
-    int total, running, psz, namelen;
+    int running, psz;
     char *ptr;
-    // Pass 1: compute total argument bytes
-    total = 0;
-    ptr = STARTLOC;
-    while (ptr < locptr) {
-        if (ptr[IDENT] != IDENT_POINTER
-            && (ptr[TYPE] == TYPE_LONG || ptr[TYPE] == TYPE_ULONG))
-            psz = BPD;
-        else
-            psz = BPW;
-        total += psz;
-        ptr += NAME;
-        namelen = 0;
-        while (*ptr != namelen) { ptr += 1; namelen++; }
-        ptr++;
-    }
-    argtop = total + BPW;
-    // Pass 2: assign final offsets
     running = 0;
     ptr = STARTLOC;
     while (ptr < locptr) {
-        if (ptr[IDENT] != IDENT_POINTER
+        psz = (ptr[IDENT] != IDENT_POINTER
             && (ptr[TYPE] == TYPE_LONG || ptr[TYPE] == TYPE_ULONG))
-            psz = BPD;
-        else
-            psz = BPW;
+            ? BPD : BPW;
         running += psz;
         // Sequential cdecl offsets: first arg -> [BP+4], next -> [BP+4+psz], etc.
         putint(running - psz + 2*BPW, ptr + OFFSET, 2);
-        ptr += NAME;
-        namelen = 0;
-        while (*ptr != namelen) { ptr += 1; namelen++; }
-        ptr++;
+        ptr = nextsym(ptr);
     }
+    argtop = running + BPW;
 }
 
 // K&R second-pass type patcher: called once per type-declaration line by
@@ -1720,13 +1682,6 @@ int parseLocDecl(int type, int typeSubPtr, int defArrTyp, int *id, int *sz) {
     return nameIsValid;
 }
 
-// Copy a NUL-terminated symbol name into dst (up to NAMESIZE bytes).
-// Used to save and restore ssname around static local name mangling.
-void copyname(char *dst, char *src) {
-    while (*src) *dst++ = *src++;
-    *dst = 0;
-}
-
 // Makes a unique name for a static local and puts it into dst.
 // Format: _L<N> where N is a unique label number (e.g. _L42).
 // dst must be at least NAMESIZE bytes.
@@ -1777,7 +1732,7 @@ void declareLocals(int type, int typeSubPtr, int isStatic, int isConst) {
         if (isStatic) {
             // static local: allocate in DATA segment, not on stack
             // save original name; ssname will be overwritten with the _L<N> label
-            copyname(localName, ssname);
+            strcpy(localName, ssname);
             N = getlabel();
             makeNameLcSt(ssname, N);  // ssname = "_L<N>" for DATA label + global entry
             emitLocStatic(type, id, sz);
@@ -1791,7 +1746,7 @@ void declareLocals(int type, int typeSubPtr, int isStatic, int isConst) {
             // restore original name for the local scoping entry
             // OFFSET stores glbEntry so primary() can redirect STATIC-class accesses.
             // Plain STATIC class (no CONST_FLAG) keeps the redirect detection working.
-            copyname(ssname, localName);
+            strcpy(ssname, localName);
             // after addSymbol(&locptr), cptr = the new local scoping entry
             addSymbol(ssname, id, type, sz, (int)glbEntry, &locptr, STATIC);
             applyDimMeta(cptr, type, typeSubPtr, ddentry);  // reuse slot; do NOT reallocate
@@ -1981,53 +1936,43 @@ void initLocScalar(int type) {
     initLocElem(offset, elemSize, isPtr);
 }
 
+// Shared body for 1-D local array and pointer-array initializers.
+// Fills 'dim' slots of 'elemSz' bytes starting at stack offset 'offset'.
+// isPtr selects the wide store variant (for pointer-type slots).
+// '{' has already been consumed by the caller.
+void initLocArr1D(int offset, int elemSz, int dim, int isPtr) {
+    int count;
+    count = 0;
+    while (count < dim) {
+        initLocElem(offset + count * elemSz, elemSz, isPtr);
+        count++;
+        if (isMatch(",") == 0) break;
+    }
+    require("}");
+    while (count < dim) {          /* zero-fill remaining slots */
+        genZeroElem(offset + count * elemSz, elemSz);
+        count++;
+    }
+}
+
 // Initialize a local array variable with { expr, expr, ... }
 // cptr must point to the symbol table entry for the array.
 void initLocArray(int type) {
-    int offset, elemSize, dim, count;
-    char *savedcptr;
-    savedcptr = cptr;
-    offset = getint(savedcptr + OFFSET, 2);
-    elemSize = type >> 2;
-    if (elemSize < 1) elemSize = 1;
-    dim = getint(savedcptr + SIZE, 2) / elemSize;
-    count = 0;
-    while (count < dim) {
-        initLocElem(offset + count * elemSize, elemSize, 0);
-        count++;
-        if (isMatch(",") == 0)
-            break;
-    }
-    require("}");
-    // zero-fill remaining elements
-    while (count < dim) {
-        genZeroElem(offset + count * elemSize, elemSize);
-        count++;
-    }
+    int elemSz;
+    elemSz = type >> 2;
+    if (elemSz < 1) elemSz = 1;
+    initLocArr1D(getint(cptr + OFFSET, 2),
+                 elemSz,
+                 getint(cptr + SIZE, 2) / elemSz, 0);
 }
 
 // Initialize a local pointer array variable with { expr, expr, ... }
 // cptr must point to the symbol table entry for the array.
 // '{' has already been consumed by the caller.
 void initLocPtrArray() {
-    int offset, dim, count;
-    char *savedcptr;
-    savedcptr = cptr;
-    offset = getint(savedcptr + OFFSET, 2);
-    dim = getint(savedcptr + SIZE, 2) / BPW;
-    count = 0;
-    while (count < dim) {
-        initLocElem(offset + count * BPW, BPW, 1);
-        count++;
-        if (isMatch(",") == 0)
-            break;
-    }
-    require("}");
-    // zero-fill remaining slots
-    while (count < dim) {
-        genZeroElem(offset + count * BPW, BPW);
-        count++;
-    }
+    initLocArr1D(getint(cptr + OFFSET, 2),
+                 BPW,
+                 getint(cptr + SIZE, 2) / BPW, 1);
 }
 
 // Initialize a local char array from a string literal.
@@ -2054,12 +1999,8 @@ void initLocChrStr(int infer) {
     offset = getint(savedcptr + OFFSET, 2);
     arrSize = getint(savedcptr + SIZE, 2);
     i = 0;
-    while (i < strLen && i < arrSize) {
-        genStoreByte(offset + i, litq[strOffset + i] & 255);
-        i++;
-    }
-    while (i < arrSize) {
-        genStoreByte(offset + i, 0);
+    while (i < arrSize) {  /* copy string bytes, then zero-fill remainder in one pass */
+        genStoreByte(offset + i, i < strLen ? litq[strOffset + i] & 255 : 0);
         i++;
     }
     litptr = strOffset;
@@ -2748,12 +2689,8 @@ void doCase() {
 }
 
 void doDefault() {
-    if (swactive) {
-        if (swdefault)
-            error("multiple defaults");
-    }
-    else
-        error("not in switch");
+    if (!swactive) error("not in switch");
+    else if (swdefault) error("multiple defaults");
     require(":");
     gen(LABm, swdefault = getlabel());
 }
@@ -2787,17 +2724,13 @@ int addLabel(int def) {
     if (cptr = findloc(ssname)) {
         if (cptr[IDENT] != IDENT_LABEL)
             error("not a label"); // same name used for variable
-        else if (def) {
-            if (cptr[TYPE])
-                error("duplicate label");
-            else
-                cptr[TYPE] = YES;
-        }
+        else if (def && cptr[TYPE]) error("duplicate label");
+        else if (def) cptr[TYPE] = YES;
     }
     else {
         cptr = addSymbol(ssname, IDENT_LABEL, def, 0, getlabel(), &locptr, TYPE_LABEL);
     }
-    return (getint(cptr + OFFSET, 2));
+    return getint(cptr + OFFSET, 2);
 }
 
 int doReturn() {
@@ -2893,9 +2826,7 @@ void doAsmBlock() {
     flushfunc();           // flush funcbuf so inline asm lands in order
     while (1) {
         doInline();
-        if (isMatch("#endasm"))
-            break;
-        if (eof)
+        if (isMatch("#endasm") || eof)  /* check both terminators at once */
             break;
         outputs(line);
     }
