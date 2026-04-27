@@ -13,7 +13,7 @@ char *itoo(int nbr, char str[], int sz) {
   else while(str[sz]!=0) ++sz;
   while(sz) {
     digit=nbr&7; nbr=(nbr>>3)&8191;
-    str[--sz]=digit+48;
+    str[--sz]=(char)(digit+48);
     if(nbr==0) break;
     }
   while(sz) str[--sz]=' ';

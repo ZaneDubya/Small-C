@@ -15,11 +15,11 @@ char *itod(int nbr, char str[], int sz) {
   else if(sz<0) sz = -sz;
   else while(str[sz]!=NULL) ++sz;
   while(sz) {
-    str[--sz]=(nbr%10+'0');
+    str[--sz] = (char)(nbr%10+'0');
     if((nbr=nbr/10)==0) break;
     }
   if(sz) str[--sz]=sgn;
   while(sz>0) str[--sz]=' ';
   return str;
-  }
+}
 

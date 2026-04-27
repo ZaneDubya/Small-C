@@ -298,7 +298,7 @@ char *addSymbol(char *sname, char id, char type, int size, int offset, char **lg
     }
     cptr[IDENT] = id;
     cptr[TYPE] = type;
-    cptr[CLASS] = class;
+    cptr[CLASS] = (char)class;
     cptr[NDIM] = 0;
     cptr[PTRDEPTH] = 0;    // caller sets non-zero for IDENT_POINTER symbols
     putint(0, cptr + CLASSPTR, 2);
@@ -495,7 +495,7 @@ char *getptr(char *addr, int len) {
 // (low byte first)
 void putint(int i, char *addr, int len) {
     while (len--) {
-        *addr++ = i;
+        *addr++ = (char)i;
         i = i >> 8;
     }
 }

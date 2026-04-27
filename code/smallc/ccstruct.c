@@ -28,6 +28,7 @@
 
 extern char *symtab, *locptr, *lptr, ssname[];
 extern int ch, eof, rettype, rettypeSubPtr, lastPtrDepth;
+extern int lastNdim, lastStrides[];
 char *structdata, *structdatnext, *structmemnext;
 
 // forward declarations for this file:
@@ -93,7 +94,7 @@ int doStruct(int kind) {
   for (i = 0; an(ssname[i]) && i < STRDAT_MAX - STRDAT_NAME; i++)
     structdatnext[STRDAT_NAME + i] = ssname[i];
   structdatnext[STRDAT_NAME + i] = 0;
-  structdatnext[STRDAT_KIND] = kind;
+  structdatnext[STRDAT_KIND] = (char)kind;
   totalsize = 0;
   cur_unit_offset = -1;
   next_free_bit = 0;
@@ -211,11 +212,11 @@ int doStruct(int kind) {
         if (!skip_entry) {
           if (is_bf) {
             putint(byte_off, structmemnext + STRMEM_OFFSET, 2);
-            structmemnext[STRMEM_IDENT]    = id;
-            structmemnext[STRMEM_TYPE]     = type;
+            structmemnext[STRMEM_IDENT]    = (char)id;
+            structmemnext[STRMEM_TYPE]     = (char)type;
             putint(BPW, structmemnext + STRMEM_SIZE, 2);
-            structmemnext[STRMEM_BITWIDTH] = bit_width;
-            structmemnext[STRMEM_BITOFF]   = bit_off;
+            structmemnext[STRMEM_BITWIDTH] = (char)bit_width;
+            structmemnext[STRMEM_BITOFF]   = (char)bit_off;
           }
           else {
             if (kind == KIND_UNION) {
@@ -226,13 +227,24 @@ int doStruct(int kind) {
               putint(totalsize, structmemnext + STRMEM_OFFSET, 2);
               totalsize += sz;
             }
-            structmemnext[STRMEM_IDENT] = id;
-            structmemnext[STRMEM_TYPE]  = type;
+            structmemnext[STRMEM_IDENT] = (char)id;
+            structmemnext[STRMEM_TYPE]  = (char)type;
             putint(sz, structmemnext + STRMEM_SIZE, 2);
             if (type == TYPE_STRUCT) {
               putint(typeSubIdx, structmemnext + STRMEM_CLASSPTR, 2);
+              structmemnext[STRMEM_PTRDEPTH] = (char)lastPtrDepth;
             }
-            structmemnext[STRMEM_PTRDEPTH] = lastPtrDepth;
+            else if (id == IDENT_ARRAY && lastNdim > 1) {
+              // Multi-dim array member: repurpose STRMEM_PTRDEPTH to hold NDIM
+              // and STRMEM_CLASSPTR to hold the dimdata pointer.
+              // (Pointer depth is always 0 for plain arrays and is not needed here.)
+              putint((int)storeDimDat(typeSubIdx, lastNdim, lastStrides),
+                     structmemnext + STRMEM_CLASSPTR, 2);
+              structmemnext[STRMEM_PTRDEPTH] = (char)lastNdim;
+            }
+            else {
+              structmemnext[STRMEM_PTRDEPTH] = (char)lastPtrDepth;
+            }
           }
           /* Copy member name (common to both paths); max 12 chars + null */
           i = 0;

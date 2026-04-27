@@ -133,8 +133,8 @@ void initPreprocessor() {
 // No NUL is written. buf must be at least 2 bytes.
 // Used by initPredefined() to format date and time fields.
 void twoDigit(int n, char *buf) {
-    buf[0] = '0' + n / 10;
-    buf[1] = '0' + n % 10;
+    buf[0] = (char)('0' + n / 10);
+    buf[1] = (char)('0' + n % 10);
 }
 
 // Convert non-negative int n to a NUL-terminated decimal string in buf.
@@ -151,7 +151,7 @@ void lineToStr(int n, char *buf) {
     }
     else {
         while (tmp > 0) {
-            buf[i++] = '0' + tmp % 10;
+            buf[i++] = (char)('0' + tmp % 10);
             tmp = tmp / 10;
         }
         // Reverse digits in place.
@@ -225,8 +225,8 @@ void initPredefined() {
     predef_date[ 2] = monnam[(dt[1] - 1) * 3 + 1];
     predef_date[ 3] = monnam[(dt[1] - 1) * 3 + 2];
     predef_date[ 4] = ' ';
-    predef_date[ 5] = (dt[2] < 10) ? ' ' : '0' + dt[2] / 10;
-    predef_date[ 6] = '0' + dt[2] % 10;
+    predef_date[ 5] = (char)((dt[2] < 10) ? ' ' : '0' + dt[2] / 10);
+    predef_date[ 6] = (char)('0' + dt[2] % 10);
     predef_date[ 7] = ' ';
     lineToStr(dt[0], ybuf);   // year, e.g. "2026"
     predef_date[ 8] = ybuf[0];
@@ -365,7 +365,7 @@ int getDosExePath(char *buf, int bufsz) {
     while (i < bufsz - 1) {
         c = dos_peek(seg, off + i);
         if (c == 0) break;
-        buf[i] = c;
+        buf[i] = (char)c;
         i++;
     }
     buf[i] = 0;
@@ -512,6 +512,19 @@ void doInline() {
                 // drain the rest of the line
             }
             error("line too long");
+        }
+        // Strip the line terminator so the preprocessor always sees a plain
+        // NUL-terminated content string, regardless of whether the source
+        // file uses Unix (LF), old Mac (CR), or DOS/Windows (CRLF) endings.
+        // The expansion loop in preprocess() stops at LF or CR; stripping
+        // them here makes every source encoding behave identically.
+        // The LINELAST overrun check above must run first because it relies
+        // on the raw fgets output to detect buffer-full-without-newline.
+        {
+            char *p;
+            p = line;
+            while (*p && *p != '\r' && *p != '\n') ++p;
+            *p = '\0';
         }
         if (listfp) {
             if (listfp == output) {
@@ -877,7 +890,7 @@ void preprocess() {
             else if (an(ch)) {
                 k = 0;
                 while (an(ch) && k < NAMEMAX) {
-                    msname[k++] = ch;
+                    msname[k++] = (char)ch;
                     gch();
                 }
                 msname[k] = NULL;

@@ -762,7 +762,7 @@ void parseGlbDecl(int type, int class, int typeSubPtr) {
         }
         else if (id == IDENT_POINTER) {
             addSymbol(ssname, id, type, BPW, 0, &glbptr, class);
-            cptr[PTRDEPTH] = ptrDepth;
+            cptr[PTRDEPTH] = (char)ptrDepth;
             applyDimMeta(cptr, type, typeSubPtr, 0);
         }
         else if (ndim > 1) {
@@ -784,7 +784,7 @@ void parseGlbDecl(int type, int class, int typeSubPtr) {
         // a definition has been seen.  addSymbol() returns the existing slot
         // without modifying it, so patch CLASS manually.
         if (prevWasExternal)
-            cptr[CLASS] = class;
+            cptr[CLASS] = (char)class;
         if (isMatch(",") == 0) 
             return;
     }
@@ -1185,8 +1185,8 @@ int dofunction(int class) {
     // Any other pre-existing entry is an unpermitted duplicate definition.
     if (pGlobal = findglb(ssname)) {
         if (pGlobal[CLASS] == AUTOEXT || pGlobal[CLASS] == PROTOEXT || pGlobal[CLASS] == EXTERNAL) {
-            pGlobal[IDENT] = rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION;
-            pGlobal[CLASS] = class;
+            pGlobal[IDENT] = (char)(rettypeIsPtr ? IDENT_PTR_FUNCTION : IDENT_FUNCTION);
+            pGlobal[CLASS] = (char)class;
             if (rettype == TYPE_STRUCT) {
                 pGlobal[TYPE] = TYPE_STRUCT;
                 putint(rettypeSubPtr, pGlobal + CLASSPTR, 2);
@@ -1206,7 +1206,7 @@ int dofunction(int class) {
         funcSym = cptr;
     }
     // Store pointer return depth on the function symbol.
-    funcSym[PTRDEPTH] = lastPtrDepth;
+    funcSym[PTRDEPTH] = (char)lastPtrDepth;
     if (isMatch("(") == 0)
         error("no open paren");
     if ((firstType = dotype(&typeSubPtr)) != 0) {
@@ -1368,7 +1368,7 @@ void doArgsTyped(int type, int typeSubPtr) {
             // first arg -> [BP+4], second -> [BP+6], etc. (cdecl R-to-L push).
             addSymbol(ssname, id, type, sz, argstk + 2*BPW, &locptr,
                 argConst ? (AUTOMATIC | CONST_FLAG) : AUTOMATIC);
-            cptr[PTRDEPTH] = lastPtrDepth;
+            cptr[PTRDEPTH] = (char)lastPtrDepth;
             applyDimMeta(cptr, type, typeSubPtr, 0);
             if (id != IDENT_POINTER
                 && (type == TYPE_LONG || type == TYPE_ULONG))
@@ -1432,9 +1432,9 @@ void doArgsKRTypes(int type, int typeSubPtr) {
             if (ptr = findloc(ssname)) {
                 // Hidden pointer for struct params.
                 toStructPtr(&id, &sz, type);
-                ptr[IDENT] = id;
-                ptr[TYPE] = type;
-                ptr[PTRDEPTH] = lastPtrDepth;
+                ptr[IDENT] = (char)id;
+                ptr[TYPE] = (char)type;
+                ptr[PTRDEPTH] = (char)lastPtrDepth;
                 putint(sz, ptr + SIZE, 2);
                 applyDimMeta(ptr, type, typeSubPtr, 0);
             }
@@ -1695,9 +1695,14 @@ void makeNameLcSt(char *dst, int n) {
     if (n == 0) { *p++ = '0'; }
     else {
         q = buf;
-        while (n > 0) { *q++ = (n % 10) + '0'; n /= 10; }
+        while (n > 0) { 
+            *q++ = (char)((n % 10) + '0'); 
+            n /= 10; 
+        }
         len = q - buf;
-        while (len > 0) *p++ = buf[--len];
+        while (len > 0) {
+            *p++ = buf[--len];
+        }
     }
     *p = 0;
 }
@@ -1741,7 +1746,7 @@ void declareLocals(int type, int typeSubPtr, int isStatic, int isConst) {
             // there, so level1()'s const check reads the flag from the global entry.
             glbEntry = addSymbol(ssname, id, type, sz, 0, &glbptr,
                 isConst ? (STATIC | CONST_FLAG) : STATIC);
-            cptr[PTRDEPTH] = lastPtrDepth;
+            cptr[PTRDEPTH] = (char)lastPtrDepth;
             ddentry = applyDimMeta(cptr, type, typeSubPtr, 0);   // allocate dimdata slot once
             // restore original name for the local scoping entry
             // OFFSET stores glbEntry so primary() can redirect STATIC-class accesses.
@@ -1761,7 +1766,7 @@ void declareLocals(int type, int typeSubPtr, int isStatic, int isConst) {
             // lclass carries CONST_FLAG when the variable is const-qualified
             // after addSymbol(&locptr), cptr = the new auto local entry
             addSymbol(ssname, id, type, sz, csp - declared, &locptr, lclass);
-            cptr[PTRDEPTH] = lastPtrDepth;
+            cptr[PTRDEPTH] = (char)lastPtrDepth;
             // allocate dimdata slot if needed
             applyDimMeta(cptr, type, typeSubPtr, 0);
             if (isMatch("=")) {
@@ -1846,7 +1851,7 @@ void dispatchLocInit(int type, int typeSubPtr, int id, int sz) {
 // Returns the dimdata pointer (non-zero for multi-dim arrays, else 0).
 char *applyDimMeta(char *sym, int type, int typeSubPtr, char *ddentry) {
     if (lastNdim > 1) {
-        sym[NDIM] = lastNdim;
+        sym[NDIM] = (char)lastNdim;
         if (ddentry == 0)
             ddentry = storeDimDat(typeSubPtr, lastNdim, lastStrides);
         putint((int)ddentry, sym + CLASSPTR, 2);
@@ -2829,6 +2834,7 @@ void doAsmBlock() {
         if (isMatch("#endasm") || eof)  /* check both terminators at once */
             break;
         outputs(line);
+        outputc(NEWLINE);
     }
     kill();
     ccode = 1;

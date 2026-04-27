@@ -23,7 +23,7 @@ char *ltoa(long n, char *s) {
   }
   while (hi || lo) {
     rem = udiv3216(&lo, &hi, 10);
-    *ptr++ = rem + '0';
+    *ptr++ = (char)(rem + '0');
   }
   if (sign) *ptr++ = '-';
   *ptr = 0;

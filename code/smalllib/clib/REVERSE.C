@@ -8,7 +8,7 @@ void reverse(char *s) {
   while(s < j) {
     c = *s;
     *s++ = *j;
-    *j-- = c;
+    *j-- = (char)c;
     }
   }
 

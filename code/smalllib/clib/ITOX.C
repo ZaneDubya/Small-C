@@ -14,7 +14,7 @@ char *itox(int nbr, char str[], int sz) {
   while(sz) {
     digit=nbr&15; nbr=(nbr>>4)&4095;
     if(digit<10) offset=48; else offset=55;
-    str[--sz]=digit+offset;
+    str[--sz]=(char)(digit+offset);
     if(nbr==0) break;
     }
   while(sz) str[--sz]=' ';

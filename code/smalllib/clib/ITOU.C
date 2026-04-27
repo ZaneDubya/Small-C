@@ -15,10 +15,9 @@ char *itou(int nbr, char str[], int sz) {
   while(sz) {
     lowbit=nbr&1;
     nbr=(nbr>>1)&32767;  /* divide by 2 */
-    str[--sz]=((nbr%5)<<1)+lowbit+'0';
+    str[--sz]=(char)(((nbr%5)<<1)+lowbit+'0');
     if((nbr=nbr/5)==0) break;
     }
   while(sz) str[--sz]=' ';
   return str;
-  }
-
+}

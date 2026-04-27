@@ -153,7 +153,7 @@ int _format(char *buf, int fd, int *nxtarg) {
 
         if(conv == 'c') {
             arg    = *nxtarg++;
-            str[0] = arg;
+            str[0] = (char)arg;
             str[1] = '\0';
         }
         else if(conv == 's') {
@@ -267,7 +267,7 @@ int _format(char *buf, int fd, int *nxtarg) {
                 }
                 else if((conv == 'x' || conv == 'X') && nonzero) {
                     pfx[0]  = '0';
-                    pfx[1]  = conv;     // 'x' or 'X'
+                    pfx[1]  = (char)conv;     // 'x' or 'X'
                     pfx[2]  = '\0';
                     pfxlen  = 2;
                 }
@@ -293,7 +293,7 @@ int _format(char *buf, int fd, int *nxtarg) {
         if(sprint) {
             if(!left && pad2 != '0')
                 while(fill--) *dst++ = ' ';
-            if(sign) *dst++ = sign;
+            if(sign) *dst++ = (char)sign;
             p = pfx;
             while(*p) *dst++ = *p++;
             if(!left && pad2 == '0')

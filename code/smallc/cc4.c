@@ -2655,7 +2655,7 @@ int peep(int *seq) {
             continue;
         }
         if (*seq >= PCODES) {
-            c = *seq & 0xFF;            // get low byte of command
+            c = (char)*seq;             // get low byte of command
             n = c;                      // and sign extend into n
             switch (*seq & 0xFF00) {
             case ife:
@@ -2801,7 +2801,7 @@ void outdec(int number) {
         u = number;
     }
     do {
-        buf[i++] = '0' + u % 10;
+        buf[i++] = (char)('0' + u % 10);
         u /= 10;
     } while (u > 0);
     while (i--) {

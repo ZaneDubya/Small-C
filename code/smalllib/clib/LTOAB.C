@@ -16,8 +16,10 @@ void ltoab(long n, char *s, int b) {
   }
   while (hi || lo) {
     rem = udiv3216(&lo, &hi, b);
-    if (rem < 10) *ptr = rem + '0';
-    else *ptr = rem + 55;
+    if (rem < 10) 
+      *ptr = (char)(rem + '0');
+    else 
+      *ptr = (char)(rem + 55);
     ++ptr;
   }
   *ptr = 0;

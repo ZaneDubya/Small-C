@@ -216,7 +216,7 @@ int _open(char *fn, char *mode, int *fd) {
 int _read(int fd) {
   unsigned char ch;
   if(_nextc[fd] != EOF) {
-    ch = _nextc[fd];
+    ch = (unsigned char)_nextc[fd];
     _nextc[fd] = EOF;
     return (ch);
     }
@@ -274,7 +274,7 @@ int _writebuf(int ch, int fd) {
   while(YES) {
     ptr = _bufnxt[fd];
     if(ptr < (_bufptr[fd] + _bufsiz[fd])) {
-      *ptr = ch;
+      *ptr = (char)ch;
       ++_bufnxt[fd];
       _bufuse[fd] = OUT;
       return (ch);

@@ -79,6 +79,7 @@ void storeBF(int *is);
 void store(int *is);
 int structmember(char *ptr, int *is);
 int tryReverse(int *oper, int *oper2, int guard);
+void checkImplicitNarrowing(int *lhs, int *rhs);
 void widenPrimary(int *is);
 
 // ****************************************************************************
@@ -416,6 +417,7 @@ int level1(int *is) {
             // widen RHS if LHS is long and RHS is not
             if (is3[TYP_OBJ] >> 2 == BPD && !isLongVal(is2))
                 widenPrimary(is2);
+            checkImplicitNarrowing(is3, is2);
 #ifdef ENABLE_WARNINGS
             // ptr-depth-mismatch-warning
             if ((is3[IS_PTRDEPTH] != is2[IS_PTRDEPTH])
@@ -438,6 +440,7 @@ int level1(int *is) {
             // widen RHS if LHS is long and RHS is not
             if (isLongVal(is3) && !isLongVal(is2))
                 widenPrimary(is2);
+            checkImplicitNarrowing(is3, is2);
 #ifdef ENABLE_WARNINGS
             // ptr-depth-mismatch-warning
             if ((is3[IS_PTRDEPTH] != is2[IS_PTRDEPTH])
@@ -1068,6 +1071,7 @@ int structmember(char *ptr, int *is) {
     is[TYP_ADR] = 0;
     is[TYP_CNST] = is[VAL_CNST] = is[LAST_OP] = is[STG_ADR] = 0;
     is[IS_BITFIELD] = 0;
+    is[IS_PTRDEPTH] = 0;  // clear stale depth from the pointer used to reach this member
     /* Propagate bit-field metadata if this member is a bit-field */
     if (member[STRMEM_BITWIDTH]) {
         is[IS_BITFIELD] = 1;
@@ -1085,6 +1089,16 @@ int structmember(char *ptr, int *is) {
     // For array members, set TYP_ADR so subscripting works
     if (member[STRMEM_IDENT] == IDENT_ARRAY) {
         is[TYP_ADR] = member[STRMEM_TYPE];
+        if (member[STRMEM_PTRDEPTH] > 1) {
+            // Multi-dim array member: STRMEM_PTRDEPTH holds NDIM and
+            // STRMEM_CLASSPTR holds the dimdata pointer (stored by ccstruct.c).
+            // Propagate both to the temp symbol and prime DIM_LEFT so the
+            // subscript loop in level14() handles intermediate dimensions.
+            char *sym = (char *)is[SYMTAB_ADR];
+            sym[NDIM] = member[STRMEM_PTRDEPTH];
+            putint(getint(member + STRMEM_CLASSPTR, 2), sym + CLASSPTR, 2);
+            is[DIM_LEFT] = member[STRMEM_PTRDEPTH];
+        }
         return 0;   // array name is not an lvalue
     }
     // For pointer members, set TYP_OBJ to address-sized, TYP_ADR to pointed-to type
@@ -1168,6 +1182,12 @@ void applycast(int casttype, int *is) {
 int trycast(int *is) {
     char *saved;
     int  sc, snc, casttype, isUnsigned, isSigned, isShort;
+    // Cross any line boundary BEFORE saving state.  amatch() calls blanks()
+    // which may call preprocess(), overwriting pline and resetting lptr to
+    // the start of the new content.  If the save happens before that call,
+    // the restored lptr lands in the middle of the new (wrong) pline while
+    // ch is still '\0', causing blanks() to skip yet another line.
+    blanks();
     saved = lptr;
     sc = ch;
     snc = nch;
@@ -1722,6 +1742,41 @@ void widenSecondary(int *is) {
         gen(WIDENu2, 0);
     else
         gen(WIDENs2, 0);
+}
+
+// Emit an error if RHS implicitly narrows to fit LHS type.
+// Exempts explicit casts (rhs[TYP_VAL] set), integer constants (TYP_CNST
+// set), pointer expressions, and cases where the RHS size cannot be
+// determined (e.g. non-long function return values).
+void checkImplicitNarrowing(int *lhs, int *rhs) {
+    char *ptr;
+    int lhsSize, rhsSize;
+    // skip if explicit cast was applied to RHS, or RHS is a constant
+    if (rhs[TYP_VAL] || rhs[TYP_CNST])
+        return;
+    // skip if LHS or RHS involves a pointer
+    if (lhs[IS_PTRDEPTH] || rhs[IS_PTRDEPTH])
+        return;
+    // determine LHS byte size
+    if (lhs[TYP_OBJ]) {
+        lhsSize = lhs[TYP_OBJ] >> 2;
+    } else {
+        ptr = (char *)lhs[SYMTAB_ADR];
+        if (!ptr || isPtrLike(ptr)) return;
+        lhsSize = ptr[TYPE] >> 2;
+    }
+    // determine RHS byte size; if indeterminate (e.g. non-long fn return), skip
+    if (isLongVal(rhs)) {
+        rhsSize = BPD;
+    } else if (rhs[TYP_OBJ] && rhs[TYP_ADR] == 0) {
+        rhsSize = rhs[TYP_OBJ] >> 2;
+    } else {
+        ptr = (char *)rhs[SYMTAB_ADR];
+        if (!ptr || isPtrLike(ptr)) return;
+        rhsSize = ptr[TYPE] >> 2;
+    }
+    if (rhsSize > lhsSize)
+        warning("implicit narrowing conversion in assignment");
 }
 
 int toLongTab[] = {
