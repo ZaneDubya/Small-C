@@ -486,3 +486,9 @@ Small-C Revision History
     argv[0] now contains exe filename (previously was just "*")
     Small-C now parses the '\r' character.
     Fixed .h files ending in a comment caused incorrect macro definition.
+167 Optimized FPRINTF/SPRINTF.
+    Optimized functions in SmallC that could use SmallLib functions.
+    Addressed places where using \n instead of \r\n would cause the compiler
+    to emit buggy code.
+    Explicitly check for and warn on implicit narrowing (e.g., int stored to
+    char). Added casts to SmallC and SmallLib source codeto cover this warning.
