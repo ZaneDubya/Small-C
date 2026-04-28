@@ -44,6 +44,7 @@ void doWhile();
 void emitLocStatic(int type, int id, int sz);
 int isConstExpr(int *val);
 int isConstExpr32(int *val, int *val_hi);
+int getTypeElemSz(int type, int typeSubPtr);
 void initGlbMDArr(int type, int typeSubPtr, int ndim, int *dims, int class);
 void initGlbVar(int size, int ident, int dim, int class);
 void initLocArray(int type);
@@ -752,6 +753,11 @@ void parseGlbDecl(int type, int class, int typeSubPtr) {
                 else
                     initStruct(typeSubPtr, class);
             }
+            else if (type == TYPE_STRUCT && id == IDENT_ARRAY && ndim <= 1) {
+                int structsize = getStructSize(typeSubPtr);
+                decGlobal(IDENT_ARRAY, class == GLOBAL);
+                dumpzero(1, dim * structsize);
+            }
             else if (ndim > 1)
                 initGlbMDArr(type, typeSubPtr, ndim, dims, class);
             else {
@@ -1102,12 +1108,21 @@ int initGlbMDSub(int elemSz, int ndim, int *dims, int depth) {
 // ndim: number of dimensions
 // dims[]: dimension sizes
 // class: GLOBAL or STATIC
+
+// Return the element byte size for a given type.
+// For TYPE_STRUCT, reads the struct definition at typeSubPtr.
+// For all other types, decodes the size from the type constant (type >> 2),
+// with a minimum of 1 byte (guards against TYPE_VOID == 0).
+int getTypeElemSz(int type, int typeSubPtr) {
+    int sz;
+    if (type == TYPE_STRUCT) return getStructSize(typeSubPtr);
+    sz = type >> 2;
+    return sz > 0 ? sz : 1;
+}
+
 void initGlbMDArr(int type, int typeSubPtr, int ndim, int *dims, int class) {
     int elemSz, totalElems, i;
-    elemSz = type >> 2;
-    if (type == TYPE_STRUCT)
-        elemSz = getStructSize(typeSubPtr);
-    if (elemSz < 1) elemSz = 1;
+    elemSz = getTypeElemSz(type, typeSubPtr);
     totalElems = 1;
     i = 0;
     while (i < ndim) {
@@ -1509,11 +1524,7 @@ void doArgsKR() {
 void calcArgStrides(int type, int typeSubPtr, int ndim, int *dims) {
     int elemSz, k;
     if (ndim > 1) {
-        if (type == TYPE_STRUCT)
-            elemSz = getStructSize(typeSubPtr);
-        else
-            elemSz = type >> 2;
-        if (elemSz < 1) elemSz = 1;
+        elemSz = getTypeElemSz(type, typeSubPtr);
         lastStrides[ndim - 2] = dims[ndim - 1] * elemSz;
         k = ndim - 3;
         while (k >= 0) {
@@ -1932,21 +1943,19 @@ void initLocElem(int off, int elemSz, int isPtr) {
 // Initialize a local scalar variable (int, char, pointer)
 // cptr must point to the symbol table entry for the variable.
 void initLocScalar(int type) {
-    int offset, elemSize, isPtr;
+    int offset, isPtr;
     char *savedcptr;
     savedcptr = cptr;
     offset = getint(savedcptr + OFFSET, 2);
     isPtr = (savedcptr[IDENT] == IDENT_POINTER);
-    elemSize = type >> 2;
-    if (elemSize < 1) elemSize = 1;
-    initLocElem(offset, elemSize, isPtr);
+    initLocElem(offset, getTypeElemSz(type, 0), isPtr);
 }
 
 // Shared body for 1-D local array and pointer-array initializers.
 // Fills 'dim' slots of 'elemSz' bytes starting at stack offset 'offset'.
 // isPtr selects the wide store variant (for pointer-type slots).
 // '{' has already been consumed by the caller.
-void initLocArr1D(int offset, int elemSz, int dim, int isPtr) {
+void initLocArr1D(int offset, int elemSz, int dim, int isPtr, int closeBrace) {
     int count;
     count = 0;
     while (count < dim) {
@@ -1954,7 +1963,7 @@ void initLocArr1D(int offset, int elemSz, int dim, int isPtr) {
         count++;
         if (isMatch(",") == 0) break;
     }
-    require("}");
+    if (closeBrace) require("}");
     while (count < dim) {          /* zero-fill remaining slots */
         genZeroElem(offset + count * elemSz, elemSz);
         count++;
@@ -1965,11 +1974,10 @@ void initLocArr1D(int offset, int elemSz, int dim, int isPtr) {
 // cptr must point to the symbol table entry for the array.
 void initLocArray(int type) {
     int elemSz;
-    elemSz = type >> 2;
-    if (elemSz < 1) elemSz = 1;
+    elemSz = getTypeElemSz(type, 0);
     initLocArr1D(getint(cptr + OFFSET, 2),
                  elemSz,
-                 getint(cptr + SIZE, 2) / elemSz, 0);
+                 getint(cptr + SIZE, 2) / elemSz, 0, 1);
 }
 
 // Initialize a local pointer array variable with { expr, expr, ... }
@@ -1978,7 +1986,7 @@ void initLocArray(int type) {
 void initLocPtrArray() {
     initLocArr1D(getint(cptr + OFFSET, 2),
                  BPW,
-                 getint(cptr + SIZE, 2) / BPW, 1);
+                 getint(cptr + SIZE, 2) / BPW, 1, 1);
 }
 
 // Initialize a local char array from a string literal.
@@ -2085,21 +2093,6 @@ void initLocMDCharRow(int baseOff, int dim) {
 // baseOff: stack offset of the first element.
 // elemSz:  element size in bytes.
 // dim:     number of elements in this row.
-void initLocMDElemRow(int elemSz, int baseOff, int dim) {
-    int count;
-    count = 0;
-    while (count < dim) {
-        initLocElem(baseOff + count * elemSz, elemSz, 0);
-        ++count;
-        if (isMatch(",") == 0) break;
-    }
-    // zero-fill remainder of this row
-    while (count < dim) {
-        genZeroElem(baseOff + count * elemSz, elemSz);
-        ++count;
-    }
-}
-
 // recursive helper for local multi-dim array init.
 // Handles nested-brace {{r0},{r1}} and flat {e0,e1,...} initializer forms.
 // type:    element type (e.g. TYPE_INT, TYPE_CHR)
@@ -2117,7 +2110,7 @@ void initLocMDSub(int type, int elemSz, int ndim, int *dims,
         if (elemSz == 1 && (type == TYPE_CHR || type == TYPE_UCHR))
             initLocMDCharRow(baseOff, dim);
         else
-            initLocMDElemRow(elemSz, baseOff, dim);
+            initLocArr1D(baseOff, elemSz, dim, 0, 0);
         return;
     }
     // compute total element count of one sub-array at this depth
@@ -2155,7 +2148,7 @@ void initLocMDSub(int type, int elemSz, int ndim, int *dims,
         if (elemSz == 1 && (type == TYPE_CHR || type == TYPE_UCHR))
             initLocMDCharRow(baseOff, dim * innerTot);
         else
-            initLocMDElemRow(elemSz, baseOff, dim * innerTot);
+            initLocArr1D(baseOff, elemSz, dim * innerTot, 0, 0);
     }
 }
 
@@ -2167,11 +2160,8 @@ void initLocMDArr(int type, char *symptr) {
     int dims[MAX_DIMS];
     offset = getint(symptr + OFFSET, 2);
     ndim = symptr[NDIM];
-    if (type == TYPE_STRUCT)
-        elemSz = getStructSize(getClsPtr(symptr));
-    else
-        elemSz = type >> 2;
-    if (elemSz < 1) elemSz = 1;
+    elemSz = (type == TYPE_STRUCT) ? getTypeElemSz(type, getClsPtr(symptr))
+                                   : getTypeElemSz(type, 0);
     deriveDims(symptr, dims, elemSz, ndim);
     initLocMDSub(type, elemSz, ndim, dims, 0, offset);
     require("}");

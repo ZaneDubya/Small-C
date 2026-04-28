@@ -497,3 +497,17 @@ Small-C Revision History
     (MOV SP,BP / POP BP / RET) immediately before the inline asm lines, making
     them unreachable dead code. Added midFuncFlush flag; consolidation is now
     suppressed during mid-function flushes.
+169 Compiler source reductions and one bug fix.
+    cc1: getTypeElemSz() helper deduplicates five identical element-size
+    calculations. initLocMDElemRow() eliminated by adding a closeBrace flag to
+    initLocArr1D(). Fixed global multi-dim struct array BSS sizing: the
+    TYPE_STRUCT+IDENT_ARRAY branch in parseGlbDecl() was using only dims[0]
+    instead of all dimensions; added ndim<=1 guard so 2D+ struct arrays route
+    to initGlbMDArr() which multiplies all dims correctly.
+    cc3: parseExpr()/isConstExpr() now delegate to their 32-bit counterparts,
+    removing duplicate bodies. calcCmp32() eliminated by merging its four cases
+    into calcConst32(). applyGlbSymInfo() helper deduplicates the
+    IDENT_ARRAY/IDENT_PTR_ARRAY/isPtrLike dispatch block from two paths in
+    primary().
+    cc4: Rules 136-141: GETw1s+PUSH1->PUSHs (rule 136) and PUSHm+<load>+POP2
+    ->GETw2m+<load> for five RHS load forms (rules 137-141).

@@ -1372,6 +1372,37 @@ int seqdata[] = {
     go|p1,NOP_,go|p1,NOP_,go|p1,NOP_,go|p1,SUBwpn,go|p1,NOP_,go|p1,
     NOP_,go|p1,NOP_,go|p1,NOP_,go|m8, 0, 0,
 
+    // 136 Push Stack Var Direct  (analogous to rule 017 for globals)
+    // Fold GETw1s+PUSH1 into PUSHs when pr is not needed after the push.
+    // After this fires, PUSHs is in the stream and rules 124-128 can chain.
+    //     IN:  GETw1s(o)  PUSH1   (pfree: pr not live after this point)
+    //          AX=stack[o]  push AX
+    //     NET: stack <- stack[o]
+    //     WHY: 8086 PUSH [BP+disp] pushes from memory without touching a register.
+    //     OUT: PUSHs(o)  ->  PUSH WORD PTR [BP+o]
+    GETw1s,PUSH1,pfree,0, go|p1,PUSHs,gv|m1,0, 0,
+
+    // 137-141 PUSHm + load + POP2  ->  GETw2m + load  (global LHS, variable/other RHS)
+    // Eliminate push/pop round-trip when rule 017 already converted GETw1m+PUSH1 to PUSHm
+    // and the RHS is a single load that does not touch BX.
+    //     IN:  PUSHm(m)  <load>  POP2
+    //          push [m]  AX=<x>  BX=pop'd
+    //     NET: BX=mem[m], AX=<x>
+    //     OUT: GETw2m(m)  <load>
+    //          BX=mem[m]  AX=<x>
+    //     NOTE: Same safety constraint as rules 124-128 — CALL clobbers BX and
+    //           must not be matched; each safe middle operand needs its own rule.
+    // 137 middle = stack word
+    PUSHm,GETw1s,POP2,0, go|p2,gc|m1,gv|m1,go|m1,GETw2m,gv|m1,0, 0,
+    // 138 middle = constant
+    PUSHm,GETw1n,POP2,0, go|p2,gc|m1,gv|m1,go|m1,GETw2m,gv|m1,0, 0,
+    // 139 middle = address of stack variable
+    PUSHm,POINT1s,POP2,0, go|p2,gc|m1,gv|m1,go|m1,GETw2m,gv|m1,0, 0,
+    // 140 middle = global word
+    PUSHm,GETw1m,POP2,0, go|p2,gc|m1,gv|m1,go|m1,GETw2m,gv|m1,0, 0,
+    // 141 middle = address of global
+    PUSHm,POINT1m,POP2,0, go|p2,gc|m1,gv|m1,go|m1,GETw2m,gv|m1,0, 0,
+
     0  // end sentinel
 
     // These four _pop/topop rules eliminate PUSH/POP round-trips by reloading

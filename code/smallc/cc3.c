@@ -43,10 +43,8 @@ extern int litptrMax;
 
 // forward declarations for this file:
 void applyResultType(int oper, int *is, int *is2);
-void calcCmp32(int lhi, unsigned llo, int oper, int rhi, unsigned rlo, int *reshi, int *reslo);
 int calcConst(int left, int oper, int right);
 void calcConst32(int lhi, unsigned llo, int oper, int rhi, unsigned rlo, int *reshi, int *reslo);
-int calcUConst(unsigned left, int oper, unsigned right);
 void calcUConst32(unsigned lhi, unsigned llo, int oper, unsigned rhi, unsigned rlo, int *reshi, int *reslo);
 void checkFnArgCountAndTypes(char *ptr, int userArgCount, int *argDepths, char **argSyms);
 int chrcon(int *lo, int *hi);
@@ -81,22 +79,11 @@ int structmember(char *ptr, int *is);
 int tryReverse(int *oper, int *oper2, int guard);
 void checkImplicitNarrowing(int *lhs, int *rhs);
 void widenPrimary(int *is);
+void widenReg(int *is, int opU, int opS);
 
 // ****************************************************************************
 // lead-in functions
 // ****************************************************************************
-
-int isConstExpr(int *val) {
-    int isConst;
-    int *before, *start;
-    setstage(&before, &start);
-    parseExpr(&isConst, val);
-    clearStage(before, 0);     // scratch generated code
-    if (isConst == 0) {
-        error("must be constant expression");
-    }
-    return isConst;
-}
 
 void parseExpr32(int *con, int *val, int *val_hi) {
     int is[ISSIZE];
@@ -107,6 +94,11 @@ void parseExpr32(int *con, int *val, int *val_hi) {
     *val = is[VAL_CNST];
     *val_hi = is[VAL_CNST_HI];
     locptr = savedlocptr;
+}
+
+void parseExpr(int *con, int *val) {
+    int dummy;
+    parseExpr32(con, val, &dummy);
 }
 
 int isConstExpr32(int *val, int *val_hi) {
@@ -120,16 +112,9 @@ int isConstExpr32(int *val, int *val_hi) {
     return isConst;
 }
 
-void parseExpr(int *con, int *val) {
-    int is[ISSIZE];
-    char *savedlocptr;
-    savedlocptr = locptr;
-    if (level1(is)) {
-        fetch(is);
-    }
-    *con = is[TYP_CNST];
-    *val = is[VAL_CNST];
-    locptr = savedlocptr;
+int isConstExpr(int *val) {
+    int dummy;
+    return isConstExpr32(val, &dummy);
 }
 
 // Like parseExpr, but when destIsLong is true and the expression
@@ -1297,6 +1282,30 @@ int trycast(int *is) {
     return 1;
 }
 
+// Shared helper for primary(): populate is[] for a global or static-local symbol.
+// Returns 0 for arrays (AX = address), 1 for scalars/pointers (lvalue in AX).
+int applyGlbSymInfo(char *ptr, int *is) {
+    if (ptr[IDENT] == IDENT_ARRAY) {
+        gen(POINT1m, ptr);
+        is[TYP_OBJ] = is[TYP_ADR] = ptr[TYPE];
+        if (ptr[NDIM] > 1)
+            is[DIM_LEFT] = ptr[NDIM];
+        return 0;
+    }
+    if (ptr[IDENT] == IDENT_PTR_ARRAY) {
+        gen(POINT1m, ptr);
+        is[TYP_OBJ] = is[TYP_ADR] = TYPE_UINT;
+        return 0;
+    }
+    if (isPtrLike(ptr)) {
+        is[TYP_ADR] = ptr[TYPE];
+        is[IS_PTRDEPTH] = ptr[PTRDEPTH];
+        if (ptr[NDIM] > 1)
+            is[DIM_LEFT] = ptr[NDIM];
+    }
+    return 1;
+}
+
 int primary(int *is) {
     char *ptr, sname[NAMESIZE];
     int k;
@@ -1320,25 +1329,7 @@ int primary(int *is) {
                 // stored in the OFFSET field of the local entry
                 ptr = getptr(ptr + OFFSET, 2);
                 is[SYMTAB_ADR] = (int)ptr;
-                if (ptr[IDENT] == IDENT_ARRAY) {
-                    gen(POINT1m, ptr);
-                    is[TYP_OBJ] = is[TYP_ADR] = ptr[TYPE];
-                    if (ptr[NDIM] > 1)
-                        is[DIM_LEFT] = ptr[NDIM];
-                    return 0;
-                }
-                if (ptr[IDENT] == IDENT_PTR_ARRAY) {
-                    gen(POINT1m, ptr);
-                    is[TYP_OBJ] = is[TYP_ADR] = TYPE_UINT;
-                    return 0;
-                }
-                if (isPtrLike(ptr)) {
-                    is[TYP_ADR] = ptr[TYPE];
-                    is[IS_PTRDEPTH] = ptr[PTRDEPTH];
-                    if (ptr[NDIM] > 1)
-                        is[DIM_LEFT] = ptr[NDIM];
-                }
-                return 1;
+                return applyGlbSymInfo(ptr, is);
             }
             gen(POINT1s, getint(ptr + OFFSET, 2));
             is[SYMTAB_ADR] = (int)ptr;
@@ -1372,25 +1363,7 @@ int primary(int *is) {
                 return 0;
             }
             if (ptr[IDENT] != IDENT_FUNCTION && ptr[IDENT] != IDENT_PTR_FUNCTION) {
-                if (ptr[IDENT] == IDENT_ARRAY) {
-                    gen(POINT1m, ptr);
-                    is[TYP_OBJ] = is[TYP_ADR] = ptr[TYPE];
-                    if (ptr[NDIM] > 1)
-                        is[DIM_LEFT] = ptr[NDIM];
-                    return 0;
-                }
-                if (ptr[IDENT] == IDENT_PTR_ARRAY) {
-                    gen(POINT1m, ptr);
-                    is[TYP_OBJ] = is[TYP_ADR] = TYPE_UINT;
-                    return 0;
-                }
-                if (isPtrLike(ptr)) {
-                    is[TYP_ADR] = ptr[TYPE];
-                    is[IS_PTRDEPTH] = ptr[PTRDEPTH];
-                    if (ptr[NDIM] > 1)
-                        is[DIM_LEFT] = ptr[NDIM];
-                }
-                return 1;
+                return applyGlbSymInfo(ptr, is);
             }
         }
         else {
@@ -1728,20 +1701,19 @@ int isLongVal(int *is) {
     return 0;
 }
 
+// Sign- or zero-extend: dispatch on signedness of is[]; opU for unsigned, opS for signed.
+void widenReg(int *is, int opU, int opS) {
+    gen(isUnsigned(is) ? opU : opS, 0);
+}
+
 // Sign- or zero-extend AX to DX:AX based on signedness of is[].
 void widenPrimary(int *is) {
-    if (isUnsigned(is))
-        gen(WIDENu, 0);
-    else
-        gen(WIDENs, 0);
+    widenReg(is, WIDENu, WIDENs);
 }
 
 // Sign- or zero-extend BX to CX:BX based on signedness of is[].
 void widenSecondary(int *is) {
-    if (isUnsigned(is))
-        gen(WIDENu2, 0);
-    else
-        gen(WIDENs2, 0);
+    widenReg(is, WIDENu2, WIDENs2);
 }
 
 // Emit an error if RHS implicitly narrows to fit LHS type.
@@ -1775,8 +1747,10 @@ void checkImplicitNarrowing(int *lhs, int *rhs) {
         if (!ptr || isPtrLike(ptr)) return;
         rhsSize = ptr[TYPE] >> 2;
     }
+#ifdef ENABLE_WARNINGS
     if (rhsSize > lhsSize)
         warning("implicit narrowing conversion in assignment");
+#endif
 }
 
 int toLongTab[] = {
@@ -2012,13 +1986,12 @@ void fetch(int *is) {
 
 int constant(int *is) {
     int offset;
-    if (is[TYP_CNST] = number(&is[VAL_CNST], &is[VAL_CNST_HI]))
-        genConstLoad(is);
-    else if (is[TYP_CNST] = chrcon(&is[VAL_CNST], &is[VAL_CNST_HI]))
+    if ((is[TYP_CNST] = number(&is[VAL_CNST], &is[VAL_CNST_HI]))
+     || (is[TYP_CNST] = chrcon(&is[VAL_CNST], &is[VAL_CNST_HI])))
         genConstLoad(is);
     else if (string(&offset)) {
         gen(POINT1l, offset);
-        is[TYP_ADR] = TYPE_CHR;   // AX is a char *; allows subscripting
+        is[TYP_ADR] = TYPE_CHR;
         is[TYP_OBJ] = TYPE_CHR;
     }
     else return 0;
@@ -2388,10 +2361,7 @@ void foldConst32(int oper, int leftLong, int rightLong, int *is, int *is2) {
     }
     reshi = reslo = 0;
     // Dispatch to the correct folding function based on operator and signedness.
-    if (oper == LT12 || oper == LE12 || oper == GT12 || oper == GE12) {
-        calcCmp32(lhi, llo, oper, rhi, rlo, &reshi, &reslo);
-    }
-    else if (isUnsigned(is) || isUnsigned(is2)) {
+    if (isUnsigned(is) || isUnsigned(is2)) {
         calcUConst32(lhi, llo, oper, rhi, rlo, &reshi, &reslo);
     }
     else {
@@ -2761,66 +2731,35 @@ int isUnsigned(int *is) {
     return 0;
 }
 
-// calculate signed constant result
+// calculate constant result (signed and unsigned operators)
 int calcConst(int left, int oper, int right) {
     switch (oper) {
-        case ADD12:
-            return (left + right);
-        case SUB12:
-            return (left - right);
-        case MUL12:
-            return (left  *  right);
-        case DIV12:
-            return (left / right);
-        case MOD12:
-            return (left  %  right);
-        case EQ12:
-            return (left == right);
-        case NE12:
-            return (left != right);
-        case LE12:
-            return (left <= right);
-        case GE12:
-            return (left >= right);
-        case LT12:
-            return (left < right);
-        case GT12:
-            return (left > right);
-        case AND12:
-            return (left  &  right);
-        case OR12: 
-            return (left | right);
-        case XOR12:
-            return (left  ^  right);
-        case ASR12:
-            return (left >> right);
-        case ASL12:
-            return (left << right);
+        case ADD12:   return (left + right);
+        case SUB12:   return (left - right);
+        case MUL12:   return (left * right);
+        case DIV12:   return (left / right);
+        case MOD12:   return (left % right);
+        case EQ12:    return (left == right);
+        case NE12:    return (left != right);
+        case LE12:    return (left <= right);
+        case GE12:    return (left >= right);
+        case LT12:    return (left < right);
+        case GT12:    return (left > right);
+        case AND12:   return (left & right);
+        case OR12:    return (left | right);
+        case XOR12:   return (left ^ right);
+        case ASR12:   return (left >> right);
+        case ASL12:   return (left << right);
+        case MUL12u:  return ((unsigned)left * (unsigned)right);
+        case DIV12u:  return ((unsigned)left / (unsigned)right);
+        case MOD12u:  return ((unsigned)left % (unsigned)right);
+        case LE12u:   return ((unsigned)left <= (unsigned)right);
+        case GE12u:   return ((unsigned)left >= (unsigned)right);
+        case LT12u:   return ((unsigned)left < (unsigned)right);
+        case GT12u:   return ((unsigned)left > (unsigned)right);
+        case LSR12:   return ((unsigned)left >> right);
     }
-    return calcUConst(left, oper, right);
-}
-
-// calculate unsigned constant result
-int calcUConst(unsigned left, int oper, unsigned right) {
-    switch (oper) {
-        case MUL12u:
-            return (left  *  right);
-        case DIV12u:
-            return (left / right);
-        case MOD12u:
-            return (left  %  right);
-        case LE12u:
-            return (left <= right);
-        case GE12u:
-            return (left >= right);
-        case LT12u:
-            return (left < right);
-        case GT12u:
-            return (left > right);
-        case LSR12:
-            return (left >> right);
-    }
-    return (0);
+    return 0;
 }
 
 // 32-bit signed constant folding.  Operates on hi:lo pairs.
@@ -2829,8 +2768,9 @@ int calcUConst(unsigned left, int oper, unsigned right) {
 // llo/rlo are unsigned so carry detection in ADD/SUB works without extra locals.
 void calcConst32(int lhi, unsigned llo, int oper, int rhi, unsigned rlo,
             int *reshi, int *reslo) {
-    unsigned newlo;
     int carry;
+    unsigned newlo;
+    unsigned a0, a1, b0, b1, p00, p01, p10, p11, c; // vars for 32b mul
     switch (oper) {
         case ADD12:
             newlo = llo + rlo;
@@ -2886,8 +2826,42 @@ void calcConst32(int lhi, unsigned llo, int oper, int rhi, unsigned rlo,
             *reslo = llo;
             shift32r(reshi, reslo, rlo & 31, 0);
             return;
+        case MUL12: case MUL12u: {
+            /* Compute lower 32 bits of (lhi:llo) * (rhi:rlo).                 */
+            /* Uses 8-bit partial products to stay within 16-bit arithmetic.    */
+            a0 = llo & 0xFF;    a1 = (llo >> 8) & 0xFF;
+            b0 = rlo & 0xFF;    b1 = (rlo >> 8) & 0xFF;
+            p00 = a0 * b0;   /* each product fits in unsigned 16-bit (max 65025) */
+            p01 = a0 * b1;
+            p10 = a1 * b0;
+            p11 = a1 * b1;
+            /* byte 0 of result_lo */
+            c = p00 >> 8;
+            *reslo = p00 & 0xFF;
+            /* byte 1 of result_lo */
+            c = (p01 & 0xFF) + c;
+            c = (p10 & 0xFF) + c;
+            *reslo |= (c & 0xFF) << 8;
+            c = c >> 8;
+            /* byte 2 = lo byte of result_hi */
+            c = (p01 >> 8) + c;
+            c = (p10 >> 8) + c;
+            c = (p11 & 0xFF) + c;
+            *reshi = c & 0xFF;
+            c = c >> 8;
+            /* byte 3 = hi byte of result_hi */
+            *reshi |= ((p11 >> 8) + c) << 8;
+            /* cross terms: llo*rhi and lhi*rlo feed only into the upper word */
+            *reshi = (unsigned)*reshi + (unsigned)lhi * (unsigned)rlo
+                                      + (unsigned)llo * (unsigned)rhi;
+            return;
+        }
+        case LT12: *reshi = 0; *reslo = (lhi < rhi) ? 1 : (lhi > rhi) ? 0 : (llo < rlo)  ? 1 : 0; return;
+        case LE12: *reshi = 0; *reslo = (lhi < rhi) ? 1 : (lhi > rhi) ? 0 : (llo <= rlo) ? 1 : 0; return;
+        case GT12: *reshi = 0; *reslo = (lhi > rhi) ? 1 : (lhi < rhi) ? 0 : (llo > rlo)  ? 1 : 0; return;
+        case GE12: *reshi = 0; *reslo = (lhi > rhi) ? 1 : (lhi < rhi) ? 0 : (llo >= rlo) ? 1 : 0; return;
         default:
-            // MUL/DIV/MOD: too complex for 16-bit compile-time folding
+            // DIV/MOD: too complex for 16-bit compile-time folding
             *reslo = llo;
             *reshi = lhi;
             return;
@@ -2926,39 +2900,15 @@ void calcUConst32(unsigned lhi, unsigned llo, int oper, unsigned rhi, unsigned r
         case GE12: case GE12u:
             *reslo = (lhi > rhi) ? 1 : (lhi < rhi) ? 0 : (llo >= rlo) ? 1 : 0;
             return;
-        case MUL12u: case DIV12u: case MOD12u:
+        case DIV12u: case MOD12u:
             // Too complex for 16-bit compile-time folding; don't fold
             *reslo = llo;
             *reshi = lhi;
             return;
         default:
-            // delegate to signed version for non-comparison ops
+            // delegate to signed version for non-comparison ops (including MUL12u)
             calcConst32(lhi, llo, oper, rhi, rlo, reshi, reslo);
             return;
     }
 }
 
-// Signed 32-bit comparison folding.
-// llo/rlo are unsigned so the low-word comparisons in each case are unsigned
-// without requiring extra locals.
-void calcCmp32(int lhi, unsigned llo, int oper, int rhi, unsigned rlo,
-          int *reshi, int *reslo) {
-    *reshi = 0;
-    switch (oper) {
-        case LT12: 
-            *reslo = (lhi < rhi) ? 1 : (lhi > rhi) ? 0 : (llo < rlo)  ? 1 : 0; 
-            return;
-        case LE12: 
-            *reslo = (lhi < rhi) ? 1 : (lhi > rhi) ? 0 : (llo <= rlo) ? 1 : 0; 
-            return;
-        case GT12: 
-            *reslo = (lhi > rhi) ? 1 : (lhi < rhi) ? 0 : (llo > rlo)  ? 1 : 0; 
-            return;
-        case GE12: 
-            *reslo = (lhi > rhi) ? 1 : (lhi < rhi) ? 0 : (llo >= rlo) ? 1 : 0; 
-            return;
-        default:   
-            *reslo = 0; 
-            return;
-    }
-}
