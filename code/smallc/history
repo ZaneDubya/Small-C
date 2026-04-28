@@ -492,3 +492,8 @@ Small-C Revision History
     to emit buggy code.
     Explicitly check for and warn on implicit narrowing (e.g., int stored to
     char). Added casts to SmallC and SmallLib source codeto cover this warning.
+168 Fixed bug in tryEpilogueConsolidation(): when doAsmBlock() flushed funcbuf
+    mid-function, the epilogue consolidation pass appended a spurious RETURN
+    (MOV SP,BP / POP BP / RET) immediately before the inline asm lines, making
+    them unreachable dead code. Added midFuncFlush flag; consolidation is now
+    suppressed during mid-function flushes.

@@ -18,7 +18,8 @@
 
 char needLong,
      hasInlineAsm,   // function contains #asm block(s): must not omit frame pointer
-     hasStaticLocal; // function contains local static variable(s): mid-function flushfunc() must not omit ENTER
+     hasStaticLocal, // function contains local static variable(s): mid-function flushfunc() must not omit ENTER
+     midFuncFlush;  // set during doAsmBlock()'s flushfunc() call to suppress epilogue consolidation
 
 int *funcbuf,       // per-function p-code buffer (heap-allocated in header)
     *fnext,         // next free slot in funcbuf
@@ -2231,6 +2232,9 @@ static void canOptFPOpass() {
 // Guard fnext + 2 <= funcbuf + FUNCBUFSIZE: epilogue appends one new pair.
 static void tryEpilogueConsolidation() {
     int *pp, *lastRet, nret, nretN, epiLabel;
+    // Mid-function flushes (from doAsmBlock) must not consolidate: the epilogue
+    // would land before the inline asm lines, making them unreachable dead code.
+    if (midFuncFlush) return;
     nret = 0; nretN = 0; lastRet = 0;
     for (pp = funcbuf; pp < fnext; pp += 2) {
         if (pp[0] == RETURN) {

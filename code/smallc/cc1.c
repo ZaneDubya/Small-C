@@ -184,6 +184,7 @@ int opd2[16] = { // p-codes of unsigned 32-bit binary operators
 
 extern char hasInlineAsm;    // set by doAsmBlock() where there is inline assembly; disables optimizing frame teardown
 extern char hasStaticLocal;  // set by emitLocStatic() when a local static is declared; disables FPO mid-function flush
+extern char midFuncFlush;    // set during doAsmBlock()'s flushfunc() call; suppresses epilogue consolidation mid-function
 extern int macptr;           // next write index in macq (preprocessor macro string buffer usage)
 extern int paramTypesPtr;
 extern char *structdata, *structdatnext;
@@ -2828,7 +2829,9 @@ void doAsmBlock() {
     ccode = 0;           // mark mode as "asm"
     hasInlineAsm = 1;    // suppress FP omission: inline asm may reference BP outside p-code view
     clearStage(0, snext);  // flush any pending staged p-codes
+    midFuncFlush = 1;      // suppress epilogue consolidation: this flush is mid-function
     flushfunc();           // flush funcbuf so inline asm lands in order
+    midFuncFlush = 0;
     while (1) {
         doInline();
         if (isMatch("#endasm") || eof)  /* check both terminators at once */
